@@ -1,0 +1,2105 @@
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+
+import '../../core/models/app_role_preview.dart';
+import '../../core/models/travs_booking_contract.dart';
+import '../../core/models/travs_user_session.dart';
+import '../../core/services/travs_api_service.dart';
+import '../../core/services/travs_location_service.dart';
+import '../../core/theme/travs_theme.dart';
+import '../pickup/travs_pickup_map_picker_page.dart';
+
+class TravSCheckoutDraft {
+  const TravSCheckoutDraft({
+    required this.seatCount,
+    required this.baggageMethod,
+    required this.baggageWeight,
+    required this.baggageSize,
+    required this.baggageLength,
+    required this.baggageWidth,
+    required this.baggageItems,
+    required this.ticketSubtotal,
+    required this.adminFee,
+    required this.weightFee,
+    required this.sizeFee,
+    required this.itemFee,
+  });
+
+  final int seatCount;
+  final String baggageMethod;
+  final double baggageWeight;
+  final int baggageSize;
+  final int baggageLength;
+  final int baggageWidth;
+  final int baggageItems;
+  final double ticketSubtotal;
+  final double adminFee;
+  final double weightFee;
+  final double sizeFee;
+  final double itemFee;
+
+  double get total => ticketSubtotal + adminFee + weightFee + sizeFee + itemFee;
+}
+
+class TravSPaymentPreviewPage extends StatefulWidget {
+  const TravSPaymentPreviewPage({
+    required this.detail,
+    required this.checkoutDraft,
+    required this.selectedRole,
+    required this.session,
+    required this.selectedSeatNumbers,
+    required this.baggageMethod,
+    required this.baggageWeight,
+    required this.baggageSize,
+    required this.baggageLength,
+    required this.baggageWidth,
+    required this.baggageItems,
+    required this.lockExpiresAt,
+    super.key,
+  });
+
+  final TravSScheduleDetail detail;
+  final TravSCheckoutDraft checkoutDraft;
+  final AppRolePreview selectedRole;
+  final TravSUserSession session;
+  final List<int> selectedSeatNumbers;
+  final String baggageMethod;
+  final double baggageWeight;
+  final int baggageSize;
+  final int baggageLength;
+  final int baggageWidth;
+  final int baggageItems;
+  final String lockExpiresAt;
+
+  @override
+  State<TravSPaymentPreviewPage> createState() =>
+      _TravSPaymentPreviewPageState();
+}
+
+class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
+  final TravSApiService _apiService = TravSApiService();
+  final TravSLocationService _locationService = TravSLocationService();
+  final ImagePicker _imagePicker = ImagePicker();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final TextEditingController _pickupLatitudeController =
+      TextEditingController();
+  final TextEditingController _pickupLongitudeController =
+      TextEditingController();
+  final TextEditingController _pickupAddressController =
+      TextEditingController();
+
+  late final List<_PassengerFormController> _passengerForms;
+  late final List<_PaymentMethodOption> _paymentOptions;
+  String? _selectedMethod;
+  bool _isSubmitting = false;
+  bool _isSimulatingPayment = false;
+  bool _isResolvingPickup = false;
+  bool _isUploadingBaggagePhoto = false;
+  String? _errorMessage;
+  TravSBookingResult? _createdBooking;
+  XFile? _selectedBaggagePhoto;
+  TravSUploadedBaggagePhoto? _uploadedBaggagePhoto;
+
+  @override
+  void initState() {
+    super.initState();
+    _paymentOptions = _resolvePaymentOptions(widget.detail.paymentMethods);
+    _selectedMethod = _paymentOptions.isNotEmpty
+        ? _paymentOptions.first.key
+        : null;
+
+    final user = widget.session.user;
+    _passengerForms = List<_PassengerFormController>.generate(
+      widget.selectedSeatNumbers.length,
+      (index) {
+        final seatNumber = widget.selectedSeatNumbers[index];
+        return _PassengerFormController(
+          seatNumber: seatNumber,
+          name: index == 0 ? user.nama : '',
+          phone: index == 0 ? user.noHp : '',
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _pickupLatitudeController.dispose();
+    _pickupLongitudeController.dispose();
+    _pickupAddressController.dispose();
+    for (final passenger in _passengerForms) {
+      passenger.dispose();
+    }
+    super.dispose();
+  }
+
+  bool get _hasBaggageData =>
+      widget.baggageWeight > 0 ||
+      widget.baggageSize > 0 ||
+      widget.baggageItems > 0;
+
+  bool get _hasPickupDraft =>
+      _pickupLatitudeController.text.trim().isNotEmpty &&
+      _pickupLongitudeController.text.trim().isNotEmpty &&
+      _pickupAddressController.text.trim().isNotEmpty;
+
+  TravSPickupPoint? get _draftPickupPoint {
+    final latitude = double.tryParse(_pickupLatitudeController.text.trim());
+    final longitude = double.tryParse(_pickupLongitudeController.text.trim());
+    final address = _pickupAddressController.text.trim();
+
+    if (latitude == null || longitude == null || address.isEmpty) {
+      return null;
+    }
+
+    return TravSPickupPoint(
+      latitude: latitude,
+      longitude: longitude,
+      address: address,
+    );
+  }
+
+  Future<void> _fillRecommendedPickup() async {
+    _applyPickup(
+      const TravSPickupPoint(
+        latitude: -0.0263,
+        longitude: 109.3425,
+        address: 'Titik jemput contoh: Jl. Ahmad Yani, Pontianak Kota',
+      ),
+    );
+  }
+
+  void _applyPickup(TravSPickupPoint pickup) {
+    setState(() {
+      _pickupLatitudeController.text = pickup.latitude.toStringAsFixed(6);
+      _pickupLongitudeController.text = pickup.longitude.toStringAsFixed(6);
+      _pickupAddressController.text = pickup.address;
+    });
+  }
+
+  Future<void> _pickFromCurrentLocation() async {
+    setState(() {
+      _isResolvingPickup = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final pickup = await _locationService.resolveCurrentPickup();
+      if (!mounted) {
+        return;
+      }
+
+      _applyPickup(pickup);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Titik jemput berhasil diisi dari GPS perangkat.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on TravSLocationException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = error.message;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isResolvingPickup = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _pickFromMap() async {
+    final pickup = await Navigator.of(context).push<TravSPickupPoint>(
+      MaterialPageRoute<TravSPickupPoint>(
+        builder: (_) =>
+            TravSPickupMapPickerPage(initialPickup: _draftPickupPoint),
+      ),
+    );
+
+    if (pickup != null && mounted) {
+      _applyPickup(pickup);
+    }
+  }
+
+  Future<void> _selectBaggagePhoto(ImageSource source) async {
+    try {
+      final photo = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 82,
+        maxWidth: 1600,
+      );
+
+      if (photo == null || !mounted) {
+        return;
+      }
+
+      setState(() {
+        _selectedBaggagePhoto = photo;
+        _uploadedBaggagePhoto = null;
+        _errorMessage = null;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage =
+            'Foto barang bawaan belum bisa dipilih. Coba gunakan galeri atau kamera lain.';
+      });
+    }
+  }
+
+  Future<String?> _resolveBaggagePhotoUrl() async {
+    if (!_hasBaggageData) {
+      return null;
+    }
+
+    final uploaded = _uploadedBaggagePhoto;
+    if (uploaded != null && uploaded.url.isNotEmpty) {
+      return uploaded.url;
+    }
+
+    final selectedPhoto = _selectedBaggagePhoto;
+    if (selectedPhoto == null) {
+      if (widget.detail.baggageRules.photoRequired) {
+        setState(() {
+          _errorMessage = 'Foto barang bawaan wajib diunggah sebelum booking.';
+        });
+      }
+      return null;
+    }
+
+    setState(() {
+      _isUploadingBaggagePhoto = true;
+    });
+
+    try {
+      final uploadedPhoto = await _apiService.uploadBaggagePhoto(
+        token: widget.session.token,
+        photo: selectedPhoto,
+      );
+
+      if (!mounted) {
+        return null;
+      }
+
+      setState(() {
+        _uploadedBaggagePhoto = uploadedPhoto;
+      });
+
+      return uploadedPhoto.url;
+    } on TravSApiException catch (error) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = error.message;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _errorMessage =
+              'Upload foto barang bawaan gagal. Periksa koneksi backend lalu coba lagi.';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingBaggagePhoto = false;
+        });
+      }
+    }
+
+    return null;
+  }
+
+  Future<void> _submitBooking() async {
+    if (_selectedMethod == null) {
+      setState(() {
+        _errorMessage =
+            'Belum ada metode pembayaran aktif. Aktifkan minimal satu metode di pengaturan admin.';
+      });
+      return;
+    }
+
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) {
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final baggagePhotoUrl = await _resolveBaggagePhotoUrl();
+      if (!mounted) {
+        return;
+      }
+      if (_hasBaggageData &&
+          widget.detail.baggageRules.photoRequired &&
+          baggagePhotoUrl == null) {
+        return;
+      }
+
+      final booking = await _apiService.createBooking(
+        token: widget.session.token,
+        payload: TravSCreateBookingPayload(
+          jadwalId: widget.detail.schedule.id,
+          seatNumbers: widget.selectedSeatNumbers,
+          pickupLatitude: double.parse(_pickupLatitudeController.text.trim()),
+          pickupLongitude: double.parse(_pickupLongitudeController.text.trim()),
+          pickupAddress: _pickupAddressController.text.trim(),
+          paymentMethod: _selectedMethod!,
+          passengers: _passengerForms
+              .map(
+                (item) => TravSPassengerPayload(
+                  seatNumber: item.seatNumber,
+                  namaPenumpang: item.nameController.text.trim(),
+                  noHpPenumpang: item.phoneController.text.trim(),
+                ),
+              )
+              .toList(),
+          baggageItems: _buildBaggagePayload(baggagePhotoUrl),
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _createdBooking = booking;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Booking berhasil dibuat. Lanjutkan pembayaran.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on TravSApiException catch (error) {
+      setState(() {
+        _errorMessage = error.message;
+      });
+    } catch (_) {
+      setState(() {
+        _errorMessage =
+            'Booking belum dapat diproses. Periksa lagi data penumpang dan titik jemput.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _simulatePayment() async {
+    final booking = _createdBooking;
+    if (booking == null) {
+      return;
+    }
+
+    setState(() {
+      _isSimulatingPayment = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await _apiService.simulatePayment(
+        token: widget.session.token,
+        bookingId: booking.id,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _createdBooking = result;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Pembayaran simulasi berhasil. Tiket siap diterbitkan.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } on TravSApiException catch (error) {
+      setState(() {
+        _errorMessage = error.message;
+      });
+    } catch (_) {
+      setState(() {
+        _errorMessage =
+            'Simulasi pembayaran gagal dijalankan. Silakan coba beberapa saat lagi.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSimulatingPayment = false;
+        });
+      }
+    }
+  }
+
+  List<TravSBaggagePayload> _buildBaggagePayload(String? baggagePhotoUrl) {
+    if (!_hasBaggageData) {
+      return const <TravSBaggagePayload>[];
+    }
+
+    final method = widget.baggageMethod;
+    final usesWeight = method == 'berat';
+    final usesSize = method == 'ukuran';
+
+    return <TravSBaggagePayload>[
+      TravSBaggagePayload(
+        deskripsiItem: usesSize
+            ? 'Barang bawaan ukuran besar'
+            : 'Barang bawaan penumpang',
+        metodeHitung: method,
+        beratKg: usesWeight && widget.baggageWeight > 0
+            ? widget.baggageWeight
+            : null,
+        ukuranCm: usesSize && widget.baggageSize > 0
+            ? widget.baggageSize
+            : null,
+        panjangCm: usesSize && widget.baggageLength > 0
+            ? widget.baggageLength
+            : null,
+        lebarCm: usesSize && widget.baggageWidth > 0
+            ? widget.baggageWidth
+            : null,
+        jumlahItem: widget.baggageItems > 0 ? widget.baggageItems : 1,
+        fotoUrl: baggagePhotoUrl,
+      ),
+    ];
+  }
+
+  List<_PaymentMethodOption> _resolvePaymentOptions(
+    TravSPaymentMethods methods,
+  ) {
+    final options = <_PaymentMethodOption>[];
+    if (methods.qrisEnabled) {
+      options.add(
+        const _PaymentMethodOption(
+          key: 'qris',
+          label: 'QRIS',
+          helper:
+              'Cocok untuk pembayaran cepat dari e-wallet dan mobile banking.',
+          icon: Icons.qr_code_2_rounded,
+        ),
+      );
+    }
+    if (methods.transferEnabled) {
+      options.add(
+        const _PaymentMethodOption(
+          key: 'transfer',
+          label: 'Transfer Bank',
+          helper: 'Gunakan rekening tujuan yang nanti diberikan admin.',
+          icon: Icons.account_balance_rounded,
+        ),
+      );
+    }
+    if (methods.cashEnabled) {
+      options.add(
+        const _PaymentMethodOption(
+          key: 'cash',
+          label: 'Bayar Tunai',
+          helper: 'Pembayaran tunai tetap dicatat dan harus dilunasi ke admin.',
+          icon: Icons.payments_rounded,
+        ),
+      );
+    }
+    return options;
+  }
+
+  String? _validateCoordinate(
+    String? value, {
+    required String label,
+    required double min,
+    required double max,
+  }) {
+    final raw = value?.trim() ?? '';
+    if (raw.isEmpty) {
+      return '$label wajib diisi.';
+    }
+
+    final parsed = double.tryParse(raw);
+    if (parsed == null) {
+      return '$label harus berupa angka desimal.';
+    }
+
+    if (parsed < min || parsed > max) {
+      return '$label berada di luar rentang yang valid.';
+    }
+
+    return null;
+  }
+
+  String? _validateRequiredText(String? value, String label) {
+    if ((value ?? '').trim().isEmpty) {
+      return '$label wajib diisi.';
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          _createdBooking == null ? 'Pemesanan Jadwal' : 'Pembayaran',
+        ),
+      ),
+      body: Container(
+        decoration: const BoxDecoration(gradient: TravSTheme.shellGradient),
+        child: SafeArea(
+          child: _createdBooking == null
+              ? _CheckoutFormView(
+                  formKey: _formKey,
+                  header: _buildHeaderCard(context),
+                  paymentMethodCard: _buildPaymentMethodCard(context),
+                  pickupCard: _buildPickupCard(context),
+                  passengerCard: _buildPassengerCard(context),
+                  baggageCard: _buildBaggageCard(context),
+                  summaryCard: _buildSummaryCard(context),
+                  errorMessage: _errorMessage,
+                  isSubmitting: _isSubmitting,
+                  onSubmit: _submitBooking,
+                )
+              : _buildCreatedBookingView(context, _createdBooking!),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderCard(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: TravSTheme.headerGradient,
+        borderRadius: BorderRadius.circular(30),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1F10233F),
+            blurRadius: 24,
+            offset: Offset(0, 16),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _HeaderPill(
+                label: widget.selectedRole == AppRolePreview.passenger
+                    ? 'Akun Penumpang'
+                    : widget.selectedRole == AppRolePreview.driver
+                    ? 'Akun Pengemudi'
+                    : 'Akun Guest',
+              ),
+              _HeaderPill(
+                label:
+                    'Kunci form ${widget.detail.bookingRules.seatLockFormMinutes} menit',
+                color: TravSTheme.orange,
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Text(
+            '${widget.detail.schedule.asal} - ${widget.detail.schedule.tujuan}',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Kursi ${widget.selectedSeatNumbers.map((seat) => 'A$seat').join(', ')} sudah dikunci. Lengkapi data sebelum ${_formatDateTime(widget.lockExpiresAt)}.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: Colors.white.withValues(alpha: 0.9),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _HeaderInfo(
+                icon: Icons.schedule_rounded,
+                text: _formatDateTime(widget.detail.schedule.waktuBerangkat),
+              ),
+              _HeaderInfo(
+                icon: Icons.payments_rounded,
+                text:
+                    'Estimasi Rp${_formatCurrency(widget.checkoutDraft.total)}',
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _CountdownPanel(
+            title: 'Sisa waktu pengisian form',
+            deadlineIso: widget.lockExpiresAt,
+            icon: Icons.timer_outlined,
+            onDark: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaymentMethodCard(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return _SectionCard(
+      title: 'Metode Pembayaran',
+      subtitle:
+          'Pilih metode pembayaran yang aktif. Layar detail sesudah booking akan menyesuaikan pola QRIS, transfer, atau tunai.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_paymentOptions.isEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: TravSTheme.orangeSoft,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Belum ada metode pembayaran aktif dari backend.',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: TravSTheme.orange,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            )
+          else
+            ..._paymentOptions.map(
+              (option) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _PaymentMethodTile(
+                  option: option,
+                  isSelected: _selectedMethod == option.key,
+                  onTap: () => setState(() => _selectedMethod = option.key),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPickupCard(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return _SectionCard(
+      title: 'Titik Jemput',
+      subtitle:
+          'Pilih titik jemput dari GPS atau peta, lalu alamat akan diisi dengan reverse geocoding agar admin dan pengemudi menerima lokasi yang jelas.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _isResolvingPickup ? null : _pickFromCurrentLocation,
+                icon: Icon(
+                  _isResolvingPickup
+                      ? Icons.sync_rounded
+                      : Icons.my_location_rounded,
+                ),
+                label: Text(
+                  _isResolvingPickup ? 'Mengambil GPS...' : 'Gunakan GPS',
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: _isResolvingPickup ? null : _pickFromMap,
+                icon: const Icon(Icons.map_outlined),
+                label: const Text('Pilih di Peta'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _fillRecommendedPickup,
+                icon: const Icon(Icons.edit_location_alt_outlined),
+                label: const Text('Isi Contoh'),
+              ),
+            ],
+          ),
+          if (_hasPickupDraft) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: TravSTheme.surfaceSoft,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Preview Titik Jemput',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: TravSTheme.navy,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '${_pickupLatitudeController.text.trim()}, ${_pickupLongitudeController.text.trim()}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: TravSTheme.navy,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    _pickupAddressController.text.trim(),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: TravSTheme.navyMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _pickupLatitudeController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Latitude',
+                    hintText: '-0.0263',
+                  ),
+                  validator: (value) => _validateCoordinate(
+                    value,
+                    label: 'Latitude',
+                    min: -90,
+                    max: 90,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _pickupLongitudeController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Longitude',
+                    hintText: '109.3425',
+                  ),
+                  validator: (value) => _validateCoordinate(
+                    value,
+                    label: 'Longitude',
+                    min: -180,
+                    max: 180,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _pickupAddressController,
+            minLines: 2,
+            maxLines: 3,
+            decoration: const InputDecoration(
+              labelText: 'Alamat Jemput',
+              hintText:
+                  'Masukkan alamat hasil reverse geocoding atau alamat lengkap.',
+            ),
+            validator: (value) => _validateRequiredText(value, 'Alamat jemput'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPassengerCard(BuildContext context) {
+    return _SectionCard(
+      title: 'Biodata Penumpang',
+      subtitle:
+          'Satu penumpang untuk satu kursi. Data ini akan dipakai pada detail booking, tiket, dan manifest perjalanan.',
+      child: Column(
+        children: _passengerForms
+            .map(
+              (passenger) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: TravSTheme.surfaceSoft,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Penumpang Kursi A${passenger.seatNumber}',
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: TravSTheme.navy,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: passenger.nameController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: const InputDecoration(
+                          labelText: 'Nama Penumpang',
+                        ),
+                        validator: (value) =>
+                            _validateRequiredText(value, 'Nama penumpang'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: passenger.phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: const InputDecoration(
+                          labelText: 'Nomor HP Penumpang',
+                        ),
+                        validator: (value) =>
+                            _validateRequiredText(value, 'Nomor HP penumpang'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildBaggageCard(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return _SectionCard(
+      title: 'Barang Bawaan',
+      subtitle:
+          'Ringkasan barang bawaan tetap ditampilkan di checkout agar selaras dengan wireframe pemesanan jadwal.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!_hasBaggageData)
+            Text(
+              'Belum ada bagasi tambahan yang dicatat pada booking ini.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: TravSTheme.navyMuted,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                if (widget.baggageWeight > 0)
+                  _SummaryChip(
+                    icon: Icons.scale_rounded,
+                    label:
+                        '${widget.baggageWeight.toStringAsFixed(0)} kg bagasi',
+                  ),
+                if (widget.baggageSize > 0)
+                  _SummaryChip(
+                    icon: Icons.straighten_rounded,
+                    label:
+                        '${widget.baggageLength} x ${widget.baggageWidth} cm',
+                  ),
+                if (widget.baggageItems > 0)
+                  _SummaryChip(
+                    icon: Icons.inventory_2_outlined,
+                    label: '${widget.baggageItems} item bagasi',
+                  ),
+              ],
+            ),
+          if (_hasBaggageData || widget.detail.baggageRules.photoRequired) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: TravSTheme.line),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: TravSTheme.orangeSoft,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      Icons.photo_camera_back_outlined,
+                      color: TravSTheme.orange,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.detail.baggageRules.photoRequired
+                              ? 'Foto barang bawaan wajib'
+                              : 'Foto barang bawaan',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: TravSTheme.navy,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _uploadedBaggagePhoto != null
+                              ? 'Foto sudah terunggah dan akan disimpan bersama booking.'
+                              : _selectedBaggagePhoto != null
+                              ? 'Dipilih: ${_selectedBaggagePhoto!.name}'
+                              : 'Ambil foto dari kamera atau pilih dari galeri sebelum submit.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: TravSTheme.navyMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _isUploadingBaggagePhoto
+                      ? null
+                      : () => _selectBaggagePhoto(ImageSource.camera),
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  label: const Text('Kamera'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _isUploadingBaggagePhoto
+                      ? null
+                      : () => _selectBaggagePhoto(ImageSource.gallery),
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: const Text('Galeri'),
+                ),
+              ],
+            ),
+            if (_isUploadingBaggagePhoto) ...[
+              const SizedBox(height: 12),
+              LinearProgressIndicator(
+                color: TravSTheme.orange,
+                backgroundColor: TravSTheme.orangeSoft,
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryCard(BuildContext context) {
+    final baggageRules = widget.detail.baggageRules;
+    final freeWeight =
+        baggageRules.freeWeightKg * widget.checkoutDraft.seatCount;
+    final freeSize = baggageRules.freeSizeCm * widget.checkoutDraft.seatCount;
+    final freeItems =
+        baggageRules.freeItemCount * widget.checkoutDraft.seatCount;
+
+    return _SectionCard(
+      title: 'Ringkasan Pembayaran',
+      subtitle:
+          'Nominal di bawah ini mengikuti hasil estimasi kursi, bagasi, dan biaya admin saat ini.',
+      child: Column(
+        children: [
+          _SummaryRow(
+            label: 'Subtotal tiket',
+            value: 'Rp${_formatCurrency(widget.checkoutDraft.ticketSubtotal)}',
+          ),
+          _SummaryRow(
+            label: 'Biaya admin',
+            value: 'Rp${_formatCurrency(widget.checkoutDraft.adminFee)}',
+          ),
+          if (widget.checkoutDraft.weightFee > 0)
+            _SummaryRow(
+              label:
+                  'Tambahan berat (${_formatNumber(widget.checkoutDraft.baggageWeight - freeWeight)} kg)',
+              value: 'Rp${_formatCurrency(widget.checkoutDraft.weightFee)}',
+            ),
+          if (widget.checkoutDraft.sizeFee > 0)
+            _SummaryRow(
+              label:
+                  'Tambahan ukuran (${widget.checkoutDraft.baggageSize - freeSize} cm)',
+              value: 'Rp${_formatCurrency(widget.checkoutDraft.sizeFee)}',
+            ),
+          if (widget.checkoutDraft.itemFee > 0)
+            _SummaryRow(
+              label:
+                  'Tambahan item (${widget.checkoutDraft.baggageItems - freeItems} item)',
+              value: 'Rp${_formatCurrency(widget.checkoutDraft.itemFee)}',
+            ),
+          const Divider(height: 26),
+          _SummaryRow(
+            label: 'Total pembayaran',
+            value: 'Rp${_formatCurrency(widget.checkoutDraft.total)}',
+            emphasize: true,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCreatedBookingView(
+    BuildContext context,
+    TravSBookingResult booking,
+  ) {
+    final payment = booking.payment;
+    final isPaid = payment.status == 'berhasil';
+    final canSimulate = payment.canSimulate && payment.status == 'menunggu';
+    final helperText = isPaid
+        ? 'Pembayaran sudah terkonfirmasi. Tiket elektronik siap dibuka dari daftar tiket penumpang.'
+        : payment.method == 'cash'
+        ? 'Booking berhasil tersimpan. Pembayaran tunai masih perlu dilunasi dan diverifikasi admin.'
+        : payment.method == 'transfer'
+        ? 'Booking berhasil tersimpan. Selesaikan transfer sebelum ${_formatDateTime(payment.expiredAt)}.'
+        : 'Booking berhasil tersimpan. Lanjutkan pembayaran gateway sebelum ${_formatDateTime(payment.expiredAt)}.';
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: isPaid
+                  ? const [Color(0xFF1F9D67), Color(0xFF176D4A)]
+                  : const [TravSTheme.navy, TravSTheme.navySoft],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(30),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _HeaderPill(
+                label: isPaid ? 'Pembayaran Berhasil' : 'Menunggu Pembayaran',
+                color: isPaid ? Colors.white : TravSTheme.orange,
+                textColor: isPaid ? TravSTheme.success : Colors.white,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                booking.kodeBooking,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                helperText,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.92),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  _HeaderInfo(icon: Icons.route_rounded, text: booking.rute),
+                  _HeaderInfo(
+                    icon: Icons.calendar_month_rounded,
+                    text: _formatDateTime(booking.waktuBerangkat),
+                  ),
+                  _HeaderInfo(
+                    icon: Icons.payments_outlined,
+                    text: payment.method.toUpperCase(),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildGatewayPaymentCard(context, booking),
+        if (!isPaid && payment.expiredAt.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _SectionCard(
+            title: 'Waktu Pembayaran',
+            subtitle:
+                'Batas pembayaran mengikuti aturan ${widget.detail.bookingRules.seatLockPaymentMinutes} menit setelah booking dibuat.',
+            child: _CountdownPanel(
+              title: 'Sisa waktu pembayaran',
+              deadlineIso: payment.expiredAt,
+              icon: Icons.payments_outlined,
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
+        _SectionCard(
+          title: 'Detail Booking',
+          subtitle:
+              'Ringkasan booking ini dipakai juga oleh daftar pemesanan, riwayat, dan tiket penumpang.',
+          child: Column(
+            children: [
+              _SummaryRow(label: 'Status booking', value: booking.status),
+              _SummaryRow(label: 'Status pembayaran', value: payment.status),
+              _SummaryRow(
+                label: 'Metode pembayaran',
+                value: payment.method.toUpperCase(),
+              ),
+              _SummaryRow(
+                label: 'Jumlah kursi',
+                value: '${booking.jumlahKursi} kursi',
+              ),
+              _SummaryRow(
+                label: 'Batas pembayaran',
+                value: _formatDateTime(booking.batasPembayaran),
+              ),
+              const Divider(height: 26),
+              _SummaryRow(
+                label: 'Total tagihan',
+                value: 'Rp${_formatCurrency(booking.totalHarga)}',
+                emphasize: true,
+              ),
+            ],
+          ),
+        ),
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 16),
+          _MessageBanner(message: _errorMessage!),
+        ],
+        const SizedBox(height: 16),
+        if (canSimulate)
+          ElevatedButton.icon(
+            onPressed: _isSimulatingPayment ? null : _simulatePayment,
+            icon: Icon(
+              _isSimulatingPayment ? Icons.sync_rounded : Icons.bolt_rounded,
+            ),
+            label: Text(
+              _isSimulatingPayment
+                  ? 'Memproses Simulasi...'
+                  : 'Simulasikan Pembayaran Gateway',
+            ),
+          ),
+        if (canSimulate) const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: () => Navigator.of(context).pop(true),
+          icon: const Icon(Icons.check_circle_outline_rounded),
+          label: Text(isPaid ? 'Kembali ke Tiket' : 'Simpan dan Kembali'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGatewayPaymentCard(
+    BuildContext context,
+    TravSBookingResult booking,
+  ) {
+    final payment = booking.payment;
+    final providerLabel = payment.provider.trim().isEmpty
+        ? 'Pakasir'
+        : payment.provider.toUpperCase();
+    final usesGateway =
+        payment.usesGateway || payment.provider.trim().isNotEmpty;
+    final totalPayment = payment.totalPayment > 0
+        ? payment.totalPayment
+        : booking.totalHarga;
+    final baseAmount = payment.amount > 0 ? payment.amount : booking.totalHarga;
+
+    if (payment.method == 'qris') {
+      return _SectionCard(
+        title: usesGateway ? 'Pembayaran Gateway' : 'Detail Pembayaran',
+        subtitle:
+            'Tampilan QRIS menyesuaikan pola payment gateway agar penumpang mudah lanjut membayar dari e-wallet atau mobile banking.',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _GatewayBadgeRow(
+              title: 'QRIS $providerLabel',
+              subtitle:
+                  'Project ${payment.project.isEmpty ? 'travs' : payment.project}',
+            ),
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: TravSTheme.line),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 210,
+                    height: 210,
+                    decoration: BoxDecoration(
+                      color: TravSTheme.surfaceSoft,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: payment.hasPaymentNumber
+                        ? Center(
+                            child: QrImageView(
+                              data: payment.paymentNumber,
+                              version: QrVersions.auto,
+                              size: 176,
+                              backgroundColor: Colors.white,
+                            ),
+                          )
+                        : const Center(
+                            child: Icon(
+                              Icons.qr_code_2_rounded,
+                              size: 70,
+                              color: TravSTheme.navy,
+                            ),
+                          ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Scan QRIS untuk melanjutkan pembayaran',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: TravSTheme.navy,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Status gateway: ${payment.gatewayStatus.isEmpty ? 'pending' : payment.gatewayStatus}',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: TravSTheme.navyMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            _SummaryRow(
+              label: 'Nominal transaksi',
+              value: 'Rp${_formatCurrency(baseAmount)}',
+            ),
+            if (payment.fee > 0)
+              _SummaryRow(
+                label: 'Biaya layanan',
+                value: 'Rp${_formatCurrency(payment.fee)}',
+              ),
+            _SummaryRow(
+              label: 'Total pembayaran',
+              value: 'Rp${_formatCurrency(totalPayment)}',
+              emphasize: true,
+            ),
+            const SizedBox(height: 14),
+            const _InstructionList(
+              steps: [
+                'Buka aplikasi e-wallet atau mobile banking.',
+                'Scan QRIS yang tampil pada layar pembayaran.',
+                'Pastikan nominal sesuai sebelum konfirmasi pembayaran.',
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (payment.method == 'transfer') {
+      return _SectionCard(
+        title: usesGateway ? 'Detail Transfer' : 'Instruksi Transfer',
+        subtitle:
+            'Transfer ditata seperti halaman eksternal agar nomor pembayaran dan total tagihan langsung terbaca.',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _GatewayBadgeRow(
+              title: 'Transfer via $providerLabel',
+              subtitle: 'Nomor pembayaran / virtual account',
+            ),
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: TravSTheme.surfaceSoft,
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Nomor Pembayaran',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: TravSTheme.navyMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    payment.hasPaymentNumber
+                        ? payment.paymentNumber
+                        : booking.kodeBooking,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: TravSTheme.navy,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            _SummaryRow(
+              label: 'Nominal transaksi',
+              value: 'Rp${_formatCurrency(baseAmount)}',
+            ),
+            if (payment.fee > 0)
+              _SummaryRow(
+                label: 'Biaya layanan',
+                value: 'Rp${_formatCurrency(payment.fee)}',
+              ),
+            _SummaryRow(
+              label: 'Total pembayaran',
+              value: 'Rp${_formatCurrency(totalPayment)}',
+              emphasize: true,
+            ),
+            _SummaryRow(
+              label: 'Batas pembayaran',
+              value: _formatDateTime(payment.expiredAt),
+            ),
+            const SizedBox(height: 14),
+            const _InstructionList(
+              steps: [
+                'Salin nomor pembayaran atau virtual account yang tersedia.',
+                'Lakukan transfer sesuai nominal total pembayaran.',
+                'Simpan bukti transfer sampai status pembayaran berubah.',
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    return _SectionCard(
+      title: 'Pembayaran Tunai',
+      subtitle:
+          'Pembayaran tunai tetap ditampilkan seperti layar instruksi eksternal agar langkah penumpang jelas sebelum berangkat.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _GatewayBadgeRow(
+            title: 'Bayar Tunai',
+            subtitle: 'Pelunasan melalui admin / petugas travel',
+          ),
+          const SizedBox(height: 14),
+          _SummaryRow(
+            label: 'Total yang harus dibayar',
+            value: 'Rp${_formatCurrency(totalPayment)}',
+            emphasize: true,
+          ),
+          if (payment.expiredAt.isNotEmpty)
+            _SummaryRow(
+              label: 'Batas konfirmasi',
+              value: _formatDateTime(payment.expiredAt),
+            ),
+          const SizedBox(height: 14),
+          const _InstructionList(
+            steps: [
+              'Siapkan nominal pembayaran sesuai total tagihan.',
+              'Tunjukkan kode booking saat melakukan pelunasan.',
+              'Tiket akan aktif setelah admin mengonfirmasi pembayaran tunai.',
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CheckoutFormView extends StatelessWidget {
+  const _CheckoutFormView({
+    required this.formKey,
+    required this.header,
+    required this.paymentMethodCard,
+    required this.pickupCard,
+    required this.passengerCard,
+    required this.baggageCard,
+    required this.summaryCard,
+    required this.errorMessage,
+    required this.isSubmitting,
+    required this.onSubmit,
+  });
+
+  final GlobalKey<FormState> formKey;
+  final Widget header;
+  final Widget paymentMethodCard;
+  final Widget pickupCard;
+  final Widget passengerCard;
+  final Widget baggageCard;
+  final Widget summaryCard;
+  final String? errorMessage;
+  final bool isSubmitting;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Form(
+      key: formKey,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+        children: [
+          header,
+          const SizedBox(height: 16),
+          paymentMethodCard,
+          const SizedBox(height: 16),
+          pickupCard,
+          const SizedBox(height: 16),
+          passengerCard,
+          const SizedBox(height: 16),
+          baggageCard,
+          const SizedBox(height: 16),
+          summaryCard,
+          if (errorMessage != null) ...[
+            const SizedBox(height: 16),
+            _MessageBanner(message: errorMessage!),
+          ],
+          const SizedBox(height: 18),
+          ElevatedButton.icon(
+            onPressed: isSubmitting ? null : onSubmit,
+            icon: Icon(
+              isSubmitting ? Icons.sync_rounded : Icons.lock_clock_outlined,
+            ),
+            label: Text(
+              isSubmitting ? 'Menyimpan Booking...' : 'Buat Booking Sekarang',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: TravSTheme.navy,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              subtitle,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: TravSTheme.navyMuted,
+              ),
+            ),
+            const SizedBox(height: 18),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PaymentMethodTile extends StatelessWidget {
+  const _PaymentMethodTile({
+    required this.option,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final _PaymentMethodOption option;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(22),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: isSelected ? TravSTheme.orangeSoft : TravSTheme.surfaceSoft,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: isSelected ? TravSTheme.orange : TravSTheme.line,
+            width: isSelected ? 1.4 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? TravSTheme.orange.withValues(alpha: 0.16)
+                    : Colors.white,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                option.icon,
+                color: isSelected ? TravSTheme.orange : TravSTheme.navy,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    option.label,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: TravSTheme.navy,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    option.helper,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: TravSTheme.navyMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              isSelected
+                  ? Icons.radio_button_checked_rounded
+                  : Icons.radio_button_off_rounded,
+              color: isSelected ? TravSTheme.orange : TravSTheme.navyMuted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  const _SummaryRow({
+    required this.label,
+    required this.value,
+    this.emphasize = false,
+  });
+
+  final String label;
+  final String value;
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: emphasize ? TravSTheme.navy : TravSTheme.navyMuted,
+                fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: TravSTheme.navy,
+              fontWeight: emphasize ? FontWeight.w800 : FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryChip extends StatelessWidget {
+  const _SummaryChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: TravSTheme.surfaceSoft,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: TravSTheme.line),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: TravSTheme.orange),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: TravSTheme.navy,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GatewayBadgeRow extends StatelessWidget {
+  const _GatewayBadgeRow({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            color: TravSTheme.orangeSoft,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: const Icon(
+            Icons.open_in_new_rounded,
+            color: TravSTheme.orange,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: TravSTheme.navy,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: TravSTheme.navyMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InstructionList extends StatelessWidget {
+  const _InstructionList({required this.steps});
+
+  final List<String> steps;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Petunjuk',
+          style: theme.textTheme.titleSmall?.copyWith(
+            color: TravSTheme.navy,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 8),
+        for (var index = 0; index < steps.length; index++) ...[
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: TravSTheme.surfaceSoft,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${index + 1}',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: TravSTheme.navy,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  steps[index],
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: TravSTheme.navyMuted,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (index != steps.length - 1) const SizedBox(height: 8),
+        ],
+      ],
+    );
+  }
+}
+
+class _MessageBanner extends StatelessWidget {
+  const _MessageBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF1F1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFF3B6B6)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Icon(Icons.error_outline_rounded, color: TravSTheme.danger),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: TravSTheme.danger,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeaderPill extends StatelessWidget {
+  const _HeaderPill({
+    required this.label,
+    this.color = Colors.white,
+    this.textColor = TravSTheme.navy,
+  });
+
+  final String label;
+  final Color color;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: color == Colors.white ? 1 : 0.18),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: textColor, fontWeight: FontWeight.w800),
+      ),
+    );
+  }
+}
+
+class _HeaderInfo extends StatelessWidget {
+  const _HeaderInfo({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: Colors.white),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CountdownPanel extends StatefulWidget {
+  const _CountdownPanel({
+    required this.title,
+    required this.deadlineIso,
+    required this.icon,
+    this.onDark = false,
+  });
+
+  final String title;
+  final String deadlineIso;
+  final IconData icon;
+  final bool onDark;
+
+  @override
+  State<_CountdownPanel> createState() => _CountdownPanelState();
+}
+
+class _CountdownPanelState extends State<_CountdownPanel> {
+  Timer? _timer;
+  late Duration _remaining;
+
+  @override
+  void initState() {
+    super.initState();
+    _remaining = _calculateRemaining();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) {
+        setState(() {
+          _remaining = _calculateRemaining();
+        });
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _CountdownPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.deadlineIso != widget.deadlineIso) {
+      _remaining = _calculateRemaining();
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Duration _calculateRemaining() {
+    final deadline = DateTime.tryParse(widget.deadlineIso)?.toLocal();
+    if (deadline == null) {
+      return Duration.zero;
+    }
+
+    final difference = deadline.difference(DateTime.now());
+    return difference.isNegative ? Duration.zero : difference;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final background = widget.onDark
+        ? Colors.white.withValues(alpha: 0.12)
+        : TravSTheme.surfaceSoft;
+    final foreground = widget.onDark ? Colors.white : TravSTheme.navy;
+    final muted = widget.onDark
+        ? Colors.white.withValues(alpha: 0.76)
+        : TravSTheme.navyMuted;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(20),
+        border: widget.onDark ? null : Border.all(color: TravSTheme.line),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            widget.icon,
+            color: widget.onDark ? Colors.white : TravSTheme.orange,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.title,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: muted,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  _formatDuration(_remaining),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: foreground,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            _remaining == Duration.zero ? 'Berakhir' : 'Aktif',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: _remaining == Duration.zero
+                  ? TravSTheme.danger
+                  : (widget.onDark ? Colors.white : TravSTheme.success),
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PassengerFormController {
+  _PassengerFormController({
+    required this.seatNumber,
+    required String name,
+    required String phone,
+  }) : nameController = TextEditingController(text: name),
+       phoneController = TextEditingController(text: phone);
+
+  final int seatNumber;
+  final TextEditingController nameController;
+  final TextEditingController phoneController;
+
+  void dispose() {
+    nameController.dispose();
+    phoneController.dispose();
+  }
+}
+
+class _PaymentMethodOption {
+  const _PaymentMethodOption({
+    required this.key,
+    required this.label,
+    required this.helper,
+    required this.icon,
+  });
+
+  final String key;
+  final String label;
+  final String helper;
+  final IconData icon;
+}
+
+String _formatDateTime(String isoValue) {
+  if (isoValue.isEmpty) {
+    return '-';
+  }
+
+  final parsed = DateTime.tryParse(isoValue)?.toLocal();
+  if (parsed == null) {
+    return '-';
+  }
+
+  return DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(parsed);
+}
+
+String _formatDuration(Duration duration) {
+  final hours = duration.inHours;
+  final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+
+  if (hours > 0) {
+    return '${hours.toString().padLeft(2, '0')}:$minutes:$seconds';
+  }
+
+  return '$minutes:$seconds';
+}
+
+String _formatNumber(num value) {
+  return NumberFormat.decimalPattern(
+    'id_ID',
+  ).format(value.clamp(0, double.infinity));
+}
+
+String _formatCurrency(double value) {
+  return NumberFormat.decimalPattern('id_ID').format(value);
+}

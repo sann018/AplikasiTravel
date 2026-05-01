@@ -1,0 +1,173 @@
+<?php
+
+namespace App\Http\Controllers\Web\Admin;
+
+use App\Http\Controllers\Controller;
+use App\Models\Jadwal;
+use App\Models\Kendaraan;
+use App\Models\KursiJadwal;
+use App\Models\Pengemudi;
+use App\Models\Rute;
+use Illuminate\Database\QueryException;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\View\View;
+
+class JadwalController extends Controller
+{
+    public function index(Request $request): View
+    {
+        $query = Jadwal::query()
+            ->with(['rute', 'kendaraan', 'pengemudi.pengguna'])
+            ->withCount([
+                'pemesanan',
+                'kursi as kursi_tersedia' => fn ($builder) => $builder->where('status_kursi', 'tersedia'),
+            ]);
+
+        if ($request->filled('search')) {
+            $search = (string) $request->string('search');
+            $query->where(function ($builder) use ($search) {
+                $builder
+                    ->whereHas('rute', function ($ruteQuery) use ($search) {
+                        $ruteQuery
+                            ->where('kota_asal', 'like', "%{$search}%")
+                            ->orWhere('kota_tujuan', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('kendaraan', fn ($kendaraanQuery) => $kendaraanQuery->where('nomor_plat', 'like', "%{$search}%"))
+                    ->orWhereHas('pengemudi.pengguna', fn ($penggunaQuery) => $penggunaQuery->where('nama', 'like', "%{$search}%"));
+            });
+        }
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status'));
+        }
+
+        if ($request->filled('tanggal')) {
+            $query->whereDate('waktu_berangkat', $request->date('tanggal'));
+        }
+
+        $jadwal = $query
+            ->orderBy('waktu_berangkat')
+            ->paginate(10)
+            ->withQueryString();
+
+        $editingJadwal = $request->filled('edit')
+            ? Jadwal::query()->with(['kendaraan', 'rute', 'pengemudi'])->findOrFail($request->integer('edit'))
+            : null;
+
+        return view('admin.jadwal.index', [
+            'jadwal' => $jadwal,
+            'editingJadwal' => $editingJadwal,
+            'kendaraanOptions' => Kendaraan::query()
+                ->where('status_kendaraan', 'aktif')
+                ->orderBy('nomor_plat')
+                ->get(),
+            'pengemudiOptions' => Pengemudi::query()
+                ->with('pengguna')
+                ->where('status', 'aktif')
+                ->where('status_verifikasi', 'terverifikasi')
+                ->orderBy('nomor_sim')
+                ->get(),
+            'ruteOptions' => Rute::query()
+                ->where('status_aktif', true)
+                ->orderBy('kota_asal')
+                ->get(),
+            'stats' => [
+                'total' => Jadwal::query()->count(),
+                'dibuka' => Jadwal::query()->where('status', 'dibuka')->count(),
+                'berangkat' => Jadwal::query()->where('status', 'berangkat')->count(),
+                'selesai' => Jadwal::query()->where('status', 'selesai')->count(),
+            ],
+            'filters' => $request->only(['search', 'status', 'tanggal']),
+        ]);
+    }
+
+    public function store(Request $request): RedirectResponse
+    {
+        $payload = $this->validatedPayload($request);
+
+        DB::transaction(function () use ($payload) {
+            $jadwal = Jadwal::query()->create($payload);
+            $this->syncSeatMap($jadwal->fresh('kendaraan'));
+        });
+
+        return redirect()
+            ->route('admin.jadwal.index')
+            ->with('status', 'Jadwal perjalanan berhasil dibuat dan kursi otomatis digenerate.');
+    }
+
+    public function update(Request $request, Jadwal $jadwal): RedirectResponse
+    {
+        $payload = $this->validatedPayload($request);
+
+        DB::transaction(function () use ($jadwal, $payload) {
+            $jadwal->update($payload);
+            $this->syncSeatMap($jadwal->fresh('kendaraan'));
+        });
+
+        return redirect()
+            ->route('admin.jadwal.index')
+            ->with('status', 'Jadwal perjalanan berhasil diperbarui.');
+    }
+
+    public function destroy(Jadwal $jadwal): RedirectResponse
+    {
+        try {
+            $jadwal->delete();
+        } catch (QueryException) {
+            return back()->with('error', 'Jadwal tidak dapat dihapus karena sudah terhubung dengan pemesanan atau data operasional.');
+        }
+
+        return back()->with('status', 'Jadwal perjalanan berhasil dihapus.');
+    }
+
+    private function validatedPayload(Request $request): array
+    {
+        $validated = $request->validate([
+            'kendaraan_id' => ['required', 'exists:kendaraan,id'],
+            'rute_id' => ['required', 'exists:rute,id'],
+            'pengemudi_id' => ['required', 'exists:pengemudi,id'],
+            'waktu_berangkat' => ['required', 'date'],
+            'estimasi_tiba' => ['nullable', 'date', 'after:waktu_berangkat'],
+            'status' => ['required', Rule::in(['draft', 'dibuka', 'berangkat', 'selesai', 'dibatalkan'])],
+        ]);
+
+        $pengemudi = Pengemudi::query()->findOrFail($validated['pengemudi_id']);
+
+        if ($pengemudi->status !== 'aktif' || $pengemudi->status_verifikasi !== 'terverifikasi') {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'pengemudi_id' => 'Pengemudi harus aktif dan sudah diverifikasi sebelum dimasukkan ke jadwal.',
+            ]);
+        }
+
+        return $validated;
+    }
+
+    private function syncSeatMap(Jadwal $jadwal): void
+    {
+        $kapasitas = (int) $jadwal->kendaraan->kapasitas_kursi;
+        $now = now();
+
+        for ($seatNumber = 1; $seatNumber <= $kapasitas; $seatNumber++) {
+            KursiJadwal::query()->firstOrCreate(
+                [
+                    'jadwal_id' => $jadwal->id,
+                    'nomor_kursi' => $seatNumber,
+                ],
+                [
+                    'status_kursi' => 'tersedia',
+                    'updated_at' => $now,
+                ],
+            );
+        }
+
+        KursiJadwal::query()
+            ->where('jadwal_id', $jadwal->id)
+            ->where('nomor_kursi', '>', $kapasitas)
+            ->where('status_kursi', 'tersedia')
+            ->doesntHave('detailPemesanan')
+            ->delete();
+    }
+}

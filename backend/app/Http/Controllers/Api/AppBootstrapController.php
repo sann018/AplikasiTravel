@@ -1,0 +1,78 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Models\Jadwal;
+use App\Models\PengaturanSistem;
+use App\Services\BookingService;
+use Illuminate\Http\JsonResponse;
+
+class AppBootstrapController extends Controller
+{
+    public function __construct(
+        private readonly BookingService $bookingService,
+    ) {
+    }
+
+    public function index(): JsonResponse
+    {
+        $this->bookingService->releaseExpiredResources();
+
+        $jadwal = Jadwal::query()
+            ->with(['rute', 'kendaraan', 'pengemudi.pengguna', 'kursi'])
+            ->where('status', 'dibuka')
+            ->orderBy('waktu_berangkat')
+            ->limit(4)
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'branding' => [
+                    'app_name' => PengaturanSistem::nilai('app_name', 'TravS'),
+                    'logo' => PengaturanSistem::nilai('app_logo', 'travs-logo.svg'),
+                    'contact' => PengaturanSistem::nilai('admin_contact'),
+                    'service_whatsapp' => PengaturanSistem::nilai('service_whatsapp'),
+                ],
+                'theme' => [
+                    'surface' => '#FFFFFF',
+                    'primary' => '#10233F',
+                    'accent' => '#F58A2A',
+                    'muted' => '#EEF2F7',
+                ],
+                'payment_methods' => [
+                    'transfer' => PengaturanSistem::nilai('payment_transfer_enabled', true),
+                    'qris' => PengaturanSistem::nilai('payment_qris_enabled', true),
+                    'cash' => PengaturanSistem::nilai('payment_cash_enabled', true),
+                ],
+                'featured_schedules' => $jadwal->map(fn (Jadwal $item) => $this->formatSchedule($item))->all(),
+            ],
+        ]);
+    }
+
+    private function formatSchedule(Jadwal $jadwal): array
+    {
+        $kursiTersedia = $jadwal->kursi->where('status_kursi', 'tersedia')->count();
+
+        return [
+            'id' => $jadwal->id,
+            'rute' => [
+                'asal' => $jadwal->rute->kota_asal,
+                'tujuan' => $jadwal->rute->kota_tujuan,
+                'jalur' => $jadwal->rute->deskripsi_jalur,
+            ],
+            'waktu_berangkat' => $jadwal->waktu_berangkat?->toIso8601String(),
+            'estimasi_tiba' => $jadwal->estimasi_tiba?->toIso8601String(),
+            'harga_tiket' => (float) $jadwal->rute->harga_tiket,
+            'sisa_kursi' => $kursiTersedia,
+            'kapasitas' => $jadwal->kendaraan->kapasitas_kursi,
+            'pengemudi' => $jadwal->pengemudi->pengguna->nama,
+            'kendaraan' => sprintf(
+                '%s %s',
+                $jadwal->kendaraan->merk_kendaraan,
+                $jadwal->kendaraan->nomor_plat,
+            ),
+        ];
+    }
+}
