@@ -1,7 +1,7 @@
 # PRD Final, Audit Teknis, dan Spesifikasi Produk
 
 Status: Revisi scope final tanpa titipan dan carter
-Tanggal pembaruan: 27 April 2026
+Tanggal pembaruan: 1 Mei 2026
 Proyek: Rancang Bangun Aplikasi Pemesanan Jasa Transportasi Umum Lintas Kota pada Rusly Travel Berbasis Mobile
 
 Dokumen ini menggantikan versi sebelumnya. Revisi ini menetapkan bahwa scope akhir difokuskan pada layanan travel penumpang lintas kota saja. Fitur tambahan seperti titipan barang, paket, dokumen, hewan, kendaraan, dan carter kendaraan dikeluarkan dari batas proyek.
@@ -211,7 +211,7 @@ Driver:
 
 - manifest live dan scan QR live sudah tersedia
 - tombol aksi berangkat dan selesai sudah tersedia
-- action pickup masih perlu difinalkan agar alur lapangan lebih lengkap
+- action pickup pengemudi sudah tersedia melalui endpoint manifest penumpang
 
 ### 1.10 Gap antara kode saat ini dengan kebutuhan produk final
 
@@ -222,7 +222,7 @@ Setelah titipan dan carter dikeluarkan, gap utama sekarang adalah:
 - payment digital sudah punya scaffold Pakasir dan webhook, tetapi transaksi nyata Pakasir masih perlu uji callback publik
 - pembayaran tunai sudah punya verifikasi admin dasar, audit trail, tiket, dan notifikasi
 - QR ticket sudah bisa diverifikasi satu kali pakai, masih perlu monitoring admin yang lebih lengkap
-- pengemudi sudah punya manifest, scan live, dan aksi berangkat/selesai; action pickup belum final
+- pengemudi sudah punya manifest, action pickup, scan live, dan aksi berangkat/selesai
 - admin sudah punya guard lifecycle dan dashboard pembayaran dasar, masih perlu warning operasional yang lebih kuat
 - pickup point belum didukung map picker dan reverse geocoding
 - push notification belum ada
@@ -539,13 +539,15 @@ Journey admin:
 7. payment status dan booking status tidak boleh loncat sembarangan
 8. file upload bagasi harus divalidasi tipe dan ukuran
 9. admin memiliki pengaturan global sistem
-10. sistem tidak boleh over-engineered
+10. request auth, booking, upload, payment, dan aksi pengemudi harus dibatasi rate limit agar spam klik tidak membebani server
+11. sistem tidak boleh over-engineered
 
 ### 3.9 Non-functional requirements
 
 - response API konsisten
 - validasi server-side wajib
 - authorization berbasis role wajib
+- API penting memakai rate limit per user atau IP
 - operasi kritis memakai transaction
 - UI mobile harus ringan dan mudah dipahami
 - web admin harus efisien untuk data-heavy flow
@@ -651,20 +653,20 @@ Laporan minimal:
 
 #### MGP-02 Login / Register
 
-- Tujuan: autentikasi penumpang dengan friction rendah.
-- Komponen utama: form login, form register, error message, guest button.
+- Tujuan: autentikasi penumpang dan pengemudi dengan friction rendah, serta tetap menyediakan akses tamu.
+- Komponen utama: form login, form register penumpang, ringkasan role, error message, guest button.
 - Data yang ditampilkan: email/no HP, password, nama.
 - CTA utama: `Masuk`, `Daftar Sekarang`.
-- CTA sekunder: `Masuk Sebagai Tamu`.
+- CTA sekunder: `Lanjut Sebagai Tamu`.
 - Validasi: email/no HP wajib, password minimal 8 karakter, confirmation match.
 - State: loading, validation error, auth error, success.
-- Catatan UX: guest mode tetap tersedia.
+- Catatan UX: pengemudi memakai form masuk yang sama, sedangkan pendaftaran mandiri tetap untuk penumpang.
 - Rekomendasi layout: hero sederhana di atas, kartu form putih di bawah.
 
 #### MGP-03 Home guest
 
 - Tujuan: menampilkan rute cepat ke jadwal dan ringkasan layanan inti.
-- Komponen utama: hero, route finder card, quick grid, list jadwal populer.
+- Komponen utama: hero, akses cepat, route bookmark, list jadwal populer.
 - Data yang ditampilkan: source label, rute populer, harga, kursi, kendaraan.
 - CTA utama: `Masuk / Daftar`, `Lihat Jadwal`.
 - CTA sekunder: kartu quick info.
@@ -673,28 +675,36 @@ Laporan minimal:
 - Catatan UX: fokus ke kejelasan, bukan dekorasi.
 - Rekomendasi layout: header navy, kartu putih, bottom nav.
 
-#### MGP-04 Daftar jadwal
+#### MGP-04 Daftar rute dan jadwal
 
-- Tujuan: memudahkan guest dan penumpang memindai pilihan trip.
-- Komponen utama: list card jadwal, status kursi, harga, waktu.
-- Data yang ditampilkan: asal, tujuan, jalur, harga, kursi, kendaraan.
-- CTA utama: `Lihat Detail`.
-- CTA sekunder: refresh.
+- Tujuan: memudahkan guest dan penumpang memilih rute dulu, lalu memilih jadwal keberangkatan.
+- Komponen utama: bookmark card rute, bookmark card jadwal, thumbnail tujuan, thumbnail kendaraan, status kursi, harga, waktu.
+- Data yang ditampilkan: asal, tujuan, jalur, jumlah jadwal, sisa kursi, harga, kendaraan, gambar daerah tujuan, gambar mobil.
+- CTA utama: `Detail` untuk guest dan `Pesan` untuk penumpang.
+- CTA sekunder: kembali ke daftar rute dan refresh.
 - Validasi: tidak ada.
 - State: loading, empty, error.
-- Catatan UX: sorting waktu berangkat paling dekat.
-- Rekomendasi layout: vertical list.
+- Catatan UX: klik rute dan chip jadwal hanya memfilter data lokal agar tidak menambah query API.
+- Rekomendasi layout: vertical bookmark list yang sinkron dengan warna TravS.
+
+#### MGP-04B Bottom navigation dan tombol kembali
+
+- Tujuan: membuat navigasi mobile lebih jelas dan mudah dijelaskan.
+- Komponen utama: bottom nav animasi, indikator geser, icon aktif, tombol back.
+- Data yang ditampilkan: menu sesuai role.
+- CTA utama: `Beranda`, `Rute`, `Pesanan`, `Tiket`, `Profil` untuk penumpang.
+- Catatan UX: semua halaman selain beranda memiliki tombol kembali ke beranda atau ke step sebelumnya.
 
 #### MGP-05 Detail jadwal
 
 - Tujuan: membuka informasi lengkap sebelum booking.
-- Komponen utama: hero jadwal, info kendaraan, info driver, seat map, ringkasan aturan.
-- Data yang ditampilkan: seat map, fasilitas, harga, durasi, aturan bagasi, pilihan metode hitung bagasi.
+- Komponen utama: hero jadwal, info kendaraan, info driver, denah kursi mobil, ringkasan aturan, state terkunci untuk non-login.
+- Data yang ditampilkan: seat map, status kursi, posisi sopir, fasilitas, harga, durasi, aturan bagasi, pilihan metode hitung bagasi.
 - CTA utama: `Login Untuk Booking` atau `Lanjut ke Checkout`.
 - CTA sekunder: refresh.
 - Validasi: batas kursi per booking, kursi tersedia, bagasi.
 - State: loading, sold out, error.
-- Catatan UX: seat map harus mudah dipindai.
+- Catatan UX: mode tamu/non-login hanya melihat status kursi dan tidak boleh memilih kursi atau mengisi data pemesanan; denah kursi harus fleksibel mengikuti jumlah kursi kendaraan.
 - Rekomendasi layout: kartu bertingkat dengan CTA tetap jelas.
 
 #### MGP-06 Checkout / Payment
@@ -709,23 +719,23 @@ Laporan minimal:
 - Catatan UX: total harus selalu terlihat jelas.
 - Rekomendasi layout: stacked cards dengan summary kuat di bawah.
 
-#### MGP-07 Riwayat booking
+#### MGP-07 Riwayat pemesanan
 
 - Tujuan: menampilkan status order penumpang.
-- Komponen utama: filter status, list booking, quick status pill.
-- Data yang ditampilkan: kode booking, rute, waktu, status, total.
-- CTA utama: `Lihat Detail`.
-- CTA sekunder: filter.
+- Komponen utama: filter status, list pemesanan, quick status pill, tombol tiket dari detail.
+- Data yang ditampilkan: kode pemesanan, rute, waktu, status, total.
+- CTA utama: `Lihat Detail Pemesanan`.
+- CTA sekunder: `Buka Tiket`.
 - Validasi: ownership.
 - State: empty, loading, error.
-- Catatan UX: tampilkan booking aktif di urutan atas.
+- Catatan UX: tampilkan pemesanan aktif di urutan atas dan gunakan istilah `pemesanan` pada UI.
 - Rekomendasi layout: list card.
 
 #### MGP-08 Tiket QR
 
 - Tujuan: menampilkan tiket digital aktif.
 - Komponen utama: card ticket, QR placeholder, ringkasan trip.
-- Data yang ditampilkan: kode booking, rute, waktu, status scan.
+- Data yang ditampilkan: kode pemesanan, rute, waktu, status scan.
 - CTA utama: `Tampilkan QR`.
 - CTA sekunder: `Lihat Jadwal`.
 - Validasi: hanya booking terbayar.
@@ -1210,7 +1220,7 @@ Wajib transaction:
 ### 8.4 Data integrity risks
 
 - seat status dan detail booking tidak sinkron
-- bagasi lintas booking per jadwal belum dihitung ketat
+- kapasitas berat bagasi lintas booking per jadwal sudah dihitung, tetapi retensi file upload masih perlu hardening
 - payment status dan booking status bisa tidak konsisten
 - file upload bagasi masih perlu hardening akses publik dan retensi file
 
@@ -1219,6 +1229,7 @@ Wajib transaction:
 - tanpa scheduler, booking expired menumpuk
 - tanpa webhook verification, payment mudah salah status
 - tanpa manifest live, pengemudi rawan salah info saat boarding
+- tanpa rate limit, spam klik dapat mengeksekusi query berulang dan membebani backend
 
 ### 8.6 Mitigations
 
@@ -1227,6 +1238,7 @@ Wajib transaction:
 - pecah Flutter shell menjadi modul fitur yang lebih kecil
 - tambahkan payment service dan webhook controller
 - tambahkan QR verification backend-side
+- gunakan throttle Laravel untuk route read, auth, action, dan upload
 - tambahkan status guard dan audit trail
 
 ## 9. Kesimpulan Audit

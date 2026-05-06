@@ -68,133 +68,137 @@ class TravSApiService {
     };
   }
 
+  /// Memuat data beranda dari backend (bootstrap + jadwal).
+  /// Melempar TravSApiException jika koneksi gagal atau response tidak valid,
+  /// agar UI bisa menampilkan error state yang jujur ke pengguna.
   Future<TravSHomePayload> loadHomePayload() async {
-    try {
-      final bootstrapResponse = await getWithFallback(
-        '/api/mobile/bootstrap',
-        headers: jsonHeaders(),
+    final bootstrapResponse = await getWithFallback(
+      '/api/mobile/bootstrap',
+      headers: jsonHeaders(),
+    );
+    final scheduleResponse = await getWithFallback(
+      '/api/guest/jadwal',
+      headers: jsonHeaders(),
+    );
+
+    if (bootstrapResponse.statusCode != 200) {
+      throw TravSApiException(
+        _extractErrorMessage(_tryDecodeMap(bootstrapResponse.body)),
       );
-      final scheduleResponse = await getWithFallback(
-        '/api/guest/jadwal',
-        headers: jsonHeaders(),
-      );
-
-      if (bootstrapResponse.statusCode != 200 ||
-          scheduleResponse.statusCode != 200) {
-        throw Exception('Backend belum siap.');
-      }
-
-      final bootstrapJson =
-          _decodeBody(bootstrapResponse.body) as Map<String, dynamic>;
-      final scheduleJson =
-          _decodeBody(scheduleResponse.body) as Map<String, dynamic>;
-
-      final bootstrapData =
-          bootstrapJson['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
-      final scheduleItems =
-          scheduleJson['data'] as List<dynamic>? ?? <dynamic>[];
-      final featuredItems =
-          bootstrapData['featured_schedules'] as List<dynamic>? ?? <dynamic>[];
-
-      final schedulesById = <int, TravSSchedule>{};
-      for (final item in [...featuredItems, ...scheduleItems]) {
-        final schedule = TravSSchedule.fromJson(item as Map<String, dynamic>);
-        schedulesById[schedule.id] = schedule;
-      }
-
-      final branding =
-          bootstrapData['branding'] as Map<String, dynamic>? ??
-          <String, dynamic>{};
-
-      return TravSHomePayload(
-        appName: branding['app_name'] as String? ?? 'TravelKu',
-        featuredSchedules: schedulesById.values.toList(),
-        sourceLabel: 'Live dari Laravel API',
-        serviceWhatsapp: branding['service_whatsapp'] as String?,
-        adminContact: branding['contact'] as String?,
-      );
-    } catch (_) {
-      return TravSHomePayload.mock();
     }
+
+    if (scheduleResponse.statusCode != 200) {
+      throw TravSApiException(
+        _extractErrorMessage(_tryDecodeMap(scheduleResponse.body)),
+      );
+    }
+
+    final bootstrapJson =
+        _decodeBody(bootstrapResponse.body) as Map<String, dynamic>;
+    final scheduleJson =
+        _decodeBody(scheduleResponse.body) as Map<String, dynamic>;
+
+    final bootstrapData =
+        bootstrapJson['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final scheduleItems =
+        scheduleJson['data'] as List<dynamic>? ?? <dynamic>[];
+    final featuredItems =
+        bootstrapData['featured_schedules'] as List<dynamic>? ?? <dynamic>[];
+
+    final schedulesById = <int, TravSSchedule>{};
+    for (final item in [...featuredItems, ...scheduleItems]) {
+      final schedule = TravSSchedule.fromJson(item as Map<String, dynamic>);
+      schedulesById[schedule.id] = schedule;
+    }
+
+    final branding =
+        bootstrapData['branding'] as Map<String, dynamic>? ??
+        <String, dynamic>{};
+
+    return TravSHomePayload(
+      appName: branding['app_name'] as String? ?? 'TravS',
+      featuredSchedules: schedulesById.values.toList(),
+      sourceLabel: 'Live dari Laravel API',
+      serviceWhatsapp: branding['service_whatsapp'] as String?,
+      adminContact: branding['contact'] as String?,
+    );
   }
 
+  /// Memuat detail jadwal dari backend.
+  /// Melempar TravSApiException jika gagal, agar UI menampilkan error yang jujur.
   Future<TravSScheduleDetail> loadScheduleDetail(TravSSchedule schedule) async {
-    try {
-      final response = await getWithFallback(
-        '/api/guest/jadwal/${schedule.id}',
-        headers: jsonHeaders(),
+    final response = await getWithFallback(
+      '/api/guest/jadwal/${schedule.id}',
+      headers: jsonHeaders(),
+    );
+
+    if (response.statusCode != 200) {
+      throw TravSApiException(
+        _extractErrorMessage(_tryDecodeMap(response.body)),
       );
-
-      if (response.statusCode != 200) {
-        throw Exception('Detail jadwal belum tersedia.');
-      }
-
-      final decoded = _decodeBody(response.body) as Map<String, dynamic>;
-      final data =
-          decoded['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
-
-      return TravSScheduleDetail.fromJson(data);
-    } catch (_) {
-      return TravSScheduleDetail.mock(schedule);
     }
+
+    final decoded = _decodeBody(response.body) as Map<String, dynamic>;
+    final data =
+        decoded['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
+
+    return TravSScheduleDetail.fromJson(data);
   }
 
+  /// Memuat dashboard penumpang dari backend.
+  /// Melempar TravSApiException jika gagal — tidak lagi fallback ke data palsu.
   Future<TravSPassengerDashboard> loadPassengerDashboard(String token) async {
-    try {
-      final response = await getWithFallback(
-        '/api/penumpang/dashboard',
-        headers: jsonHeaders(token: token),
+    final response = await getWithFallback(
+      '/api/penumpang/dashboard',
+      headers: jsonHeaders(token: token),
+    );
+
+    if (response.statusCode != 200) {
+      throw TravSApiException(
+        _extractErrorMessage(_tryDecodeMap(response.body)),
       );
-
-      if (response.statusCode != 200) {
-        throw Exception('Dashboard penumpang belum siap.');
-      }
-
-      final decoded = _decodeBody(response.body) as Map<String, dynamic>;
-      final data =
-          decoded['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
-
-      return TravSPassengerDashboard.fromJson(data);
-    } catch (_) {
-      return TravSPassengerDashboard.mock();
     }
+
+    final decoded = _decodeBody(response.body) as Map<String, dynamic>;
+    final data =
+        decoded['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
+
+    return TravSPassengerDashboard.fromJson(data);
   }
 
+  /// Memuat dashboard pengemudi dari backend.
+  /// Melempar TravSApiException jika gagal — tidak lagi fallback ke data palsu.
   Future<TravSDriverDashboard> loadDriverDashboard(String token) async {
-    try {
-      final response = await getWithFallback(
-        '/api/pengemudi/dashboard',
-        headers: jsonHeaders(token: token),
+    final response = await getWithFallback(
+      '/api/pengemudi/dashboard',
+      headers: jsonHeaders(token: token),
+    );
+
+    if (response.statusCode != 200) {
+      throw TravSApiException(
+        _extractErrorMessage(_tryDecodeMap(response.body)),
       );
-
-      if (response.statusCode != 200) {
-        throw Exception('Dashboard pengemudi belum siap.');
-      }
-
-      final decoded = _decodeBody(response.body) as Map<String, dynamic>;
-      final data =
-          decoded['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
-
-      return TravSDriverDashboard.fromJson(data);
-    } catch (_) {
-      return TravSDriverDashboard.mock();
     }
+
+    final decoded = _decodeBody(response.body) as Map<String, dynamic>;
+    final data =
+        decoded['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
+
+    return TravSDriverDashboard.fromJson(data);
   }
 
+  /// Memuat daftar pemesanan penumpang dari backend.
+  /// Melempar TravSApiException jika gagal — tidak lagi fallback ke data palsu.
   Future<List<TravSBookingResult>> loadPassengerBookings(String token) async {
-    try {
-      final response = await getWithFallback(
-        '/api/penumpang/bookings',
-        headers: jsonHeaders(token: token),
-      );
+    final response = await getWithFallback(
+      '/api/penumpang/bookings',
+      headers: jsonHeaders(token: token),
+    );
 
-      return _decodeDataList(
-        response,
-        (item) => TravSBookingResult.fromJson(item),
-      );
-    } catch (_) {
-      return TravSBookingResult.mockList();
-    }
+    return _decodeDataList(
+      response,
+      (item) => TravSBookingResult.fromJson(item),
+    );
   }
 
   Future<TravSBookingResult> loadPassengerBookingDetail({
@@ -441,7 +445,7 @@ class TravSHomePayload {
 
   factory TravSHomePayload.mock() {
     return const TravSHomePayload(
-      appName: 'TravelKu',
+      appName: 'TravS',
       sourceLabel: 'Preview lokal siap untuk backend',
       serviceWhatsapp: '0812 3456 7890',
       adminContact: 'Rusly Travel Support',

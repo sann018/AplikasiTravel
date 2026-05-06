@@ -33,7 +33,7 @@ class TravSSplashPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'TravelKu',
+                  'TravS',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,

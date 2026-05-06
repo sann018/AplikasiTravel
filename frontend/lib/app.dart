@@ -81,7 +81,7 @@ class _TravSAppState extends State<TravSApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'TravelKu',
+      title: 'TravS',
       debugShowCheckedModeBanner: false,
       theme: TravSTheme.light(),
       home: AnimatedSwitcher(

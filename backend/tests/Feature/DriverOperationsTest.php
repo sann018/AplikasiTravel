@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Jadwal;
+use App\Models\DetailPemesanan;
 use App\Models\TiketElektronik;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
@@ -78,6 +79,49 @@ class DriverOperationsTest extends TestCase
         $this->assertTrue($ticket->sudah_dipindai);
         $this->assertNotNull($ticket->dipindai_pada);
         $this->assertSame('hadir', $ticket->detailPemesanan()->firstOrFail()->status_kehadiran);
+    }
+
+    public function test_driver_can_mark_passenger_pickup(): void
+    {
+        $driver = User::query()->where('email', 'pengemudi@travs.com')->firstOrFail();
+        $detail = DetailPemesanan::query()
+            ->whereHas('pemesanan.jadwal.pengemudi.pengguna', fn ($query) => $query->whereKey($driver->id))
+            ->whereHas('pemesanan', fn ($query) => $query->where('status_pemesanan', 'terbayar'))
+            ->where('status_kehadiran', 'menunggu')
+            ->firstOrFail();
+
+        $jadwal = $detail->pemesanan->jadwal;
+
+        Sanctum::actingAs($driver);
+
+        $response = $this->postJson("/api/pengemudi/trips/{$jadwal->id}/passengers/{$detail->id}/pickup");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.detail_id', $detail->id)
+            ->assertJsonPath('data.pickup.is_picked_up', true);
+
+        $detail->refresh();
+        $this->assertNotNull($detail->dijemput_pada);
+        $this->assertSame('menunggu', $detail->status_kehadiran);
+    }
+
+    public function test_driver_cannot_pickup_passenger_from_other_trip(): void
+    {
+        $otherDriver = User::query()->where('email', 'pengemudi2@travs.com')->firstOrFail();
+        $detail = DetailPemesanan::query()
+            ->whereHas('pemesanan.jadwal.pengemudi.pengguna', fn ($query) => $query->where('email', 'pengemudi@travs.com'))
+            ->whereHas('pemesanan', fn ($query) => $query->where('status_pemesanan', 'terbayar'))
+            ->firstOrFail();
+
+        $jadwal = $detail->pemesanan->jadwal;
+
+        Sanctum::actingAs($otherDriver);
+
+        $this->postJson("/api/pengemudi/trips/{$jadwal->id}/passengers/{$detail->id}/pickup")
+            ->assertForbidden()
+            ->assertJsonPath('success', false);
     }
 
     public function test_driver_cannot_scan_same_ticket_twice(): void

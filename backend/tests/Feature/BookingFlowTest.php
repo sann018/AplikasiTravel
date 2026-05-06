@@ -79,6 +79,32 @@ class BookingFlowTest extends TestCase
         ]);
     }
 
+    public function test_booking_action_is_rate_limited_to_reduce_spam_clicks(): void
+    {
+        $user = User::factory()->create([
+            'email' => 'rate-limit-passenger@example.com',
+            'peran' => 'penumpang',
+        ]);
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        $payload = [
+            'jadwal_id' => $jadwal->id,
+            'seat_count' => 1,
+            'baggage_items' => [],
+        ];
+
+        Sanctum::actingAs($user);
+
+        for ($attempt = 1; $attempt <= 20; $attempt++) {
+            $this->withServerVariables(['REMOTE_ADDR' => '10.10.10.10'])
+                ->postJson('/api/penumpang/bookings/estimate', $payload)
+                ->assertOk();
+        }
+
+        $this->withServerVariables(['REMOTE_ADDR' => '10.10.10.10'])
+            ->postJson('/api/penumpang/bookings/estimate', $payload)
+            ->assertStatus(429);
+    }
+
     public function test_passenger_can_create_booking_draft_and_lock_selected_seats(): void
     {
         $user = User::query()->where('peran', 'penumpang')->firstOrFail();
@@ -216,6 +242,72 @@ class BookingFlowTest extends TestCase
             'metode_hitung' => 'berat',
             'jumlah_item' => 3,
         ]);
+    }
+
+    public function test_luggage_capacity_counts_existing_bookings(): void
+    {
+        $userA = User::query()->where('email', 'penumpang@travs.com')->firstOrFail();
+        $userB = User::query()->where('email', 'fitri@travs.com')->firstOrFail();
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        [$seatNumber] = $this->availableSeatNumbers($jadwal, 1);
+
+        $existingBooking = Pemesanan::query()->create([
+            'pengguna_id' => $userA->id,
+            'jadwal_id' => $jadwal->id,
+            'kode_booking' => 'TRAVS-BAGASI-EXISTING',
+            'jumlah_kursi' => 1,
+            'batas_kunci_kursi' => now()->addMinutes(30),
+            'batas_pembayaran' => now()->addMinutes(5),
+            'alamat_jemput' => 'Pickup existing',
+            'subtotal_tiket' => 225000,
+            'biaya_bagasi' => 350000,
+            'biaya_admin' => 5000,
+            'diskon' => 0,
+            'total_harga' => 580000,
+            'status_pemesanan' => 'menunggu_pembayaran',
+        ]);
+
+        $existingBooking->itemBagasi()->create([
+            'deskripsi_item' => 'Koper besar existing',
+            'metode_hitung' => 'berat',
+            'berat_kg' => 45,
+            'jumlah_item' => 1,
+            'foto_url' => '/storage/baggage/existing.jpg',
+            'biaya_item' => 0,
+        ]);
+
+        Sanctum::actingAs($userB);
+
+        $response = $this->postJson('/api/penumpang/bookings', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seatNumber],
+            'pickup' => [
+                'latitude' => -0.0225,
+                'longitude' => 109.3425,
+                'address' => 'Jalan Ahmad Yani, Pontianak',
+            ],
+            'payment_method' => 'qris',
+            'passengers' => [
+                [
+                    'seat_number' => $seatNumber,
+                    'nama_penumpang' => 'Penumpang Kapasitas',
+                    'no_hp_penumpang' => '081200000005',
+                ],
+            ],
+            'baggage_items' => [
+                [
+                    'deskripsi_item' => 'Koper tambahan',
+                    'metode_hitung' => 'berat',
+                    'berat_kg' => 8,
+                    'jumlah_item' => 1,
+                    'foto_url' => '/storage/baggage/new.jpg',
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('baggage_items');
     }
 
     public function test_expired_pending_booking_is_released_before_new_booking_is_created(): void

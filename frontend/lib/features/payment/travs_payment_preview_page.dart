@@ -273,7 +273,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
     if (selectedPhoto == null) {
       if (widget.detail.baggageRules.photoRequired) {
         setState(() {
-          _errorMessage = 'Foto barang bawaan wajib diunggah sebelum booking.';
+          _errorMessage =
+              'Foto barang bawaan wajib diunggah sebelum pemesanan.';
         });
       }
       return null;
@@ -385,7 +386,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Booking berhasil dibuat. Lanjutkan pembayaran.'),
+          content: Text('Pemesanan berhasil dibuat. Lanjutkan pembayaran.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -396,7 +397,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
     } catch (_) {
       setState(() {
         _errorMessage =
-            'Booking belum dapat diproses. Periksa lagi data penumpang dan titik jemput.';
+            'Pemesanan belum dapat diproses. Periksa lagi data penumpang dan titik jemput.';
       });
     } finally {
       if (mounted) {
@@ -675,7 +676,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
     return _SectionCard(
       title: 'Metode Pembayaran',
       subtitle:
-          'Pilih metode pembayaran yang aktif. Layar detail sesudah booking akan menyesuaikan pola QRIS, transfer, atau tunai.',
+          'Pilih metode pembayaran yang aktif. Layar detail sesudah pemesanan akan menyesuaikan pola QRIS, transfer, atau tunai.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -851,7 +852,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
     return _SectionCard(
       title: 'Biodata Penumpang',
       subtitle:
-          'Satu penumpang untuk satu kursi. Data ini akan dipakai pada detail booking, tiket, dan manifest perjalanan.',
+          'Satu penumpang untuk satu kursi. Data ini akan dipakai pada detail pemesanan, tiket, dan manifest perjalanan.',
       child: Column(
         children: _passengerForms
             .map(
@@ -916,7 +917,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
         children: [
           if (!_hasBaggageData)
             Text(
-              'Belum ada bagasi tambahan yang dicatat pada booking ini.',
+              'Belum ada bagasi tambahan yang dicatat pada pemesanan ini.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: TravSTheme.navyMuted,
               ),
@@ -986,7 +987,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
                         const SizedBox(height: 4),
                         Text(
                           _uploadedBaggagePhoto != null
-                              ? 'Foto sudah terunggah dan akan disimpan bersama booking.'
+                              ? 'Foto sudah terunggah dan akan disimpan bersama pemesanan.'
                               : _selectedBaggagePhoto != null
                               ? 'Dipilih: ${_selectedBaggagePhoto!.name}'
                               : 'Ambil foto dari kamera atau pilih dari galeri sebelum submit.',
@@ -1095,10 +1096,10 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
     final helperText = isPaid
         ? 'Pembayaran sudah terkonfirmasi. Tiket elektronik siap dibuka dari daftar tiket penumpang.'
         : payment.method == 'cash'
-        ? 'Booking berhasil tersimpan. Pembayaran tunai masih perlu dilunasi dan diverifikasi admin.'
+        ? 'Pemesanan berhasil tersimpan. Pembayaran tunai masih perlu dilunasi dan diverifikasi admin.'
         : payment.method == 'transfer'
-        ? 'Booking berhasil tersimpan. Selesaikan transfer sebelum ${_formatDateTime(payment.expiredAt)}.'
-        : 'Booking berhasil tersimpan. Lanjutkan pembayaran gateway sebelum ${_formatDateTime(payment.expiredAt)}.';
+        ? 'Pemesanan berhasil tersimpan. Selesaikan transfer sebelum ${_formatDateTime(payment.expiredAt)}.'
+        : 'Pemesanan berhasil tersimpan. Lanjutkan pembayaran gateway sebelum ${_formatDateTime(payment.expiredAt)}.';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
@@ -1164,7 +1165,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
           _SectionCard(
             title: 'Waktu Pembayaran',
             subtitle:
-                'Batas pembayaran mengikuti aturan ${widget.detail.bookingRules.seatLockPaymentMinutes} menit setelah booking dibuat.',
+                'Batas pembayaran mengikuti aturan ${widget.detail.bookingRules.seatLockPaymentMinutes} menit setelah pemesanan dibuat.',
             child: _CountdownPanel(
               title: 'Sisa waktu pembayaran',
               deadlineIso: payment.expiredAt,
@@ -1174,12 +1175,12 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
         ],
         const SizedBox(height: 16),
         _SectionCard(
-          title: 'Detail Booking',
+          title: 'Detail Pemesanan',
           subtitle:
-              'Ringkasan booking ini dipakai juga oleh daftar pemesanan, riwayat, dan tiket penumpang.',
+              'Ringkasan pemesanan ini dipakai juga oleh daftar pemesanan, riwayat, dan tiket penumpang.',
           child: Column(
             children: [
-              _SummaryRow(label: 'Status booking', value: booking.status),
+              _SummaryRow(label: 'Status pemesanan', value: booking.status),
               _SummaryRow(label: 'Status pembayaran', value: payment.status),
               _SummaryRow(
                 label: 'Metode pembayaran',
@@ -1438,7 +1439,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
           const _InstructionList(
             steps: [
               'Siapkan nominal pembayaran sesuai total tagihan.',
-              'Tunjukkan kode booking saat melakukan pelunasan.',
+              'Tunjukkan kode pemesanan saat melakukan pelunasan.',
               'Tiket akan aktif setelah admin mengonfirmasi pembayaran tunai.',
             ],
           ),
@@ -1502,7 +1503,9 @@ class _CheckoutFormView extends StatelessWidget {
               isSubmitting ? Icons.sync_rounded : Icons.lock_clock_outlined,
             ),
             label: Text(
-              isSubmitting ? 'Menyimpan Booking...' : 'Buat Booking Sekarang',
+              isSubmitting
+                  ? 'Menyimpan Pemesanan...'
+                  : 'Buat Pemesanan Sekarang',
             ),
           ),
         ],

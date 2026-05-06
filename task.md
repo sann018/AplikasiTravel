@@ -1,8 +1,8 @@
 # Task Breakdown, Gap Analysis, dan Roadmap Implementasi
 
 Status: Backlog implementasi aktif dengan checklist progres per fitur
-Tanggal pembaruan: 1 Mei 2026
-Terakhir diverifikasi: `php artisan test`, `flutter analyze`, dan `flutter test` lulus pada pengecekan lokal terakhir.
+Tanggal pembaruan: 6 Mei 2026
+Terakhir diverifikasi: `php artisan test` (45 test, 258 assertions), `flutter analyze` (no issues), dan `flutter test` (11 test) lulus pada 6 Mei 2026.
 
 Catatan penting:
 
@@ -18,7 +18,7 @@ Checklist ini dipakai untuk memantau pekerjaan harian. Item yang sudah benar-ben
 ### Sudah dikerjakan / sudah tersambung
 
 - [x] Shell mobile final untuk guest, penumpang, dan pengemudi.
-- [x] Shell mobile role-based diselaraskan ke wireframe Figma penumpang dan sopir.
+- [x] Shell mobile role-based diselaraskan ke wireframe Figma penumpang dan pengemudi.
 - [x] Auth mobile login, register, guest mode, restore session, dan logout.
 - [x] Route guard role dasar untuk penumpang, pengemudi, dan admin.
 - [x] Guest schedule dan detail jadwal bisa dibaca dari API.
@@ -26,13 +26,14 @@ Checklist ini dipakai untuk memantau pekerjaan harian. Item yang sudah benar-ben
 - [x] Cleanup expired form lock dan expired pending booking via scheduler.
 - [x] Checkout penumpang live dari mobile ke backend.
 - [x] Pemilihan kursi live dengan guard race condition dasar.
+- [x] Mode tamu/non-login dikunci dari pilihan kursi dan input pemesanan agar tidak memicu seat lock.
 - [x] Form pickup dengan GPS, map picker, dan reverse geocoding.
 - [x] Koordinat dan alamat pickup tersimpan di backend.
-- [x] Detail booking bisa membuka pickup di Google Maps.
-- [x] Riwayat booking penumpang live.
-- [x] Detail booking penumpang live.
+- [x] Detail pemesanan bisa membuka pickup di Google Maps.
+- [x] Riwayat pemesanan penumpang live.
+- [x] Detail pemesanan penumpang live dan punya tombol langsung ke halaman tiket.
 - [x] Tiket QR penumpang live per kursi setelah pembayaran terverifikasi.
-- [x] Daftar tiket, notifikasi UI, riwayat sopir UI, detail perjalanan sopir UI, dan preview scan ticket sudah punya tampilan mobile baru.
+- [x] Daftar tiket, notifikasi UI, riwayat pengemudi UI, detail perjalanan pengemudi UI, dan preview scan ticket sudah punya tampilan mobile baru.
 - [x] Payment preview pending untuk QRIS, transfer, dan tunai sudah dirapikan mengikuti pola gateway eksternal / Pakasir.
 - [x] Simulasi pembayaran lokal untuk mempercepat validasi flow tiket.
 - [x] Bug reset status kursi saat admin edit jadwal sudah diperbaiki.
@@ -50,6 +51,7 @@ Checklist ini dipakai untuk memantau pekerjaan harian. Item yang sudah benar-ben
 - [ ] Action operasional pengemudi lengkap: pickup, hadir/boarding, berangkat, selesai.
 - [ ] Dashboard pembayaran admin yang fokus untuk monitoring payment exception.
 - [x] Guard lifecycle admin agar status booking/payment tidak loncat sembarangan.
+- [x] Rate limit API untuk membatasi spam klik/query pada auth, booking, upload, payment, dan driver action.
 - [ ] Notifikasi FCM berbasis event.
 - [ ] Laporan final dan hardening QA penuh.
 
@@ -83,15 +85,15 @@ Implikasi prioritas:
 | [x] | `backend/routes/console.php` | command `travs:release-expired-bookings` dan scheduler setiap menit sudah ada | perlu validasi di deployment server | `verify` | memenuhi aturan seat lock |
 | [x] | `backend/app/Http/Controllers/Api/BookingController.php` | schedule detail, estimate, lock form, store booking, history, detail, simulasi payment, dan refresh payment status sudah ada | payment refresh masih bergantung konfigurasi gateway | `extend` | menutup gap payment produksi |
 | [ ] | `backend/app/Http/Controllers/Api/AuthController.php` | register/login/logout/me dasar sudah ada | belum ada forgot/reset password | `extend` | melengkapi auth inti |
-| [x] | `backend/app/Http/Controllers/Api/DriverController.php` | dashboard, manifest live, scan QR satu kali, dan update status trip dasar sudah ada | action pickup belum final | `extend` | pengemudi sudah mulai operasional, masih perlu polish flow lapangan |
+| [x] | `backend/app/Http/Controllers/Api/DriverController.php` | dashboard, manifest live, scan QR satu kali, action pickup, dan update status trip dasar sudah ada | monitoring admin trip belum final | `extend` | pengemudi sudah mulai operasional, masih perlu polish flow lapangan |
 | [x] | `backend/app/Http/Controllers/Web/Admin/PemesananController.php` | admin bisa lihat/ubah status booking dengan lifecycle guard | dashboard payment exception belum dipisah | `refactor lanjut` | mencegah status loncat |
-| [ ] | `backend/app/Services/BookingCalculator.php` | rule bagasi dasar sudah ada | kapasitas bagasi lintas booking belum dihitung ketat | `refactor` | validasi operasional harus benar |
+| [x] | `backend/app/Services/BookingCalculator.php` | rule bagasi, upload foto, biaya tambahan, dan kapasitas berat lintas booking sudah dihitung | perlu hardening retensi file upload | `refactor lanjut` | validasi operasional harus benar |
 | [x] | `backend/config/services.php` | config Pakasir sudah ada | config maps/FCM belum final | `extend` | integrasi eksternal perlu env jelas |
 | [x] | `backend/.env.example` | env Pakasir sudah disiapkan | env maps/FCM/deployment belum final | `extend` | deployment target butuh env jelas |
-| [ ] | `frontend/lib/core/services/travs_api_service.dart` | bisa baca bootstrap, jadwal, booking, dan dashboard | masih fallback ke mock pada beberapa jalur UI | `refactor` | app harus jujur terhadap error |
-| [ ] | `frontend/lib/features/home/travs_home_page.dart` | shell role-based, notifikasi UI, daftar tiket, riwayat sopir UI, detail perjalanan UI, dan scan preview sudah dirapikan | data driver detail masih gabungan live dan sample karena endpoint manifest live belum final | `extend` | menjaga layout wireframe tetap hidup sambil menunggu endpoint operasional penuh |
+| [x] | `frontend/lib/core/services/travs_api_service.dart` | bisa baca bootstrap, jadwal, booking, dan dashboard | fallback mock dihapus, error dilempar ke UI | `done` | app sekarang jujur terhadap error |
+| [x] | `frontend/lib/features/home/travs_home_page.dart` | shell role-based, notifikasi UI, daftar tiket, riwayat pengemudi UI, detail perjalanan UI, scan preview, dan sinkronisasi tampilan tamu/pengemudi sudah dirapikan | mock fallback dihapus, error/loading/empty state ditampilkan jujur | `done` | app menampilkan error state yang benar saat API gagal |
 | [x] | `frontend/lib/features/schedule/travs_schedule_detail_page.dart` | detail jadwal dan submit ke payment/create booking sudah tersambung | perlu hardening loading/empty/error | `verify` | flow penumpang sudah hidup |
-| [ ] | `frontend/lib/features/payment/travs_payment_preview_page.dart` | create booking live dan tampilan payment sudah dirombak | invoice eksternal, webhook produksi, dan sinkronisasi payment gateway nyata belum final | `extend` | menutup gap payment produksi |
+| [ ] | `frontend/lib/features/payment/travs_payment_preview_page.dart` | create booking live dan tampilan payment sudah dirombak, error handling sudah jujur | invoice eksternal, webhook produksi, dan sinkronisasi payment gateway nyata belum final | `extend` | menutup gap payment produksi |
 | [x] | `frontend/android/app/src/main/AndroidManifest.xml` | permission internet dan location sudah ada | permission camera untuk scan QR belum final | `extend` | perlu untuk QR dan pickup point |
 | [ ] | admin web Blade | dashboard dan CRUD usable | belum ada dashboard pembayaran fokus dan warning operasional cukup kuat | `extend` | kebutuhan admin final |
 | [ ] | notifikasi database | tabel dan halaman ada | belum ada trigger event, push delivery, unread flow | `extend` | fitur belum hidup |
@@ -125,8 +127,9 @@ Keputusan umum:
 - [x] Tambahkan cleanup expired form lock dan expired pending booking.
 - [x] Tambahkan scheduler `travs:release-expired-bookings`.
 - [x] Tambahkan regression test dasar booking existing, admin dashboard, export laporan, dan expired lock.
-- [ ] Standarkan response error semua API penting.
-- [ ] Hilangkan fallback mock diam-diam pada jalur kritis mobile.
+- [x] Tambahkan rate limit route API penting agar spam klik tidak mengeksekusi query berlebihan.
+- [x] Standarkan response error semua API penting.
+- [x] Hilangkan fallback mock diam-diam pada jalur kritis mobile.
 - Definition of Done: bug seat reset hilang, expired lock bisa dibersihkan, build tetap hijau.
 
 ### Epic 2 - Core Auth & Roles
@@ -140,6 +143,7 @@ Keputusan umum:
 - [x] Login mobile.
 - [x] Register mobile.
 - [x] Guest mode.
+- [x] Tampilan auth disinkronkan untuk penumpang, pengemudi, dan tamu.
 - [x] Restore session.
 - [x] Logout.
 - [x] Endpoint `/api/auth/me`.
@@ -156,18 +160,23 @@ Keputusan umum:
 - Priority: P1
 - Dependency: Epic 2
 - Feature: beranda mobile final sesuai wireframe dan scope akhir.
-- User Story: sebagai guest atau penumpang, saya ingin landing flow yang jelas agar cepat menuju jadwal, booking, dan tiket.
+- User Story: sebagai guest atau penumpang, saya ingin landing flow yang jelas agar cepat menuju jadwal, pemesanan, dan tiket.
 - Checklist:
 - [x] Home shell guest.
 - [x] Home shell penumpang.
 - [x] Home shell pengemudi.
-- [x] Navigasi penumpang `Beranda / Rute / Pesanan / Profil`.
+- [x] Beranda tamu dan pengemudi memakai pola hero, akses cepat, dan istilah yang sinkron dengan penumpang.
+- [x] Navigasi penumpang `Beranda / Rute / Pesanan / Tiket / Profil`.
 - [x] Navigasi pengemudi `Beranda / Manifest / Riwayat / Profil`.
 - [x] Bootstrap mobile dari backend.
 - [x] Daftar jadwal dari API.
+- [x] Layout daftar rute dan daftar jadwal dibuat seperti bookmark card dari data jadwal yang sudah dimuat.
+- [x] Thumbnail rute memakai gambar daerah tujuan dan thumbnail jadwal memakai gambar kendaraan.
+- [x] Bottom navbar dibuat custom dengan indikator animasi geser.
+- [x] Tombol back tersedia di tab non-beranda dan halaman detail tetap memakai AppBar back.
 - [x] Riwayat booking penumpang dari API.
 - [x] Daftar tiket aktif dari booking penumpang.
-- [ ] State loading-empty-error dibuat konsisten di semua halaman.
+- [x] State loading-empty-error dibuat konsisten di semua halaman.
 - [ ] Black box test khusus guest mode, passenger mode, dan refresh state.
 - Definition of Done: home mobile stabil, tidak ada referensi fitur di luar scope.
 
@@ -182,6 +191,8 @@ Keputusan umum:
 - [x] Detail jadwal live dari backend.
 - [x] Estimasi biaya booking.
 - [x] Pilih kursi.
+- [x] Tampilan pilih kursi dibuat seperti denah mobil dan fleksibel mengikuti jumlah kursi pada `seat_map`.
+- [x] Mode tamu/non-login hanya bisa melihat status kursi, tidak bisa memilih kursi atau mengisi data pemesanan.
 - [x] Isi biodata penumpang per kursi.
 - [x] Isi data bagasi dasar.
 - [x] Pilihan hitung bagasi berat + item atau ukuran + item dengan input angka.
@@ -194,7 +205,7 @@ Keputusan umum:
 - [x] Test backend create booking multi-seat dan lock selected seats.
 - [x] Test upload foto bagasi dan biaya tambahan item di atas batas gratis.
 - [ ] Test validation error lengkap untuk payload booking.
-- [ ] Test batas bagasi lintas booking.
+- [x] Test batas bagasi lintas booking.
 - Definition of Done: booking terbentuk dari mobile dan muncul di admin.
 
 ### Epic 5 - Seat Lock Engine
@@ -298,19 +309,19 @@ Keputusan umum:
 - [x] Role shell pengemudi di mobile.
 - [x] Endpoint dashboard pengemudi dasar.
 - [x] UI manifest preview.
-- [x] UI detail perjalanan sopir preview.
+- [x] UI detail perjalanan pengemudi preview.
 - [x] UI scan ticket preview.
 - [x] Trip endpoint live.
 - [x] Manifest endpoint live.
 - [x] Formatter manifest dari booking terbayar.
-- [x] Role ownership guard agar sopir hanya melihat trip miliknya.
+- [x] Role ownership guard agar pengemudi hanya melihat trip miliknya.
 - [x] Scan QR live dari kamera.
-- [ ] Action pickup.
+- [x] Action pickup.
 - [x] Action hadir/boarding melalui scan QR.
 - [x] Action berangkat.
 - [x] Action selesai.
 - [ ] Monitoring status perjalanan di admin.
-- [x] Test assigned trip only, manifest akurat, scan ownership, dan repeat scan aman.
+- [x] Test assigned trip only, manifest akurat, pickup ownership, scan ownership, dan repeat scan aman.
 - Definition of Done: pengemudi dapat menjalankan tugas utama lapangan dari mobile.
 
 ### Epic 10 - Admin Dashboard Core
@@ -530,6 +541,7 @@ Tujuan bagian ini adalah membuat pengembangan berikutnya mengikuti pola TDD (Tes
 
 - [x] Guest bisa membaca detail jadwal dengan booking rules.
 - [x] Penumpang bisa lock kursi untuk checkout form.
+- [x] Booking estimate/action dibatasi rate limit dan request spam mendapat status 429.
 - [x] Penumpang bisa membuat booking draft multi-seat dan kursi terkunci.
 - [x] Expired pending booking dilepas sebelum booking baru dibuat.
 - [x] Penumpang bisa simulasi pembayaran dan menerima tiket.
@@ -570,14 +582,14 @@ Tujuan bagian ini adalah membuat pengembangan berikutnya mengikuti pola TDD (Tes
 - [x] QR: scan tiket trip lain ditolak.
 - [ ] QR: token palsu/tidak dikenal ditolak.
 - [x] Driver: manifest hanya menampilkan trip milik pengemudi.
-- [ ] Driver: status pickup/boarding/berangkat/selesai mengikuti urutan valid.
+- [x] Driver: status pickup/boarding/berangkat/selesai mengikuti urutan valid.
 - [x] Admin: status booking tidak bisa loncat manual tanpa guard.
 - [x] Admin: payment exception muncul di dashboard pembayaran.
 - [ ] Notification: booking created membuat notifikasi.
 - [x] Notification: payment success membuat notifikasi.
 - [ ] Frontend: payment pending/success/failed/expired tampil sesuai response.
 - [ ] Frontend: GPS permission denied punya pesan error yang jelas.
-- [ ] Frontend: API error tidak diam-diam berubah menjadi mock data pada flow penting.
+- [x] Frontend: API error tidak diam-diam berubah menjadi mock data pada flow penting.
 
 ### 6.5 Bug Monitoring Board
 
@@ -586,12 +598,13 @@ Tujuan bagian ini adalah membuat pengembangan berikutnya mengikuti pola TDD (Tes
 | [x] | PAY-001 | Pakasir webhook | duplicate callback bisa memproses payment lebih dari sekali | `test_duplicate_pakasir_webhook_is_idempotent` | Sudah dibuat idempotent dan teruji |
 | [ ] | PAY-002 | Pakasir transaction | gagal create invoice dapat meninggalkan booking menggantung | `test_failed_pakasir_create_marks_payment_failed_safely` | Pastikan kursi/payment state aman |
 | [x] | QR-001 | QR scan | tiket bisa dipakai lebih dari sekali | `test_driver_cannot_scan_same_ticket_twice` | Sudah ditolak dengan status 409 |
-| [x] | QR-002 | QR scan | sopir bisa scan tiket trip lain | `test_driver_cannot_scan_ticket_from_other_trip` | Sudah ditolak dengan status 403 |
+| [x] | QR-002 | QR scan | pengemudi bisa scan tiket trip lain | `test_driver_cannot_scan_ticket_from_other_trip` | Sudah ditolak dengan status 403 |
 | [x] | DRV-001 | Driver manifest | manifest masih campur sample/live | `test_driver_can_load_owned_trip_manifest_from_paid_bookings` | Manifest live sudah dari booking terbayar |
 | [x] | ADM-001 | Admin lifecycle | admin bisa loncat status booking/payment manual | `test_admin_cannot_jump_cancelled_booking_back_to_paid` | Guard lifecycle sudah aktif |
-| [ ] | BAG-001 | Bagasi | kapasitas bagasi lintas booking belum ketat | `test_luggage_capacity_counts_existing_bookings` | Terkait operasional |
+| [x] | BAG-001 | Bagasi | kapasitas bagasi lintas booking belum ketat | `test_luggage_capacity_counts_existing_bookings` | Sudah menghitung bagasi aktif dalam jadwal yang sama |
+| [x] | SEC-001 | API rate limit | spam klik atau query berulang dapat membebani backend | `test_booking_action_is_rate_limited_to_reduce_spam_clicks` | Route penting sudah memakai throttle Laravel |
 | [ ] | FCM-001 | Notifikasi | event penting selain payment success dan FCM belum lengkap | `test_admin_can_confirm_cash_payment_and_issue_ticket_notification` | Payment success database notification sudah teruji; FCM masih backlog |
-| [ ] | UI-001 | Flutter fallback | API error pada flow penting masih bisa jatuh ke mock | `test_booking_flow_shows_error_when_api_fails` | Penting agar demo jujur terhadap data |
+| [x] | UI-001 | Flutter fallback | API error pada flow penting tidak lagi jatuh ke mock | `test_travs_async_state_error` | Mock fallback dihapus, TravSAsyncState menampilkan error jujur |
 
 ### 6.6 Syarat Task Boleh Dicentang
 

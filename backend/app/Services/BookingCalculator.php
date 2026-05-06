@@ -52,11 +52,17 @@ class BookingCalculator
             }
         }
 
+        $existingVehicleWeight = $this->activeVehicleBaggageWeight($jadwal);
+
         $baggageBreakdown = [
-            'weight_fee' => $this->calculateWeightFee($totals['weight'], $seatCount),
+            'weight_fee' => $this->calculateWeightFee($totals['weight'], $seatCount, $existingVehicleWeight),
             'size_fee' => $this->calculateSizeFee($totals['size'], $seatCount),
             'item_fee' => $this->calculateItemFee($totals['items'], $seatCount),
-            'totals' => $totals,
+            'totals' => [
+                ...$totals,
+                'existing_vehicle_weight' => $existingVehicleWeight,
+                'vehicle_weight_after_booking' => $existingVehicleWeight + $totals['weight'],
+            ],
         ];
 
         $biayaBagasi = $baggageBreakdown['weight_fee'] + $baggageBreakdown['size_fee'] + $baggageBreakdown['item_fee'];
@@ -75,7 +81,7 @@ class BookingCalculator
     /**
      * @throws ValidationException
      */
-    private function calculateWeightFee(float $totalWeight, int $seatCount): float
+    private function calculateWeightFee(float $totalWeight, int $seatCount, float $existingVehicleWeight): float
     {
         if (! PengaturanSistem::nilai('baggage_weight_enabled', false)) {
             return 0.0;
@@ -91,9 +97,9 @@ class BookingCalculator
             ]);
         }
 
-        if ($maxWeightPerVehicle > 0 && $totalWeight > $maxWeightPerVehicle) {
+        if ($maxWeightPerVehicle > 0 && ($existingVehicleWeight + $totalWeight) > $maxWeightPerVehicle) {
             throw ValidationException::withMessages([
-                'baggage_items' => 'Total berat bagasi melebihi batas maksimal kendaraan.',
+                'baggage_items' => 'Total berat bagasi kendaraan untuk jadwal ini melebihi batas maksimal.',
             ]);
         }
 
@@ -149,6 +155,15 @@ class BookingCalculator
         $rate = (float) PengaturanSistem::nilai('baggage_extra_fee_per_item', 0);
 
         return $overFreeItems * $rate;
+    }
+
+    private function activeVehicleBaggageWeight(Jadwal $jadwal): float
+    {
+        return (float) $jadwal->pemesanan()
+            ->whereIn('status_pemesanan', ['menunggu_pembayaran', 'terbayar'])
+            ->with('itemBagasi:id,pemesanan_id,berat_kg')
+            ->get()
+            ->sum(fn ($booking) => $booking->itemBagasi->sum(fn ($item) => (float) $item->berat_kg));
     }
 
     /**

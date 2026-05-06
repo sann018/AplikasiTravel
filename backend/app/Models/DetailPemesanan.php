@@ -27,7 +27,15 @@ class DetailPemesanan extends Model
         'nama_penumpang',
         'no_hp_penumpang',
         'status_kehadiran',
+        'dijemput_pada',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'dijemput_pada' => 'datetime',
+        ];
+    }
 
     public function pemesanan(): BelongsTo
     {

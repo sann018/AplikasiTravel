@@ -273,7 +273,7 @@ class _EmptyTicketCard extends StatelessWidget {
             const SizedBox(height: 14),
             Text(
               booking.isPaid
-                  ? 'Tiket belum diterbitkan untuk booking ini.'
+                  ? 'Tiket belum diterbitkan untuk pemesanan ini.'
                   : 'QR tiket belum aktif karena pembayaran belum terverifikasi.',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 color: TravSTheme.navy,
@@ -284,7 +284,7 @@ class _EmptyTicketCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               booking.isPaid
-                  ? 'Refresh kembali beberapa saat lagi atau cek detail booking untuk memastikan tiket telah diterbitkan.'
+                  ? 'Refresh kembali beberapa saat lagi atau cek detail pemesanan untuk memastikan tiket telah diterbitkan.'
                   : 'Begitu status pembayaran berubah menjadi berhasil, QR unik akan muncul untuk setiap kursi penumpang.',
               style: Theme.of(
                 context,
@@ -476,7 +476,7 @@ class _TicketErrorState extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Coba muat ulang kembali. Jika booking baru saja berubah status, backend mungkin masih menyinkronkan tiketnya.',
+                  'Coba muat ulang kembali. Jika pemesanan baru saja berubah status, backend mungkin masih menyinkronkan tiketnya.',
                   style: Theme.of(
                     context,
                   ).textTheme.bodyMedium?.copyWith(color: TravSTheme.navyMuted),

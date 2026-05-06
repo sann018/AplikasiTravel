@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\DetailPemesanan;
 use App\Models\Jadwal;
 use App\Models\Pengemudi;
 use App\Models\Pemesanan;
@@ -141,6 +142,56 @@ class DriverController extends Controller
         });
 
         return $result;
+    }
+
+    public function markPassengerPickup(Request $request, Jadwal $jadwal, DetailPemesanan $detail): JsonResponse
+    {
+        $this->ensureDriverOwnsTrip($request, $jadwal);
+
+        $passenger = DB::transaction(function () use ($jadwal, $detail) {
+            $lockedDetail = DetailPemesanan::query()
+                ->lockForUpdate()
+                ->with([
+                    'tiketElektronik',
+                    'pemesanan.itemBagasi',
+                    'pemesanan.jadwal.rute',
+                    'pemesanan.jadwal.kendaraan',
+                ])
+                ->whereKey($detail->id)
+                ->whereHas('pemesanan', fn ($query) => $query
+                    ->where('jadwal_id', $jadwal->id)
+                    ->where('status_pemesanan', 'terbayar'))
+                ->first();
+
+            if (! $lockedDetail || ! $lockedDetail->pemesanan) {
+                abort(response()->json([
+                    'success' => false,
+                    'message' => 'Penumpang tidak ditemukan pada manifest aktif.',
+                ], 404));
+            }
+
+            if ($lockedDetail->status_kehadiran !== 'menunggu') {
+                abort(response()->json([
+                    'success' => false,
+                    'message' => 'Penumpang sudah boarding atau tidak dapat ditandai pickup.',
+                ], 422));
+            }
+
+            if (! $lockedDetail->dijemput_pada) {
+                $lockedDetail->update(['dijemput_pada' => now()]);
+            }
+
+            return $this->formatManifestPassenger(
+                $lockedDetail->pemesanan,
+                $lockedDetail->fresh(['tiketElektronik']),
+            );
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Status pickup penumpang berhasil ditandai.',
+            'data' => $passenger,
+        ]);
     }
 
     public function updateTripStatus(Request $request, Jadwal $jadwal): JsonResponse
@@ -297,6 +348,8 @@ class DriverController extends Controller
                 'latitude' => $booking->lintang_jemput !== null ? (float) $booking->lintang_jemput : null,
                 'longitude' => $booking->bujur_jemput !== null ? (float) $booking->bujur_jemput : null,
                 'address' => $booking->alamat_jemput,
+                'is_picked_up' => $detail->dijemput_pada !== null,
+                'picked_up_at' => $detail->dijemput_pada?->toIso8601String(),
             ],
             'baggage' => [
                 'items' => (int) $baggageItems,

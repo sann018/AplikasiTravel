@@ -18,37 +18,46 @@ Route::get('/ping', function () {
     ]);
 });
 
-Route::get('/mobile/bootstrap', [AppBootstrapController::class, 'index']);
-Route::get('/guest/jadwal', [GuestController::class, 'schedules']);
-Route::get('/guest/jadwal/{jadwal}', [BookingController::class, 'scheduleDetail']);
+Route::middleware('throttle:travs-read')->group(function () {
+    Route::get('/mobile/bootstrap', [AppBootstrapController::class, 'index']);
+    Route::get('/guest/jadwal', [GuestController::class, 'schedules']);
+    Route::get('/guest/jadwal/{jadwal}', [BookingController::class, 'scheduleDetail']);
+});
 Route::post('/payments/pakasir/webhook', [PaymentGatewayController::class, 'pakasirWebhook']);
 
 Route::prefix('auth')->group(function () {
-    Route::post('/register', [AuthController::class, 'register']);
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:travs-auth');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:travs-auth');
 
     Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/me', [AuthController::class, 'me']);
-        Route::post('/logout', [AuthController::class, 'logout']);
+        Route::get('/me', [AuthController::class, 'me'])->middleware('throttle:travs-read');
+        Route::post('/logout', [AuthController::class, 'logout'])->middleware('throttle:travs-action');
     });
 });
 
 Route::middleware(['auth:sanctum', 'role:penumpang'])->group(function () {
-    Route::get('/penumpang/dashboard', [PassengerController::class, 'dashboard']);
-    Route::get('/penumpang/bookings', [BookingController::class, 'index']);
-    Route::get('/penumpang/bookings/{booking}', [BookingController::class, 'show']);
-    Route::post('/penumpang/bookings/lock-form', [BookingController::class, 'lockForm']);
-    Route::post('/penumpang/bookings/estimate', [BookingController::class, 'estimate']);
-    Route::post('/penumpang/bookings/baggage-photo', [BookingController::class, 'uploadBaggagePhoto']);
-    Route::post('/penumpang/bookings', [BookingController::class, 'store']);
-    Route::post('/penumpang/bookings/{booking}/simulate-payment', [BookingController::class, 'simulatePayment']);
-    Route::post('/penumpang/bookings/{booking}/refresh-payment-status', [BookingController::class, 'refreshPaymentStatus']);
+    Route::middleware('throttle:travs-read')->group(function () {
+        Route::get('/penumpang/dashboard', [PassengerController::class, 'dashboard']);
+        Route::get('/penumpang/bookings', [BookingController::class, 'index']);
+        Route::get('/penumpang/bookings/{booking}', [BookingController::class, 'show']);
+    });
+
+    Route::post('/penumpang/bookings/lock-form', [BookingController::class, 'lockForm'])->middleware('throttle:travs-action');
+    Route::post('/penumpang/bookings/estimate', [BookingController::class, 'estimate'])->middleware('throttle:travs-action');
+    Route::post('/penumpang/bookings/baggage-photo', [BookingController::class, 'uploadBaggagePhoto'])->middleware('throttle:travs-upload');
+    Route::post('/penumpang/bookings', [BookingController::class, 'store'])->middleware('throttle:travs-action');
+    Route::post('/penumpang/bookings/{booking}/simulate-payment', [BookingController::class, 'simulatePayment'])->middleware('throttle:travs-action');
+    Route::post('/penumpang/bookings/{booking}/refresh-payment-status', [BookingController::class, 'refreshPaymentStatus'])->middleware('throttle:travs-action');
 });
 
 Route::middleware(['auth:sanctum', 'role:pengemudi'])->group(function () {
-    Route::get('/pengemudi/dashboard', [DriverController::class, 'dashboard']);
-    Route::get('/pengemudi/trips', [DriverController::class, 'trips']);
-    Route::get('/pengemudi/trips/{jadwal}/manifest', [DriverController::class, 'manifest']);
-    Route::post('/pengemudi/trips/{jadwal}/status', [DriverController::class, 'updateTripStatus']);
-    Route::post('/pengemudi/tickets/scan', [DriverController::class, 'scanTicket']);
+    Route::middleware('throttle:travs-read')->group(function () {
+        Route::get('/pengemudi/dashboard', [DriverController::class, 'dashboard']);
+        Route::get('/pengemudi/trips', [DriverController::class, 'trips']);
+        Route::get('/pengemudi/trips/{jadwal}/manifest', [DriverController::class, 'manifest']);
+    });
+
+    Route::post('/pengemudi/trips/{jadwal}/passengers/{detail}/pickup', [DriverController::class, 'markPassengerPickup'])->middleware('throttle:travs-action');
+    Route::post('/pengemudi/trips/{jadwal}/status', [DriverController::class, 'updateTripStatus'])->middleware('throttle:travs-action');
+    Route::post('/pengemudi/tickets/scan', [DriverController::class, 'scanTicket'])->middleware('throttle:travs-action');
 });

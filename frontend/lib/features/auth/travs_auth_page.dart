@@ -163,8 +163,8 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                                   Expanded(
                                     child: Text(
                                       _isRegisterMode
-                                          ? 'Daftar Akun TravS'
-                                          : 'Masuk ke TravelKu',
+                                          ? 'Daftar Akun Penumpang'
+                                          : 'Masuk ke TravS',
                                       style: theme.textTheme.titleLarge
                                           ?.copyWith(
                                             color: TravSTheme.navy,
@@ -185,11 +185,15 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                               const SizedBox(height: 6),
                               Text(
                                 _isRegisterMode
-                                    ? 'Lengkapi data utama dulu. Flow detail profil dan verifikasi bisa kita lanjutkan terpisah.'
-                                    : 'Masuk dengan email atau nomor HP agar booking, tiket, dan status layanan tetap sinkron.',
+                                    ? 'Pendaftaran mandiri dipakai untuk penumpang. Akun pengemudi dibuat admin agar data SIM dan kendaraan tetap valid.'
+                                    : 'Gunakan akun penumpang atau pengemudi agar pemesanan, tiket, dan status layanan tetap sinkron.',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: TravSTheme.navyMuted,
                                 ),
+                              ),
+                              const SizedBox(height: 14),
+                              _RoleAccessSummary(
+                                isRegisterMode: _isRegisterMode,
                               ),
                               const SizedBox(height: 18),
                               if (_errorMessage != null) ...[
@@ -228,11 +232,12 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                                 ),
                               ),
                               const SizedBox(height: 10),
-                              OutlinedButton(
+                              OutlinedButton.icon(
                                 onPressed: _isSubmitting
                                     ? null
                                     : widget.onContinueAsGuest,
-                                child: const Text('Masuk Sebagai Tamu'),
+                                icon: const Icon(Icons.visibility_outlined),
+                                label: const Text('Lanjut Sebagai Tamu'),
                               ),
                               const SizedBox(height: 10),
                               Text(
@@ -247,37 +252,6 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                             ],
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Tema aktif:',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.white70,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(color: Colors.white24),
-                            ),
-                            child: Text(
-                              'Navy + putih + aksen oranye',
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
@@ -526,12 +500,114 @@ class _AuthHero extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           isRegisterMode
-              ? 'Daftar lebih cepat untuk mulai booking travel, memilih kursi, dan menerima tiket digital.'
+              ? 'Daftar lebih cepat untuk mulai pemesanan travel, memilih kursi, dan menerima tiket digital.'
               : 'Masuk agar pemesanan, tiket QR, dan status layanan lebih tertata.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
         ),
       ],
+    );
+  }
+}
+
+class _RoleAccessSummary extends StatelessWidget {
+  const _RoleAccessSummary({required this.isRegisterMode});
+
+  final bool isRegisterMode;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: TravSTheme.surfaceSoft,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: TravSTheme.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Akses masuk',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: TravSTheme.navy,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _RoleAccessPill(
+                label: 'Penumpang',
+                icon: Icons.event_seat_outlined,
+                active: true,
+              ),
+              _RoleAccessPill(
+                label: 'Pengemudi',
+                icon: Icons.directions_car_filled_rounded,
+                active: !isRegisterMode,
+              ),
+              _RoleAccessPill(
+                label: 'Tamu',
+                icon: Icons.visibility_outlined,
+                active: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RoleAccessPill extends StatelessWidget {
+  const _RoleAccessPill({
+    required this.label,
+    required this.icon,
+    required this.active,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: active ? Colors.white : TravSTheme.surfaceMuted,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: active
+              ? TravSTheme.orange.withValues(alpha: 0.36)
+              : TravSTheme.line,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: active ? TravSTheme.orange : TravSTheme.navyMuted,
+            size: 16,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: active ? TravSTheme.navy : TravSTheme.navyMuted,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

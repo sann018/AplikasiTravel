@@ -6,6 +6,7 @@ import '../../core/models/travs_booking_contract.dart';
 import '../../core/models/travs_user_session.dart';
 import '../../core/services/travs_api_service.dart';
 import '../../core/theme/travs_theme.dart';
+import '../ticket/travs_ticket_detail_page.dart';
 
 class TravSBookingDetailPage extends StatefulWidget {
   const TravSBookingDetailPage({
@@ -116,6 +117,22 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
     }
   }
 
+  Future<void> _openTicketPage(TravSBookingResult booking) async {
+    final shouldRefresh = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => TravSTicketDetailPage(
+          session: widget.session,
+          bookingId: booking.id,
+        ),
+      ),
+    );
+
+    if (shouldRefresh == true && mounted) {
+      _shouldRefreshParent = true;
+      await _refresh();
+    }
+  }
+
   void _closePage() {
     Navigator.of(context).pop(_shouldRefreshParent);
   }
@@ -135,7 +152,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
             onPressed: _closePage,
             icon: const Icon(Icons.arrow_back_rounded),
           ),
-          title: const Text('Detail Booking'),
+          title: const Text('Detail Pemesanan'),
         ),
         body: Container(
           decoration: const BoxDecoration(gradient: TravSTheme.shellGradient),
@@ -168,11 +185,11 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                       _DetailSectionCard(
                         title: 'Ringkasan Pembayaran',
                         subtitle:
-                            'Status booking, metode bayar, dan total tagihan disinkronkan langsung dari backend.',
+                            'Status pemesanan, metode bayar, dan total tagihan disinkronkan langsung dari backend.',
                         child: Column(
                           children: [
                             _DetailRow(
-                              label: 'Status booking',
+                              label: 'Status pemesanan',
                               value: _humanizeStatus(booking.status),
                             ),
                             _DetailRow(
@@ -192,6 +209,33 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                               label: 'Total tagihan',
                               value: 'Rp${_formatCurrency(booking.totalHarga)}',
                               emphasize: true,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _DetailSectionCard(
+                        title: 'Tiket Pemesanan',
+                        subtitle:
+                            'Gunakan tombol ini untuk langsung membuka halaman tiket dan QR perjalanan.',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _DetailRow(
+                              label: 'Tiket aktif',
+                              value: '${booking.activeTicketCount}',
+                            ),
+                            const SizedBox(height: 14),
+                            ElevatedButton.icon(
+                              onPressed: () => _openTicketPage(booking),
+                              icon: const Icon(
+                                Icons.confirmation_number_rounded,
+                              ),
+                              label: Text(
+                                booking.activeTicketCount > 0
+                                    ? 'Buka Tiket'
+                                    : 'Lihat Status Tiket',
+                              ),
                             ),
                           ],
                         ),
@@ -255,7 +299,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                       _DetailSectionCard(
                         title: 'Bagasi',
                         subtitle:
-                            'Bagasi tambahan yang dimasukkan saat checkout akan tercatat di booking ini.',
+                            'Bagasi tambahan yang dimasukkan saat checkout akan tercatat di pemesanan ini.',
                         child: Column(
                           children: booking.baggageItems.isEmpty
                               ? const [
@@ -645,7 +689,7 @@ class _BookingErrorState extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'Detail booking belum bisa dimuat.',
+                  'Detail pemesanan belum bisa dimuat.',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: TravSTheme.navy,
                     fontWeight: FontWeight.w800,
