@@ -79,7 +79,7 @@ class KendaraanController extends Controller
 
     private function validatedPayload(Request $request, ?Kendaraan $kendaraan = null): array
     {
-        return $request->validate([
+        $validated = $request->validate([
             'nomor_plat' => [
                 'required',
                 'string',
@@ -91,6 +91,7 @@ class KendaraanController extends Controller
             'tahun_kendaraan' => ['nullable', 'integer', 'min:2000', 'max:2100'],
             'tipe_kendaraan' => ['nullable', 'string', 'max:100'],
             'kapasitas_kursi' => ['required', 'integer', 'min:1', 'max:20'],
+            'seat_layout' => ['nullable', 'string', 'max:200'],
             'fasilitas' => ['nullable', 'string'],
             'total_kilometer' => ['nullable', 'integer', 'min:0'],
             'km_servis_berikutnya' => ['nullable', 'integer', 'min:0'],
@@ -98,5 +99,19 @@ class KendaraanController extends Controller
             'tgl_pajak_tahunan' => ['nullable', 'date'],
             'status_kendaraan' => ['required', Rule::in(['aktif', 'perawatan', 'nonaktif'])],
         ]);
+
+        // Parse seat_layout dari string input (contoh: "1,3,2") menjadi JSON array.
+        // Admin memasukkan angka dipisahkan koma untuk menentukan jumlah kursi per baris.
+        if (! empty($validated['seat_layout'])) {
+            $layoutParts = array_filter(
+                array_map('intval', explode(',', $validated['seat_layout'])),
+                fn (int $value) => $value > 0,
+            );
+            $validated['seat_layout'] = ! empty($layoutParts) ? $layoutParts : null;
+        } else {
+            $validated['seat_layout'] = null;
+        }
+
+        return $validated;
     }
 }

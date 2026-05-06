@@ -48,6 +48,7 @@ class BookingController extends Controller
                     'tipe' => $jadwal->kendaraan->tipe_kendaraan,
                     'kapasitas' => $jadwal->kendaraan->kapasitas_kursi,
                     'fasilitas' => $jadwal->kendaraan->fasilitas,
+                    'seat_layout' => $jadwal->kendaraan->getSeatLayoutConfig(),
                 ],
                 'pengemudi' => [
                     'nama' => $jadwal->pengemudi->pengguna->nama,

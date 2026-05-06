@@ -701,6 +701,7 @@ class _SeatMapCard extends StatelessWidget {
             const SizedBox(height: 18),
             _VehicleSeatDeck(
               seats: detail.seatMap,
+              seatLayout: detail.seatLayout,
               selectedSeatNumbers: selectedSeatNumbers,
               canSelectSeats: canSelectSeats,
               onLockedTap: onLockedTap,
@@ -1284,6 +1285,7 @@ class _LockedBookingNotice extends StatelessWidget {
 class _VehicleSeatDeck extends StatelessWidget {
   const _VehicleSeatDeck({
     required this.seats,
+    required this.seatLayout,
     required this.selectedSeatNumbers,
     required this.canSelectSeats,
     required this.onLockedTap,
@@ -1291,6 +1293,11 @@ class _VehicleSeatDeck extends StatelessWidget {
   });
 
   final List<TravSSeatItem> seats;
+
+  /// Konfigurasi baris kursi dari admin (per kendaraan).
+  /// Contoh: [1, 3, 2] = baris depan 1 kursi, tengah 3 kursi, belakang 2 kursi.
+  final List<int> seatLayout;
+
   final Set<int> selectedSeatNumbers;
   final bool canSelectSeats;
   final VoidCallback onLockedTap;
@@ -1320,8 +1327,11 @@ class _VehicleSeatDeck extends StatelessWidget {
       );
     }
 
-    final layout = _buildVehicleSeatLayout(sortedSeats);
-    final rowCount = _seatRowPattern(sortedSeats.length).length;
+    final layout = _buildVehicleSeatLayout(sortedSeats, seatLayout);
+    final effectivePattern = seatLayout.isNotEmpty
+        ? seatLayout
+        : _seatRowPattern(sortedSeats.length);
+    final rowCount = effectivePattern.length;
     final deckAspectRatio = rowCount <= 4
         ? 0.68
         : rowCount <= 6
@@ -1402,10 +1412,15 @@ class _VehicleSeatLayoutItem {
   final double y;
 }
 
+/// Membangun posisi kursi berdasarkan seat_layout dari admin.
+/// Jika seatLayout kosong, fallback ke pattern default berdasarkan jumlah kursi.
 List<_VehicleSeatLayoutItem> _buildVehicleSeatLayout(
   List<TravSSeatItem> seats,
+  List<int> seatLayout,
 ) {
-  final rowPattern = _seatRowPattern(seats.length);
+  final rowPattern = seatLayout.isNotEmpty
+      ? seatLayout
+      : _seatRowPattern(seats.length);
   final rowCount = math.max(1, rowPattern.length);
   final items = <_VehicleSeatLayoutItem>[];
   var seatIndex = 0;

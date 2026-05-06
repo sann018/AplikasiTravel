@@ -19,7 +19,12 @@ class BookingCalculator
     public function calculate(Jadwal $jadwal, int $seatCount, array $baggageItems = []): array
     {
         $subtotalTiket = (float) $jadwal->rute->harga_tiket * $seatCount;
-        $adminFee = (float) PengaturanSistem::nilai('admin_fee', 0);
+
+        // Admin fee tidak lagi dihitung manual di sisi aplikasi.
+        // Fee ditentukan secara dinamis oleh Payment Gateway (Pakasir) saat
+        // transaksi dibuat, dan ditampilkan di response gateway sebagai 'fee'.
+        // Ini memastikan fee selalu akurat sesuai kebijakan gateway.
+        $adminFee = 0.0;
 
         $totals = [
             'weight' => 0.0,

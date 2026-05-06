@@ -572,6 +572,7 @@ class TravSScheduleDetail {
   const TravSScheduleDetail({
     required this.schedule,
     required this.seatMap,
+    required this.seatLayout,
     required this.bookingRules,
     required this.paymentMethods,
     required this.baggageRules,
@@ -584,6 +585,12 @@ class TravSScheduleDetail {
 
   final TravSSchedule schedule;
   final List<TravSSeatItem> seatMap;
+
+  /// Konfigurasi baris kursi dari backend (per kendaraan).
+  /// Format: [1, 3, 2] = baris 1 ada 1 kursi, baris 2 ada 3 kursi, baris 3 ada 2 kursi.
+  /// Jika kosong, frontend akan generate default berdasarkan jumlah kursi.
+  final List<int> seatLayout;
+
   final TravSBookingRules bookingRules;
   final TravSPaymentMethods paymentMethods;
   final TravSBaggageRules baggageRules;
@@ -603,11 +610,18 @@ class TravSScheduleDetail {
     final kendaraan = _asMap(json['kendaraan']);
     final pengemudi = _asMap(json['pengemudi']);
 
+    // Parse seat_layout dari response API kendaraan
+    final rawLayout = kendaraan['seat_layout'];
+    final seatLayout = rawLayout is List
+        ? rawLayout.map((e) => _readInt(e)).toList()
+        : <int>[];
+
     return TravSScheduleDetail(
       schedule: TravSSchedule.fromJson(json),
       seatMap: (json['seat_map'] as List<dynamic>? ?? <dynamic>[])
           .map((item) => TravSSeatItem.fromJson(item as Map<String, dynamic>))
           .toList(),
+      seatLayout: seatLayout,
       bookingRules: TravSBookingRules.fromJson(_asMap(json['booking_rules'])),
       paymentMethods: TravSPaymentMethods.fromJson(
         _asMap(json['payment_methods']),

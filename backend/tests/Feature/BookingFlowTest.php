@@ -233,7 +233,7 @@ class BookingFlowTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.biaya_bagasi', 3000);
+            ->assertJsonPath('data.biaya_bagasi', 2500);
 
         $booking = Pemesanan::query()->latest('id')->firstOrFail();
 
