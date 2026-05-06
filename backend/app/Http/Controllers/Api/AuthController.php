@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
@@ -97,6 +99,109 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Logout berhasil.',
+        ]);
+    }
+
+    /// Endpoint forgot password — membuat token reset dan mengembalikannya.
+    /// Pada implementasi production, token dikirim via email/SMS.
+    /// Untuk Tugas Akhir ini, token dikembalikan langsung agar bisa diuji
+    /// tanpa memerlukan mail server eksternal.
+    public function forgotPassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:100'],
+        ]);
+
+        $user = User::query()->where('email', $validated['email'])->first();
+
+        if (! $user) {
+            // Tidak membocorkan apakah email terdaftar atau tidak (rules #26)
+            return response()->json([
+                'success' => true,
+                'message' => 'Jika email terdaftar, token reset telah dikirim.',
+            ]);
+        }
+
+        // Hapus token lama jika ada, lalu buat token baru
+        DB::table('password_reset_tokens')->where('email', $user->email)->delete();
+
+        $token = Str::random(64);
+
+        DB::table('password_reset_tokens')->insert([
+            'email' => $user->email,
+            'token' => Hash::make($token),
+            'created_at' => now(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Jika email terdaftar, token reset telah dikirim.',
+            'data' => [
+                // Token dikembalikan langsung untuk keperluan demo/testing.
+                // Di production, token dikirim via email/SMS, bukan di response.
+                'reset_token' => $token,
+                'expires_in_minutes' => 60,
+            ],
+        ]);
+    }
+
+    /// Endpoint reset password — memvalidasi token dan mengubah password.
+    /// Token hanya bisa digunakan sekali dan kedaluwarsa dalam 60 menit.
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:100'],
+            'token' => ['required', 'string', 'max:100'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        $record = DB::table('password_reset_tokens')
+            ->where('email', $validated['email'])
+            ->first();
+
+        if (! $record) {
+            throw ValidationException::withMessages([
+                'token' => ['Token reset tidak valid atau sudah kedaluwarsa.'],
+            ]);
+        }
+
+        // Verifikasi token cocok (hashed di database)
+        if (! Hash::check($validated['token'], $record->token)) {
+            throw ValidationException::withMessages([
+                'token' => ['Token reset tidak valid atau sudah kedaluwarsa.'],
+            ]);
+        }
+
+        // Cek kedaluwarsa — 60 menit
+        $createdAt = \Carbon\Carbon::parse($record->created_at);
+        if ($createdAt->addMinutes(60)->isPast()) {
+            DB::table('password_reset_tokens')->where('email', $validated['email'])->delete();
+
+            throw ValidationException::withMessages([
+                'token' => ['Token reset sudah kedaluwarsa. Silakan minta token baru.'],
+            ]);
+        }
+
+        // Update password pengguna
+        $user = User::query()->where('email', $validated['email'])->first();
+
+        if (! $user) {
+            throw ValidationException::withMessages([
+                'email' => ['Akun tidak ditemukan.'],
+            ]);
+        }
+
+        $user->update(['password' => $validated['password']]);
+
+        // Hapus token setelah digunakan (sekali pakai)
+        DB::table('password_reset_tokens')->where('email', $validated['email'])->delete();
+
+        // Revoke semua token aktif agar user harus login ulang
+        $user->tokens()->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password berhasil direset. Silakan login dengan password baru.',
         ]);
     }
 

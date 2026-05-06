@@ -84,7 +84,7 @@ Implikasi prioritas:
 | [x] | `backend/app/Http/Controllers/Web/Admin/JadwalController.php` | CRUD jadwal berjalan dan bug reset kursi existing sudah ditangani | warning operasional masih bisa diperkuat | `refactor lanjut` | menjaga integritas data |
 | [x] | `backend/routes/console.php` | command `travs:release-expired-bookings` dan scheduler setiap menit sudah ada | perlu validasi di deployment server | `verify` | memenuhi aturan seat lock |
 | [x] | `backend/app/Http/Controllers/Api/BookingController.php` | schedule detail, estimate, lock form, store booking, history, detail, simulasi payment, dan refresh payment status sudah ada | payment refresh masih bergantung konfigurasi gateway | `extend` | menutup gap payment produksi |
-| [ ] | `backend/app/Http/Controllers/Api/AuthController.php` | register/login/logout/me dasar sudah ada | belum ada forgot/reset password | `extend` | melengkapi auth inti |
+| [x] | `backend/app/Http/Controllers/Api/AuthController.php` | register/login/logout/me/forgot/reset password sudah ada | auth inti lengkap | `done` | auth inti sudah lengkap |
 | [x] | `backend/app/Http/Controllers/Api/DriverController.php` | dashboard, manifest live, scan QR satu kali, action pickup, dan update status trip dasar sudah ada | monitoring admin trip belum final | `extend` | pengemudi sudah mulai operasional, masih perlu polish flow lapangan |
 | [x] | `backend/app/Http/Controllers/Web/Admin/PemesananController.php` | admin bisa lihat/ubah status booking dengan lifecycle guard | dashboard payment exception belum dipisah | `refactor lanjut` | mencegah status loncat |
 | [x] | `backend/app/Services/BookingCalculator.php` | rule bagasi, upload foto, biaya tambahan, dan kapasitas berat lintas booking sudah dihitung | perlu hardening retensi file upload | `refactor lanjut` | validasi operasional harus benar |
@@ -149,8 +149,8 @@ Keputusan umum:
 - [x] Endpoint `/api/auth/me`.
 - [x] Middleware role dasar untuk penumpang, pengemudi, dan admin.
 - [x] Admin login web.
-- [ ] Forgot password end-to-end.
-- [ ] Reset password end-to-end.
+- [x] Forgot password end-to-end.
+- [x] Reset password end-to-end.
 - [ ] Test forbidden access per role.
 - Definition of Done: role flow jelas dan akses endpoint terjaga.
 

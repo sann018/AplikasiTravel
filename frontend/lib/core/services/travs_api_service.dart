@@ -324,6 +324,49 @@ class TravSApiService {
     );
   }
 
+  /// Mengirim request forgot password ke backend.
+  /// Mengembalikan token reset jika email terdaftar.
+  Future<String?> forgotPassword({required String email}) async {
+    final response = await postWithFallback(
+      '/api/auth/forgot-password',
+      headers: jsonHeaders(),
+      body: jsonEncode({'email': email}),
+    );
+
+    final body = _tryDecodeMap(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw TravSApiException(_extractErrorMessage(body));
+    }
+
+    final data = body['data'] as Map<String, dynamic>?;
+    return data?['reset_token'] as String?;
+  }
+
+  /// Mengirim request reset password ke backend.
+  /// Membutuhkan email, token, dan password baru.
+  Future<void> resetPassword({
+    required String email,
+    required String token,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    final response = await postWithFallback(
+      '/api/auth/reset-password',
+      headers: jsonHeaders(),
+      body: jsonEncode({
+        'email': email,
+        'token': token,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+      }),
+    );
+
+    final body = _tryDecodeMap(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw TravSApiException(_extractErrorMessage(body));
+    }
+  }
+
   T _decodeDataObject<T>(
     http.Response response,
     T Function(Map<String, dynamic> data) parser,

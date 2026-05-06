@@ -314,7 +314,39 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         },
         onFieldSubmitted: (_) => _isSubmitting ? null : _submit(),
       ),
+      const SizedBox(height: 8),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton(
+          onPressed: _isSubmitting ? null : _openForgotPassword,
+          child: const Text(
+            'Lupa Password?',
+            style: TextStyle(
+              color: TravSTheme.navy,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
     ];
+  }
+
+  /// Membuka halaman lupa password agar pengguna bisa mereset password.
+  Future<void> _openForgotPassword() async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => const _ForgotPasswordPage(),
+      ),
+    );
+
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password berhasil direset. Silakan login dengan password baru.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   List<Widget> _buildRegisterFields() {
@@ -651,6 +683,348 @@ class _InlineMessage extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Halaman Lupa Password — dua langkah:
+/// 1. Masukkan email untuk menerima token reset
+/// 2. Masukkan token dan password baru untuk mereset
+class _ForgotPasswordPage extends StatefulWidget {
+  const _ForgotPasswordPage();
+
+  @override
+  State<_ForgotPasswordPage> createState() => _ForgotPasswordPageState();
+}
+
+class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
+  final TravSApiService _apiService = TravSApiService();
+  final _formKey = GlobalKey<FormState>();
+
+  // Controllers untuk step 1 (request token)
+  final _emailController = TextEditingController();
+
+  // Controllers untuk step 2 (reset password)
+  final _tokenController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  bool _isStep2 = false;
+  bool _isSubmitting = false;
+  String? _errorMessage;
+  String? _successMessage;
+  bool _passwordHidden = true;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _tokenController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  /// Step 1: Request token reset via email
+  Future<void> _requestToken() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+
+    try {
+      final token = await _apiService.forgotPassword(
+        email: _emailController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _isSubmitting = false;
+        _isStep2 = true;
+        _successMessage = 'Token reset telah dikirim ke email Anda.';
+        // Untuk demo/testing, token diisi otomatis dari response
+        if (token != null && token.isNotEmpty) {
+          _tokenController.text = token;
+        }
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage = error is TravSApiException
+            ? error.message
+            : 'Gagal mengirim token reset. Periksa koneksi internet.';
+      });
+    }
+  }
+
+  /// Step 2: Reset password dengan token
+  Future<void> _resetPassword() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await _apiService.resetPassword(
+        email: _emailController.text.trim(),
+        token: _tokenController.text.trim(),
+        password: _newPasswordController.text,
+        passwordConfirmation: _confirmPasswordController.text,
+      );
+
+      if (!mounted) return;
+
+      // Kembali ke halaman login dengan indikasi sukses
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage = error is TravSApiException
+            ? error.message
+            : 'Gagal mereset password. Silakan coba lagi.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_isStep2 ? 'Reset Password' : 'Lupa Password'),
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFF9FBFE), Color(0xFFF0F4FA)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Header
+                  Icon(
+                    _isStep2 ? Icons.lock_reset_rounded : Icons.email_outlined,
+                    size: 56,
+                    color: TravSTheme.navy,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    _isStep2
+                        ? 'Masukkan Token dan Password Baru'
+                        : 'Masukkan Email Terdaftar',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: TravSTheme.navy,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _isStep2
+                        ? 'Masukkan token yang diterima dan buat password baru minimal 8 karakter.'
+                        : 'Kami akan mengirimkan token reset password ke email Anda.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: TravSTheme.navyMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Error/Success messages
+                  if (_errorMessage != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF1F1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: TravSTheme.danger, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: const TextStyle(color: TravSTheme.danger, fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  if (_successMessage != null && !_isStep2) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEDF7ED),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle_outline, color: TravSTheme.success, size: 20),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _successMessage!,
+                              style: const TextStyle(color: TravSTheme.success, fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+
+                  // Form fields
+                  if (!_isStep2) ...[
+                    // Step 1: Email input
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.done,
+                      style: const TextStyle(color: TravSTheme.navy),
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        hintText: 'Masukkan email yang terdaftar',
+                        prefixIcon: Icon(Icons.mail_outline_rounded),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Email wajib diisi.';
+                        }
+                        if (!value.contains('@')) {
+                          return 'Format email tidak valid.';
+                        }
+                        return null;
+                      },
+                      onFieldSubmitted: (_) => _isSubmitting ? null : _requestToken(),
+                    ),
+                  ] else ...[
+                    // Step 2: Token + new password
+                    TextFormField(
+                      controller: _tokenController,
+                      textInputAction: TextInputAction.next,
+                      style: const TextStyle(color: TravSTheme.navy),
+                      decoration: const InputDecoration(
+                        labelText: 'Token Reset',
+                        hintText: 'Masukkan token dari email',
+                        prefixIcon: Icon(Icons.vpn_key_outlined),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Token reset wajib diisi.';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _newPasswordController,
+                      obscureText: _passwordHidden,
+                      textInputAction: TextInputAction.next,
+                      style: const TextStyle(color: TravSTheme.navy),
+                      decoration: InputDecoration(
+                        labelText: 'Password Baru',
+                        hintText: 'Minimal 8 karakter',
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(() => _passwordHidden = !_passwordHidden),
+                          icon: Icon(
+                            _passwordHidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                          ),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Password baru wajib diisi.';
+                        }
+                        if (value.length < 8) {
+                          return 'Password minimal 8 karakter.';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _confirmPasswordController,
+                      obscureText: _passwordHidden,
+                      textInputAction: TextInputAction.done,
+                      style: const TextStyle(color: TravSTheme.navy),
+                      decoration: const InputDecoration(
+                        labelText: 'Konfirmasi Password',
+                        hintText: 'Ulangi password baru',
+                        prefixIcon: Icon(Icons.lock_outline_rounded),
+                      ),
+                      validator: (value) {
+                        if (value != _newPasswordController.text) {
+                          return 'Konfirmasi password tidak cocok.';
+                        }
+                        return null;
+                      },
+                      onFieldSubmitted: (_) => _isSubmitting ? null : _resetPassword(),
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  // Submit button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isSubmitting
+                          ? null
+                          : _isStep2
+                              ? _resetPassword
+                              : _requestToken,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: TravSTheme.navy,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text(
+                        _isSubmitting
+                            ? 'Memproses...'
+                            : _isStep2
+                                ? 'Reset Password'
+                                : 'Kirim Token Reset',
+                      ),
+                    ),
+                  ),
+
+                  if (_isStep2) ...[
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: _isSubmitting
+                          ? null
+                          : () => setState(() {
+                                _isStep2 = false;
+                                _errorMessage = null;
+                              }),
+                      child: const Text('Kembali ke langkah pertama'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
