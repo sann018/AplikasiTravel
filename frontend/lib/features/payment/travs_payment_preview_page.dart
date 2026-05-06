@@ -163,16 +163,6 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
     );
   }
 
-  Future<void> _fillRecommendedPickup() async {
-    _applyPickup(
-      const TravSPickupPoint(
-        latitude: -0.0263,
-        longitude: 109.3425,
-        address: 'Titik jemput contoh: Jl. Ahmad Yani, Pontianak Kota',
-      ),
-    );
-  }
-
   void _applyPickup(TravSPickupPoint pickup) {
     setState(() {
       _pickupLatitudeController.text = pickup.latitude.toStringAsFixed(6);
@@ -436,7 +426,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Pembayaran simulasi berhasil. Tiket siap diterbitkan.',
+            'Pembayaran berhasil diverifikasi. Tiket siap diterbitkan.',
           ),
           behavior: SnackBarBehavior.floating,
         ),
@@ -448,7 +438,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
     } catch (_) {
       setState(() {
         _errorMessage =
-            'Simulasi pembayaran gagal dijalankan. Silakan coba beberapa saat lagi.';
+            'Verifikasi pembayaran gagal dijalankan. Silakan coba beberapa saat lagi.';
       });
     } finally {
       if (mounted) {
@@ -742,11 +732,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
                 icon: const Icon(Icons.map_outlined),
                 label: const Text('Pilih di Peta'),
               ),
-              OutlinedButton.icon(
-                onPressed: _fillRecommendedPickup,
-                icon: const Icon(Icons.edit_location_alt_outlined),
-                label: const Text('Isi Contoh'),
-              ),
+
             ],
           ),
           if (_hasPickupDraft) ...[
@@ -762,7 +748,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Preview Titik Jemput',
+                    'Titik Jemput Anda',
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: TravSTheme.navy,
                       fontWeight: FontWeight.w800,
@@ -1216,8 +1202,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
             ),
             label: Text(
               _isSimulatingPayment
-                  ? 'Memproses Simulasi...'
-                  : 'Simulasikan Pembayaran Gateway',
+                  ? 'Memproses...'
+                  : 'Verifikasi Pembayaran (Dev)',
             ),
           ),
         if (canSimulate) const SizedBox(height: 12),

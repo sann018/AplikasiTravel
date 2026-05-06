@@ -73,7 +73,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Pembayaran simulasi berhasil. Tiket sudah diterbitkan.',
+            'Pembayaran berhasil diverifikasi. Tiket sudah diterbitkan.',
           ),
           behavior: SnackBarBehavior.floating,
         ),
@@ -332,8 +332,8 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                           ),
                           label: Text(
                             _isSimulatingPayment
-                                ? 'Memproses Simulasi...'
-                                : 'Simulasikan Pembayaran',
+                                ? 'Memproses...'
+                                : 'Verifikasi Pembayaran (Dev)',
                           ),
                         ),
                     ],

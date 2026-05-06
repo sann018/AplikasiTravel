@@ -821,7 +821,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
         _ProfileMenuTile(
           icon: Icons.qr_code_scanner_rounded,
           title: 'Pindai Tiket',
-          subtitle: 'Buka halaman scan dan simulasi hasil validasi.',
+          subtitle: 'Buka halaman scan untuk validasi tiket penumpang.',
           onTap: _openScanner,
         ),
         const SizedBox(height: 10),

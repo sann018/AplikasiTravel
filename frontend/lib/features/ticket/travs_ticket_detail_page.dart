@@ -71,7 +71,7 @@ class _TravSTicketDetailPageState extends State<TravSTicketDetailPage> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Pembayaran simulasi berhasil. QR tiket sudah aktif.'),
+          content: Text('Pembayaran berhasil diverifikasi. QR tiket sudah aktif.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -300,8 +300,8 @@ class _EmptyTicketCard extends StatelessWidget {
                 ),
                 label: Text(
                   isSimulatingPayment
-                      ? 'Memproses Simulasi...'
-                      : 'Simulasikan Pembayaran',
+                      ? 'Memproses...'
+                      : 'Verifikasi Pembayaran (Dev)',
                 ),
               ),
             ],

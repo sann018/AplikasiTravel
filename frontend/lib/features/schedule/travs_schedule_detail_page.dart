@@ -512,8 +512,8 @@ class _HeroCard extends StatelessWidget {
             runSpacing: 10,
             children: [
               _BadgePill(
-                label: detail.isLive ? 'Live API' : 'Preview Lokal',
-                color: detail.isLive ? TravSTheme.success : TravSTheme.orange,
+                label: 'Data Langsung',
+                color: TravSTheme.success,
               ),
               _BadgePill(
                 label: selectedRole == AppRolePreview.driver

@@ -443,58 +443,7 @@ class TravSHomePayload {
   final String? serviceWhatsapp;
   final String? adminContact;
 
-  factory TravSHomePayload.mock() {
-    return const TravSHomePayload(
-      appName: 'TravS',
-      sourceLabel: 'Preview lokal siap untuk backend',
-      serviceWhatsapp: '0812 3456 7890',
-      adminContact: 'Rusly Travel Support',
-      featuredSchedules: [
-        TravSSchedule(
-          id: 1,
-          asal: 'Pontianak',
-          tujuan: 'Sintang',
-          jalur: 'Pontianak - Sanggau - Sintang',
-          pengemudi: 'Rusli Driver',
-          kendaraan: 'Toyota Hiace Premio - KB 1234 TS',
-          waktuBerangkat: '2026-04-23T07:30:00',
-          estimasiTiba: '2026-04-23T15:30:00',
-          hargaTiket: 225000,
-          sisaKursi: 4,
-          kapasitas: 6,
-          durasiMenit: 480,
-        ),
-        TravSSchedule(
-          id: 2,
-          asal: 'Pontianak',
-          tujuan: 'Sanggau',
-          jalur: 'Pontianak - Tayan - Sanggau',
-          pengemudi: 'Rusli Driver',
-          kendaraan: 'Daihatsu Luxio - KB 5678 TS',
-          waktuBerangkat: '2026-04-24T08:00:00',
-          estimasiTiba: '2026-04-24T13:30:00',
-          hargaTiket: 175000,
-          sisaKursi: 6,
-          kapasitas: 6,
-          durasiMenit: 330,
-        ),
-        TravSSchedule(
-          id: 3,
-          asal: 'Pontianak',
-          tujuan: 'Ketapang',
-          jalur: 'Pontianak - Nanga Tayap - Ketapang',
-          pengemudi: 'Bima Driver',
-          kendaraan: 'Isuzu ELF NLR - KB 9012 TS',
-          waktuBerangkat: '2026-04-25T09:00:00',
-          estimasiTiba: '2026-04-25T17:30:00',
-          hargaTiket: 240000,
-          sisaKursi: 5,
-          kapasitas: 8,
-          durasiMenit: 510,
-        ),
-      ],
-    );
-  }
+
 }
 
 class TravSSchedule {
@@ -629,74 +578,7 @@ class TravSScheduleDetail {
     );
   }
 
-  factory TravSScheduleDetail.mock(TravSSchedule schedule) {
-    final bookedCount = (schedule.kapasitas - schedule.sisaKursi).clamp(
-      0,
-      schedule.kapasitas,
-    );
-    final lockedCount = schedule.sisaKursi > 1 ? 1 : 0;
-    final seatMap = List<TravSSeatItem>.generate(schedule.kapasitas, (index) {
-      final seatNumber = index + 1;
 
-      if (seatNumber <= bookedCount) {
-        return TravSSeatItem(
-          id: seatNumber,
-          seatNumber: seatNumber,
-          status: 'dipesan',
-        );
-      }
-
-      if (seatNumber == bookedCount + lockedCount) {
-        return TravSSeatItem(
-          id: seatNumber,
-          seatNumber: seatNumber,
-          status: 'terkunci',
-        );
-      }
-
-      return TravSSeatItem(
-        id: seatNumber,
-        seatNumber: seatNumber,
-        status: 'tersedia',
-      );
-    });
-
-    return TravSScheduleDetail(
-      schedule: schedule,
-      seatMap: seatMap,
-      bookingRules: const TravSBookingRules(
-        maxSeatPerBooking: 4,
-        seatLockFormMinutes: 30,
-        seatLockPaymentMinutes: 5,
-        adminFee: 5000,
-      ),
-      paymentMethods: const TravSPaymentMethods(
-        transferEnabled: true,
-        qrisEnabled: true,
-        cashEnabled: true,
-      ),
-      baggageRules: const TravSBaggageRules(
-        weightEnabled: true,
-        freeWeightKg: 10,
-        maxWeightPerPersonKg: 20,
-        extraFeePerKg: 10000,
-        sizeEnabled: true,
-        freeSizeCm: 160,
-        maxSizePerPersonCm: 160,
-        extraFeePerCm: 500,
-        itemEnabled: true,
-        freeItemCount: 2,
-        maxItemPerPerson: 10,
-        extraFeePerItem: 3000,
-        photoRequired: true,
-      ),
-      vehicleFacilities: 'AC, charger USB, reclining seat',
-      vehicleType: 'Travel Executive',
-      driverLicenseNumber: 'SIM-A-TRAVS-001',
-      sourceLabel: 'Preview lokal sinkron dengan jadwal demo',
-      isLive: false,
-    );
-  }
 }
 
 class TravSSeatItem {
@@ -867,36 +749,7 @@ class TravSPassengerDashboard {
     );
   }
 
-  factory TravSPassengerDashboard.mock() {
-    return const TravSPassengerDashboard(
-      totalBooking: 6,
-      bookingAktif: 2,
-      tiketAktif: 1,
-      maxSeatPerBooking: 4,
-      recentBookings: [
-        TravSPassengerBookingItem(
-          id: 21,
-          kodeBooking: 'TRV-240425-001',
-          status: 'terbayar',
-          paymentStatus: 'berhasil',
-          totalHarga: 455000,
-          rute: 'Pontianak - Sintang',
-          waktuBerangkat: '2026-04-25T07:30:00',
-          jumlahTiket: 2,
-        ),
-        TravSPassengerBookingItem(
-          id: 19,
-          kodeBooking: 'TRV-240424-007',
-          status: 'menunggu_pembayaran',
-          paymentStatus: 'menunggu',
-          totalHarga: 180000,
-          rute: 'Pontianak - Sanggau',
-          waktuBerangkat: '2026-04-24T09:30:00',
-          jumlahTiket: 1,
-        ),
-      ],
-    );
-  }
+
 }
 
 class TravSPassengerBookingItem {
@@ -959,56 +812,7 @@ class TravSDriverDashboard {
     );
   }
 
-  factory TravSDriverDashboard.mock() {
-    return const TravSDriverDashboard(
-      jadwalAktif: 2,
-      penumpangTerdaftar: 7,
-      upcomingTrips: [
-        TravSDriverTripItem(
-          id: 1,
-          code: 'DRV-001',
-          rute: 'Pontianak - Sanggau',
-          waktuBerangkat: '2026-04-24T09:30:00',
-          kendaraan: 'Daihatsu Luxio KB 5678 TS',
-          status: 'dibuka',
-          passengerCount: 2,
-          revenue: 375000,
-          manifest: [
-            TravSDriverManifestPassenger(
-              name: 'Budi Santoso',
-              seatNumber: 1,
-              phone: '0812 1111 2201',
-              pickupAddress: 'Jl. Ahmad Yani, Pontianak',
-              baggageLabel: 'Tas kabin 1 item',
-              fareLabel: 'Rp 180.000',
-              attendanceStatus: 'menunggu',
-              ticketScanned: false,
-            ),
-            TravSDriverManifestPassenger(
-              name: 'Citra Lestari',
-              seatNumber: 2,
-              phone: '0812 1111 2202',
-              pickupAddress: 'Jl. Gusti Hamzah, Pontianak',
-              baggageLabel: 'Koper 1 item',
-              fareLabel: 'Rp 195.000',
-              attendanceStatus: 'menunggu',
-              ticketScanned: false,
-            ),
-          ],
-        ),
-        TravSDriverTripItem(
-          id: 2,
-          code: 'DRV-002',
-          rute: 'Pontianak - Sintang',
-          waktuBerangkat: '2026-04-25T07:30:00',
-          kendaraan: 'Toyota Hiace Premio KB 1234 TS',
-          status: 'berangkat',
-          passengerCount: 0,
-          revenue: 0,
-        ),
-      ],
-    );
-  }
+
 }
 
 class TravSDriverTripItem {

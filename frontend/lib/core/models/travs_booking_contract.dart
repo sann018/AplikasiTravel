@@ -376,67 +376,7 @@ class TravSBookingResult {
     );
   }
 
-  static List<TravSBookingResult> mockList() {
-    return const [
-      TravSBookingResult(
-        id: 21,
-        kodeBooking: 'TRV-240425-001',
-        status: 'terbayar',
-        jumlahKursi: 2,
-        batasPembayaran: '2026-04-25T06:30:00',
-        subtotalTiket: 450000,
-        biayaBagasi: 0,
-        biayaAdmin: 5000,
-        diskon: 0,
-        totalHarga: 455000,
-        rute: 'Pontianak - Sintang',
-        waktuBerangkat: '2026-04-25T07:30:00',
-        payment: TravSBookingPaymentInfo(
-          status: 'berhasil',
-          method: 'qris',
-          expiredAt: '2026-04-25T06:30:00',
-          canSimulate: true,
-          usesGateway: true,
-          provider: 'pakasir',
-          project: 'travs',
-          amount: 455000,
-          fee: 1000,
-          totalPayment: 456000,
-          paymentNumber: '00020101021226610016ID.CO.QRIS.WWW0215TRAVSDEMO...',
-          gatewayStatus: 'completed',
-        ),
-      ),
-      TravSBookingResult(
-        id: 19,
-        kodeBooking: 'TRV-240424-007',
-        status: 'menunggu_pembayaran',
-        jumlahKursi: 1,
-        batasPembayaran: '2026-04-24T08:50:00',
-        subtotalTiket: 175000,
-        biayaBagasi: 0,
-        biayaAdmin: 5000,
-        diskon: 0,
-        totalHarga: 180000,
-        rute: 'Pontianak - Sanggau',
-        waktuBerangkat: '2026-04-24T09:30:00',
-        payment: TravSBookingPaymentInfo(
-          status: 'menunggu',
-          method: 'qris',
-          expiredAt: '2026-04-24T08:50:00',
-          canSimulate: true,
-          usesGateway: true,
-          provider: 'pakasir',
-          project: 'travs',
-          amount: 180000,
-          fee: 900,
-          totalPayment: 180900,
-          paymentNumber:
-              '00020101021226610016ID.CO.QRIS.WWW0215TRAVSPENDING...',
-          gatewayStatus: 'pending',
-        ),
-      ),
-    ];
-  }
+
 }
 
 Map<String, dynamic> _asMap(dynamic value) {
