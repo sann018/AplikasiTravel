@@ -110,8 +110,8 @@ class _TravSHomePageState extends State<TravSHomePage> {
   }
 
   Future<void> _openScheduleDetail(TravSSchedule schedule) async {
-    final createdBooking = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
+    final result = await Navigator.of(context).push<Object>(
+      MaterialPageRoute<Object>(
         builder: (_) => TravSScheduleDetailPage(
           schedule: schedule,
           selectedRole: _role,
@@ -120,7 +120,15 @@ class _TravSHomePageState extends State<TravSHomePage> {
       ),
     );
 
-    if (createdBooking == true && mounted) {
+    if (!mounted) return;
+
+    // Jika guest klik tombol booking, arahkan langsung ke halaman login
+    if (result == 'open_login') {
+      widget.onOpenAuth();
+      return;
+    }
+
+    if (result == true) {
       await _refresh();
       _showMessage(
         'Pemesanan berhasil dibuat. Ringkasan pemesanan sudah diperbarui.',

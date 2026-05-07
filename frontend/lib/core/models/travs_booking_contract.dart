@@ -128,6 +128,7 @@ class TravSBookingPaymentInfo {
     required this.fee,
     required this.totalPayment,
     required this.paymentNumber,
+    required this.checkoutUrl,
     required this.gatewayStatus,
   });
 
@@ -142,9 +143,17 @@ class TravSBookingPaymentInfo {
   final double fee;
   final double totalPayment;
   final String paymentNumber;
+
+  /// URL halaman pembayaran Pakasir — penumpang diarahkan ke sini
+  /// untuk menyelesaikan pembayaran via browser.
+  final String checkoutUrl;
+
   final String gatewayStatus;
 
   bool get hasPaymentNumber => paymentNumber.trim().isNotEmpty;
+
+  /// Apakah ada URL checkout dari gateway untuk redirect pembayaran.
+  bool get hasCheckoutUrl => checkoutUrl.trim().isNotEmpty;
 
   factory TravSBookingPaymentInfo.fromJson(Map<String, dynamic> json) {
     return TravSBookingPaymentInfo(
@@ -159,6 +168,7 @@ class TravSBookingPaymentInfo {
       fee: _readDouble(json['fee']),
       totalPayment: _readDouble(json['total_payment']),
       paymentNumber: json['payment_number'] as String? ?? '',
+      checkoutUrl: json['checkout_url'] as String? ?? '',
       gatewayStatus: json['gateway_status'] as String? ?? '',
     );
   }

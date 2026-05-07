@@ -354,17 +354,11 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
                         isPreparingCheckout: _isPreparingCheckout,
                         onClearSeatSelection: () => _clearSeatSelection(detail),
                         onPrimaryAction: () async {
-                          if (widget.selectedRole == AppRolePreview.guest) {
-                            _showStageMessage(
-                              'Mode tamu hanya bisa melihat detail jadwal. Login dulu untuk mengunci kursi dan lanjut checkout.',
-                            );
-                            return;
-                          }
-
-                          if (widget.session == null) {
-                            _showStageMessage(
-                              'Sesi login tidak ditemukan. Silakan masuk ulang lalu coba booking lagi.',
-                            );
+                          // Jika tamu atau sesi kosong, langsung navigasi
+                          // kembali ke halaman login — bukan cuma toast.
+                          if (widget.selectedRole == AppRolePreview.guest ||
+                              widget.session == null) {
+                            Navigator.of(context).pop('open_login');
                             return;
                           }
 

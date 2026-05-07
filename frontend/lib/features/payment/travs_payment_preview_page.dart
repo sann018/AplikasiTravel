@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/models/app_role_preview.dart';
 import '../../core/models/travs_booking_contract.dart';
@@ -161,6 +162,42 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
       longitude: longitude,
       address: address,
     );
+  }
+
+  /// Otomatis konversi koordinat yang diketik manual menjadi nama alamat jalan.
+  /// Dipanggil saat user selesai mengedit field latitude atau longitude.
+  Future<void> _autoResolveAddressFromCoordinates() async {
+    final latitude = double.tryParse(_pickupLatitudeController.text.trim());
+    final longitude = double.tryParse(_pickupLongitudeController.text.trim());
+
+    // Hanya resolve jika kedua koordinat valid
+    if (latitude == null || longitude == null) return;
+    if (latitude < -90 || latitude > 90) return;
+    if (longitude < -180 || longitude > 180) return;
+
+    setState(() {
+      _isResolvingPickup = true;
+    });
+
+    try {
+      final pickup = await _locationService.resolvePickupFromCoordinates(
+        latitude: latitude,
+        longitude: longitude,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _pickupAddressController.text = pickup.address;
+        _isResolvingPickup = false;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isResolvingPickup = false;
+        });
+      }
+    }
   }
 
   void _applyPickup(TravSPickupPoint pickup) {
@@ -393,6 +430,33 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
       if (mounted) {
         setState(() {
           _isSubmitting = false;
+        });
+      }
+    }
+  }
+
+  /// Membuka halaman pembayaran Pakasir di browser eksternal.
+  /// Penumpang menyelesaikan pembayaran di sana, lalu kembali ke aplikasi.
+  Future<void> _openPaymentCheckout(String url) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null) {
+      setState(() {
+        _errorMessage = 'URL pembayaran tidak valid. Silakan coba lagi.';
+      });
+      return;
+    }
+
+    try {
+      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched && mounted) {
+        setState(() {
+          _errorMessage = 'Tidak dapat membuka halaman pembayaran. Pastikan browser tersedia.';
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Gagal membuka halaman pembayaran Pakasir.';
         });
       }
     }
@@ -793,6 +857,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
                     min: -90,
                     max: 90,
                   ),
+                  // Otomatis resolve alamat saat user selesai edit koordinat
+                  onEditingComplete: _autoResolveAddressFromCoordinates,
                 ),
               ),
               const SizedBox(width: 12),
@@ -813,6 +879,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
                     min: -180,
                     max: 180,
                   ),
+                  // Otomatis resolve alamat saat user selesai edit koordinat
+                  onEditingComplete: _autoResolveAddressFromCoordinates,
                 ),
               ),
             ],
@@ -822,10 +890,12 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
             controller: _pickupAddressController,
             minLines: 2,
             maxLines: 3,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               labelText: 'Alamat Jemput',
-              hintText:
-                  'Masukkan alamat hasil reverse geocoding atau alamat lengkap.',
+              hintText: 'Terisi otomatis dari koordinat GPS atau peta.',
+              helperText: _isResolvingPickup
+                  ? 'Mengambil nama alamat dari koordinat...'
+                  : null,
             ),
             validator: (value) => _validateRequiredText(value, 'Alamat jemput'),
           ),
@@ -932,7 +1002,10 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
                   ),
               ],
             ),
-          if (_hasBaggageData || widget.detail.baggageRules.photoRequired) ...[
+          // Upload foto bagasi selalu ditampilkan untuk penumpang login,
+          // tidak peduli apakah ada data bagasi atau tidak — agar pengguna
+          // bisa mendokumentasikan barang bawaan mereka.
+          ...[
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
@@ -1234,8 +1307,9 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
     if (payment.method == 'qris') {
       return _SectionCard(
         title: usesGateway ? 'Pembayaran Gateway' : 'Detail Pembayaran',
-        subtitle:
-            'Tampilan QRIS menyesuaikan pola payment gateway agar penumpang mudah lanjut membayar dari e-wallet atau mobile banking.',
+        subtitle: payment.hasCheckoutUrl
+            ? 'Tekan tombol di bawah untuk membuka halaman pembayaran Pakasir dan menyelesaikan transaksi.'
+            : 'Scan QRIS di bawah menggunakan e-wallet atau mobile banking untuk menyelesaikan pembayaran.',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1245,6 +1319,31 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
                   'Project ${payment.project.isEmpty ? 'travs' : payment.project}',
             ),
             const SizedBox(height: 14),
+
+            // Jika ada checkout URL dari Pakasir, tampilkan tombol utama
+            // untuk redirect ke halaman pembayaran Pakasir — bukan QRIS statis.
+            if (payment.hasCheckoutUrl) ...[
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _openPaymentCheckout(payment.checkoutUrl),
+                  icon: const Icon(Icons.open_in_browser_rounded),
+                  label: const Text('Bayar via Pakasir'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: TravSTheme.navy,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    textStyle: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+
+            // QRIS ditampilkan sebagai fallback atau pelengkap
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
@@ -1255,33 +1354,29 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
               ),
               child: Column(
                 children: [
-                  Container(
-                    width: 210,
-                    height: 210,
-                    decoration: BoxDecoration(
-                      color: TravSTheme.surfaceSoft,
-                      borderRadius: BorderRadius.circular(24),
+                  if (payment.hasPaymentNumber) ...[
+                    Container(
+                      width: 210,
+                      height: 210,
+                      decoration: BoxDecoration(
+                        color: TravSTheme.surfaceSoft,
+                        borderRadius: BorderRadius.circular(24),
+                      ),
+                      child: Center(
+                        child: QrImageView(
+                          data: payment.paymentNumber,
+                          version: QrVersions.auto,
+                          size: 176,
+                          backgroundColor: Colors.white,
+                        ),
+                      ),
                     ),
-                    child: payment.hasPaymentNumber
-                        ? Center(
-                            child: QrImageView(
-                              data: payment.paymentNumber,
-                              version: QrVersions.auto,
-                              size: 176,
-                              backgroundColor: Colors.white,
-                            ),
-                          )
-                        : const Center(
-                            child: Icon(
-                              Icons.qr_code_2_rounded,
-                              size: 70,
-                              color: TravSTheme.navy,
-                            ),
-                          ),
-                  ),
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 12),
+                  ],
                   Text(
-                    'Scan QRIS untuk melanjutkan pembayaran',
+                    payment.hasCheckoutUrl
+                        ? 'Atau scan QRIS di atas dari e-wallet'
+                        : 'Scan QRIS untuk melanjutkan pembayaran',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       color: TravSTheme.navy,
                       fontWeight: FontWeight.w800,
@@ -1289,7 +1384,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Status gateway: ${payment.gatewayStatus.isEmpty ? 'pending' : payment.gatewayStatus}',
+                    'Status: ${payment.gatewayStatus.isEmpty ? 'menunggu pembayaran' : payment.gatewayStatus}',
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: TravSTheme.navyMuted,
                     ),
@@ -1313,12 +1408,18 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
               emphasize: true,
             ),
             const SizedBox(height: 14),
-            const _InstructionList(
-              steps: [
-                'Buka aplikasi e-wallet atau mobile banking.',
-                'Scan QRIS yang tampil pada layar pembayaran.',
-                'Pastikan nominal sesuai sebelum konfirmasi pembayaran.',
-              ],
+            _InstructionList(
+              steps: payment.hasCheckoutUrl
+                  ? const [
+                      'Tekan tombol "Bayar via Pakasir" untuk membuka halaman pembayaran.',
+                      'Selesaikan pembayaran di halaman Pakasir yang terbuka.',
+                      'Kembali ke aplikasi setelah pembayaran berhasil.',
+                    ]
+                  : const [
+                      'Buka aplikasi e-wallet atau mobile banking.',
+                      'Scan QRIS yang tampil pada layar pembayaran.',
+                      'Pastikan nominal sesuai sebelum konfirmasi pembayaran.',
+                    ],
             ),
           ],
         ),
