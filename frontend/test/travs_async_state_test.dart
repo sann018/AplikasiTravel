@@ -17,9 +17,7 @@ void main() {
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(body: TravSAsyncState.loading()),
-        ),
+        MaterialApp(home: Scaffold(body: TravSAsyncState.loading())),
       );
 
       // Harus ada CircularProgressIndicator
@@ -83,7 +81,7 @@ void main() {
 
       // Harus menampilkan pesan koneksi yang ramah
       expect(
-        find.textContaining('Tidak dapat terhubung ke server'),
+        find.textContaining('Tidak dapat terhubung ke layanan'),
         findsOneWidget,
       );
     });
@@ -101,36 +99,34 @@ void main() {
         ),
       );
 
-      expect(
-        find.textContaining('terlalu lama'),
-        findsOneWidget,
-      );
+      expect(find.textContaining('terlalu lama'), findsOneWidget);
     });
 
-    testWidgets('error state menampilkan tombol retry jika callback diberikan', (
-      WidgetTester tester,
-    ) async {
-      var retryCount = 0;
+    testWidgets(
+      'error state menampilkan tombol retry jika callback diberikan',
+      (WidgetTester tester) async {
+        var retryCount = 0;
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: TravSAsyncState.error(
-              error: const TravSApiException('Gagal.'),
-              onRetry: () => retryCount++,
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: TravSAsyncState.error(
+                error: const TravSApiException('Gagal.'),
+                onRetry: () => retryCount++,
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      // Harus ada tombol "Coba Lagi"
-      final retryButton = find.text('Coba Lagi');
-      expect(retryButton, findsOneWidget);
+        // Harus ada tombol "Coba Lagi"
+        final retryButton = find.text('Coba Lagi');
+        expect(retryButton, findsOneWidget);
 
-      // Tap tombol retry
-      await tester.tap(retryButton);
-      expect(retryCount, 1);
-    });
+        // Tap tombol retry
+        await tester.tap(retryButton);
+        expect(retryCount, 1);
+      },
+    );
 
     testWidgets('error state tidak menampilkan tombol retry jika null', (
       WidgetTester tester,
@@ -156,9 +152,7 @@ void main() {
       WidgetTester tester,
     ) async {
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(body: TravSAsyncState.empty()),
-        ),
+        MaterialApp(home: Scaffold(body: TravSAsyncState.empty())),
       );
 
       expect(find.text('Belum Ada Data'), findsOneWidget);
@@ -208,7 +202,7 @@ void main() {
       final networkMsg = TravSAsyncState.friendlyErrorMessage(
         Exception('SocketException: Connection refused'),
       );
-      expect(networkMsg, contains('terhubung ke server'));
+      expect(networkMsg, contains('terhubung ke layanan'));
     });
   });
 }

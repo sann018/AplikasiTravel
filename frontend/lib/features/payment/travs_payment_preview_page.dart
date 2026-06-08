@@ -97,9 +97,9 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
   late final List<_PaymentMethodOption> _paymentOptions;
   String? _selectedMethod;
   bool _isSubmitting = false;
-  bool _isSimulatingPayment = false;
   bool _isResolvingPickup = false;
   bool _isUploadingBaggagePhoto = false;
+  bool _hasOpenedGatewayCheckout = false;
   String? _errorMessage;
   TravSBookingResult? _createdBooking;
   XFile? _selectedBaggagePhoto;
@@ -263,6 +263,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
         source: source,
         imageQuality: 82,
         maxWidth: 1600,
+        maxHeight: 1600,
       );
 
       if (photo == null || !mounted) {
@@ -292,8 +293,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
     }
 
     final uploaded = _uploadedBaggagePhoto;
-    if (uploaded != null && uploaded.url.isNotEmpty) {
-      return uploaded.url;
+    if (uploaded != null && uploaded.path.isNotEmpty) {
+      return uploaded.path;
     }
 
     final selectedPhoto = _selectedBaggagePhoto;
@@ -325,7 +326,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
         _uploadedBaggagePhoto = uploadedPhoto;
       });
 
-      return uploadedPhoto.url;
+      return uploadedPhoto.path;
     } on TravSApiException catch (error) {
       if (mounted) {
         setState(() {
@@ -336,7 +337,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
       if (mounted) {
         setState(() {
           _errorMessage =
-              'Upload foto barang bawaan gagal. Periksa koneksi backend lalu coba lagi.';
+              'Upload foto barang bawaan gagal. Periksa koneksi internet lalu coba lagi.';
         });
       }
     } finally {
@@ -354,7 +355,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
     if (_selectedMethod == null) {
       setState(() {
         _errorMessage =
-            'Belum ada metode pembayaran aktif. Aktifkan minimal satu metode di pengaturan admin.';
+            'Belum ada metode pembayaran aktif. Silakan hubungi admin.';
       });
       return;
     }
@@ -417,6 +418,14 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+
+      if ((booking.payment.method == 'qris' ||
+              booking.payment.method == 'transfer') &&
+          booking.payment.hasCheckoutUrl &&
+          !_hasOpenedGatewayCheckout) {
+        _hasOpenedGatewayCheckout = true;
+        await _openPaymentCheckout(booking.payment.checkoutUrl);
+      }
     } on TravSApiException catch (error) {
       setState(() {
         _errorMessage = error.message;
@@ -447,67 +456,20 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
     }
 
     try {
-      final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      final launched = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
       if (!launched && mounted) {
         setState(() {
-          _errorMessage = 'Tidak dapat membuka halaman pembayaran. Pastikan browser tersedia.';
+          _errorMessage =
+              'Tidak dapat membuka halaman pembayaran. Pastikan browser tersedia.';
         });
       }
     } catch (_) {
       if (mounted) {
         setState(() {
           _errorMessage = 'Gagal membuka halaman pembayaran Pakasir.';
-        });
-      }
-    }
-  }
-
-  Future<void> _simulatePayment() async {
-    final booking = _createdBooking;
-    if (booking == null) {
-      return;
-    }
-
-    setState(() {
-      _isSimulatingPayment = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final result = await _apiService.simulatePayment(
-        token: widget.session.token,
-        bookingId: booking.id,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _createdBooking = result;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Pembayaran berhasil diverifikasi. Tiket siap diterbitkan.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } on TravSApiException catch (error) {
-      setState(() {
-        _errorMessage = error.message;
-      });
-    } catch (_) {
-      setState(() {
-        _errorMessage =
-            'Verifikasi pembayaran gagal dijalankan. Silakan coba beberapa saat lagi.';
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSimulatingPayment = false;
         });
       }
     }
@@ -614,31 +576,83 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
     return null;
   }
 
+  Future<void> _confirmLeaveFlow() async {
+    final isPaymentStep = _createdBooking != null;
+    final title = isPaymentStep
+        ? 'Batalkan pembayaran?'
+        : 'Batalkan pemesanan?';
+    final content = isPaymentStep
+        ? 'Pembayaran belum selesai. Jika dibatalkan, kamu bisa kehilangan batas waktu pembayaran yang sedang berjalan.'
+        : 'Data pemesanan yang belum dikirim akan hilang jika kamu keluar dari halaman ini.';
+    final cancelLabel = isPaymentStep
+        ? 'Ya, batalkan pembayaran'
+        : 'Ya, batalkan pemesanan';
+    final continueLabel = isPaymentStep
+        ? 'Lanjutkan pembayaran'
+        : 'Lanjutkan pemesanan';
+
+    final shouldLeave = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(content),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(continueLabel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: Text(cancelLabel),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldLeave == true && mounted) {
+      Navigator.of(context).pop(false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          _createdBooking == null ? 'Pemesanan Jadwal' : 'Pembayaran',
+    return PopScope<bool>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          _confirmLeaveFlow();
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            onPressed: _confirmLeaveFlow,
+            icon: const Icon(Icons.arrow_back_rounded),
+          ),
+          title: Text(
+            _createdBooking == null ? 'Pemesanan Jadwal' : 'Pembayaran',
+          ),
         ),
-      ),
-      body: Container(
-        decoration: const BoxDecoration(gradient: TravSTheme.shellGradient),
-        child: SafeArea(
-          child: _createdBooking == null
-              ? _CheckoutFormView(
-                  formKey: _formKey,
-                  header: _buildHeaderCard(context),
-                  paymentMethodCard: _buildPaymentMethodCard(context),
-                  pickupCard: _buildPickupCard(context),
-                  passengerCard: _buildPassengerCard(context),
-                  baggageCard: _buildBaggageCard(context),
-                  summaryCard: _buildSummaryCard(context),
-                  errorMessage: _errorMessage,
-                  isSubmitting: _isSubmitting,
-                  onSubmit: _submitBooking,
-                )
-              : _buildCreatedBookingView(context, _createdBooking!),
+        body: Container(
+          decoration: const BoxDecoration(gradient: TravSTheme.shellGradient),
+          child: SafeArea(
+            child: _createdBooking == null
+                ? _CheckoutFormView(
+                    formKey: _formKey,
+                    header: _buildHeaderCard(context),
+                    paymentMethodCard: _buildPaymentMethodCard(context),
+                    pickupCard: _buildPickupCard(context),
+                    passengerCard: _buildPassengerCard(context),
+                    baggageCard: _buildBaggageCard(context),
+                    summaryCard: _buildSummaryCard(context),
+                    errorMessage: _errorMessage,
+                    isSubmitting: _isSubmitting,
+                    onSubmit: _submitBooking,
+                  )
+                : _buildCreatedBookingView(context, _createdBooking!),
+          ),
         ),
       ),
     );
@@ -743,7 +757,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                'Belum ada metode pembayaran aktif dari backend.',
+                'Belum ada metode pembayaran yang tersedia saat ini.',
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: TravSTheme.orange,
                   fontWeight: FontWeight.w700,
@@ -772,7 +786,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
     return _SectionCard(
       title: 'Titik Jemput',
       subtitle:
-          'Pilih titik jemput dari GPS atau peta, lalu alamat akan diisi dengan reverse geocoding agar admin dan pengemudi menerima lokasi yang jelas.',
+          'Pilih titik jemput dari GPS atau peta, lalu alamat akan diisi otomatis agar admin dan pengemudi menerima lokasi yang jelas.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -796,7 +810,6 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
                 icon: const Icon(Icons.map_outlined),
                 label: const Text('Pilih di Peta'),
               ),
-
             ],
           ),
           if (_hasPickupDraft) ...[
@@ -820,7 +833,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '${_pickupLatitudeController.text.trim()}, ${_pickupLongitudeController.text.trim()}',
+                    _pickupAddressController.text.trim(),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: TravSTheme.navy,
                       fontWeight: FontWeight.w700,
@@ -828,7 +841,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    _pickupAddressController.text.trim(),
+                    'Koordinat: ${_pickupLatitudeController.text.trim()}, ${_pickupLongitudeController.text.trim()}',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: TravSTheme.navyMuted,
                     ),
@@ -935,8 +948,10 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
                       TextFormField(
                         controller: passenger.nameController,
                         textCapitalization: TextCapitalization.words,
-                        decoration: const InputDecoration(
-                          labelText: 'Nama Penumpang',
+                        decoration: _passengerInputDecoration(
+                          icon: Icons.person_outline_rounded,
+                          label: 'Nama lengkap penumpang',
+                          hint: 'Contoh: Ihsan Penumpang',
                         ),
                         validator: (value) =>
                             _validateRequiredText(value, 'Nama penumpang'),
@@ -945,8 +960,10 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
                       TextFormField(
                         controller: passenger.phoneController,
                         keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(
-                          labelText: 'Nomor HP Penumpang',
+                        decoration: _passengerInputDecoration(
+                          icon: Icons.phone_outlined,
+                          label: 'Nomor HP / WhatsApp',
+                          hint: 'Contoh: 081234567891',
                         ),
                         validator: (value) =>
                             _validateRequiredText(value, 'Nomor HP penumpang'),
@@ -961,13 +978,39 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
     );
   }
 
+  InputDecoration _passengerInputDecoration({
+    required IconData icon,
+    required String label,
+    required String hint,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      hintText: hint,
+      prefixIcon: Icon(icon),
+      filled: true,
+      fillColor: Colors.white,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: TravSTheme.line),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: TravSTheme.line),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: TravSTheme.orange, width: 1.4),
+      ),
+    );
+  }
+
   Widget _buildBaggageCard(BuildContext context) {
     final theme = Theme.of(context);
 
     return _SectionCard(
       title: 'Barang Bawaan',
-      subtitle:
-          'Ringkasan barang bawaan tetap ditampilkan di checkout agar selaras dengan wireframe pemesanan jadwal.',
+      subtitle: 'Ringkasan barang bawaan yang akan dibawa dalam perjalanan.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1112,10 +1155,11 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
             label: 'Subtotal tiket',
             value: 'Rp${_formatCurrency(widget.checkoutDraft.ticketSubtotal)}',
           ),
-          _SummaryRow(
-            label: 'Biaya admin',
-            value: 'Rp${_formatCurrency(widget.checkoutDraft.adminFee)}',
-          ),
+          if (widget.checkoutDraft.adminFee > 0)
+            _SummaryRow(
+              label: 'Biaya admin',
+              value: 'Rp${_formatCurrency(widget.checkoutDraft.adminFee)}',
+            ),
           if (widget.checkoutDraft.weightFee > 0)
             _SummaryRow(
               label:
@@ -1151,13 +1195,12 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
   ) {
     final payment = booking.payment;
     final isPaid = payment.status == 'berhasil';
-    final canSimulate = payment.canSimulate && payment.status == 'menunggu';
     final helperText = isPaid
         ? 'Pembayaran sudah terkonfirmasi. Tiket elektronik siap dibuka dari daftar tiket penumpang.'
         : payment.method == 'cash'
         ? 'Pemesanan berhasil tersimpan. Pembayaran tunai masih perlu dilunasi dan diverifikasi admin.'
         : payment.method == 'transfer'
-        ? 'Pemesanan berhasil tersimpan. Selesaikan transfer sebelum ${_formatDateTime(payment.expiredAt)}.'
+        ? 'Pemesanan berhasil tersimpan. Lanjutkan transfer melalui Pakasir sebelum ${_formatDateTime(payment.expiredAt)}.'
         : 'Pemesanan berhasil tersimpan. Lanjutkan pembayaran gateway sebelum ${_formatDateTime(payment.expiredAt)}.';
 
     return ListView(
@@ -1267,19 +1310,6 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
           _MessageBanner(message: _errorMessage!),
         ],
         const SizedBox(height: 16),
-        if (canSimulate)
-          ElevatedButton.icon(
-            onPressed: _isSimulatingPayment ? null : _simulatePayment,
-            icon: Icon(
-              _isSimulatingPayment ? Icons.sync_rounded : Icons.bolt_rounded,
-            ),
-            label: Text(
-              _isSimulatingPayment
-                  ? 'Memproses...'
-                  : 'Verifikasi Pembayaran (Dev)',
-            ),
-          ),
-        if (canSimulate) const SizedBox(height: 12),
         OutlinedButton.icon(
           onPressed: () => Navigator.of(context).pop(true),
           icon: const Icon(Icons.check_circle_outline_rounded),
@@ -1428,46 +1458,69 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
 
     if (payment.method == 'transfer') {
       return _SectionCard(
-        title: usesGateway ? 'Detail Transfer' : 'Instruksi Transfer',
-        subtitle:
-            'Transfer ditata seperti halaman eksternal agar nomor pembayaran dan total tagihan langsung terbaca.',
+        title: usesGateway ? 'Transfer via Pakasir' : 'Instruksi Transfer',
+        subtitle: payment.hasCheckoutUrl
+            ? 'Tekan tombol bayar untuk membuka halaman Pakasir, lalu pilih bank atau virtual account yang tersedia.'
+            : 'Transfer ditata seperti halaman eksternal agar nomor pembayaran dan total tagihan langsung terbaca.',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _GatewayBadgeRow(
               title: 'Transfer via $providerLabel',
-              subtitle: 'Nomor pembayaran / virtual account',
+              subtitle: payment.hasCheckoutUrl
+                  ? 'Pilih bank di halaman Pakasir'
+                  : 'Nomor pembayaran / virtual account',
             ),
             const SizedBox(height: 14),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: TravSTheme.surfaceSoft,
-                borderRadius: BorderRadius.circular(22),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Nomor Pembayaran',
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: TravSTheme.navyMuted,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    payment.hasPaymentNumber
-                        ? payment.paymentNumber
-                        : booking.kodeBooking,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: TravSTheme.navy,
+            if (payment.hasCheckoutUrl) ...[
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _openPaymentCheckout(payment.checkoutUrl),
+                  icon: const Icon(Icons.open_in_browser_rounded),
+                  label: const Text('Bayar via Pakasir'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: TravSTheme.navy,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    textStyle: const TextStyle(
                       fontWeight: FontWeight.w800,
+                      fontSize: 16,
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 14),
+            ] else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: TravSTheme.surfaceSoft,
+                  borderRadius: BorderRadius.circular(22),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Nomor Pembayaran',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: TravSTheme.navyMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      payment.hasPaymentNumber
+                          ? payment.paymentNumber
+                          : booking.kodeBooking,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: TravSTheme.navy,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             const SizedBox(height: 14),
             _SummaryRow(
               label: 'Nominal transaksi',
@@ -1488,12 +1541,18 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
               value: _formatDateTime(payment.expiredAt),
             ),
             const SizedBox(height: 14),
-            const _InstructionList(
-              steps: [
-                'Salin nomor pembayaran atau virtual account yang tersedia.',
-                'Lakukan transfer sesuai nominal total pembayaran.',
-                'Simpan bukti transfer sampai status pembayaran berubah.',
-              ],
+            _InstructionList(
+              steps: payment.hasCheckoutUrl
+                  ? const [
+                      'Buka halaman Pakasir dari tombol bayar.',
+                      'Pilih bank atau virtual account yang tersedia di Pakasir.',
+                      'Selesaikan pembayaran sesuai nominal yang ditampilkan.',
+                    ]
+                  : const [
+                      'Salin nomor pembayaran atau virtual account yang tersedia.',
+                      'Lakukan transfer sesuai nominal total pembayaran.',
+                      'Simpan bukti transfer sampai status pembayaran berubah.',
+                    ],
             ),
           ],
         ),

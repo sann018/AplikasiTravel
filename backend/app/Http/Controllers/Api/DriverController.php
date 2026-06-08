@@ -11,6 +11,7 @@ use App\Models\TiketElektronik;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
@@ -78,6 +79,7 @@ class DriverController extends Controller
                     'detailPemesanan.pemesanan.jadwal.kendaraan',
                     'detailPemesanan.pemesanan.jadwal.pengemudi',
                     'detailPemesanan.pemesanan.itemBagasi',
+                    'detailPemesanan.pemesanan.pengguna',
                 ])
                 ->where('token_unik_qr', $payload['token'])
                 ->first();
@@ -154,6 +156,7 @@ class DriverController extends Controller
                 ->with([
                     'tiketElektronik',
                     'pemesanan.itemBagasi',
+                    'pemesanan.pengguna',
                     'pemesanan.jadwal.rute',
                     'pemesanan.jadwal.kendaraan',
                 ])
@@ -287,7 +290,7 @@ class DriverController extends Controller
             'kendaraan',
             'pemesanan' => fn ($query) => $query
                 ->whereIn('status_pemesanan', ['terbayar', 'selesai'])
-                ->with(['detailPemesanan.tiketElektronik', 'itemBagasi', 'pembayaran']),
+                ->with(['pengguna', 'detailPemesanan.tiketElektronik', 'itemBagasi', 'pembayaran']),
         ];
     }
 
@@ -342,6 +345,12 @@ class DriverController extends Controller
             'detail_id' => $detail->id,
             'nama_penumpang' => $detail->nama_penumpang,
             'no_hp_penumpang' => $detail->no_hp_penumpang,
+            'akun_pemesan' => [
+                'nama' => $booking->pengguna?->nama,
+                'email' => $booking->pengguna?->email,
+                'no_hp' => $booking->pengguna?->no_hp,
+                'foto_url' => $this->publicStorageUrl($booking->pengguna?->foto_profil),
+            ],
             'nomor_kursi' => (int) $detail->nomor_kursi,
             'status_kehadiran' => $detail->status_kehadiran,
             'pickup' => [
@@ -369,5 +378,40 @@ class DriverController extends Controller
                 'dipindai_pada' => $ticket->dipindai_pada?->toIso8601String(),
             ] : null,
         ];
+    }
+
+    public function uploadDriverPhoto(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'foto' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ]);
+
+        if ($user->foto_profil) {
+            Storage::disk('public')->delete($user->foto_profil);
+        }
+
+        $path = $validated['foto']->store('profiles', 'public');
+
+        $user->update(['foto_profil' => $path]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Foto profil pengemudi berhasil diunggah.',
+            'data' => [
+                'foto_profil' => $path,
+                'foto_profil_url' => $this->publicStorageUrl($path),
+            ],
+        ]);
+    }
+
+    private function publicStorageUrl(?string $path): ?string
+    {
+        if (! is_string($path) || trim($path) === '') {
+            return null;
+        }
+
+        return '/storage/'.ltrim($path, '/');
     }
 }

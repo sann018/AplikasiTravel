@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -6,25 +9,28 @@ import '../../core/models/app_role_preview.dart';
 import '../../core/models/travs_booking_contract.dart';
 import '../../core/models/travs_user_session.dart';
 import '../../core/services/travs_api_service.dart';
+import '../../core/services/travs_auth_service.dart';
 import '../../core/theme/travs_theme.dart';
 import '../../core/widgets/travs_async_state.dart';
 import '../booking/travs_booking_detail_page.dart';
 import '../schedule/travs_schedule_detail_page.dart';
 import '../ticket/travs_ticket_detail_page.dart';
 
-enum _ScheduleDateFilter { all, tomorrow, byTime }
+enum _ScheduleDateFilter { all, tomorrow, byDate }
 
 class TravSHomePage extends StatefulWidget {
   const TravSHomePage({
     required this.onOpenAuth,
     this.session,
     this.onLogout,
+    this.onSessionUpdated,
     super.key,
   });
 
   final TravSUserSession? session;
   final VoidCallback onOpenAuth;
   final Future<void> Function()? onLogout;
+  final ValueChanged<TravSUserSession>? onSessionUpdated;
 
   @override
   State<TravSHomePage> createState() => _TravSHomePageState();
@@ -32,11 +38,14 @@ class TravSHomePage extends StatefulWidget {
 
 class _TravSHomePageState extends State<TravSHomePage> {
   final TravSApiService _apiService = TravSApiService();
+  final TravSAuthService _authService = TravSAuthService();
 
   late Future<_HomeBundle> _future;
   int _selectedTabIndex = 0;
   String? _selectedRouteKey;
   _ScheduleDateFilter _selectedScheduleFilter = _ScheduleDateFilter.all;
+  DateTime? _selectedScheduleDate;
+  bool _hasSyncedSessionProfile = false;
 
   AppRolePreview get _role =>
       widget.session?.rolePreview ?? AppRolePreview.guest;
@@ -54,6 +63,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
   void initState() {
     super.initState();
     _future = _loadBundle();
+    Future<void>.microtask(_syncSessionProfileFromBackend);
   }
 
   @override
@@ -63,7 +73,34 @@ class _TravSHomePageState extends State<TravSHomePage> {
       _selectedTabIndex = 0;
       _selectedRouteKey = null;
       _selectedScheduleFilter = _ScheduleDateFilter.all;
+      _selectedScheduleDate = null;
+      _hasSyncedSessionProfile = false;
       _future = _loadBundle();
+      Future<void>.microtask(_syncSessionProfileFromBackend);
+    }
+  }
+
+  Future<void> _syncSessionProfileFromBackend() async {
+    final session = widget.session;
+    if (_hasSyncedSessionProfile || session == null) {
+      return;
+    }
+
+    _hasSyncedSessionProfile = true;
+
+    try {
+      final latestUser = await _apiService.loadCurrentUserProfile(
+        token: session.token,
+      );
+      if (!mounted) {
+        return;
+      }
+
+      final latestSession = session.copyWith(user: latestUser);
+      await _authService.saveSession(latestSession);
+      widget.onSessionUpdated?.call(latestSession);
+    } catch (_) {
+      // Profil tetap bisa dibuka dari session lama saat backend belum siap.
     }
   }
 
@@ -179,6 +216,46 @@ class _TravSHomePageState extends State<TravSHomePage> {
       _selectedTabIndex = 0;
       _selectedRouteKey = null;
       _selectedScheduleFilter = _ScheduleDateFilter.all;
+      _selectedScheduleDate = null;
+    });
+  }
+
+  Future<void> _openEditProfile(TravSUserSession session) async {
+    final updatedSession = await Navigator.of(context).push<TravSUserSession>(
+      MaterialPageRoute<TravSUserSession>(
+        builder: (_) => _EditProfilePage(
+          session: session,
+          apiService: _apiService,
+          authService: _authService,
+        ),
+      ),
+    );
+
+    if (updatedSession == null || !mounted) {
+      return;
+    }
+
+    widget.onSessionUpdated?.call(updatedSession);
+    await _refresh();
+    _showMessage('Profil berhasil diperbarui.');
+  }
+
+  Future<void> _pickScheduleDate() async {
+    final now = DateTime.now();
+    final selected = await showDatePicker(
+      context: context,
+      initialDate: _selectedScheduleDate ?? now,
+      firstDate: DateTime(now.year - 1),
+      lastDate: DateTime(now.year + 2),
+    );
+
+    if (selected == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedScheduleDate = selected;
+      _selectedScheduleFilter = _ScheduleDateFilter.byDate;
     });
   }
 
@@ -192,9 +269,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
   Future<void> _openNotifications(_HomeBundle bundle) async {
     final entries = _role == AppRolePreview.driver
         ? _buildDriverNotifications(_driverJourneys(bundle))
-        : _buildPassengerNotifications(
-            bundle.passengerBookings ?? const [],
-          );
+        : _buildPassengerNotifications(bundle.passengerBookings ?? const []);
 
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -319,6 +394,24 @@ class _TravSHomePageState extends State<TravSHomePage> {
     }).toList();
   }
 
+  int _passengerNotificationCount(_HomeBundle bundle) {
+    final bookings = bundle.passengerBookings ?? const [];
+    return bookings
+        .where(
+          (booking) =>
+              booking.payment.status == 'menunggu' ||
+              booking.status == 'menunggu_pembayaran',
+        )
+        .length;
+  }
+
+  Widget _notificationButton(_HomeBundle bundle) {
+    return _NotificationBadgeButton(
+      count: _passengerNotificationCount(bundle),
+      onTap: () => _openNotifications(bundle),
+    );
+  }
+
   List<Widget> _pagesForRole(_HomeBundle bundle) {
     switch (_role) {
       case AppRolePreview.driver:
@@ -348,12 +441,20 @@ class _TravSHomePageState extends State<TravSHomePage> {
 
   Widget _buildPassengerHome(_HomeBundle bundle) {
     final dashboard =
-        bundle.passengerDashboard ?? const TravSPassengerDashboard(
-          totalBooking: 0, bookingAktif: 0, tiketAktif: 0,
-          maxSeatPerBooking: 4, recentBookings: [],
+        bundle.passengerDashboard ??
+        const TravSPassengerDashboard(
+          totalBooking: 0,
+          bookingAktif: 0,
+          tiketAktif: 0,
+          maxSeatPerBooking: 4,
+          recentBookings: [],
         );
     final bookings = bundle.passengerBookings ?? const [];
-    final latestBooking = bookings.isEmpty ? null : bookings.first;
+    final nextPaidBooking = _nextPaidUpcomingBooking(bookings);
+    final waitingPayment = bookings
+        .where((booking) => booking.payment.status == 'menunggu')
+        .toList();
+    final routes = _buildRouteBookmarks(bundle.payload.featuredSchedules);
     final activeTicketCount = bookings.fold<int>(
       0,
       (total, booking) => total + booking.activeTicketCount,
@@ -366,16 +467,11 @@ class _TravSHomePageState extends State<TravSHomePage> {
         _PageTopBar(
           title: 'Halo, $_displayName!',
           subtitle: 'Mau pergi ke mana hari ini?',
-          trailing: IconButton(
-            onPressed: () => _openNotifications(bundle),
-            icon: const Icon(Icons.notifications_none_rounded),
-          ),
+          trailing: _notificationButton(bundle),
         ),
         const SizedBox(height: 16),
-        _HomeHeroCard(
-          title: 'Menu utama penumpang',
-          subtitle:
-              'Buka rute, cek pemesanan, lihat tiket, dan ikuti status layanan dari satu tempat.',
+        _PassengerDashboardHero(
+          name: _displayName,
           stats: [
             _HeroStat(
               label: 'Pemesanan aktif',
@@ -389,57 +485,67 @@ class _TravSHomePageState extends State<TravSHomePage> {
           ],
         ),
         const SizedBox(height: 18),
-        _SectionHeader(
-          eyebrow: 'Menu',
-          title: 'Akses cepat',
-          subtitle:
-              'Tata letak menu mengikuti wireframe onboarding agar alur penumpang lebih langsung.',
-        ),
-        const SizedBox(height: 12),
-        _ShortcutTile(
-          icon: Icons.route_rounded,
-          title: 'Pilih Rute dan Jadwal',
-          subtitle: 'Cari keberangkatan, kursi, dan detail perjalanan.',
-          accent: TravSTheme.orange,
-          onTap: () => setState(() => _selectedTabIndex = 1),
-        ),
-        const SizedBox(height: 10),
-        _ShortcutTile(
-          icon: Icons.receipt_long_rounded,
-          title: 'Daftar Pemesanan',
-          subtitle: 'Pantau status pemesanan dan pembayaran terakhir.',
-          accent: TravSTheme.navy,
-          onTap: () => setState(() => _selectedTabIndex = 2),
-        ),
-        const SizedBox(height: 10),
-        _ShortcutTile(
-          icon: Icons.qr_code_2_rounded,
-          title: 'Daftar Tiket',
-          subtitle: 'Buka e-ticket aktif dan QR keberangkatan.',
-          accent: TravSTheme.success,
-          onTap: () => setState(() => _selectedTabIndex = 3),
-        ),
-        const SizedBox(height: 18),
-        _SectionHeader(
-          eyebrow: 'Aktivitas',
-          title: 'Ringkasan terdekat',
-          subtitle: latestBooking == null
-              ? 'Pemesanan pertama akan langsung muncul di sini setelah checkout selesai.'
-              : 'Pemesanan terbaru diletakkan di beranda agar mudah dicek lagi.',
-        ),
-        const SizedBox(height: 12),
-        if (latestBooking == null)
+        if (nextPaidBooking != null) ...[
+          _NextTripCard(
+            booking: nextPaidBooking,
+            onTap: () => _openBookingDetail(nextPaidBooking.id),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (waitingPayment.isNotEmpty) ...[
+          _InlineActionCard(
+            title: 'Pembayaran menunggu',
+            description:
+                '${waitingPayment.first.rute} - ${_formatShortDate(waitingPayment.first.waktuBerangkat)}',
+            actionLabel: 'Bayar',
+            icon: Icons.account_balance_wallet_rounded,
+            onTap: () => _openBookingDetail(waitingPayment.first.id),
+          ),
+          const SizedBox(height: 18),
+        ],
+        if (bookings.isEmpty)
           const _EmptyStateCard(
             title: 'Belum ada pemesanan.',
             subtitle:
                 'Mulai dari menu rute dan jadwal untuk membuat pemesanan pertama.',
-          )
-        else
-          _BookingSummaryHero(
-            booking: latestBooking,
-            onPrimaryTap: () => _openBookingDetail(latestBooking.id),
-            onSecondaryTap: () => setState(() => _selectedTabIndex = 3),
           ),
+        const SizedBox(height: 18),
+        if (routes.isNotEmpty) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Rute Populer',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: TravSTheme.navy,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () => setState(() => _selectedTabIndex = 1),
+                child: const Text('Lihat Semua'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...routes
+              .take(2)
+              .map(
+                (route) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _RouteBookmarkCard(
+                    route: route,
+                    onTap: () {
+                      setState(() {
+                        _selectedRouteKey = route.key;
+                        _selectedTabIndex = 1;
+                      });
+                    },
+                  ),
+                ),
+              ),
+        ],
       ],
     );
   }
@@ -472,19 +578,22 @@ class _TravSHomePageState extends State<TravSHomePage> {
           leading: _backToHomeButton(),
           title: 'Daftar Pemesanan',
           subtitle: 'Status pemesanan, pembayaran, dan akses tiket.',
-          trailing: IconButton(
-            onPressed: () => setState(() => _selectedTabIndex = 3),
-            icon: const Icon(Icons.qr_code_2_rounded),
-          ),
+          trailing: _notificationButton(bundle),
         ),
         const SizedBox(height: 16),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
+        Row(
           children: [
-            _CountPill(label: 'Menunggu', value: '$waitingCount'),
-            _CountPill(label: 'Terbayar', value: '$paidCount'),
-            _CountPill(label: 'Total', value: '${bookings.length}'),
+            Expanded(
+              child: _CountPill(label: 'Menunggu', value: '$waitingCount'),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _CountPill(label: 'Terbayar', value: '$paidCount'),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _CountPill(label: 'Total', value: '${bookings.length}'),
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -492,7 +601,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
           _InlineActionCard(
             title: 'Daftar tiket aktif',
             description:
-                'Tiket yang sudah terbit tetap dipisahkan seperti wireframe supaya lebih cepat diakses saat keberangkatan.',
+                'Tiket yang sudah terbit dipisahkan supaya lebih cepat diakses saat keberangkatan.',
             actionLabel: 'Lihat Tiket',
             icon: Icons.confirmation_number_rounded,
             onTap: () => setState(() => _selectedTabIndex = 3),
@@ -585,16 +694,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
           icon: Icons.edit_outlined,
           title: 'Edit Profil',
           subtitle: 'Atur nama dan data kontak akun.',
-          onTap: () => _showMessage(
-            'Form edit profil bisa disambungkan setelah backend profile update dibuka.',
-          ),
-        ),
-        const SizedBox(height: 10),
-        _ProfileMenuTile(
-          icon: Icons.receipt_long_outlined,
-          title: 'Riwayat Pemesanan',
-          subtitle: 'Buka daftar pemesanan dan status pembayaran.',
-          onTap: () => setState(() => _selectedTabIndex = 2),
+          onTap: () => _openEditProfile(session),
         ),
         const SizedBox(height: 10),
         _ProfileMenuTile(
@@ -609,9 +709,9 @@ class _TravSHomePageState extends State<TravSHomePage> {
           title: 'Tentang Aplikasi',
           subtitle: 'Ringkasan fitur penumpang dan layanan travel.',
           onTap: () => _showAboutSheet(
-            title: 'Tentang TravS',
+            title: 'Tentang RuslyTravel',
             description:
-                'TravS membantu penumpang memilih jadwal, mengisi data jemput, menyelesaikan pembayaran, dan menunjukkan e-ticket saat keberangkatan.',
+                'RuslyTravel membantu penumpang memilih jadwal, mengisi data jemput, menyelesaikan pembayaran, dan menunjukkan e-ticket saat keberangkatan.',
           ),
         ),
         const SizedBox(height: 18),
@@ -626,9 +726,13 @@ class _TravSHomePageState extends State<TravSHomePage> {
   }
 
   Widget _buildDriverHome(_HomeBundle bundle) {
-    final dashboard = bundle.driverDashboard ?? const TravSDriverDashboard(
-      jadwalAktif: 0, penumpangTerdaftar: 0, upcomingTrips: [],
-    );
+    final dashboard =
+        bundle.driverDashboard ??
+        const TravSDriverDashboard(
+          jadwalAktif: 0,
+          penumpangTerdaftar: 0,
+          upcomingTrips: [],
+        );
     final records = _driverJourneys(bundle);
     final nextTrip = records.isEmpty ? null : records.first;
 
@@ -869,7 +973,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
         ),
         const SizedBox(height: 16),
         _HomeHeroCard(
-          title: 'Mode tamu TravS',
+          title: 'Mode tamu RuslyTravel',
           subtitle:
               'Cek rute, jadwal, harga, kursi, dan kendaraan sebelum login.',
           stats: [
@@ -987,6 +1091,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
                     setState(() {
                       _selectedRouteKey = route.key;
                       _selectedScheduleFilter = _ScheduleDateFilter.all;
+                      _selectedScheduleDate = null;
                     });
                   },
                 ),
@@ -1000,6 +1105,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
       schedules: schedules,
       routeKey: selectedRoute.key,
       filter: _selectedScheduleFilter,
+      selectedDate: _selectedScheduleDate,
     );
 
     return ListView(
@@ -1032,6 +1138,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
               onTap: () {
                 setState(() {
                   _selectedScheduleFilter = _ScheduleDateFilter.all;
+                  _selectedScheduleDate = null;
                 });
               },
             ),
@@ -1041,17 +1148,19 @@ class _TravSHomePageState extends State<TravSHomePage> {
               onTap: () {
                 setState(() {
                   _selectedScheduleFilter = _ScheduleDateFilter.tomorrow;
+                  _selectedScheduleDate = null;
                 });
               },
             ),
             _FilterChip(
-              label: 'Hari/Jam',
-              selected: _selectedScheduleFilter == _ScheduleDateFilter.byTime,
-              onTap: () {
-                setState(() {
-                  _selectedScheduleFilter = _ScheduleDateFilter.byTime;
-                });
-              },
+              label: _selectedScheduleDate == null
+                  ? 'Pilih Tanggal'
+                  : DateFormat(
+                      'dd MMM yyyy',
+                      'id_ID',
+                    ).format(_selectedScheduleDate!),
+              selected: _selectedScheduleFilter == _ScheduleDateFilter.byDate,
+              onTap: _pickScheduleDate,
             ),
           ],
         ),
@@ -1263,9 +1372,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
               // State loading — tampilkan spinner saat data belum tersedia
               if (snapshot.connectionState == ConnectionState.waiting &&
                   !snapshot.hasData) {
-                return TravSAsyncState.loading(
-                  message: 'Memuat beranda...',
-                );
+                return TravSAsyncState.loading(message: 'Memuat beranda...');
               }
 
               // State error — tampilkan pesan error yang jujur dengan retry
@@ -1313,6 +1420,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
             if (index == 0) {
               _selectedRouteKey = null;
               _selectedScheduleFilter = _ScheduleDateFilter.all;
+              _selectedScheduleDate = null;
             }
           });
         },
@@ -1480,8 +1588,6 @@ class _HomeBundle {
   final TravSPassengerDashboard? passengerDashboard;
   final List<TravSBookingResult>? passengerBookings;
   final TravSDriverDashboard? driverDashboard;
-
-
 }
 
 class _PageTopBar extends StatelessWidget {
@@ -1526,6 +1632,56 @@ class _PageTopBar extends StatelessWidget {
           ),
         ),
         if (trailing != null) ...[const SizedBox(width: 12), trailing!],
+      ],
+    );
+  }
+}
+
+class _NotificationBadgeButton extends StatelessWidget {
+  const _NotificationBadgeButton({required this.count, required this.onTap});
+
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleCount = count > 99 ? '99+' : '$count';
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          onPressed: onTap,
+          style: IconButton.styleFrom(
+            backgroundColor: TravSTheme.surfaceSoft,
+            foregroundColor: TravSTheme.navy,
+          ),
+          icon: const Icon(Icons.notifications_none_rounded),
+        ),
+        if (count > 0)
+          Positioned(
+            right: 2,
+            top: 2,
+            child: Container(
+              constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+              padding: const EdgeInsets.symmetric(horizontal: 5),
+              decoration: BoxDecoration(
+                color: TravSTheme.orange,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: Center(
+                child: Text(
+                  visibleCount,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 10,
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1642,6 +1798,252 @@ class _HomeHeroCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PassengerDashboardHero extends StatelessWidget {
+  const _PassengerDashboardHero({required this.name, required this.stats});
+
+  final String name;
+  final List<_HeroStat> stats;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: TravSTheme.headerGradient,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: TravSTheme.navy.withValues(alpha: 0.12),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.receipt_long_rounded,
+                  color: TravSTheme.navy,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Halo, $name',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      'Mau pergi ke mana hari ini?',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            height: 124,
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.landscape_rounded, color: Colors.white, size: 34),
+                SizedBox(height: 8),
+                Text(
+                  'Armada Nyaman',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  'Kendaraan siap untuk perjalanan lintas kota.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _HeroDot(active: false),
+                _HeroDot(active: true),
+                _HeroDot(active: false),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroDot extends StatelessWidget {
+  const _HeroDot({required this.active});
+
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: active ? 18 : 5,
+      height: 5,
+      margin: const EdgeInsets.symmetric(horizontal: 3),
+      decoration: BoxDecoration(
+        color: active ? TravSTheme.orange : Colors.white70,
+        borderRadius: BorderRadius.circular(99),
+      ),
+    );
+  }
+}
+
+class _NextTripCard extends StatelessWidget {
+  const _NextTripCard({required this.booking, required this.onTap});
+
+  final TravSBookingResult booking;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: TravSTheme.line),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Besok ada perjalanan',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          color: TravSTheme.navy,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                    _StatusPill(
+                      label: 'Aktif',
+                      color: TravSTheme.success,
+                      textColor: TravSTheme.success,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  booking.rute.replaceAll(' - ', '\n'),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: TravSTheme.navy,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _TripMeta(
+                      label: 'Tanggal',
+                      value: _formatShortDate(booking.waktuBerangkat),
+                    ),
+                    const SizedBox(width: 22),
+                    _TripMeta(
+                      label: 'Waktu',
+                      value: _formatScheduleTime(booking.waktuBerangkat),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          FilledButton(
+            onPressed: onTap,
+            style: FilledButton.styleFrom(
+              backgroundColor: TravSTheme.navy,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text('Lihat\nDetail', textAlign: TextAlign.center),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TripMeta extends StatelessWidget {
+  const _TripMeta({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: TravSTheme.navyMuted,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: TravSTheme.navy,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1983,6 +2385,7 @@ class _CountPill extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1990,7 +2393,7 @@ class _CountPill extends StatelessWidget {
         border: Border.all(color: TravSTheme.line),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
             value,
@@ -2005,79 +2408,6 @@ class _CountPill extends StatelessWidget {
             style: theme.textTheme.labelSmall?.copyWith(
               color: TravSTheme.navyMuted,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BookingSummaryHero extends StatelessWidget {
-  const _BookingSummaryHero({
-    required this.booking,
-    required this.onPrimaryTap,
-    required this.onSecondaryTap,
-  });
-
-  final TravSBookingResult booking;
-  final VoidCallback onPrimaryTap;
-  final VoidCallback onSecondaryTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: TravSTheme.headerGradient,
-        borderRadius: BorderRadius.circular(28),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _StatusPill(
-            label: booking.isPaid ? 'Tiket aktif' : 'Menunggu pembayaran',
-            color: booking.isPaid ? Colors.white : TravSTheme.orange,
-            textColor: booking.isPaid ? TravSTheme.navy : Colors.white,
-          ),
-          const SizedBox(height: 14),
-          Text(
-            booking.kodeBooking,
-            style: theme.textTheme.titleLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '${booking.rute}\n${_formatDateTime(booking.waktuBerangkat)}',
-            style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: onPrimaryTap,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: TravSTheme.orange,
-                  ),
-                  child: const Text('Detail Pemesanan'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: onSecondaryTap,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white24),
-                  ),
-                  child: const Text('Daftar Tiket'),
-                ),
-              ),
-            ],
           ),
         ],
       ),
@@ -2591,9 +2921,9 @@ class _ScanTicketPageState extends State<_ScanTicketPage> {
 
       setState(() {
         _state = _ScanPreviewState.invalid;
-        _message = 'Tiket belum bisa divalidasi. Cek koneksi backend.';
+        _message = 'Tiket belum bisa divalidasi. Periksa koneksi internet.';
         _detailLines = const [
-          'Pastikan server Laravel aktif.',
+          'Pastikan koneksi internet stabil.',
           'Coba scan ulang setelah koneksi stabil.',
         ];
       });
@@ -3692,6 +4022,515 @@ class _DriverHistoryCard extends StatelessWidget {
   }
 }
 
+class _EditProfilePage extends StatefulWidget {
+  const _EditProfilePage({
+    required this.session,
+    required this.apiService,
+    required this.authService,
+  });
+
+  final TravSUserSession session;
+  final TravSApiService apiService;
+  final TravSAuthService authService;
+
+  @override
+  State<_EditProfilePage> createState() => _EditProfilePageState();
+}
+
+class _EditProfilePageState extends State<_EditProfilePage> {
+  final _formKey = GlobalKey<FormState>();
+  final _imagePicker = ImagePicker();
+  late final TextEditingController _nameController;
+  late final TextEditingController _emailController;
+  late final TextEditingController _phoneController;
+  final TextEditingController _currentPasswordController =
+      TextEditingController();
+  final TextEditingController _newPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+  XFile? _selectedPhoto;
+  Uint8List? _selectedPhotoBytes;
+  bool _isSaving = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = widget.session.user;
+    _nameController = TextEditingController(text: user.nama);
+    _emailController = TextEditingController(text: user.email);
+    _phoneController = TextEditingController(text: user.noHp);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectPhoto(ImageSource source) async {
+    try {
+      final photo = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 82,
+        maxWidth: 1280,
+        maxHeight: 1280,
+      );
+
+      if (photo == null || !mounted) {
+        return;
+      }
+
+      final bytes = await photo.readAsBytes();
+
+      setState(() {
+        _selectedPhoto = photo;
+        _selectedPhotoBytes = bytes;
+        _errorMessage = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage =
+            'Foto profil belum bisa dipilih. Coba gunakan galeri atau kamera lain.';
+      });
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+      _errorMessage = null;
+    });
+
+    try {
+      String? uploadedProfilePath;
+      if (_selectedPhoto != null) {
+        final uploadedPhoto = await widget.apiService.uploadProfilePhoto(
+          token: widget.session.token,
+          photo: _selectedPhoto!,
+        );
+        uploadedProfilePath = uploadedPhoto.url.isNotEmpty
+            ? '${uploadedPhoto.url}?v=${DateTime.now().millisecondsSinceEpoch}'
+            : uploadedPhoto.path;
+      }
+
+      await widget.apiService.updateProfile(
+        token: widget.session.token,
+        nama: _nameController.text,
+        email: _emailController.text,
+        noHp: _phoneController.text,
+      );
+
+      final shouldChangePassword =
+          _currentPasswordController.text.trim().isNotEmpty ||
+          _newPasswordController.text.trim().isNotEmpty ||
+          _confirmPasswordController.text.trim().isNotEmpty;
+      if (shouldChangePassword) {
+        await widget.apiService.changePassword(
+          token: widget.session.token,
+          currentPassword: _currentPasswordController.text,
+          password: _newPasswordController.text,
+          passwordConfirmation: _confirmPasswordController.text,
+        );
+      }
+
+      var updatedUser = await widget.apiService.loadCurrentUserProfile(
+        token: widget.session.token,
+      );
+      if (uploadedProfilePath != null && uploadedProfilePath.isNotEmpty) {
+        updatedUser = updatedUser.copyWith(fotoProfil: uploadedProfilePath);
+      }
+
+      final updatedSession = widget.session.copyWith(user: updatedUser);
+      await widget.authService.saveSession(updatedSession);
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pop(updatedSession);
+    } on TravSApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.message;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage =
+            'Profil belum bisa disimpan. Periksa koneksi lalu coba lagi.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final user = widget.session.user;
+    final avatarUrl = TravSApiService.resolveMediaUrl(user.fotoProfil);
+    final photoName = _selectedPhoto?.name;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Edit Profil')),
+      body: Container(
+        decoration: const BoxDecoration(gradient: TravSTheme.shellGradient),
+        child: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: TravSTheme.line),
+                  ),
+                  child: Column(
+                    children: [
+                      _ProfileAvatarPreview(
+                        name: user.nama,
+                        imageBytes: _selectedPhotoBytes,
+                        imageUrl: avatarUrl,
+                        radius: 44,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        photoName == null
+                            ? 'Pilih foto profil dari kamera atau galeri.'
+                            : 'Dipilih: $photoName',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: TravSTheme.navyMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _isSaving
+                                  ? null
+                                  : () => _selectPhoto(ImageSource.camera),
+                              icon: const Icon(Icons.photo_camera_outlined),
+                              label: const Text('Kamera'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _isSaving
+                                  ? null
+                                  : () => _selectPhoto(ImageSource.gallery),
+                              icon: const Icon(Icons.photo_library_outlined),
+                              label: const Text('Galeri'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _SectionCard(
+                  title: 'Data Akun',
+                  subtitle: 'Ubah data yang dipakai untuk identitas akun.',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const _ProfileFieldLabel('Nama lengkap'),
+                      TextFormField(
+                        controller: _nameController,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: _profileInputDecoration(
+                          hint: 'Masukkan nama lengkap',
+                          icon: Icons.person_outline_rounded,
+                        ),
+                        validator: (value) =>
+                            _validateRequiredText(value, 'Nama lengkap'),
+                      ),
+                      const SizedBox(height: 12),
+                      const _ProfileFieldLabel('Email'),
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: _profileInputDecoration(
+                          hint: 'contoh@email.com',
+                          icon: Icons.mail_outline_rounded,
+                        ),
+                        validator: (value) =>
+                            _validateRequiredText(value, 'Email'),
+                      ),
+                      const SizedBox(height: 12),
+                      const _ProfileFieldLabel('Nomor HP'),
+                      TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: _profileInputDecoration(
+                          hint: '081234567891',
+                          icon: Icons.phone_outlined,
+                        ),
+                        validator: (value) =>
+                            _validateRequiredText(value, 'Nomor HP'),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _SectionCard(
+                  title: 'Ganti Password',
+                  subtitle:
+                      'Isi bagian ini hanya jika ingin mengganti password akun.',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const _ProfileFieldLabel('Password lama'),
+                      TextFormField(
+                        controller: _currentPasswordController,
+                        obscureText: true,
+                        decoration: _profileInputDecoration(
+                          hint: 'Password lama',
+                          icon: Icons.lock_outline_rounded,
+                        ),
+                        validator: _validateOptionalPasswordGroup,
+                      ),
+                      const SizedBox(height: 12),
+                      const _ProfileFieldLabel('Password baru'),
+                      TextFormField(
+                        controller: _newPasswordController,
+                        obscureText: true,
+                        decoration: _profileInputDecoration(
+                          hint: 'Password baru',
+                          icon: Icons.lock_reset_rounded,
+                        ),
+                        validator: _validateNewPassword,
+                      ),
+                      const SizedBox(height: 12),
+                      const _ProfileFieldLabel('Konfirmasi password baru'),
+                      TextFormField(
+                        controller: _confirmPasswordController,
+                        obscureText: true,
+                        decoration: _profileInputDecoration(
+                          hint: 'Konfirmasi password baru',
+                          icon: Icons.verified_user_outlined,
+                        ),
+                        validator: _validateConfirmPassword,
+                      ),
+                    ],
+                  ),
+                ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 14),
+                  _ErrorBanner(message: _errorMessage!),
+                ],
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _isSaving ? null : _saveProfile,
+                  icon: _isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save_outlined),
+                  label: Text(_isSaving ? 'Menyimpan...' : 'Simpan Profil'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  InputDecoration _profileInputDecoration({
+    required String hint,
+    required IconData icon,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      prefixIcon: Icon(icon),
+      filled: true,
+      fillColor: Colors.white,
+      floatingLabelBehavior: FloatingLabelBehavior.never,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: TravSTheme.line),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: TravSTheme.line),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(18),
+        borderSide: const BorderSide(color: TravSTheme.orange, width: 1.4),
+      ),
+    );
+  }
+
+  String? _validateOptionalPasswordGroup(String? value) {
+    final shouldChangePassword =
+        value?.trim().isNotEmpty == true ||
+        _newPasswordController.text.trim().isNotEmpty ||
+        _confirmPasswordController.text.trim().isNotEmpty;
+    if (shouldChangePassword && (value == null || value.trim().isEmpty)) {
+      return 'Password lama wajib diisi.';
+    }
+    return null;
+  }
+
+  String? _validateNewPassword(String? value) {
+    final shouldChangePassword =
+        _currentPasswordController.text.trim().isNotEmpty ||
+        value?.trim().isNotEmpty == true ||
+        _confirmPasswordController.text.trim().isNotEmpty;
+    if (!shouldChangePassword) {
+      return null;
+    }
+    if (value == null || value.trim().length < 8) {
+      return 'Password baru minimal 8 karakter.';
+    }
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? value) {
+    if (_newPasswordController.text.trim().isEmpty &&
+        (value == null || value.trim().isEmpty)) {
+      return null;
+    }
+    if (value != _newPasswordController.text) {
+      return 'Konfirmasi password belum sama.';
+    }
+    return null;
+  }
+}
+
+class _ProfileFieldLabel extends StatelessWidget {
+  const _ProfileFieldLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 6),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          color: TravSTheme.navy,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileAvatarPreview extends StatelessWidget {
+  const _ProfileAvatarPreview({
+    required this.name,
+    required this.radius,
+    this.imageBytes,
+    this.imageUrl,
+  });
+
+  final String name;
+  final double radius;
+  final Uint8List? imageBytes;
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = name.trim().isEmpty
+        ? 'P'
+        : name.trim().substring(0, 1).toUpperCase();
+    final size = radius * 2;
+
+    Widget initialAvatar() {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: TravSTheme.navy,
+        child: Text(
+          initial,
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      );
+    }
+
+    if (imageBytes != null) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: TravSTheme.navy,
+        child: ClipOval(
+          child: Image.memory(
+            imageBytes!,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+          ),
+        ),
+      );
+    }
+
+    if (imageUrl != null && imageUrl!.trim().isNotEmpty) {
+      return CircleAvatar(
+        radius: radius,
+        backgroundColor: TravSTheme.navy,
+        child: ClipOval(
+          child: Image.network(
+            imageUrl!,
+            width: size,
+            height: size,
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, progress) {
+              if (progress == null) {
+                return child;
+              }
+
+              return SizedBox(
+                width: size,
+                height: size,
+                child: const Center(
+                  child: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return initialAvatar();
+            },
+          ),
+        ),
+      );
+    }
+
+    return initialAvatar();
+  }
+}
+
 class _ProfileSummaryCard extends StatelessWidget {
   const _ProfileSummaryCard({required this.session});
 
@@ -3700,9 +4539,7 @@ class _ProfileSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final initials = session.user.nama.isEmpty
-        ? 'P'
-        : session.user.nama.substring(0, 1).toUpperCase();
+    final avatarUrl = TravSApiService.resolveMediaUrl(session.user.fotoProfil);
 
     return Container(
       padding: const EdgeInsets.all(20),
@@ -3713,18 +4550,10 @@ class _ProfileSummaryCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(
+          _ProfileAvatarPreview(
+            name: session.user.nama,
             radius: 30,
-            backgroundColor: session.user.isDriver
-                ? TravSTheme.navy
-                : Colors.black,
-            child: Text(
-              initials,
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+            imageUrl: avatarUrl,
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -3828,6 +4657,88 @@ class _ProfileMenuTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: TravSTheme.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: theme.textTheme.titleLarge?.copyWith(
+              color: TravSTheme.navy,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: TravSTheme.navyMuted,
+            ),
+          ),
+          const SizedBox(height: 16),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF1F1),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: const Color(0xFFFFB7B7)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline_rounded, color: Color(0xFFEF4444)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: const Color(0xFFB91C1C),
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -4047,6 +4958,7 @@ List<TravSSchedule> _filterSchedulesForRoute({
   required List<TravSSchedule> schedules,
   required String routeKey,
   required _ScheduleDateFilter filter,
+  DateTime? selectedDate,
 }) {
   final filtered = schedules
       .where((schedule) => _routeKeyForSchedule(schedule) == routeKey)
@@ -4060,21 +4972,61 @@ List<TravSSchedule> _filterSchedulesForRoute({
     }).toList();
   }
 
-  if (filter == _ScheduleDateFilter.byTime) {
-    filtered.sort((first, second) {
+  if (filter == _ScheduleDateFilter.byDate && selectedDate != null) {
+    return filtered.where((schedule) {
+      final scheduleDate = DateTime.tryParse(schedule.waktuBerangkat);
+      return scheduleDate != null && _isSameDate(scheduleDate, selectedDate);
+    }).toList()..sort((first, second) {
       return _scheduleDateValue(
         first.waktuBerangkat,
       ).compareTo(_scheduleDateValue(second.waktuBerangkat));
     });
   }
 
-  return filtered;
+  return filtered..sort((first, second) {
+    return _scheduleDateValue(
+      first.waktuBerangkat,
+    ).compareTo(_scheduleDateValue(second.waktuBerangkat));
+  });
 }
 
 bool _isSameDate(DateTime first, DateTime second) {
   return first.year == second.year &&
       first.month == second.month &&
       first.day == second.day;
+}
+
+TravSBookingResult? _nextPaidUpcomingBooking(
+  List<TravSBookingResult> bookings,
+) {
+  final now = DateTime.now();
+  final paidUpcoming = bookings.where((booking) {
+    final departure = DateTime.tryParse(booking.waktuBerangkat);
+    if (departure == null) {
+      return false;
+    }
+
+    // Card beranda hanya boleh menampilkan pemesanan yang sudah lunas,
+    // belum selesai perjalanannya, dan bukan booking yang dibatalkan.
+    return booking.status == 'terbayar' &&
+        booking.payment.status == 'berhasil' &&
+        !departure.isBefore(now);
+  }).toList()
+    ..sort((first, second) {
+      return _scheduleDateValue(
+        first.waktuBerangkat,
+      ).compareTo(_scheduleDateValue(second.waktuBerangkat));
+    });
+
+  return paidUpcoming.isEmpty ? null : paidUpcoming.first;
+}
+
+String? _validateRequiredText(String? value, String label) {
+  if ((value ?? '').trim().isEmpty) {
+    return '$label wajib diisi.';
+  }
+
+  return null;
 }
 
 DateTime _scheduleDateValue(String iso) {

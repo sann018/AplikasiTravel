@@ -21,7 +21,21 @@
             <dl class="travs-description-list">
                 <div>
                     <dt>Penumpang Pemesan</dt>
-                    <dd>{{ $pemesanan->pengguna->nama }} &middot; {{ $pemesanan->pengguna->no_hp }}</dd>
+                    <dd>
+                        <div class="travs-person-cell">
+                            <div class="travs-avatar">
+                                @if ($pemesanan->pengguna->foto_profil)
+                                    <img src="/storage/{{ ltrim($pemesanan->pengguna->foto_profil, '/') }}" alt="Foto {{ $pemesanan->pengguna->nama }}">
+                                @else
+                                    <span>{{ strtoupper(mb_substr($pemesanan->pengguna->nama, 0, 1)) }}</span>
+                                @endif
+                            </div>
+                            <div>
+                                <strong>{{ $pemesanan->pengguna->nama }}</strong>
+                                <div class="travs-table-subcopy">{{ $pemesanan->pengguna->email }} &middot; {{ $pemesanan->pengguna->no_hp }}</div>
+                            </div>
+                        </div>
+                    </dd>
                 </div>
                 <div>
                     <dt>Status Booking</dt>

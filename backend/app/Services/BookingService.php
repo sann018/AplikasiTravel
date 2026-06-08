@@ -197,14 +197,14 @@ class BookingService
             ]);
         });
 
-        if ($paymentMethod === 'qris' && $this->pakasirService->isConfigured()) {
+        if ($this->pakasirService->handlesMethod($paymentMethod) && $this->pakasirService->isConfigured()) {
             try {
-                return $this->activatePakasirPayment($booking);
+                return $this->activatePakasirPayment($booking, $paymentMethod);
             } catch (PakasirException $exception) {
                 $this->cancelBookingBecauseGatewayFailed($booking, $exception->getMessage());
 
                 throw ValidationException::withMessages([
-                    'payment_method' => 'Gagal membuat pembayaran QRIS Pakasir. '.$exception->getMessage(),
+                    'payment_method' => 'Gagal membuat pembayaran Pakasir. '.$exception->getMessage(),
                 ]);
             }
         }
@@ -278,7 +278,7 @@ class BookingService
 
         if (
             $booking->pembayaran &&
-            $booking->pembayaran->metode_bayar === 'qris' &&
+            $this->pakasirService->handlesMethod($booking->pembayaran->metode_bayar) &&
             $this->pakasirService->usesRemoteSimulation()
         ) {
             $this->pakasirService->simulatePayment(
@@ -424,7 +424,7 @@ class BookingService
         $booking = $this->freshBookingWithRelations($booking->id);
         $payment = $booking->pembayaran;
 
-        if (! $payment || $payment->metode_bayar !== 'qris' || ! $this->pakasirService->isConfigured()) {
+        if (! $payment || ! $this->pakasirService->handlesMethod($payment->metode_bayar) || ! $this->pakasirService->isConfigured()) {
             return $booking;
         }
 
@@ -519,15 +519,26 @@ class BookingService
         return $this->freshBookingWithRelations($booking->id);
     }
 
-    private function activatePakasirPayment(Pemesanan $booking): Pemesanan
+    private function activatePakasirPayment(Pemesanan $booking, string $paymentMethod): Pemesanan
     {
-        $paymentPayload = $this->pakasirService->createTransaction(
-            'qris',
+        $qrisOnly = $paymentMethod === 'qris';
+        $checkoutUrl = $this->pakasirService->checkoutUrl(
             $booking->kode_booking,
             $booking->total_harga,
+            $qrisOnly,
+            $this->pakasirService->merchantReturnUrl(),
         );
 
-        return DB::transaction(function () use ($booking, $paymentPayload) {
+        $paymentPayload = [];
+        if ($qrisOnly) {
+            $paymentPayload = $this->pakasirService->createTransaction(
+                'qris',
+                $booking->kode_booking,
+                $booking->total_harga,
+            );
+        }
+
+        return DB::transaction(function () use ($booking, $paymentPayload, $checkoutUrl, $paymentMethod) {
             $lockedBooking = Pemesanan::query()
                 ->lockForUpdate()
                 ->with([
@@ -551,11 +562,13 @@ class BookingService
             $payment->update([
                 'order_id_gateway' => (string) data_get($paymentPayload, 'order_id', $lockedBooking->kode_booking),
                 'gateway_reference' => (string) data_get($paymentPayload, 'payment_number', ''),
-                'paid_channel' => (string) data_get($paymentPayload, 'payment_method', 'qris'),
+                'paid_channel' => (string) data_get($paymentPayload, 'payment_method', $paymentMethod),
                 'jumlah_bayar' => (float) data_get($paymentPayload, 'total_payment', $lockedBooking->total_harga),
                 'status_bayar' => 'menunggu',
                 'gateway_response' => $this->pakasirService->encodeGatewayResponse([
                     'provider' => 'pakasir',
+                    'checkout_url' => $checkoutUrl,
+                    'checkout_method' => $paymentMethod,
                     'create_payment' => $paymentPayload,
                 ]),
                 'expired_at' => $expiredAt,
@@ -806,6 +819,7 @@ class BookingService
     private function freshBookingWithRelations(int $bookingId): Pemesanan
     {
         return Pemesanan::query()->with([
+            'pengguna',
             'jadwal.rute',
             'jadwal.kendaraan',
             'detailPemesanan.tiketElektronik',
@@ -984,6 +998,16 @@ class BookingService
                     'seat_numbers' => "Kursi {$seat->nomor_kursi} sedang dikunci pengguna lain.",
                 ]);
             }
+
+            $hasBooking = DetailPemesanan::query()
+                ->where('kursi_jadwal_id', $seat->id)
+                ->exists();
+
+            if ($hasBooking) {
+                throw ValidationException::withMessages([
+                    'seat_numbers' => "Kursi {$seat->nomor_kursi} sudah dipesan dalam booking lain.",
+                ]);
+            }
         }
     }
 
@@ -1006,6 +1030,7 @@ class BookingService
     private function loadSeatRowsForUpdate(int $scheduleId, Collection $seatNumbers): Collection
     {
         return KursiJadwal::query()
+            ->with('detailPemesanan')
             ->where('jadwal_id', $scheduleId)
             ->whereIn('nomor_kursi', $seatNumbers)
             ->lockForUpdate()
@@ -1035,8 +1060,8 @@ class BookingService
 
     private function resolvePaymentLockDeadline($now, ?Jadwal $schedule = null, ?string $paymentMethod = null)
     {
-        if ($paymentMethod === 'cash' && $schedule?->waktu_berangkat?->isFuture()) {
-            return $schedule->waktu_berangkat->copy();
+        if ($paymentMethod === 'cash') {
+            return null;
         }
 
         return $now->copy()->addMinutes(

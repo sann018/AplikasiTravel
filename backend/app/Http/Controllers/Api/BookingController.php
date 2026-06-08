@@ -6,12 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Models\Jadwal;
 use App\Models\Pemesanan;
 use App\Models\PengaturanSistem;
+use App\Models\Notifikasi;
+use App\Models\User;
 use App\Services\BookingCalculator;
 use App\Services\BookingService;
 use App\Services\PakasirService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class BookingController extends Controller
 {
@@ -49,10 +50,12 @@ class BookingController extends Controller
                     'kapasitas' => $jadwal->kendaraan->kapasitas_kursi,
                     'fasilitas' => $jadwal->kendaraan->fasilitas,
                     'seat_layout' => $jadwal->kendaraan->getSeatLayoutConfig(),
+                    'foto_url' => $this->publicStorageUrl($jadwal->kendaraan->foto_kendaraan),
                 ],
                 'pengemudi' => [
                     'nama' => $jadwal->pengemudi->pengguna->nama,
                     'nomor_sim' => $jadwal->pengemudi->nomor_sim,
+                    'foto_url' => $this->publicStorageUrl($jadwal->pengemudi->pengguna->foto_profil),
                 ],
                 'seat_map' => $jadwal->kursi
                     ->sortBy('nomor_kursi')
@@ -68,7 +71,7 @@ class BookingController extends Controller
                     'max_seat_per_booking' => (int) PengaturanSistem::nilai('max_seat_per_booking', 4),
                     'seat_lock_form_minutes' => (int) PengaturanSistem::nilai('seat_lock_form_minutes', 30),
                     'seat_lock_payment_minutes' => (int) PengaturanSistem::nilai('seat_lock_payment_minutes', 5),
-                    'admin_fee' => (float) PengaturanSistem::nilai('admin_fee', 0),
+                    'admin_fee' => 0,
                 ],
                 'payment_methods' => [
                     'transfer' => (bool) PengaturanSistem::nilai('payment_transfer_enabled', false),
@@ -179,6 +182,11 @@ class BookingController extends Controller
     {
         $validated = $request->validate([
             'foto' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:3072'],
+        ], [
+            'foto.required' => 'Foto barang bawaan wajib dilampirkan.',
+            'foto.image' => 'File harus berupa gambar.',
+            'foto.mimes' => 'Format foto harus JPG, JPEG, PNG, atau WEBP.',
+            'foto.max' => 'Ukuran foto maksimal 3 MB. Silakan pilih foto yang lebih kecil.',
         ]);
 
         $file = $validated['foto'];
@@ -189,7 +197,7 @@ class BookingController extends Controller
             'message' => 'Foto barang bawaan berhasil diunggah.',
             'data' => [
                 'path' => $path,
-                'url' => Storage::disk('public')->url($path),
+                'url' => $this->publicStorageUrl($path),
                 'original_name' => $file->getClientOriginalName(),
             ],
         ]);
@@ -200,7 +208,7 @@ class BookingController extends Controller
         $this->bookingService->releaseExpiredResources();
 
         $bookings = Pemesanan::query()
-            ->with(['jadwal.rute', 'detailPemesanan.tiketElektronik', 'pembayaran'])
+            ->with(['pengguna', 'jadwal.rute', 'detailPemesanan.tiketElektronik', 'pembayaran'])
             ->where('pengguna_id', $request->user()->id)
             ->latest()
             ->get();
@@ -217,6 +225,7 @@ class BookingController extends Controller
         abort_unless($booking->pengguna_id === $request->user()->id, 404);
 
         $booking->load([
+            'pengguna',
             'jadwal.rute',
             'jadwal.kendaraan',
             'detailPemesanan.tiketElektronik',
@@ -267,9 +276,32 @@ class BookingController extends Controller
         // URL halaman pembayaran Pakasir — penumpang akan diarahkan ke sini
         // untuk menyelesaikan pembayaran via browser/webview.
         $checkoutUrl = (string) data_get(
-            $createPayment,
+            $gatewayMeta,
             'checkout_url',
-            data_get($createPayment, 'payment_url', ''),
+            data_get(
+                $createPayment,
+                'checkout_url',
+                data_get($createPayment, 'payment_url', ''),
+            ),
+        );
+
+        if (
+            $checkoutUrl === ''
+            && $this->pakasirService->handlesMethod((string) $booking->pembayaran?->metode_bayar)
+            && $this->pakasirService->isConfigured()
+        ) {
+            $checkoutUrl = $this->pakasirService->checkoutUrl(
+                $booking->kode_booking,
+                $booking->total_harga,
+                $booking->pembayaran?->metode_bayar === 'qris',
+                $this->pakasirService->merchantReturnUrl(),
+            );
+        }
+
+        $paymentNumber = (string) data_get(
+            $createPayment,
+            'payment_number',
+            $booking->pembayaran?->gateway_reference,
         );
 
         $response = [
@@ -283,6 +315,12 @@ class BookingController extends Controller
             'biaya_admin' => (float) $booking->biaya_admin,
             'diskon' => (float) $booking->diskon,
             'total_harga' => (float) $booking->total_harga,
+            'pemesan' => [
+                'nama' => $booking->pengguna?->nama,
+                'email' => $booking->pengguna?->email,
+                'no_hp' => $booking->pengguna?->no_hp,
+                'foto_url' => $this->publicStorageUrl($booking->pengguna?->foto_profil),
+            ],
             'rute' => $booking->jadwal?->rute
                 ? $booking->jadwal->rute->kota_asal.' - '.$booking->jadwal->rute->kota_tujuan
                 : null,
@@ -292,7 +330,7 @@ class BookingController extends Controller
                 'method' => $booking->pembayaran?->metode_bayar,
                 'expired_at' => $booking->pembayaran?->expired_at?->toIso8601String(),
                 'can_simulate' => app()->environment(['local', 'testing']),
-                'uses_gateway' => $booking->pembayaran?->metode_bayar === 'qris' && $this->pakasirService->isConfigured(),
+                'uses_gateway' => $this->pakasirService->handlesMethod((string) $booking->pembayaran?->metode_bayar) && $this->pakasirService->isConfigured(),
                 'provider' => data_get($gatewayMeta, 'provider'),
                 'project' => data_get($createPayment, 'project'),
                 'amount' => $amount,
@@ -346,5 +384,14 @@ class BookingController extends Controller
                 'foto_url' => $item->foto_url,
             ])->all(),
         ];
+    }
+
+    private function publicStorageUrl(?string $path): ?string
+    {
+        if (! is_string($path) || trim($path) === '') {
+            return null;
+        }
+
+        return '/storage/'.ltrim($path, '/');
     }
 }

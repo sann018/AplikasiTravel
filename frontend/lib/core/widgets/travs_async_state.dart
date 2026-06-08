@@ -77,7 +77,7 @@ class TravSAsyncState extends StatelessWidget {
     if (raw.contains('socketexception') ||
         raw.contains('connection refused') ||
         raw.contains('network')) {
-      return 'Tidak dapat terhubung ke server. Periksa koneksi internet dan pastikan backend berjalan.';
+      return 'Tidak dapat terhubung ke layanan. Periksa koneksi internet Anda dan coba lagi.';
     }
 
     if (raw.contains('timeout')) {
@@ -88,7 +88,7 @@ class TravSAsyncState extends StatelessWidget {
       return 'Server mengirim data yang tidak dapat dibaca. Hubungi admin jika masalah berlanjut.';
     }
 
-    return 'Terjadi kesalahan yang tidak terduga. Silakan coba lagi.';
+    return 'Terjadi kendala yang tidak terduga. Silakan coba lagi.';
   }
 
   @override

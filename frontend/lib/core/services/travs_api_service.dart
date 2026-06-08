@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 import '../models/travs_booking_contract.dart';
+import '../models/travs_user_session.dart';
 
 class TravSApiException implements Exception {
   const TravSApiException(this.message);
@@ -16,6 +17,9 @@ class TravSApiException implements Exception {
 }
 
 class TravSApiService {
+  static const Duration _requestTimeout = Duration(seconds: 3);
+  static String? _lastSuccessfulBaseUrl;
+
   static List<String> get baseUrls {
     const configured = String.fromEnvironment('API_BASE_URL');
     if (configured.isNotEmpty) {
@@ -28,17 +32,50 @@ class TravSApiService {
 
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        return const ['http://10.0.2.2:8000', 'http://127.0.0.1:8000'];
+        return const ['http://127.0.0.1:8000', 'http://10.0.2.2:8000'];
       default:
         return const ['http://127.0.0.1:8000'];
     }
   }
 
   static String get baseUrl {
-    return baseUrls.first;
+    return _lastSuccessfulBaseUrl ?? baseUrls.first;
   }
 
-  static String get backendTargetsLabel => baseUrls.join(' atau ');
+  static String get backendTargetsLabel => _orderedBaseUrls().join(' atau ');
+
+  static String? resolveMediaUrl(String? value) {
+    final raw = value?.trim();
+    if (raw == null || raw.isEmpty) {
+      return null;
+    }
+
+    if (raw.startsWith('http://') || raw.startsWith('https://')) {
+      final uri = Uri.tryParse(raw);
+      final baseUri = Uri.parse(baseUrl);
+      if (uri != null && uri.path.startsWith('/storage/')) {
+        // Session lama pernah menyimpan URL ngrok. Untuk file storage backend,
+        // pakai host API yang aktif agar gambar tetap muncul di lokal/mobile.
+        return baseUri.replace(path: uri.path, query: uri.query).toString();
+      }
+
+      if (uri != null && (uri.host == '127.0.0.1' || uri.host == 'localhost')) {
+        return baseUri.replace(path: uri.path, query: uri.query).toString();
+      }
+
+      return raw;
+    }
+
+    if (raw.startsWith('/')) {
+      return '$baseUrl$raw';
+    }
+
+    if (raw.startsWith('storage/')) {
+      return '$baseUrl/$raw';
+    }
+
+    return '$baseUrl/storage/$raw';
+  }
 
   static Future<http.Response> getWithFallback(
     String path, {
@@ -60,6 +97,17 @@ class TravSApiService {
     );
   }
 
+  static Future<http.Response> putWithFallback(
+    String path, {
+    Map<String, String>? headers,
+    Object? body,
+  }) {
+    return _sendWithFallback(
+      (baseUrl) =>
+          http.put(Uri.parse('$baseUrl$path'), headers: headers, body: body),
+    );
+  }
+
   static Map<String, String> jsonHeaders({String? token}) {
     return {
       'Accept': 'application/json',
@@ -72,14 +120,12 @@ class TravSApiService {
   /// Melempar TravSApiException jika koneksi gagal atau response tidak valid,
   /// agar UI bisa menampilkan error state yang jujur ke pengguna.
   Future<TravSHomePayload> loadHomePayload() async {
-    final bootstrapResponse = await getWithFallback(
-      '/api/mobile/bootstrap',
-      headers: jsonHeaders(),
-    );
-    final scheduleResponse = await getWithFallback(
-      '/api/guest/jadwal',
-      headers: jsonHeaders(),
-    );
+    final responses = await Future.wait([
+      getWithFallback('/api/mobile/bootstrap', headers: jsonHeaders()),
+      getWithFallback('/api/guest/jadwal', headers: jsonHeaders()),
+    ]);
+    final bootstrapResponse = responses[0];
+    final scheduleResponse = responses[1];
 
     if (bootstrapResponse.statusCode != 200) {
       throw TravSApiException(
@@ -100,8 +146,7 @@ class TravSApiService {
 
     final bootstrapData =
         bootstrapJson['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
-    final scheduleItems =
-        scheduleJson['data'] as List<dynamic>? ?? <dynamic>[];
+    final scheduleItems = scheduleJson['data'] as List<dynamic>? ?? <dynamic>[];
     final featuredItems =
         bootstrapData['featured_schedules'] as List<dynamic>? ?? <dynamic>[];
 
@@ -260,7 +305,7 @@ class TravSApiService {
     final bytes = await photo.readAsBytes();
     Object? lastError;
 
-    for (final candidate in baseUrls) {
+    for (final candidate in _orderedBaseUrls()) {
       try {
         final request = http.MultipartRequest(
           'POST',
@@ -274,8 +319,11 @@ class TravSApiService {
           http.MultipartFile.fromBytes('foto', bytes, filename: photo.name),
         );
 
-        final streamed = await request.send();
+        final streamed = await request.send().timeout(
+          const Duration(seconds: 20),
+        );
         final response = await http.Response.fromStream(streamed);
+        _lastSuccessfulBaseUrl = candidate;
 
         return _decodeDataObject(
           response,
@@ -291,6 +339,111 @@ class TravSApiService {
     }
 
     throw const TravSApiException('Foto barang bawaan gagal diunggah.');
+  }
+
+  Future<TravSUserProfile> updateProfile({
+    required String token,
+    required String nama,
+    required String email,
+    required String noHp,
+  }) async {
+    final response = await putWithFallback(
+      '/api/auth/profile',
+      headers: jsonHeaders(token: token),
+      body: jsonEncode({
+        'nama': nama.trim(),
+        'email': email.trim(),
+        'no_hp': noHp.trim(),
+      }),
+    );
+
+    return _decodeDataObject(
+      response,
+      (data) => TravSUserProfile.fromJson(_profilePayload(data)),
+    );
+  }
+
+  Future<TravSUserProfile> loadCurrentUserProfile({
+    required String token,
+  }) async {
+    final response = await getWithFallback(
+      '/api/auth/me',
+      headers: jsonHeaders(token: token),
+    );
+
+    return _decodeDataObject(
+      response,
+      (data) => TravSUserProfile.fromJson(_profilePayload(data)),
+    );
+  }
+
+  Future<void> changePassword({
+    required String token,
+    required String currentPassword,
+    required String password,
+    required String passwordConfirmation,
+  }) async {
+    final response = await postWithFallback(
+      '/api/auth/change-password',
+      headers: jsonHeaders(token: token),
+      body: jsonEncode({
+        'current_password': currentPassword,
+        'password': password,
+        'password_confirmation': passwordConfirmation,
+      }),
+    );
+
+    final body = _tryDecodeMap(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw TravSApiException(_extractErrorMessage(body));
+    }
+  }
+
+  Future<TravSUploadedProfilePhoto> uploadProfilePhoto({
+    required String token,
+    required XFile photo,
+  }) async {
+    final bytes = await photo.readAsBytes();
+    Object? lastError;
+
+    for (final candidate in _orderedBaseUrls()) {
+      try {
+        final request = http.MultipartRequest(
+          'POST',
+          Uri.parse('$candidate/api/auth/upload-photo'),
+        );
+        request.headers.addAll({
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        });
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'foto_profil',
+            bytes,
+            filename: photo.name,
+          ),
+        );
+
+        final streamed = await request.send().timeout(
+          const Duration(seconds: 20),
+        );
+        final response = await http.Response.fromStream(streamed);
+        _lastSuccessfulBaseUrl = candidate;
+
+        return _decodeDataObject(
+          response,
+          (data) => TravSUploadedProfilePhoto.fromJson(data),
+        );
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (lastError != null) {
+      throw lastError;
+    }
+
+    throw const TravSApiException('Foto profil gagal diunggah.');
   }
 
   Future<TravSBookingResult> simulatePayment({
@@ -380,6 +533,15 @@ class TravSApiService {
     return parser(data);
   }
 
+  Map<String, dynamic> _profilePayload(Map<String, dynamic> data) {
+    final nestedUser = data['user'];
+    if (nestedUser is Map<String, dynamic>) {
+      return nestedUser;
+    }
+
+    return data;
+  }
+
   List<T> _decodeDataList<T>(
     http.Response response,
     T Function(Map<String, dynamic> data) parser,
@@ -409,11 +571,13 @@ class TravSApiService {
   String _extractErrorMessage(Map<String, dynamic> body) {
     final errors = body['errors'];
     if (errors is Map) {
-      for (final value in errors.values) {
+      for (final entry in errors.entries) {
+        final fieldName = entry.key.toString();
+        final value = entry.value;
         if (value is List && value.isNotEmpty) {
           final message = value.first?.toString();
           if (message != null && message.isNotEmpty) {
-            return message;
+            return _friendlyValidationMessage(fieldName, message);
           }
         }
       }
@@ -421,19 +585,62 @@ class TravSApiService {
 
     final message = body['message']?.toString();
     if (message != null && message.isNotEmpty) {
-      return message;
+      return _friendlyValidationMessage('', message);
     }
 
     return 'Permintaan tidak dapat diproses. Silakan coba lagi.';
+  }
+
+  String _friendlyValidationMessage(String fieldName, String message) {
+    final normalizedMessage = message.toLowerCase();
+
+    if (normalizedMessage == 'validation.unique') {
+      if (fieldName == 'email') {
+        return 'Email sudah terdaftar. Silakan masuk atau gunakan email lain.';
+      }
+      if (fieldName == 'no_hp') {
+        return 'Nomor HP sudah terdaftar. Silakan masuk atau gunakan nomor lain.';
+      }
+
+      return 'Data tersebut sudah terdaftar. Silakan gunakan data lain.';
+    }
+
+    if (normalizedMessage == 'validation.confirmed') {
+      return 'Konfirmasi kata sandi belum sama.';
+    }
+
+    if (normalizedMessage == 'validation.email') {
+      return 'Format email belum valid.';
+    }
+
+    if (normalizedMessage == 'validation.required') {
+      return 'Data wajib masih ada yang belum diisi.';
+    }
+
+    if (normalizedMessage == 'validation.max.file') {
+      return 'Ukuran file terlalu besar. Pilih foto maksimal 5 MB.';
+    }
+
+    if (normalizedMessage == 'validation.image') {
+      return 'File harus berupa gambar.';
+    }
+
+    if (normalizedMessage == 'validation.mimes') {
+      return 'Format file belum didukung. Gunakan JPG, JPEG, PNG, atau WEBP.';
+    }
+
+    return message;
   }
 
   static Future<http.Response> _sendWithFallback(
     Future<http.Response> Function(String baseUrl) request,
   ) async {
     Object? lastError;
-    for (final candidate in baseUrls) {
+    for (final candidate in _orderedBaseUrls()) {
       try {
-        return await request(candidate);
+        final response = await request(candidate).timeout(_requestTimeout);
+        _lastSuccessfulBaseUrl = candidate;
+        return response;
       } catch (error) {
         lastError = error;
       }
@@ -443,11 +650,23 @@ class TravSApiService {
       throw lastError;
     }
 
-    throw const TravSApiException('Koneksi backend tidak dapat dijangkau.');
+    throw const TravSApiException(
+      'Backend lokal belum dapat dijangkau. Pastikan Laravel berjalan dan alamat API sesuai perangkat.',
+    );
   }
 
   static String _normalizeBaseUrl(String value) {
     return value.endsWith('/') ? value.substring(0, value.length - 1) : value;
+  }
+
+  static List<String> _orderedBaseUrls() {
+    final urls = baseUrls;
+    final activeUrl = _lastSuccessfulBaseUrl;
+    if (activeUrl == null || !urls.contains(activeUrl)) {
+      return urls;
+    }
+
+    return [activeUrl, ...urls.where((url) => url != activeUrl)];
   }
 }
 
@@ -471,6 +690,20 @@ class TravSUploadedBaggagePhoto {
   }
 }
 
+class TravSUploadedProfilePhoto {
+  const TravSUploadedProfilePhoto({required this.path, required this.url});
+
+  final String path;
+  final String url;
+
+  factory TravSUploadedProfilePhoto.fromJson(Map<String, dynamic> json) {
+    return TravSUploadedProfilePhoto(
+      path: json['foto_profil'] as String? ?? '',
+      url: json['foto_profil_url'] as String? ?? '',
+    );
+  }
+}
+
 class TravSHomePayload {
   const TravSHomePayload({
     required this.appName,
@@ -485,8 +718,6 @@ class TravSHomePayload {
   final String sourceLabel;
   final String? serviceWhatsapp;
   final String? adminContact;
-
-
 }
 
 class TravSSchedule {
@@ -634,8 +865,6 @@ class TravSScheduleDetail {
       isLive: true,
     );
   }
-
-
 }
 
 class TravSSeatItem {
@@ -805,8 +1034,6 @@ class TravSPassengerDashboard {
           .toList(),
     );
   }
-
-
 }
 
 class TravSPassengerBookingItem {
@@ -868,8 +1095,6 @@ class TravSDriverDashboard {
           .toList(),
     );
   }
-
-
 }
 
 class TravSDriverTripItem {

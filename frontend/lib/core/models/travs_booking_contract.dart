@@ -303,6 +303,29 @@ class TravSBookingBaggageInfo {
   }
 }
 
+class TravSBookingRequesterInfo {
+  const TravSBookingRequesterInfo({
+    required this.nama,
+    required this.email,
+    required this.noHp,
+    this.fotoUrl,
+  });
+
+  final String nama;
+  final String email;
+  final String noHp;
+  final String? fotoUrl;
+
+  factory TravSBookingRequesterInfo.fromJson(Map<String, dynamic> json) {
+    return TravSBookingRequesterInfo(
+      nama: json['nama'] as String? ?? '-',
+      email: json['email'] as String? ?? '-',
+      noHp: json['no_hp'] as String? ?? '-',
+      fotoUrl: json['foto_url'] as String?,
+    );
+  }
+}
+
 class TravSBookingResult {
   const TravSBookingResult({
     required this.id,
@@ -318,6 +341,7 @@ class TravSBookingResult {
     required this.rute,
     required this.waktuBerangkat,
     required this.payment,
+    this.pemesan,
     this.pickup,
     this.kendaraan,
     this.passengers = const <TravSBookingPassengerInfo>[],
@@ -337,6 +361,7 @@ class TravSBookingResult {
   final String rute;
   final String waktuBerangkat;
   final TravSBookingPaymentInfo payment;
+  final TravSBookingRequesterInfo? pemesan;
   final TravSBookingPickupInfo? pickup;
   final TravSBookingVehicleInfo? kendaraan;
   final List<TravSBookingPassengerInfo> passengers;
@@ -349,6 +374,7 @@ class TravSBookingResult {
   factory TravSBookingResult.fromJson(Map<String, dynamic> json) {
     final pickupJson = _asMapOrNull(json['pickup']);
     final vehicleJson = _asMapOrNull(json['kendaraan']);
+    final requesterJson = _asMapOrNull(json['pemesan']);
 
     return TravSBookingResult(
       id: _readInt(json['id']),
@@ -364,6 +390,9 @@ class TravSBookingResult {
       rute: json['rute'] as String? ?? '-',
       waktuBerangkat: json['waktu_berangkat'] as String? ?? '',
       payment: TravSBookingPaymentInfo.fromJson(_asMap(json['payment'])),
+      pemesan: requesterJson == null
+          ? null
+          : TravSBookingRequesterInfo.fromJson(requesterJson),
       pickup: pickupJson == null
           ? null
           : TravSBookingPickupInfo.fromJson(pickupJson),
@@ -385,8 +414,6 @@ class TravSBookingResult {
           .toList(),
     );
   }
-
-
 }
 
 Map<String, dynamic> _asMap(dynamic value) {

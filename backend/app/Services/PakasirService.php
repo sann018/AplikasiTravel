@@ -26,12 +26,50 @@ class PakasirService
 
     public function handlesMethod(string $paymentMethod): bool
     {
-        return $paymentMethod === 'qris';
+        return in_array($paymentMethod, ['qris', 'transfer'], true);
     }
 
     public function validateProject(string $project): bool
     {
         return $project === $this->project();
+    }
+
+    public function merchantReturnUrl(): ?string
+    {
+        $configuredUrl = trim((string) config('services.pakasir.return_url', ''));
+        if (in_array(strtolower($configuredUrl), ['disabled', 'false', 'off', 'none'], true)) {
+            return null;
+        }
+
+        if ($configuredUrl !== '') {
+            return $configuredUrl;
+        }
+
+        return null;
+    }
+
+    public function checkoutUrl(
+        string $orderId,
+        int|float|string $amount,
+        bool $qrisOnly = true,
+        ?string $redirectUrl = null,
+    ): string {
+        $query = [
+            'order_id' => $orderId,
+        ];
+
+        if ($qrisOnly) {
+            $query['qris_only'] = '1';
+        }
+
+        if (is_string($redirectUrl) && trim($redirectUrl) !== '') {
+            $query['redirect'] = $redirectUrl;
+        }
+
+        return 'https://app.pakasir.com/pay/'
+            .rawurlencode($this->project())
+            .'/'.$this->normalizeAmount($amount)
+            .'?'.http_build_query($query);
     }
 
     /**

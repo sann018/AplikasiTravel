@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -50,7 +51,6 @@ class PengemudiController extends Controller
 
         return view('admin.pengemudi.index', [
             'pengemudi' => $pengemudi,
-            'editingPengemudi' => $editingPengemudi,
             'stats' => [
                 'total' => Pengemudi::query()->count(),
                 'aktif' => Pengemudi::query()->where('status', 'aktif')->count(),
@@ -62,19 +62,36 @@ class PengemudiController extends Controller
         ]);
     }
 
+    public function create(): View
+    {
+        return view('admin.pengemudi.create');
+    }
+
+    public function edit(Pengemudi $pengemudi): View
+    {
+        $pengemudi->load('pengguna');
+
+        return view('admin.pengemudi.edit', [
+            'pengemudi' => $pengemudi,
+        ]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $payload = $this->validatedPayload($request);
         $normalizedStatus = $this->normalizeStatus($payload);
         $verificationAttributes = $this->verificationAttributes($payload, null, $request->user()->id);
 
-        DB::transaction(function () use ($payload, $normalizedStatus, $verificationAttributes) {
+        DB::transaction(function () use ($request, $payload, $normalizedStatus, $verificationAttributes) {
+            $profilePhotoPath = $this->storeProfilePhoto($request);
+
             $user = User::query()->create([
                 'nama' => $payload['nama'],
                 'email' => $payload['email'],
                 'no_hp' => $payload['no_hp'],
                 'peran' => 'pengemudi',
                 'status_aktif' => $normalizedStatus['status_aktif'],
+                'foto_profil' => $profilePhotoPath,
                 'email_verified_at' => now(),
                 'password' => Hash::make($payload['password']),
             ]);
@@ -101,12 +118,15 @@ class PengemudiController extends Controller
         $normalizedStatus = $this->normalizeStatus($payload);
         $verificationAttributes = $this->verificationAttributes($payload, $pengemudi, $request->user()->id);
 
-        DB::transaction(function () use ($pengemudi, $payload, $normalizedStatus, $verificationAttributes) {
+        DB::transaction(function () use ($request, $pengemudi, $payload, $normalizedStatus, $verificationAttributes) {
+            $profilePhotoPath = $this->storeProfilePhoto($request, $pengemudi->pengguna);
+
             $pengemudi->pengguna->update([
                 'nama' => $payload['nama'],
                 'email' => $payload['email'],
                 'no_hp' => $payload['no_hp'],
                 'status_aktif' => $normalizedStatus['status_aktif'],
+                ...($profilePhotoPath ? ['foto_profil' => $profilePhotoPath] : []),
                 ...($payload['password']
                     ? ['password' => Hash::make($payload['password'])]
                     : []),
@@ -167,7 +187,23 @@ class PengemudiController extends Controller
             'status_verifikasi' => ['required', Rule::in(['menunggu', 'terverifikasi', 'ditolak'])],
             'catatan_verifikasi' => ['nullable', 'string', 'max:1000'],
             'password' => [$pengemudi ? 'nullable' : 'required', 'string', 'min:8', 'max:100'],
+            'foto_profil' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ]);
+    }
+
+    private function storeProfilePhoto(Request $request, ?User $user = null): ?string
+    {
+        if (! $request->hasFile('foto_profil')) {
+            return null;
+        }
+
+        $path = $request->file('foto_profil')->store('profiles', 'public');
+
+        if ($user?->foto_profil) {
+            Storage::disk('public')->delete($user->foto_profil);
+        }
+
+        return $path;
     }
 
     private function normalizeStatus(array $payload): array

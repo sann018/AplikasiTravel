@@ -245,6 +245,32 @@ class ApiErrorResponseTest extends TestCase
         $this->assertArrayHasKey('email', $errors);
     }
 
+    public function test_register_duplicate_account_returns_friendly_message(): void
+    {
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+
+        $response = $this->postJson('/api/auth/register', [
+            'nama' => 'Penumpang Baru',
+            'email' => $user->email,
+            'no_hp' => $user->no_hp,
+            'password' => 'Password123',
+            'password_confirmation' => 'Password123',
+        ]);
+
+        $response
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertSame(
+            'Email sudah terdaftar. Silakan masuk atau gunakan email lain.',
+            $response->json('errors.email.0')
+        );
+        $this->assertSame(
+            'Nomor HP sudah terdaftar. Silakan masuk atau gunakan nomor lain.',
+            $response->json('errors.no_hp.0')
+        );
+    }
+
     // =========================================================================
     // Test: Booking dengan jadwal tidak valid
     // =========================================================================

@@ -25,9 +25,13 @@ class PassengerController extends Controller
         $bookings = Pemesanan::query()
             ->with(['jadwal.rute', 'detailPemesanan.tiketElektronik', 'pembayaran'])
             ->where('pengguna_id', $user->id)
-            ->latest()
-            ->limit(3)
-            ->get();
+            ->where('status_pemesanan', 'terbayar')
+            ->whereHas('pembayaran', fn ($query) => $query->where('status_bayar', 'berhasil'))
+            ->whereHas('jadwal', fn ($query) => $query->where('waktu_berangkat', '>=', now()))
+            ->get()
+            ->sortBy(fn (Pemesanan $booking) => $booking->jadwal?->waktu_berangkat?->timestamp ?? PHP_INT_MAX)
+            ->take(3)
+            ->values();
 
         return response()->json([
             'success' => true,

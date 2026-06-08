@@ -21,6 +21,10 @@ Route::get('/', function () {
         : redirect()->route('admin.login');
 });
 
+Route::get('/payment/return', function () {
+    return view('payment.return');
+})->name('payment.return');
+
 Route::prefix('admin')->group(function () {
     Route::middleware('guest')->group(function () {
         Route::get('/login', [AuthController::class, 'showLogin'])->name('admin.login');
@@ -31,22 +35,30 @@ Route::prefix('admin')->group(function () {
         Route::get('/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
 
         Route::get('/kendaraan', [KendaraanController::class, 'index'])->name('admin.kendaraan.index');
+        Route::get('/kendaraan/create', [KendaraanController::class, 'create'])->name('admin.kendaraan.create');
         Route::post('/kendaraan', [KendaraanController::class, 'store'])->name('admin.kendaraan.store');
+        Route::get('/kendaraan/{kendaraan}/edit', [KendaraanController::class, 'edit'])->name('admin.kendaraan.edit');
         Route::put('/kendaraan/{kendaraan}', [KendaraanController::class, 'update'])->name('admin.kendaraan.update');
         Route::delete('/kendaraan/{kendaraan}', [KendaraanController::class, 'destroy'])->name('admin.kendaraan.destroy');
 
         Route::get('/pengemudi', [PengemudiController::class, 'index'])->name('admin.pengemudi.index');
+        Route::get('/pengemudi/create', [PengemudiController::class, 'create'])->name('admin.pengemudi.create');
         Route::post('/pengemudi', [PengemudiController::class, 'store'])->name('admin.pengemudi.store');
+        Route::get('/pengemudi/{pengemudi}/edit', [PengemudiController::class, 'edit'])->name('admin.pengemudi.edit');
         Route::put('/pengemudi/{pengemudi}', [PengemudiController::class, 'update'])->name('admin.pengemudi.update');
         Route::delete('/pengemudi/{pengemudi}', [PengemudiController::class, 'destroy'])->name('admin.pengemudi.destroy');
 
         Route::get('/rute', [RuteController::class, 'index'])->name('admin.rute.index');
+        Route::get('/rute/create', [RuteController::class, 'create'])->name('admin.rute.create');
         Route::post('/rute', [RuteController::class, 'store'])->name('admin.rute.store');
+        Route::get('/rute/{rute}/edit', [RuteController::class, 'edit'])->name('admin.rute.edit');
         Route::put('/rute/{rute}', [RuteController::class, 'update'])->name('admin.rute.update');
         Route::delete('/rute/{rute}', [RuteController::class, 'destroy'])->name('admin.rute.destroy');
 
         Route::get('/jadwal', [JadwalController::class, 'index'])->name('admin.jadwal.index');
+        Route::get('/jadwal/create', [JadwalController::class, 'create'])->name('admin.jadwal.create');
         Route::post('/jadwal', [JadwalController::class, 'store'])->name('admin.jadwal.store');
+        Route::get('/jadwal/{jadwal}/edit', [JadwalController::class, 'edit'])->name('admin.jadwal.edit');
         Route::put('/jadwal/{jadwal}', [JadwalController::class, 'update'])->name('admin.jadwal.update');
         Route::delete('/jadwal/{jadwal}', [JadwalController::class, 'destroy'])->name('admin.jadwal.destroy');
 

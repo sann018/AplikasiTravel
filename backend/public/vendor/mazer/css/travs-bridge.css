@@ -49,12 +49,8 @@ body.travs-mazer-auth {
     display: inline-flex;
     align-items: center;
     gap: 0.55rem;
-    padding: 0.65rem 0.95rem;
-    border-radius: 999px;
-    background: #fff;
-    box-shadow: 0 2px 12px rgba(37, 57, 111, 0.08);
-    color: #435ebe;
-    font-size: 0.9rem;
+    color: #728198;
+    font-size: 0.88rem;
     font-weight: 600;
 }
 

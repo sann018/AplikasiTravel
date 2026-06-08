@@ -33,7 +33,6 @@ class Pemesanan extends Model
         'alamat_jemput',
         'subtotal_tiket',
         'biaya_bagasi',
-        'biaya_admin',
         'diskon',
         'total_harga',
         'status_pemesanan',
@@ -46,7 +45,6 @@ class Pemesanan extends Model
             'batas_pembayaran' => 'datetime',
             'subtotal_tiket' => 'decimal:2',
             'biaya_bagasi' => 'decimal:2',
-            'biaya_admin' => 'decimal:2',
             'diskon' => 'decimal:2',
             'total_harga' => 'decimal:2',
         ];

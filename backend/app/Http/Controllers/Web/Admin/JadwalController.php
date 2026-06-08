@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Jadwal;
 use App\Models\Kendaraan;
 use App\Models\KursiJadwal;
+use App\Models\Notifikasi;
 use App\Models\Pengemudi;
 use App\Models\Rute;
 use Illuminate\Database\QueryException;
@@ -59,7 +60,19 @@ class JadwalController extends Controller
 
         return view('admin.jadwal.index', [
             'jadwal' => $jadwal,
-            'editingJadwal' => $editingJadwal,
+            'stats' => [
+                'total' => Jadwal::query()->count(),
+                'dibuka' => Jadwal::query()->where('status', 'dibuka')->count(),
+                'berangkat' => Jadwal::query()->where('status', 'berangkat')->count(),
+                'selesai' => Jadwal::query()->where('status', 'selesai')->count(),
+            ],
+            'filters' => $request->only(['search', 'status', 'tanggal']),
+        ]);
+    }
+
+    public function create(): View
+    {
+        return view('admin.jadwal.create', [
             'kendaraanOptions' => Kendaraan::query()
                 ->where('status_kendaraan', 'aktif')
                 ->orderBy('nomor_plat')
@@ -74,13 +87,29 @@ class JadwalController extends Controller
                 ->where('status_aktif', true)
                 ->orderBy('kota_asal')
                 ->get(),
-            'stats' => [
-                'total' => Jadwal::query()->count(),
-                'dibuka' => Jadwal::query()->where('status', 'dibuka')->count(),
-                'berangkat' => Jadwal::query()->where('status', 'berangkat')->count(),
-                'selesai' => Jadwal::query()->where('status', 'selesai')->count(),
-            ],
-            'filters' => $request->only(['search', 'status', 'tanggal']),
+        ]);
+    }
+
+    public function edit(Jadwal $jadwal): View
+    {
+        $jadwal->load(['kendaraan', 'rute', 'pengemudi']);
+
+        return view('admin.jadwal.edit', [
+            'jadwal' => $jadwal,
+            'kendaraanOptions' => Kendaraan::query()
+                ->where('status_kendaraan', 'aktif')
+                ->orderBy('nomor_plat')
+                ->get(),
+            'pengemudiOptions' => Pengemudi::query()
+                ->with('pengguna')
+                ->where('status', 'aktif')
+                ->where('status_verifikasi', 'terverifikasi')
+                ->orderBy('nomor_sim')
+                ->get(),
+            'ruteOptions' => Rute::query()
+                ->where('status_aktif', true)
+                ->orderBy('kota_asal')
+                ->get(),
         ]);
     }
 
@@ -103,8 +132,30 @@ class JadwalController extends Controller
         $payload = $this->validatedPayload($request);
 
         DB::transaction(function () use ($jadwal, $payload) {
-            $jadwal->update($payload);
-            $this->syncSeatMap($jadwal->fresh('kendaraan'));
+            $lockedJadwal = Jadwal::query()
+                ->lockForUpdate()
+                ->findOrFail($jadwal->id);
+
+            $vehicleChanged = (int) $lockedJadwal->kendaraan_id !== (int) $payload['kendaraan_id'];
+            $driverChanged = (int) $lockedJadwal->pengemudi_id !== (int) $payload['pengemudi_id'];
+            $timeChanged = $lockedJadwal->waktu_berangkat?->format('Y-m-d H:i') !==
+                ($payload['waktu_berangkat'] ? date('Y-m-d H:i', strtotime($payload['waktu_berangkat'])) : null);
+
+            $lockedJadwal->update($payload);
+
+            if ($vehicleChanged) {
+                $lockedJadwal->load('kendaraan');
+                $this->syncSeatMap($lockedJadwal);
+            }
+
+            if ($driverChanged) {
+                $this->notifyAssignedDriver($lockedJadwal);
+            }
+
+            if ($driverChanged || $timeChanged || $vehicleChanged) {
+                $lockedJadwal->load('pemesanan');
+                $this->notifyPassengersScheduleChanged($lockedJadwal);
+            }
         });
 
         return redirect()
@@ -170,4 +221,48 @@ class JadwalController extends Controller
             ->doesntHave('detailPemesanan')
             ->delete();
     }
+
+    private function notifyAssignedDriver(Jadwal $jadwal): void
+    {
+        $driverUserId = $jadwal->pengemudi?->pengguna_id;
+        if (! $driverUserId) {
+            return;
+        }
+
+        Notifikasi::query()->create([
+            'pengguna_id' => $driverUserId,
+            'judul' => 'Tugas perjalanan baru',
+            'pesan' => 'Anda ditugaskan pada rute '.$this->routeLabel($jadwal).' untuk keberangkatan '.$jadwal->waktu_berangkat?->format('d/m/Y H:i').'.',
+            'jenis' => 'perjalanan',
+            'referensi_id' => $jadwal->id,
+        ]);
+    }
+
+    private function notifyPassengersScheduleChanged(Jadwal $jadwal): void
+    {
+        foreach ($jadwal->pemesanan as $booking) {
+            if (! in_array($booking->status_pemesanan, ['menunggu_pembayaran', 'terbayar'], true)) {
+                continue;
+            }
+
+            Notifikasi::query()->create([
+                'pengguna_id' => $booking->pengguna_id,
+                'judul' => 'Jadwal perjalanan diperbarui',
+                'pesan' => 'Jadwal '.$this->routeLabel($jadwal).' untuk booking '.$booking->kode_booking.' diperbarui. Silakan cek detail pemesanan Anda.',
+                'jenis' => 'perjalanan',
+                'referensi_id' => $booking->id,
+            ]);
+        }
+    }
+
+
+    private function routeLabel(Jadwal $jadwal): string
+    {
+        $jadwal->loadMissing('rute');
+
+        return $jadwal->rute
+            ? $jadwal->rute->kota_asal.' - '.$jadwal->rute->kota_tujuan
+            : 'perjalanan';
+    }
+
 }

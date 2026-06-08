@@ -5,7 +5,7 @@
 @section('page-description', 'Lihat akumulasi biaya per rute dan detail pengeluaran untuk mendukung evaluasi operasional travel.')
 
 @section('content')
-    <article class="travs-section-card">
+    <article class="travs-section-card travs-rekap-filter-card">
         <div class="travs-panel-title">
             <h3>Filter Rekap</h3>
             <p>Pilih rentang tanggal agar rekap biaya lebih fokus sesuai periode evaluasi.</p>
@@ -27,8 +27,8 @@
         </form>
     </article>
 
-    <section class="travs-panel-grid">
-        <article class="travs-section-card">
+    <section class="travs-panel-grid travs-rekap-panel-grid">
+        <article class="travs-section-card travs-rekap-filter-card">
             <div class="travs-panel-title">
                 <h3>Akumulasi per Rute</h3>
                 <p>Ringkasan biaya per rute berdasarkan data biaya operasional yang sudah dicatat.</p>
@@ -62,7 +62,7 @@
             </div>
         </article>
 
-        <article class="travs-section-card">
+        <article class="travs-section-card travs-rekap-filter-card">
             <div class="travs-panel-title">
                 <h3>Detail Pencatatan</h3>
                 <p>Daftar biaya operasional terbaru yang masuk ke sistem.</p>

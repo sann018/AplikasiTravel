@@ -7,6 +7,7 @@ use App\Models\Kendaraan;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -31,13 +32,9 @@ class KendaraanController extends Controller
         }
 
         $kendaraan = $query->latest()->paginate(10)->withQueryString();
-        $editingKendaraan = $request->filled('edit')
-            ? Kendaraan::query()->findOrFail($request->integer('edit'))
-            : null;
 
         return view('admin.kendaraan.index', [
             'kendaraan' => $kendaraan,
-            'editingKendaraan' => $editingKendaraan,
             'stats' => [
                 'total' => Kendaraan::query()->count(),
                 'aktif' => Kendaraan::query()->where('status_kendaraan', 'aktif')->count(),
@@ -48,9 +45,27 @@ class KendaraanController extends Controller
         ]);
     }
 
+    public function create(): View
+    {
+        return view('admin.kendaraan.create');
+    }
+
+    public function edit(Kendaraan $kendaraan): View
+    {
+        return view('admin.kendaraan.edit', [
+            'kendaraan' => $kendaraan,
+        ]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
-        Kendaraan::query()->create($this->validatedPayload($request));
+        $payload = $this->validatedPayload($request);
+
+        if ($request->hasFile('foto_kendaraan')) {
+            $payload['foto_kendaraan'] = $request->file('foto_kendaraan')->store('vehicles', 'public');
+        }
+
+        Kendaraan::query()->create($payload);
 
         return redirect()
             ->route('admin.kendaraan.index')
@@ -59,7 +74,16 @@ class KendaraanController extends Controller
 
     public function update(Request $request, Kendaraan $kendaraan): RedirectResponse
     {
-        $kendaraan->update($this->validatedPayload($request, $kendaraan));
+        $payload = $this->validatedPayload($request, $kendaraan);
+
+        if ($request->hasFile('foto_kendaraan')) {
+            if ($kendaraan->foto_kendaraan) {
+                Storage::disk('public')->delete($kendaraan->foto_kendaraan);
+            }
+            $payload['foto_kendaraan'] = $request->file('foto_kendaraan')->store('vehicles', 'public');
+        }
+
+        $kendaraan->update($payload);
 
         return redirect()
             ->route('admin.kendaraan.index')
@@ -98,6 +122,7 @@ class KendaraanController extends Controller
             'tgl_terakhir_servis' => ['nullable', 'date'],
             'tgl_pajak_tahunan' => ['nullable', 'date'],
             'status_kendaraan' => ['required', Rule::in(['aktif', 'perawatan', 'nonaktif'])],
+            'foto_kendaraan' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:3072'],
         ]);
 
         // Parse seat_layout dari string input (contoh: "1,3,2") menjadi JSON array.

@@ -45,7 +45,7 @@
                     <p>
                         @switch($groupKey)
                             @case('umum')
-                                Identitas dan informasi kontak utama yang tampil di seluruh ekosistem TravS.
+                                Identitas dan informasi kontak utama yang tampil di seluruh ekosistem RuslyTravel.
                                 @break
                             @case('pemesanan')
                                 Aturan kursi, batas waktu seat lock, dan kontrol auto cancel booking.

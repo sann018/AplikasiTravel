@@ -2,7 +2,7 @@
 
 @section('title', 'Dashboard')
 @section('page-title', 'Dasbor')
-@section('page-description', 'Ringkasan operasional TravS yang lebih visual, cepat dibaca, dan siap dipakai admin setiap hari.')
+@section('page-description', 'Ringkasan operasional RuslyTravel yang lebih visual, cepat dibaca, dan siap dipakai admin setiap hari.')
 
 @section('content')
     @php
@@ -10,57 +10,44 @@
             ? round(($stats['pengemudi_terverifikasi'] / max($stats['jumlah_pengemudi'], 1)) * 100)
             : 0;
         $maxPendapatan = max($pendapatanHarian->max('total'), 1);
-        $highlightCards = [
-            ['label' => 'Pemesanan Hari Ini', 'value' => number_format($stats['pemesanan_hari_ini']), 'hint' => 'Booking baru masuk'],
-            ['label' => 'Booking Menunggu', 'value' => number_format($stats['booking_menunggu']), 'hint' => 'Perlu follow up pembayaran'],
-            ['label' => 'Driver Terverifikasi', 'value' => number_format($stats['pengemudi_terverifikasi']), 'hint' => $completionRate.'% dari total driver'],
-            ['label' => 'Biaya Hari Ini', 'value' => 'Rp'.number_format($stats['biaya_harian'], 0, ',', '.'), 'hint' => 'Pengeluaran operasional'],
-        ];
     @endphp
 
-    <section class="travs-dashboard-hero-grid">
-        <article class="travs-dashboard-hero">
-            <div class="travs-dashboard-hero-copy">
-                <span class="travs-eyebrow travs-eyebrow-on-dark">TravS Operational Center</span>
-                <p>
-                    Pantau pendapatan, booking menunggu, status armada, verifikasi pengemudi, dan biaya operasional
-                    dari satu layar tanpa harus berpindah halaman terlalu sering.
-                </p>
-            </div>
-
-            <div class="travs-dashboard-hero-actions">
-                <a href="{{ route('admin.pemesanan.index') }}" class="travs-button">Buka Pemesanan</a>
-                <a href="{{ route('admin.pengaturan.index') }}" class="travs-button-secondary travs-button-secondary-light">Pengaturan Sistem</a>
-            </div>
-
-            <div class="travs-dashboard-hero-metrics">
-                <div class="travs-dashboard-hero-metric">
-                    <small>Total Armada</small>
-                    <strong>{{ number_format($stats['total_armada']) }}</strong>
-                    <span>Unit terdaftar</span>
-                </div>
-                <div class="travs-dashboard-hero-metric">
-                    <small>Rute Aktif</small>
-                    <strong>{{ number_format($stats['rute_aktif']) }}</strong>
-                    <span>Lintasan tersedia</span>
-                </div>
-                <div class="travs-dashboard-hero-metric">
-                    <small>Jadwal Hari Ini</small>
-                    <strong>{{ number_format($stats['jadwal_hari_ini']) }}</strong>
-                    <span>Keberangkatan aktif</span>
-                </div>
-            </div>
+    <section class="travs-summary-grid travs-summary-grid-dashboard">
+        <article class="travs-summary-card">
+            <small>Total Armada</small>
+            <strong>{{ number_format($stats['total_armada']) }}</strong>
+            <span>Unit terdaftar</span>
         </article>
-
-        <div class="travs-dashboard-highlight-stack">
-            @foreach ($highlightCards as $card)
-                <article class="travs-dashboard-highlight-card">
-                    <small>{{ $card['label'] }}</small>
-                    <strong>{{ $card['value'] }}</strong>
-                    <span>{{ $card['hint'] }}</span>
-                </article>
-            @endforeach
-        </div>
+        <article class="travs-summary-card">
+            <small>Rute Aktif</small>
+            <strong>{{ number_format($stats['rute_aktif']) }}</strong>
+            <span>Lintasan tersedia</span>
+        </article>
+        <article class="travs-summary-card">
+            <small>Jadwal Hari Ini</small>
+            <strong>{{ number_format($stats['jadwal_hari_ini']) }}</strong>
+            <span>Keberangkatan aktif</span>
+        </article>
+        <article class="travs-summary-card">
+            <small>Pemesanan Hari Ini</small>
+            <strong>{{ number_format($stats['pemesanan_hari_ini']) }}</strong>
+            <span>Booking baru masuk</span>
+        </article>
+        <article class="travs-summary-card">
+            <small>Booking Menunggu</small>
+            <strong>{{ number_format($stats['booking_menunggu']) }}</strong>
+            <span>Perlu follow up pembayaran</span>
+        </article>
+        <article class="travs-summary-card">
+            <small>Driver Terverifikasi</small>
+            <strong>{{ number_format($stats['pengemudi_terverifikasi']) }}</strong>
+            <span>{{ $completionRate }}% dari total driver</span>
+        </article>
+        <article class="travs-summary-card">
+            <small>Biaya Hari Ini</small>
+            <strong>Rp{{ number_format($stats['biaya_harian'], 0, ',', '.') }}</strong>
+            <span>Pengeluaran operasional</span>
+        </article>
     </section>
 
     <section class="travs-dashboard-main-grid">

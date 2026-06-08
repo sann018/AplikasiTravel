@@ -33,6 +33,7 @@ class Kendaraan extends Model
         'tgl_terakhir_servis',
         'tgl_pajak_tahunan',
         'status_kendaraan',
+        'foto_kendaraan',
     ];
 
     protected function casts(): array

@@ -2,7 +2,7 @@
 
 @section('title', 'Log Notifikasi')
 @section('page-title', 'Log Notifikasi')
-@section('page-description', 'Pantau notifikasi sistem yang tersimpan ke database untuk penumpang dan pengemudi.')
+@section('page-description', 'Pantau notifikasi sistem yang tersimpan ke database untuk penumpang, pengemudi, dan admin operasional.')
 
 @section('content')
     <section class="travs-summary-grid">
@@ -17,9 +17,14 @@
             <span>Menunggu dibuka user</span>
         </article>
         <article class="travs-summary-card">
-            <small>Jenis Pembayaran</small>
+            <small>Notifikasi Pembayaran</small>
             <strong>{{ number_format($stats['pembayaran']) }}</strong>
-            <span>Notifikasi terkait transaksi</span>
+            <span>Terkait transaksi</span>
+        </article>
+        <article class="travs-summary-card">
+            <small>Booking Baru</small>
+            <strong>{{ number_format($stats['pemesanan']) }}</strong>
+            <span>Masuk ke admin</span>
         </article>
     </section>
 
@@ -38,7 +43,7 @@
                 <label for="jenis">Jenis</label>
                 <select id="jenis" name="jenis" class="travs-select">
                     <option value="">Semua jenis</option>
-                    @foreach (['pembayaran' => 'Pembayaran', 'perjalanan' => 'Perjalanan', 'sistem' => 'Sistem'] as $value => $label)
+                    @foreach (['pembayaran' => 'Pembayaran', 'perjalanan' => 'Perjalanan', 'pemesanan' => 'Pemesanan', 'sistem' => 'Sistem'] as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['jenis'] ?? '') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
@@ -56,47 +61,85 @@
                 <a href="{{ route('admin.notifikasi.index') }}" class="travs-button-secondary">Reset</a>
             </div>
         </form>
+    </article>
 
-        <div class="travs-table-wrap">
-            <table class="travs-table">
-                <thead>
-                    <tr>
-                        <th>Waktu</th>
-                        <th>Penerima</th>
-                        <th>Jenis</th>
-                        <th>Judul</th>
-                        <th>Status Baca</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($notifikasi as $item)
-                        <tr>
-                            <td>{{ $item->created_at->translatedFormat('d M Y H:i') }}</td>
-                            <td>{{ $item->pengguna->nama }}</td>
-                            <td>
-                                <span class="travs-status-pill travs-status-{{ $item->jenis }}">
-                                    {{ ucfirst($item->jenis) }}
-                                </span>
-                            </td>
-                            <td>
-                                <strong>{{ $item->judul }}</strong>
-                                <div class="travs-table-subcopy">{{ $item->pesan }}</div>
-                            </td>
-                            <td>
-                                <span class="travs-status-pill travs-status-{{ $item->sudah_dibaca ? 'selesai' : 'menunggu' }}">
-                                    {{ $item->sudah_dibaca ? 'Sudah dibaca' : 'Belum dibaca' }}
-                                </span>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="5" class="travs-table-empty">Belum ada log notifikasi.</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+    <section class="travs-content" style="padding: 0; gap: 18px; margin-top: 18px;">
+        @forelse ($notifikasi as $item)
+            @php
+                $booking = $item->jenis === 'pemesanan' ? $item->referensiBooking : null;
+                $routeLabel = $booking?->jadwal?->rute
+                    ? $booking->jadwal->rute->kota_asal.' - '.$booking->jadwal->rute->kota_tujuan
+                    : null;
+                $vehicleLabel = $booking?->jadwal?->kendaraan
+                    ? $booking->jadwal->kendaraan->merk_kendaraan.' ('.$booking->jadwal->kendaraan->nomor_plat.')'
+                    : null;
+                $scheduleLabel = $booking?->jadwal?->waktu_berangkat?->translatedFormat('d M Y H:i');
+                $isBookingNotification = $item->jenis === 'pemesanan';
+            @endphp
+
+            <article class="travs-section-card {{ $isBookingNotification ? 'is-booking-notification' : '' }}">
+                @if ($isBookingNotification)
+                    <div class="travs-booking-notification-head">
+                        <span class="travs-booking-notification-dot"></span>
+                        <strong style="color: var(--travs-accent-deep);">Booking Baru Masuk</strong>
+                    </div>
+                @endif
+
+                <div class="travs-panel-header">
+                    <div class="travs-panel-title">
+                        <h3 style="margin-bottom: 4px;">{{ $item->judul }}</h3>
+                        <p>{{ $item->created_at->translatedFormat('d M Y H:i') }} · {{ $item->pengguna->nama }}</p>
+                    </div>
+                    <div class="travs-status-stack">
+                        <span class="travs-status-pill travs-status-{{ $item->jenis }}">
+                            {{ ucfirst($item->jenis) }}
+                        </span>
+                        <span class="travs-status-pill travs-status-{{ $item->sudah_dibaca ? 'selesai' : 'menunggu' }}">
+                            {{ $item->sudah_dibaca ? 'Sudah dibaca' : 'Belum dibaca' }}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="travs-admin-booking-alert">
+                    <strong>Isi notifikasi</strong>
+                    <small>{{ $item->pesan }}</small>
+                </div>
+
+                @if ($booking)
+                    <div class="travs-form-grid-2" style="margin-top: 16px;">
+                        <div class="travs-admin-booking-alert">
+                            <strong>Kode Booking</strong>
+                            <small>{{ $booking->kode_booking }}</small>
+                        </div>
+                        <div class="travs-admin-booking-alert">
+                            <strong>Status Booking</strong>
+                            <small>{{ ucwords(str_replace('_', ' ', $booking->status_pemesanan)) }}</small>
+                        </div>
+                        <div class="travs-admin-booking-alert">
+                            <strong>Rute</strong>
+                            <small>{{ $routeLabel ?? 'Tidak tersedia' }}</small>
+                        </div>
+                        <div class="travs-admin-booking-alert">
+                            <strong>Armada</strong>
+                            <small>{{ $vehicleLabel ?? 'Tidak tersedia' }}</small>
+                        </div>
+                        <div class="travs-admin-booking-alert travs-field-span-2">
+                            <strong>Jadwal Keberangkatan</strong>
+                            <small>{{ $scheduleLabel ?? 'Tidak tersedia' }}</small>
+                        </div>
+                    </div>
+
+                    <div class="travs-form-actions" style="margin-top: 16px; justify-content: flex-start;">
+                        <a href="{{ route('admin.pemesanan.show', $booking) }}" class="travs-button">Buka Detail Pemesanan</a>
+                    </div>
+                @endif
+            </article>
+        @empty
+            <article class="travs-section-card">
+                <div class="travs-table-empty">Belum ada log notifikasi.</div>
+            </article>
+        @endforelse
 
         {{ $notifikasi->links() }}
-    </article>
+    </section>
 @endsection

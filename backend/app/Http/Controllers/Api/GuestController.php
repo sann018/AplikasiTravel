@@ -63,9 +63,11 @@ class GuestController extends Controller
                     'plat' => $item->kendaraan->nomor_plat,
                     'warna' => $item->kendaraan->warna,
                     'tipe' => $item->kendaraan->tipe_kendaraan,
+                    'foto_url' => $this->publicStorageUrl($item->kendaraan->foto_kendaraan),
                 ],
                 'pengemudi' => [
                     'nama' => $item->pengemudi->pengguna->nama,
+                    'foto_url' => $this->publicStorageUrl($item->pengemudi->pengguna->foto_profil),
                 ],
             ];
         })->values();
@@ -74,5 +76,14 @@ class GuestController extends Controller
             'success' => true,
             'data' => $jadwal,
         ]);
+    }
+
+    private function publicStorageUrl(?string $path): ?string
+    {
+        if (! is_string($path) || trim($path) === '') {
+            return null;
+        }
+
+        return '/storage/'.ltrim($path, '/');
     }
 }

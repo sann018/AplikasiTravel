@@ -81,7 +81,7 @@ class _TravSAppState extends State<TravSApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'TravS',
+      title: 'RuslyTravel',
       debugShowCheckedModeBanner: false,
       theme: TravSTheme.light(),
       home: AnimatedSwitcher(
@@ -101,6 +101,7 @@ class _TravSAppState extends State<TravSApp> {
         session: _session,
         onOpenAuth: _openAuth,
         onLogout: _logout,
+        onSessionUpdated: _handleAuthenticated,
       );
     }
 

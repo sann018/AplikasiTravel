@@ -14,7 +14,7 @@ class NotifikasiController extends Controller
     {
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:80'],
-            'jenis' => ['nullable', Rule::in(['pembayaran', 'perjalanan', 'sistem'])],
+            'jenis' => ['nullable', Rule::in(['pembayaran', 'perjalanan', 'pemesanan', 'sistem'])],
             'dibaca' => ['nullable', Rule::in(['0', '1'])],
         ]);
 
@@ -46,6 +46,7 @@ class NotifikasiController extends Controller
                 'total' => Notifikasi::query()->count(),
                 'belum_dibaca' => Notifikasi::query()->where('sudah_dibaca', false)->count(),
                 'pembayaran' => Notifikasi::query()->where('jenis', 'pembayaran')->count(),
+                'pemesanan' => Notifikasi::query()->where('jenis', 'pemesanan')->count(),
             ],
             'filters' => $filters,
         ]);

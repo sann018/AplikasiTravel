@@ -76,7 +76,14 @@ class PaymentGatewayTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonPath('data.payment.uses_gateway', true)
-            ->assertJsonPath('data.payment.payment_number', 'QRIS-REAL-001');
+            ->assertJsonPath('data.payment.payment_number', 'QRIS-REAL-001')
+            ->assertJsonPath(
+                'data.payment.checkout_url',
+                fn (string $url) => str_starts_with($url, 'https://app.pakasir.com/pay/travs-test/')
+                    && str_contains($url, 'order_id=')
+                    && str_contains($url, 'qris_only=1')
+                    && ! str_contains($url, 'redirect='),
+            );
 
         $booking = Pemesanan::query()->latest('id')->firstOrFail();
         $payment = $booking->pembayaran()->firstOrFail();
@@ -90,6 +97,63 @@ class PaymentGatewayTest extends TestCase
             && $request['project'] === 'travs-test'
             && $request['order_id'] === $booking->kode_booking
             && $request['api_key'] === 'secret-test-key');
+    }
+
+    public function test_transfer_booking_uses_pakasir_checkout_without_qris_only_mode(): void
+    {
+        Http::fake();
+
+        $user = User::query()->where('email', 'fitri@travs.com')->firstOrFail();
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        $seat = KursiJadwal::query()
+            ->where('jadwal_id', $jadwal->id)
+            ->where('status_kursi', 'tersedia')
+            ->orderByDesc('nomor_kursi')
+            ->firstOrFail();
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/penumpang/bookings', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seat->nomor_kursi],
+            'pickup' => [
+                'latitude' => -0.0225,
+                'longitude' => 109.3425,
+                'address' => 'Jalan Ahmad Yani, Pontianak',
+            ],
+            'payment_method' => 'transfer',
+            'passengers' => [
+                [
+                    'seat_number' => $seat->nomor_kursi,
+                    'nama_penumpang' => 'Penumpang Transfer',
+                    'no_hp_penumpang' => '081200000077',
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.payment.uses_gateway', true)
+            ->assertJsonPath('data.payment.method', 'transfer')
+            ->assertJsonPath(
+                'data.payment.checkout_url',
+                fn (string $url) => str_starts_with($url, 'https://app.pakasir.com/pay/travs-test/')
+                    && str_contains($url, 'order_id=')
+                    && ! str_contains($url, 'redirect=')
+                    && ! str_contains($url, 'qris_only=1'),
+            );
+
+        $booking = Pemesanan::query()->latest('id')->firstOrFail();
+        $payment = $booking->pembayaran()->firstOrFail();
+        $gatewayResponse = json_decode((string) $payment->gateway_response, true);
+
+        $this->assertSame('transfer', $payment->metode_bayar);
+        $this->assertSame('transfer', $payment->paid_channel);
+        $this->assertSame($booking->kode_booking, $payment->order_id_gateway);
+        $this->assertSame('transfer', $gatewayResponse['checkout_method']);
+        $this->assertSame([], $gatewayResponse['create_payment']);
+
+        Http::assertNothingSent();
     }
 
     public function test_pakasir_webhook_success_reconciles_transaction_before_issuing_ticket(): void

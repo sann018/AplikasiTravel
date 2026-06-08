@@ -40,6 +40,7 @@ return [
         'base_url' => env('PAKASIR_BASE_URL', 'https://app.pakasir.com/api'),
         'project' => env('PAKASIR_PROJECT'),
         'api_key' => env('PAKASIR_API_KEY'),
+        'return_url' => env('PAKASIR_RETURN_URL'),
         'use_remote_simulation' => env('PAKASIR_USE_REMOTE_SIMULATION', false),
         'timeout' => env('PAKASIR_TIMEOUT', 15),
         'connect_timeout' => env('PAKASIR_CONNECT_TIMEOUT', 5),

@@ -47,6 +47,10 @@
         ];
         $pageTitle = trim($__env->yieldContent('page-title', 'Dashboard'));
         $pageDescription = trim($__env->yieldContent('page-description', 'Kelola operasional travel secara terpusat dan nyaman dipakai setiap hari.'));
+        $unreadAdminNotifications = \App\Models\Notifikasi::query()
+            ->where('pengguna_id', auth()->id())
+            ->where('sudah_dibaca', false)
+            ->count();
     @endphp
 
     <div id="app">
@@ -60,7 +64,7 @@
                             </div>
                             <div>
                                 <h5 class="mb-0">{{ config('app.name') }}</h5>
-                                <small>Admin Dashboard</small>
+                                <small>RuslyTravel Admin</small>
                             </div>
                         </div>
 
@@ -87,6 +91,9 @@
                                     <a href="{{ route($item['route']) }}" class="sidebar-link">
                                         <i data-feather="{{ $item['icon'] }}"></i>
                                         <span>{{ $item['label'] }}</span>
+                                        @if ($item['route'] === 'admin.notifikasi.index' && $unreadAdminNotifications > 0)
+                                            <span class="travs-sidebar-badge">{{ number_format($unreadAdminNotifications) }}</span>
+                                        @endif
                                     </a>
                                 </li>
                             @endforeach
@@ -97,93 +104,88 @@
         </div>
 
         <div id="main" class="layout-navbar">
-            <header class="mb-0">
-                <nav class="navbar navbar-expand navbar-light navbar-top">
-                    <div class="container-fluid px-0">
-                        <a href="#" class="burger-btn d-block d-xl-none" aria-label="Buka menu">
+            <header class="travs-sticky-header">
+                <nav class="travs-topbar">
+                    <div class="travs-topbar-left">
+                        <a href="#" class="travs-icon-button d-xl-none" aria-label="Buka menu">
                             <i data-feather="menu"></i>
                         </a>
+                        <div class="travs-topbar-title">
+                            <h3>{{ $pageTitle }}</h3>
+                            <p>{{ $pageDescription }}</p>
+                        </div>
+                    </div>
 
-                        <div class="ms-auto d-flex align-items-center gap-3">
-                            <div class="travs-topbar-chip">
-                                <i data-feather="calendar"></i>
-                                <span>{{ now()->translatedFormat('d F Y') }}</span>
-                            </div>
+                    <div class="travs-topbar-right">
+                        <div class="travs-topbar-chip">
+                            <i data-feather="calendar"></i>
+                            <span>{{ now()->translatedFormat('d F Y') }}</span>
+                        </div>
 
-                            <div class="dropdown">
-                                <a
-                                    href="#"
-                                    class="d-flex align-items-center gap-3 text-decoration-none dropdown-toggle"
-                                    id="topbarUserDropdown"
-                                    data-bs-toggle="dropdown"
-                                    aria-expanded="false"
-                                >
-                                    <div class="avatar avatar-md bg-primary me-1">
-                                        <span class="avatar-content">{{ strtoupper(substr(auth()->user()->nama, 0, 1)) }}</span>
-                                    </div>
-                                    <div class="text-end d-none d-sm-block">
+                        <div class="dropdown">
+                            <a
+                                href="#"
+                                class="travs-user-pill"
+                                id="topbarUserDropdown"
+                                data-bs-toggle="dropdown"
+                                aria-expanded="false"
+                            >
+                                <div class="travs-user-avatar">
+                                    @if (auth()->user()->foto_profil)
+                                        <img src="/storage/{{ ltrim(auth()->user()->foto_profil, '/') }}" alt="Foto {{ auth()->user()->nama }}">
+                                    @else
+                                        {{ strtoupper(substr(auth()->user()->nama, 0, 1)) }}
+                                    @endif
+                                </div>
+                                <div class="travs-user-copy">
+                                    <strong>{{ auth()->user()->nama }}</strong>
+                                    <span>{{ ucfirst(auth()->user()->peran) }}</span>
+                                </div>
+                            </a>
+
+                            <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="topbarUserDropdown">
+                                <li>
+                                    <div class="dropdown-header">
                                         <h6 class="mb-0">{{ auth()->user()->nama }}</h6>
                                         <small class="text-muted">{{ ucfirst(auth()->user()->peran) }}</small>
                                     </div>
-                                </a>
-
-                                <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="topbarUserDropdown">
-                                    <li>
-                                        <div class="dropdown-header">
-                                            <h6 class="mb-0">{{ auth()->user()->nama }}</h6>
-                                            <small class="text-muted">{{ ucfirst(auth()->user()->peran) }}</small>
-                                        </div>
-                                    </li>
-                                    <li><hr class="dropdown-divider"></li>
-                                    <li>
-                                        <form method="POST" action="{{ route('admin.logout') }}">
-                                            @csrf
-                                            <button type="submit" class="dropdown-item">
-                                                <i data-feather="log-out"></i>
-                                                <span>Keluar</span>
-                                            </button>
-                                        </form>
-                                    </li>
-                                </ul>
-                            </div>
+                                </li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <form method="POST" action="{{ route('admin.logout') }}">
+                                        @csrf
+                                        <button type="submit" class="dropdown-item">
+                                            <i data-feather="log-out"></i>
+                                            <span>Keluar</span>
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
                         </div>
                     </div>
                 </nav>
             </header>
 
             <div id="main-content">
-                <div class="page-heading">
-                    <div class="card travs-page-hero mb-4">
-                        <div class="card-body">
-                            <div class="page-title-headings">
-                                <div>
-                                    <h3>{{ $pageTitle }}</h3>
-                                    <p class="text-sm mb-0">{{ $pageDescription }}</p>
-                                </div>
-                            </div>
-                        </div>
+                @if (session('status'))
+                    <div class="travs-alert travs-alert-success mb-4">
+                        {{ session('status') }}
                     </div>
+                @endif
 
-                    @if (session('status'))
-                        <div class="alert alert-success mb-4">
-                            {{ session('status') }}
-                        </div>
-                    @endif
+                @if (session('error'))
+                    <div class="travs-alert travs-alert-danger mb-4">
+                        {{ session('error') }}
+                    </div>
+                @endif
 
-                    @if (session('error'))
-                        <div class="alert alert-danger mb-4">
-                            {{ session('error') }}
-                        </div>
-                    @endif
+                @if ($errors->any())
+                    <div class="travs-alert travs-alert-danger mb-4">
+                        {{ $errors->first() }}
+                    </div>
+                @endif
 
-                    @if ($errors->any())
-                        <div class="alert alert-danger mb-4">
-                            {{ $errors->first() }}
-                        </div>
-                    @endif
-
-                    @yield('content')
-                </div>
+                @yield('content')
             </div>
         </div>
     </div>

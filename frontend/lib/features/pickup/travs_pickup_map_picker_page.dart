@@ -70,7 +70,8 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
       }
 
       setState(() {
-        _selectedAddress = error.toString();
+        _selectedAddress =
+            'Gagal mengambil alamat. Coba geser pin atau ketik manual.';
       });
     } finally {
       if (mounted && currentLookup == _lookupToken) {
@@ -147,7 +148,7 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Alamat akan diisi otomatis dengan reverse geocoding. Kamu juga bisa langsung pakai lokasi perangkat saat ini.',
+                    'Alamat akan diisi otomatis berdasarkan titik yang dipilih. Kamu juga bisa langsung pakai lokasi perangkat saat ini.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: Colors.white.withValues(alpha: 0.88),
                     ),
@@ -173,7 +174,7 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
                     TileLayer(
                       urlTemplate:
                           'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.example.frontend',
+                      userAgentPackageName: 'com.ruslytravel.app',
                     ),
                     MarkerLayer(
                       markers: [

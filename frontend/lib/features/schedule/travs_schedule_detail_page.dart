@@ -156,9 +156,7 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
     if (!_selectedSeatNumbers.contains(seat.seatNumber) &&
         _selectedSeatNumbers.length >= maxSeatCount &&
         maxSeatCount > 0) {
-      _showStageMessage(
-        'Maksimal $maxSeatCount kursi per transaksi sesuai pengaturan sistem.',
-      );
+      _showStageMessage('Maksimal $maxSeatCount kursi per transaksi.');
       return;
     }
 
@@ -315,7 +313,7 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
                       _DriverBriefCard(
                         detail: detail,
                         onPrimaryAction: () => _showStageMessage(
-                          'Manifest detail, scan QR, dan status hadir akan saya sambungkan pada tahap pengemudi berikutnya.',
+                          'Fitur manifest detail akan segera tersedia.',
                         ),
                       )
                     else
@@ -438,7 +436,7 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
   TravSCheckoutDraft _estimate(TravSScheduleDetail detail) {
     final baggageRules = detail.baggageRules;
     final ticketSubtotal = detail.schedule.hargaTiket * _seatCount;
-    final adminFee = detail.bookingRules.adminFee;
+    const adminFee = 0.0;
 
     final freeWeight = baggageRules.freeWeightKg * _seatCount;
     final freeSize = baggageRules.freeSizeCm * _seatCount;
@@ -505,10 +503,7 @@ class _HeroCard extends StatelessWidget {
             spacing: 10,
             runSpacing: 10,
             children: [
-              _BadgePill(
-                label: 'Data Langsung',
-                color: TravSTheme.success,
-              ),
+              _BadgePill(label: 'Data Langsung', color: TravSTheme.success),
               _BadgePill(
                 label: selectedRole == AppRolePreview.driver
                     ? 'Mode Pengemudi'
@@ -946,10 +941,11 @@ class _CheckoutPreviewCard extends StatelessWidget {
                     label: 'Subtotal tiket',
                     value: 'Rp${_formatCurrency(estimate.ticketSubtotal)}',
                   ),
-                  _PriceRow(
-                    label: 'Biaya admin',
-                    value: 'Rp${_formatCurrency(estimate.adminFee)}',
-                  ),
+                  if (estimate.adminFee > 0)
+                    _PriceRow(
+                      label: 'Biaya admin',
+                      value: 'Rp${_formatCurrency(estimate.adminFee)}',
+                    ),
                   if (estimate.weightFee > 0)
                     _PriceRow(
                       label:
@@ -980,7 +976,7 @@ class _CheckoutPreviewCard extends StatelessWidget {
             const SizedBox(height: 14),
             if (baggageRules.photoRequired)
               Text(
-                'Catatan: foto bagasi diwajibkan oleh pengaturan sistem pada tahap submit booking.',
+                'Catatan: foto bagasi wajib dilampirkan saat pemesanan.',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: TravSTheme.orange,
                   fontWeight: FontWeight.w700,
@@ -1043,7 +1039,7 @@ class _DriverBriefCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Halaman ini menyiapkan konteks perjalanan sebelum modul manifest, scan QR, dan update kehadiran disambungkan penuh.',
+              'Ringkasan perjalanan dan informasi manifest penumpang.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: TravSTheme.navyMuted,
               ),
@@ -1322,15 +1318,7 @@ class _VehicleSeatDeck extends StatelessWidget {
     }
 
     final layout = _buildVehicleSeatLayout(sortedSeats, seatLayout);
-    final effectivePattern = seatLayout.isNotEmpty
-        ? seatLayout
-        : _seatRowPattern(sortedSeats.length);
-    final rowCount = effectivePattern.length;
-    final deckAspectRatio = rowCount <= 4
-        ? 0.68
-        : rowCount <= 6
-        ? 0.58
-        : 0.48;
+    const deckAspectRatio = 2 / 3;
 
     return Center(
       child: ConstrainedBox(
@@ -1341,20 +1329,40 @@ class _VehicleSeatDeck extends StatelessWidget {
             builder: (context, constraints) {
               final width = constraints.maxWidth;
               final height = constraints.maxHeight;
-              final seatSize = width < 340 ? 48.0 : 54.0;
+              final seatSize = width < 340 ? 46.0 : 52.0;
 
               return Stack(
                 clipBehavior: Clip.none,
                 children: [
                   Positioned.fill(
-                    child: CustomPaint(painter: _VehicleCabinPainter()),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(28),
+                      ),
+                    ),
+                  ),
+
+                  // Gambar mobil menjadi dasar denah, sedangkan tombol kursi
+                  // tetap dibangun dari data backend agar fleksibel per armada.
+                  Positioned.fill(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: Image.asset(
+                        'assets/images/seat_taksi_top.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return CustomPaint(painter: _VehicleCabinPainter());
+                        },
+                      ),
+                    ),
                   ),
                   Positioned(
-                    left: width * 0.64 - seatSize / 2,
-                    top: height * 0.18 - seatSize / 2,
+                    left: width * 0.62 - seatSize / 2,
+                    top: height * 0.36 - seatSize / 2,
                     child: _VehicleSeatButton(
                       size: seatSize,
-                      label: 'SOPIR',
+                      label: 'P',
                       status: 'driver',
                       selected: false,
                       enabled: false,
@@ -1421,9 +1429,7 @@ List<_VehicleSeatLayoutItem> _buildVehicleSeatLayout(
 
   for (var rowIndex = 0; rowIndex < rowPattern.length; rowIndex++) {
     final rowSize = rowPattern[rowIndex];
-    final y = rowCount == 1
-        ? 0.55
-        : 0.28 + (rowIndex * (0.58 / (rowCount - 1)));
+    final y = _seatYPosition(rowCount, rowIndex);
 
     for (var columnIndex = 0; columnIndex < rowSize; columnIndex++) {
       if (seatIndex >= seats.length) {
@@ -1464,10 +1470,10 @@ List<int> _seatRowPattern(int count) {
     return const [1, 2, 2];
   }
   if (count == 6) {
-    return const [1, 2, 3];
+    return const [1, 3, 2];
   }
   if (count == 7) {
-    return const [2, 2, 3];
+    return const [1, 3, 3];
   }
 
   final rows = <int>[];
@@ -1484,16 +1490,36 @@ List<int> _seatRowPattern(int count) {
 
 double _seatXPosition(int rowSize, int columnIndex, int rowIndex) {
   if (rowSize == 1) {
-    return rowIndex == 0 ? 0.28 : 0.50;
+    return rowIndex == 0 ? 0.38 : 0.50;
   }
 
   if (rowSize == 2) {
-    return columnIndex == 0 ? 0.28 : 0.72;
+    return columnIndex == 0 ? 0.32 : 0.68;
   }
 
-  const positions = [0.24, 0.50, 0.76];
+  const positions = [0.28, 0.50, 0.72];
   final safeIndex = columnIndex.clamp(0, positions.length - 1).toInt();
   return positions[safeIndex];
+}
+
+double _seatYPosition(int rowCount, int rowIndex) {
+  if (rowCount <= 1) {
+    return 0.55;
+  }
+
+  if (rowCount == 2) {
+    const positions = [0.43, 0.67];
+    return positions[rowIndex.clamp(0, positions.length - 1).toInt()];
+  }
+
+  if (rowCount == 3) {
+    const positions = [0.39, 0.57, 0.73];
+    return positions[rowIndex.clamp(0, positions.length - 1).toInt()];
+  }
+
+  const start = 0.36;
+  const end = 0.82;
+  return start + (rowIndex * ((end - start) / (rowCount - 1)));
 }
 
 class _VehicleCabinPainter extends CustomPainter {

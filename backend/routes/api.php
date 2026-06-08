@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\GuestController;
 use App\Http\Controllers\Api\PaymentGatewayController;
 use App\Http\Controllers\Api\PassengerController;
+use App\Http\Controllers\Api\NotificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/ping', function () {
@@ -34,6 +35,9 @@ Route::prefix('auth')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/me', [AuthController::class, 'me'])->middleware('throttle:travs-read');
         Route::post('/logout', [AuthController::class, 'logout'])->middleware('throttle:travs-action');
+        Route::put('/profile', [AuthController::class, 'updateProfile'])->middleware('throttle:travs-action');
+        Route::post('/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:travs-action');
+        Route::post('/upload-photo', [AuthController::class, 'uploadPhoto'])->middleware('throttle:travs-upload');
     });
 });
 
@@ -52,6 +56,16 @@ Route::middleware(['auth:sanctum', 'role:penumpang'])->group(function () {
     Route::post('/penumpang/bookings/{booking}/refresh-payment-status', [BookingController::class, 'refreshPaymentStatus'])->middleware('throttle:travs-action');
 });
 
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::middleware('throttle:travs-read')->group(function () {
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+    });
+
+    Route::post('/notifications/{notifikasi}/read', [NotificationController::class, 'markAsRead'])->middleware('throttle:travs-action');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->middleware('throttle:travs-action');
+});
+
 Route::middleware(['auth:sanctum', 'role:pengemudi'])->group(function () {
     Route::middleware('throttle:travs-read')->group(function () {
         Route::get('/pengemudi/dashboard', [DriverController::class, 'dashboard']);
@@ -62,4 +76,5 @@ Route::middleware(['auth:sanctum', 'role:pengemudi'])->group(function () {
     Route::post('/pengemudi/trips/{jadwal}/passengers/{detail}/pickup', [DriverController::class, 'markPassengerPickup'])->middleware('throttle:travs-action');
     Route::post('/pengemudi/trips/{jadwal}/status', [DriverController::class, 'updateTripStatus'])->middleware('throttle:travs-action');
     Route::post('/pengemudi/tickets/scan', [DriverController::class, 'scanTicket'])->middleware('throttle:travs-action');
+    Route::post('/pengemudi/upload-photo', [DriverController::class, 'uploadDriverPhoto'])->middleware('throttle:travs-upload');
 });

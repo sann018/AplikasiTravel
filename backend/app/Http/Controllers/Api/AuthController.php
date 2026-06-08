@@ -8,8 +8,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class AuthController extends Controller
 {
@@ -21,6 +24,16 @@ class AuthController extends Controller
             'no_hp' => ['required', 'string', 'max:20', 'unique:pengguna,no_hp'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'device_name' => ['nullable', 'string', 'max:100'],
+        ], [
+            'nama.required' => 'Nama lengkap wajib diisi.',
+            'email.required' => 'Email wajib diisi.',
+            'email.email' => 'Format email belum valid.',
+            'email.unique' => 'Email sudah terdaftar. Silakan masuk atau gunakan email lain.',
+            'no_hp.required' => 'Nomor HP wajib diisi.',
+            'no_hp.unique' => 'Nomor HP sudah terdaftar. Silakan masuk atau gunakan nomor lain.',
+            'password.required' => 'Kata sandi wajib diisi.',
+            'password.min' => 'Kata sandi minimal 8 karakter.',
+            'password.confirmed' => 'Konfirmasi kata sandi belum sama.',
         ]);
 
         $user = User::query()->create([
@@ -39,7 +52,7 @@ class AuthController extends Controller
             'message' => 'Registrasi berhasil.',
             'data' => [
                 'token' => $token,
-                'user' => $this->formatUser($user),
+                'user' => $this->formatUser($user, $request),
             ],
         ], 201);
     }
@@ -79,7 +92,7 @@ class AuthController extends Controller
             'message' => 'Login berhasil.',
             'data' => [
                 'token' => $token,
-                'user' => $this->formatUser($user->load('pengemudiProfile')),
+                'user' => $this->formatUser($user->load('pengemudiProfile'), $request),
             ],
         ]);
     }
@@ -88,7 +101,7 @@ class AuthController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => $this->formatUser($request->user()->load('pengemudiProfile')),
+            'data' => $this->formatUser($request->user()->load('pengemudiProfile'), $request),
         ]);
     }
 
@@ -99,6 +112,176 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Logout berhasil.',
+        ]);
+    }
+
+    public function updateProfile(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $photoField = $this->profilePhotoField($request);
+
+        $validated = $request->validate([
+            'nama' => ['sometimes', 'string', 'max:100'],
+            'email' => ['sometimes', 'email', 'max:100', 'unique:pengguna,email,'.$user->id],
+            'no_hp' => ['sometimes', 'string', 'max:20', 'unique:pengguna,no_hp,'.$user->id],
+            'foto_profil' => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'foto' => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ], [
+            'email.email' => 'Format email belum valid.',
+            'email.unique' => 'Email sudah dipakai akun lain.',
+            'no_hp.unique' => 'Nomor HP sudah dipakai akun lain.',
+            'foto_profil.image' => 'File foto profil harus berupa gambar.',
+            'foto_profil.mimes' => 'Format foto profil harus JPG, JPEG, PNG, atau WEBP.',
+            'foto_profil.max' => 'Ukuran foto profil maksimal 5 MB.',
+            'foto.image' => 'File foto profil harus berupa gambar.',
+            'foto.mimes' => 'Format foto profil harus JPG, JPEG, PNG, atau WEBP.',
+            'foto.max' => 'Ukuran foto profil maksimal 5 MB.',
+        ]);
+
+        unset($validated['foto_profil'], $validated['foto']);
+
+        $oldPhotoPath = $user->foto_profil;
+        $newPhotoPath = null;
+
+        Log::info('Profile update photo debug', [
+            'user_id' => $user->id,
+            'has_foto_profil' => $request->hasFile('foto_profil'),
+            'has_foto_legacy' => $request->hasFile('foto'),
+        ]);
+
+        if ($photoField !== null) {
+            try {
+                $newPhotoPath = $this->storeProfilePhoto($request, $photoField);
+                $validated['foto_profil'] = $newPhotoPath;
+            } catch (ValidationException $exception) {
+                throw $exception;
+            } catch (Throwable $exception) {
+                Log::warning('Profile photo upload failed', [
+                    'user_id' => $user->id,
+                    'message' => $exception->getMessage(),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Gagal upload foto profil.',
+                ], 500);
+            }
+        }
+
+        DB::transaction(function () use ($user, $validated) {
+            $user->update($validated);
+        });
+
+        if ($newPhotoPath !== null) {
+            $this->deleteOldProfilePhoto($oldPhotoPath, $newPhotoPath);
+        }
+
+        $freshUser = $user->fresh()->load('pengemudiProfile');
+        $responseUser = $this->formatUser($freshUser, $request);
+
+        Log::info('Profile update response debug', [
+            'user_id' => $freshUser->id,
+            'foto_profil' => $responseUser['foto_profil'],
+            'foto_profil_url' => $responseUser['foto_profil_url'],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Profil berhasil diperbarui.',
+            'data' => array_merge($responseUser, [
+                'user' => $responseUser,
+            ]),
+        ]);
+    }
+
+    public function changePassword(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+
+        if (! Hash::check($validated['current_password'], $user->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['Password saat ini tidak sesuai.'],
+            ]);
+        }
+
+        $user->update(['password' => $validated['password']]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password berhasil diubah.',
+        ]);
+    }
+
+    public function uploadPhoto(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $photoField = $this->profilePhotoField($request);
+
+        if ($photoField === null) {
+            throw ValidationException::withMessages([
+                'foto_profil' => ['Foto profil wajib dilampirkan.'],
+            ]);
+        }
+
+        $request->validate([
+            $photoField => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+        ], [
+            $photoField.'.image' => 'File foto profil harus berupa gambar.',
+            $photoField.'.mimes' => 'Format foto profil harus JPG, JPEG, PNG, atau WEBP.',
+            $photoField.'.max' => 'Ukuran foto profil maksimal 5 MB.',
+        ]);
+
+        $oldPhotoPath = $user->foto_profil;
+
+        Log::info('Profile photo upload debug', [
+            'user_id' => $user->id,
+            'field' => $photoField,
+            'has_file' => $request->hasFile($photoField),
+        ]);
+
+        try {
+            $path = $this->storeProfilePhoto($request, $photoField);
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            Log::warning('Profile photo storage failed', [
+                'user_id' => $user->id,
+                'message' => $exception->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal upload foto profil.',
+            ], 500);
+        }
+
+        DB::transaction(function () use ($user, $path) {
+            $user->update(['foto_profil' => $path]);
+        });
+
+        $this->deleteOldProfilePhoto($oldPhotoPath, $path);
+        $freshUser = $user->fresh()->load('pengemudiProfile');
+        $responseUser = $this->formatUser($freshUser, $request);
+
+        Log::info('Profile photo saved debug', [
+            'user_id' => $freshUser->id,
+            'foto_profil' => $responseUser['foto_profil'],
+            'foto_profil_url' => $responseUser['foto_profil_url'],
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Foto profil berhasil diunggah.',
+            'data' => [
+                'foto_profil' => $path,
+                'foto_profil_url' => $this->publicStorageUrl($path, $request),
+                'user' => $responseUser,
+            ],
         ]);
     }
 
@@ -205,7 +388,7 @@ class AuthController extends Controller
         ]);
     }
 
-    private function formatUser(User $user): array
+    private function formatUser(User $user, ?Request $request = null): array
     {
         return [
             'id' => $user->id,
@@ -214,8 +397,77 @@ class AuthController extends Controller
             'no_hp' => $user->no_hp,
             'peran' => $user->peran,
             'foto_profil' => $user->foto_profil,
+            'foto_profil_url' => $this->publicStorageUrl($user->foto_profil, $request),
             'status_aktif' => $user->status_aktif,
             'nomor_sim' => $user->pengemudiProfile?->nomor_sim,
         ];
+    }
+
+    private function profilePhotoField(Request $request): ?string
+    {
+        if ($request->hasFile('foto_profil')) {
+            return 'foto_profil';
+        }
+
+        if ($request->hasFile('foto')) {
+            return 'foto';
+        }
+
+        return null;
+    }
+
+    private function storeProfilePhoto(Request $request, string $field): string
+    {
+        $file = $request->file($field);
+        if (! $file || ! $file->isValid()) {
+            throw new \RuntimeException('File foto profil tidak valid.');
+        }
+
+        $allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (! in_array($file->getMimeType(), $allowedMimeTypes, true)) {
+            throw ValidationException::withMessages([
+                $field => ['Tipe file foto profil tidak valid.'],
+            ]);
+        }
+
+        $path = $file->store('profiles', 'public');
+        if (! $path) {
+            throw new \RuntimeException('Storage gagal menyimpan foto profil.');
+        }
+
+        return $path;
+    }
+
+    private function deleteOldProfilePhoto(?string $oldPath, string $newPath): void
+    {
+        if (! is_string($oldPath) || trim($oldPath) === '' || $oldPath === $newPath) {
+            return;
+        }
+
+        Storage::disk('public')->delete($oldPath);
+    }
+
+    private function publicStorageUrl(?string $path, ?Request $request = null): ?string
+    {
+        if (! is_string($path) || trim($path) === '') {
+            return null;
+        }
+
+        $storagePath = '/storage/'.ltrim($path, '/');
+        $baseUrl = $request?->getSchemeAndHttpHost() ?: (string) config('app.url', '');
+
+        if (app()->environment(['local', 'testing']) && str_contains($baseUrl, 'ngrok-free.dev')) {
+            $baseUrl = 'http://127.0.0.1:8000';
+        }
+
+        if ($baseUrl !== '') {
+            return rtrim($baseUrl, '/').$storagePath;
+        }
+
+        if ($request !== null) {
+            return rtrim($request->getSchemeAndHttpHost(), '/').$storagePath;
+        }
+
+        return $storagePath;
     }
 }

@@ -42,6 +42,7 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
   bool _loginPasswordHidden = true;
   bool _registerPasswordHidden = true;
   bool _registerConfirmPasswordHidden = true;
+  String _loginRole = 'penumpang';
   String? _errorMessage;
 
   @override
@@ -85,6 +86,15 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         return;
       }
 
+      if (!_isRegisterMode && session.user.peran != _loginRole) {
+        await widget.authService.clearSession();
+        throw TravSAuthException(
+          _loginRole == 'pengemudi'
+              ? 'Akun ini bukan akun pengemudi. Pilih Penumpang jika ingin masuk sebagai penumpang.'
+              : 'Akun ini bukan akun penumpang. Pilih Pengemudi jika ingin masuk sebagai pengemudi.',
+        );
+      }
+
       widget.onAuthenticated(session);
     } on TravSAuthException catch (error) {
       if (!mounted) {
@@ -101,7 +111,7 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
 
       setState(() {
         _errorMessage =
-            'Proses autentikasi gagal. Pastikan backend berjalan di ${TravSApiService.backendTargetsLabel}. Untuk HP fisik gunakan USB + adb reverse atau API_BASE_URL ke IP laptop.';
+            'Proses masuk gagal. Backend lokal belum terhubung. Jika memakai HP fisik, jalankan adb reverse tcp:8000 tcp:8000 atau pakai IP laptop sebagai API_BASE_URL.';
       });
     } finally {
       if (mounted) {
@@ -164,7 +174,7 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                                     child: Text(
                                       _isRegisterMode
                                           ? 'Daftar Akun Penumpang'
-                                          : 'Masuk ke TravS',
+                                          : 'Masuk ke RuslyTravel',
                                       style: theme.textTheme.titleLarge
                                           ?.copyWith(
                                             color: TravSTheme.navy,
@@ -186,15 +196,26 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                               Text(
                                 _isRegisterMode
                                     ? 'Pendaftaran mandiri dipakai untuk penumpang. Akun pengemudi dibuat admin agar data SIM dan kendaraan tetap valid.'
-                                    : 'Gunakan akun penumpang atau pengemudi agar pemesanan, tiket, dan status layanan tetap sinkron.',
+                                    : 'Pilih jenis akun terlebih dulu, lalu masuk sesuai peran yang terdaftar.',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: TravSTheme.navyMuted,
                                 ),
                               ),
                               const SizedBox(height: 14),
-                              _RoleAccessSummary(
-                                isRegisterMode: _isRegisterMode,
-                              ),
+                              if (_isRegisterMode)
+                                _RoleAccessSummary(
+                                  isRegisterMode: _isRegisterMode,
+                                )
+                              else
+                                _LoginRolePicker(
+                                  selectedRole: _loginRole,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _loginRole = value;
+                                      _errorMessage = null;
+                                    });
+                                  },
+                                ),
                               const SizedBox(height: 18),
                               if (_errorMessage != null) ...[
                                 _InlineMessage(
@@ -226,7 +247,9 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                                           ? 'Memproses...'
                                           : _isRegisterMode
                                           ? 'Daftar Sekarang'
-                                          : 'Masuk',
+                                          : _loginRole == 'pengemudi'
+                                          ? 'Masuk sebagai Pengemudi'
+                                          : 'Masuk sebagai Penumpang',
                                     ),
                                   ),
                                 ),
@@ -334,15 +357,15 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
   /// Membuka halaman lupa password agar pengguna bisa mereset password.
   Future<void> _openForgotPassword() async {
     final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => const _ForgotPasswordPage(),
-      ),
+      MaterialPageRoute<bool>(builder: (_) => const _ForgotPasswordPage()),
     );
 
     if (result == true && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Password berhasil direset. Silakan login dengan password baru.'),
+          content: Text(
+            'Password berhasil direset. Silakan login dengan password baru.',
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -523,7 +546,7 @@ class _AuthHero extends StatelessWidget {
         ),
         const SizedBox(height: 18),
         Text(
-          'TravS',
+          'RuslyTravel',
           style: theme.textTheme.headlineSmall?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w800,
@@ -591,6 +614,105 @@ class _RoleAccessSummary extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _LoginRolePicker extends StatelessWidget {
+  const _LoginRolePicker({
+    required this.selectedRole,
+    required this.onChanged,
+  });
+
+  final String selectedRole;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: TravSTheme.surfaceSoft,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: TravSTheme.line),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _LoginRoleButton(
+              label: 'Penumpang',
+              icon: Icons.event_seat_outlined,
+              selected: selectedRole == 'penumpang',
+              onTap: () => onChanged('penumpang'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _LoginRoleButton(
+              label: 'Pengemudi',
+              icon: Icons.directions_car_filled_rounded,
+              selected: selectedRole == 'pengemudi',
+              onTap: () => onChanged('pengemudi'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoginRoleButton extends StatelessWidget {
+  const _LoginRoleButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? TravSTheme.navy : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? TravSTheme.navy : TravSTheme.line,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 17,
+              color: selected ? Colors.white : TravSTheme.navyMuted,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: selected ? Colors.white : TravSTheme.navy,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -857,12 +979,19 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.error_outline, color: TravSTheme.danger, size: 20),
+                          const Icon(
+                            Icons.error_outline,
+                            color: TravSTheme.danger,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               _errorMessage!,
-                              style: const TextStyle(color: TravSTheme.danger, fontSize: 13),
+                              style: const TextStyle(
+                                color: TravSTheme.danger,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ],
@@ -879,12 +1008,19 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.check_circle_outline, color: TravSTheme.success, size: 20),
+                          const Icon(
+                            Icons.check_circle_outline,
+                            color: TravSTheme.success,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               _successMessage!,
-                              style: const TextStyle(color: TravSTheme.success, fontSize: 13),
+                              style: const TextStyle(
+                                color: TravSTheme.success,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         ],
@@ -915,7 +1051,8 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
                         }
                         return null;
                       },
-                      onFieldSubmitted: (_) => _isSubmitting ? null : _requestToken(),
+                      onFieldSubmitted: (_) =>
+                          _isSubmitting ? null : _requestToken(),
                     ),
                   ] else ...[
                     // Step 2: Token + new password
@@ -946,9 +1083,13 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
                         hintText: 'Minimal 8 karakter',
                         prefixIcon: const Icon(Icons.lock_outline_rounded),
                         suffixIcon: IconButton(
-                          onPressed: () => setState(() => _passwordHidden = !_passwordHidden),
+                          onPressed: () => setState(
+                            () => _passwordHidden = !_passwordHidden,
+                          ),
                           icon: Icon(
-                            _passwordHidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                            _passwordHidden
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
                           ),
                         ),
                       ),
@@ -979,7 +1120,8 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
                         }
                         return null;
                       },
-                      onFieldSubmitted: (_) => _isSubmitting ? null : _resetPassword(),
+                      onFieldSubmitted: (_) =>
+                          _isSubmitting ? null : _resetPassword(),
                     ),
                   ],
 
@@ -992,8 +1134,8 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
                       onPressed: _isSubmitting
                           ? null
                           : _isStep2
-                              ? _resetPassword
-                              : _requestToken,
+                          ? _resetPassword
+                          : _requestToken,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: TravSTheme.navy,
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1002,8 +1144,8 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
                         _isSubmitting
                             ? 'Memproses...'
                             : _isStep2
-                                ? 'Reset Password'
-                                : 'Kirim Token Reset',
+                            ? 'Reset Password'
+                            : 'Kirim Token Reset',
                       ),
                     ),
                   ),
@@ -1014,9 +1156,9 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
                       onPressed: _isSubmitting
                           ? null
                           : () => setState(() {
-                                _isStep2 = false;
-                                _errorMessage = null;
-                              }),
+                              _isStep2 = false;
+                              _errorMessage = null;
+                            }),
                       child: const Text('Kembali ke langkah pertama'),
                     ),
                   ],

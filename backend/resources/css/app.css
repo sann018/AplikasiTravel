@@ -420,16 +420,69 @@ svg {
     padding: 16px;
 }
 
+#main-content {
+    padding: 18px;
+    min-height: calc(100vh - 70px);
+}
+
+.travs-sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    background: var(--travs-white);
+    border-bottom: 1px solid var(--travs-border);
+    box-shadow: 0 2px 12px rgba(16, 35, 63, 0.06);
+}
+
 .travs-topbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 12px 16px;
+    padding: 14px 20px;
     background: var(--travs-white);
-    border: 1px solid var(--travs-border);
-    border-radius: 18px;
-    box-shadow: var(--travs-shadow);
+}
+
+.travs-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1;
+    min-width: 0;
+}
+
+.travs-topbar-title {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.travs-topbar-title h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    color: var(--travs-primary);
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.travs-topbar-title p {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--travs-text-soft);
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 500px;
+}
+
+.travs-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
 }
 
 .travs-topbar-search {
@@ -526,21 +579,29 @@ svg {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    padding: 6px 10px;
-    border-radius: 14px;
-    background: var(--travs-white);
-    border: 1px solid var(--travs-border);
+    padding: 4px 0;
+    border-radius: 0;
+    background: transparent;
+    border: none;
 }
 
 .travs-user-avatar {
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 12px;
+    width: 34px;
+    height: 34px;
+    overflow: hidden;
+    border-radius: 10px;
     color: var(--travs-white);
     font-weight: 800;
-    background: linear-gradient(135deg, #cfd5dd 0%, #aab4c2 100%);
+    font-size: 0.85rem;
+    background: linear-gradient(135deg, var(--travs-primary) 0%, var(--travs-primary-soft) 100%);
+}
+
+.travs-user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .travs-user-copy {
@@ -1268,6 +1329,14 @@ svg {
     margin-bottom: 18px;
 }
 
+.travs-summary-grid-dashboard {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.travs-summary-grid-dashboard .travs-summary-card:last-child {
+    grid-column: span 1;
+}
+
 .travs-summary-card,
 .travs-section-card {
     padding: 18px;
@@ -1355,6 +1424,54 @@ svg {
     color: var(--travs-text-soft);
     font-size: 0.82rem;
     line-height: 1.55;
+}
+
+.travs-person-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 180px;
+}
+
+.travs-avatar {
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 50%;
+    background: var(--travs-primary);
+    color: #ffffff;
+    font-weight: 800;
+    box-shadow: 0 8px 18px rgba(8, 36, 71, 0.14);
+}
+
+.travs-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.travs-current-photo {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--travs-border);
+    border-radius: 18px;
+    background: var(--travs-soft);
+    color: var(--travs-text-soft);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.travs-current-photo img {
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    object-fit: cover;
 }
 
 .travs-table-actions {
@@ -1666,6 +1783,10 @@ svg {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .travs-summary-grid-dashboard {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .travs-filter-grid-wide {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
@@ -1732,14 +1853,25 @@ svg {
         grid-template-columns: 1fr;
     }
 
+    .travs-summary-grid-dashboard {
+        grid-template-columns: 1fr;
+    }
+
     .travs-topbar {
         flex-direction: column;
         align-items: stretch;
     }
 
-    .travs-topbar-search,
-    .travs-topbar-actions {
-        width: 100%;
+    .travs-topbar-left {
+        flex-wrap: wrap;
+    }
+
+    .travs-topbar-title p {
+        max-width: 100%;
+    }
+
+    .travs-topbar-right {
+        justify-content: flex-end;
     }
 
     .travs-search-box {
@@ -1787,4 +1919,67 @@ svg {
     .travs-pagination-links {
         justify-content: flex-start;
     }
+}
+
+.travs-rekap-filter-card {
+    margin-bottom: 22px;
+}
+
+.travs-rekap-panel-grid {
+    display: grid;
+    gap: 22px;
+}
+
+.travs-admin-booking-alert {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    border: 1px solid var(--travs-border);
+    border-radius: 16px;
+    background: var(--travs-white);
+}
+
+.travs-admin-booking-alert strong {
+    color: var(--travs-primary);
+}
+
+.travs-admin-booking-alert small {
+    color: var(--travs-text-soft);
+    line-height: 1.55;
+}
+
+.travs-sidebar-badge {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--travs-accent) 0%, var(--travs-accent-deep) 100%);
+    color: var(--travs-white);
+    font-size: 0.72rem;
+    font-weight: 800;
+    box-shadow: 0 8px 18px rgba(245, 138, 42, 0.18);
+}
+
+.travs-section-card.is-booking-notification {
+    border-color: rgba(245, 138, 42, 0.35);
+    box-shadow: 0 20px 34px rgba(245, 138, 42, 0.10);
+}
+
+.travs-booking-notification-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.travs-booking-notification-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, var(--travs-accent) 0%, var(--travs-accent-deep) 100%);
+    box-shadow: 0 0 0 6px rgba(245, 138, 42, 0.12);
 }

@@ -22,7 +22,7 @@
                         </div>
                     </div>
                     <span class="badge bg-light-primary mb-3">Admin Access</span>
-                    <h1 class="text-white mb-3">Masuk ke dashboard admin TravS.</h1>
+                    <h1 class="text-white mb-3">Masuk ke dashboard admin RuslyTravel.</h1>
                     <p class="text-white-50 mb-0">
                         Kelola jadwal, pemesanan, biaya operasional, dan laporan dari panel admin
                         yang sudah disejajarkan ke tampilan Mazer berbasis Bootstrap 5.
@@ -66,7 +66,7 @@
                                     type="text"
                                     class="form-control form-control-xl"
                                     value="{{ old('login') }}"
-                                    placeholder="admin@travs.com atau 0812..."
+                                    placeholder="admin@RuslyTravel.com atau 0812..."
                                     required
                                 >
                                 <div class="form-control-icon">
@@ -102,7 +102,7 @@
 
                         <div class="mt-4">
                             <div class="alert alert-light-primary mb-0">
-                                Demo admin: <strong>admin@travs.com</strong> dengan kata sandi <strong>admin12345</strong>
+                                Demo admin: <strong>admin@RuslyTravel.com</strong> dengan kata sandi <strong>admin12345</strong>
                             </div>
                         </div>
                     </div>

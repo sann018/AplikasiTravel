@@ -25,8 +25,6 @@ class _TravSTicketDetailPageState extends State<TravSTicketDetailPage> {
   final TravSApiService _apiService = TravSApiService();
 
   late Future<TravSBookingResult> _future;
-  bool _isSimulatingPayment = false;
-  bool _shouldRefreshParent = false;
 
   @override
   void initState() {
@@ -49,54 +47,8 @@ class _TravSTicketDetailPageState extends State<TravSTicketDetailPage> {
     await future;
   }
 
-  Future<void> _simulatePayment(TravSBookingResult booking) async {
-    setState(() {
-      _isSimulatingPayment = true;
-    });
-
-    try {
-      final result = await _apiService.simulatePayment(
-        token: widget.session.token,
-        bookingId: booking.id,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _future = Future<TravSBookingResult>.value(result);
-        _shouldRefreshParent = true;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pembayaran berhasil diverifikasi. QR tiket sudah aktif.'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } on TravSApiException catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSimulatingPayment = false;
-        });
-      }
-    }
-  }
-
   void _closePage() {
-    Navigator.of(context).pop(_shouldRefreshParent);
+    Navigator.of(context).pop(false);
   }
 
   @override
@@ -135,10 +87,6 @@ class _TravSTicketDetailPageState extends State<TravSTicketDetailPage> {
                 final tickets = booking.passengers
                     .where((item) => item.ticket != null)
                     .toList();
-                final canSimulate =
-                    booking.payment.canSimulate &&
-                    booking.payment.status == 'menunggu';
-
                 return RefreshIndicator(
                   color: TravSTheme.orange,
                   onRefresh: _refresh,
@@ -148,12 +96,7 @@ class _TravSTicketDetailPageState extends State<TravSTicketDetailPage> {
                       _TicketHeaderCard(booking: booking),
                       const SizedBox(height: 16),
                       if (tickets.isEmpty)
-                        _EmptyTicketCard(
-                          booking: booking,
-                          isSimulatingPayment: _isSimulatingPayment,
-                          canSimulate: canSimulate,
-                          onSimulatePayment: () => _simulatePayment(booking),
-                        )
+                        _EmptyTicketCard(booking: booking)
                       else
                         ...tickets.map(
                           (passenger) => Padding(
@@ -246,17 +189,9 @@ class _TicketHeaderCard extends StatelessWidget {
 }
 
 class _EmptyTicketCard extends StatelessWidget {
-  const _EmptyTicketCard({
-    required this.booking,
-    required this.isSimulatingPayment,
-    required this.canSimulate,
-    required this.onSimulatePayment,
-  });
+  const _EmptyTicketCard({required this.booking});
 
   final TravSBookingResult booking;
-  final bool isSimulatingPayment;
-  final bool canSimulate;
-  final VoidCallback onSimulatePayment;
 
   @override
   Widget build(BuildContext context) {
@@ -291,20 +226,6 @@ class _EmptyTicketCard extends StatelessWidget {
               ).textTheme.bodyMedium?.copyWith(color: TravSTheme.navyMuted),
               textAlign: TextAlign.center,
             ),
-            if (canSimulate) ...[
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: isSimulatingPayment ? null : onSimulatePayment,
-                icon: Icon(
-                  isSimulatingPayment ? Icons.sync_rounded : Icons.bolt_rounded,
-                ),
-                label: Text(
-                  isSimulatingPayment
-                      ? 'Memproses...'
-                      : 'Verifikasi Pembayaran (Dev)',
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -476,7 +397,7 @@ class _TicketErrorState extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Coba muat ulang kembali. Jika pemesanan baru saja berubah status, backend mungkin masih menyinkronkan tiketnya.',
+                  'Coba muat ulang kembali. Jika pemesanan baru saja berubah status, tiket mungkin masih dalam proses.',
                   style: Theme.of(
                     context,
                   ).textTheme.bodyMedium?.copyWith(color: TravSTheme.navyMuted),

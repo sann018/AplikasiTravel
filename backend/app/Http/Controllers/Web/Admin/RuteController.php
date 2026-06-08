@@ -36,13 +36,24 @@ class RuteController extends Controller
 
         return view('admin.rute.index', [
             'rute' => $rute,
-            'editingRute' => $editingRute,
             'stats' => [
                 'total' => Rute::query()->count(),
                 'aktif' => Rute::query()->where('status_aktif', true)->count(),
                 'nonaktif' => Rute::query()->where('status_aktif', false)->count(),
             ],
             'filters' => $request->only(['search', 'status']),
+        ]);
+    }
+
+    public function create(): View
+    {
+        return view('admin.rute.create');
+    }
+
+    public function edit(Rute $rute): View
+    {
+        return view('admin.rute.edit', [
+            'rute' => $rute,
         ]);
     }
 

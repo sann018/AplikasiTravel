@@ -9,6 +9,8 @@ use App\Models\User;
 use Database\Seeders\SystemSettingSeeder;
 use Database\Seeders\TravSDemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AdminOperationsTest extends TestCase
@@ -36,7 +38,7 @@ class AdminOperationsTest extends TestCase
             ->get(route('admin.dashboard'));
 
         $response->assertOk();
-        $response->assertSee('TravS Operational Center');
+        $response->assertSee('Total Armada');
         $response->assertSee('Ringkasan Pendapatan 7 Hari');
     }
 
@@ -93,6 +95,41 @@ class AdminOperationsTest extends TestCase
         $this->assertSame('nonaktif', $pengemudi->status);
         $this->assertSame('menunggu', $pengemudi->status_verifikasi);
         $this->assertFalse($pengemudi->pengguna->status_aktif);
+    }
+
+    public function test_admin_can_upload_driver_profile_photo_from_driver_form(): void
+    {
+        Storage::fake('public');
+
+        $admin = User::factory()->create([
+            'peran' => 'admin',
+            'status_aktif' => true,
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->post(route('admin.pengemudi.store'), [
+                'nama' => 'Driver Foto',
+                'email' => 'driverfoto@travs.com',
+                'no_hp' => '081111111112',
+                'nomor_sim' => 'SIM-FOTO-001',
+                'status' => 'aktif',
+                'status_verifikasi' => 'terverifikasi',
+                'catatan_verifikasi' => 'Foto profil lengkap.',
+                'password' => 'driver12345',
+                'foto_profil' => UploadedFile::fake()->image('driver.jpg', 640, 640),
+            ]);
+
+        $response->assertRedirect(route('admin.pengemudi.index'));
+
+        $pengemudi = Pengemudi::query()
+            ->with('pengguna')
+            ->where('nomor_sim', 'SIM-FOTO-001')
+            ->firstOrFail();
+
+        $this->assertNotNull($pengemudi->pengguna->foto_profil);
+        $this->assertStringStartsWith('profiles/', $pengemudi->pengguna->foto_profil);
+        Storage::disk('public')->assertExists($pengemudi->pengguna->foto_profil);
     }
 
     public function test_admin_cannot_jump_cancelled_booking_back_to_paid(): void
