@@ -199,17 +199,63 @@ class TravSBookingVehicleInfo {
     required this.merk,
     required this.plat,
     required this.warna,
+    required this.tipe,
+    required this.kapasitas,
+    required this.fasilitas,
+    this.fotoUrl,
   });
 
   final String merk;
   final String plat;
   final String warna;
+  final String tipe;
+  final int kapasitas;
+  final String fasilitas;
+  final String? fotoUrl;
+
+  String get displayName => [
+    merk,
+    plat,
+  ].where((item) => item.trim().isNotEmpty && item != '-').join(' ');
 
   factory TravSBookingVehicleInfo.fromJson(Map<String, dynamic> json) {
     return TravSBookingVehicleInfo(
       merk: json['merk'] as String? ?? '-',
       plat: json['plat'] as String? ?? '-',
       warna: json['warna'] as String? ?? '-',
+      tipe: json['tipe'] as String? ?? '-',
+      kapasitas: _readInt(json['kapasitas']),
+      fasilitas: json['fasilitas'] as String? ?? '-',
+      fotoUrl: json['foto_url'] as String?,
+    );
+  }
+}
+
+class TravSBookingDriverInfo {
+  const TravSBookingDriverInfo({
+    required this.nama,
+    required this.email,
+    required this.noHp,
+    required this.nomorSim,
+    required this.status,
+    this.fotoUrl,
+  });
+
+  final String nama;
+  final String email;
+  final String noHp;
+  final String nomorSim;
+  final String status;
+  final String? fotoUrl;
+
+  factory TravSBookingDriverInfo.fromJson(Map<String, dynamic> json) {
+    return TravSBookingDriverInfo(
+      nama: json['nama'] as String? ?? '-',
+      email: json['email'] as String? ?? '-',
+      noHp: json['no_hp'] as String? ?? '-',
+      nomorSim: json['nomor_sim'] as String? ?? '-',
+      status: json['status'] as String? ?? '-',
+      fotoUrl: json['foto_url'] as String?,
     );
   }
 }
@@ -344,6 +390,7 @@ class TravSBookingResult {
     this.pemesan,
     this.pickup,
     this.kendaraan,
+    this.pengemudi,
     this.passengers = const <TravSBookingPassengerInfo>[],
     this.baggageItems = const <TravSBookingBaggageInfo>[],
   });
@@ -364,6 +411,7 @@ class TravSBookingResult {
   final TravSBookingRequesterInfo? pemesan;
   final TravSBookingPickupInfo? pickup;
   final TravSBookingVehicleInfo? kendaraan;
+  final TravSBookingDriverInfo? pengemudi;
   final List<TravSBookingPassengerInfo> passengers;
   final List<TravSBookingBaggageInfo> baggageItems;
 
@@ -374,6 +422,7 @@ class TravSBookingResult {
   factory TravSBookingResult.fromJson(Map<String, dynamic> json) {
     final pickupJson = _asMapOrNull(json['pickup']);
     final vehicleJson = _asMapOrNull(json['kendaraan']);
+    final driverJson = _asMapOrNull(json['pengemudi']);
     final requesterJson = _asMapOrNull(json['pemesan']);
 
     return TravSBookingResult(
@@ -399,6 +448,9 @@ class TravSBookingResult {
       kendaraan: vehicleJson == null
           ? null
           : TravSBookingVehicleInfo.fromJson(vehicleJson),
+      pengemudi: driverJson == null
+          ? null
+          : TravSBookingDriverInfo.fromJson(driverJson),
       passengers: (json['passengers'] as List<dynamic>? ?? <dynamic>[])
           .map(
             (item) => TravSBookingPassengerInfo.fromJson(

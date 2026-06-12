@@ -133,6 +133,14 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                         _RequesterCard(requester: booking.pemesan!),
                         const SizedBox(height: 16),
                       ],
+                      if (booking.kendaraan != null ||
+                          booking.pengemudi != null) ...[
+                        _FleetInfoCard(
+                          vehicle: booking.kendaraan,
+                          driver: booking.pengemudi,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       _DetailSectionCard(
                         title: 'Ringkasan Pembayaran',
                         subtitle:
@@ -334,31 +342,62 @@ class _RequesterCard extends StatelessWidget {
 }
 
 class _RequesterAvatar extends StatelessWidget {
-  const _RequesterAvatar({required this.name, this.imageUrl});
+  const _RequesterAvatar({required this.name, this.imageUrl, this.radius = 27});
 
   final String name;
   final String? imageUrl;
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
     final initial = name.trim().isEmpty
         ? 'P'
         : name.trim().substring(0, 1).toUpperCase();
+    final hasImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
 
-    return ClipOval(
+    final avatar = ClipOval(
       child: Container(
-        width: 54,
-        height: 54,
+        width: radius * 2,
+        height: radius * 2,
         color: TravSTheme.navy,
-        child: imageUrl == null
+        child: !hasImage
             ? _RequesterInitial(initial: initial)
             : Image.network(
                 imageUrl!,
                 fit: BoxFit.cover,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) {
+                    return child;
+                  }
+
+                  return const Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                },
                 errorBuilder: (context, error, stackTrace) =>
                     _RequesterInitial(initial: initial),
               ),
       ),
+    );
+
+    if (!hasImage) {
+      return avatar;
+    }
+
+    return InkWell(
+      onTap: () => showDialog<void>(
+        context: context,
+        builder: (_) => _NetworkPhotoPreviewDialog(
+          title: name.trim().isEmpty ? 'Foto Pemesan' : name,
+          imageUrl: imageUrl!,
+        ),
+      ),
+      customBorder: const CircleBorder(),
+      child: avatar,
     );
   }
 }
@@ -377,6 +416,171 @@ class _RequesterInitial extends StatelessWidget {
           color: Colors.white,
           fontWeight: FontWeight.w900,
         ),
+      ),
+    );
+  }
+}
+
+class _FleetInfoCard extends StatelessWidget {
+  const _FleetInfoCard({required this.vehicle, required this.driver});
+
+  final TravSBookingVehicleInfo? vehicle;
+  final TravSBookingDriverInfo? driver;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final vehicleImageUrl = TravSApiService.resolveMediaUrl(vehicle?.fotoUrl);
+
+    return _DetailSectionCard(
+      title: 'Armada & Pengemudi',
+      subtitle:
+          'Informasi kendaraan dan pengemudi yang bertugas pada jadwal ini.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (vehicle != null) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _VehiclePhotoBox(
+                  imageUrl: vehicleImageUrl,
+                  label: vehicle!.displayName,
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        vehicle!.displayName.isEmpty
+                            ? vehicle!.merk
+                            : vehicle!.displayName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: TravSTheme.navy,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _DetailRow(label: 'Nomor polisi', value: vehicle!.plat),
+                      _DetailRow(label: 'Warna', value: vehicle!.warna),
+                      _DetailRow(
+                        label: 'Kapasitas',
+                        value: '${vehicle!.kapasitas} kursi',
+                      ),
+                      if (vehicle!.tipe != '-')
+                        _DetailRow(label: 'Tipe', value: vehicle!.tipe),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (vehicle!.fasilitas != '-') ...[
+              const SizedBox(height: 12),
+              Text(
+                vehicle!.fasilitas,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: TravSTheme.navyMuted,
+                ),
+              ),
+            ],
+          ],
+          if (vehicle != null && driver != null) const Divider(height: 28),
+          if (driver != null)
+            Row(
+              children: [
+                _RequesterAvatar(
+                  name: driver!.nama,
+                  imageUrl: TravSApiService.resolveMediaUrl(driver!.fotoUrl),
+                  radius: 24,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        driver!.nama,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: TravSTheme.navy,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${driver!.noHp} | SIM ${driver!.nomorSim}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: TravSTheme.navyMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        driver!.email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: TravSTheme.navyMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VehiclePhotoBox extends StatelessWidget {
+  const _VehiclePhotoBox({required this.imageUrl, required this.label});
+
+  final String? imageUrl;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget fallback() {
+      return const Center(
+        child: Icon(
+          Icons.directions_car_filled_rounded,
+          color: TravSTheme.navyMuted,
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        width: 88,
+        height: 72,
+        color: TravSTheme.surfaceSoft,
+        child: imageUrl == null || imageUrl!.trim().isEmpty
+            ? fallback()
+            : Image.network(
+                imageUrl!,
+                fit: BoxFit.cover,
+                semanticLabel: label,
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) {
+                    return child;
+                  }
+
+                  return const Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) => fallback(),
+              ),
       ),
     );
   }
@@ -438,7 +642,7 @@ class _BookingHeaderCard extends StatelessWidget {
   }
 }
 
-class _DetailSectionCard extends StatelessWidget {
+class _DetailSectionCard extends StatefulWidget {
   const _DetailSectionCard({
     required this.title,
     required this.subtitle,
@@ -450,6 +654,19 @@ class _DetailSectionCard extends StatelessWidget {
   final Widget child;
 
   @override
+  State<_DetailSectionCard> createState() => _DetailSectionCardState();
+}
+
+class _DetailSectionCardState extends State<_DetailSectionCard> {
+  late bool _isExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = true;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
@@ -459,22 +676,50 @@ class _DetailSectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: TravSTheme.navy,
-                fontWeight: FontWeight.w800,
+            InkWell(
+              onTap: () => setState(() => _isExpanded = !_isExpanded),
+              borderRadius: BorderRadius.circular(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: TravSTheme.navy,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: _isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: TravSTheme.navy,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              subtitle,
+              widget.subtitle,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: TravSTheme.navyMuted,
               ),
             ),
-            const SizedBox(height: 18),
-            child,
+            AnimatedCrossFade(
+              firstChild: const SizedBox.shrink(),
+              secondChild: Padding(
+                padding: const EdgeInsets.only(top: 18),
+                child: widget.child,
+              ),
+              crossFadeState: _isExpanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 180),
+              sizeCurve: Curves.easeOut,
+            ),
           ],
         ),
       ),
@@ -622,32 +867,156 @@ class _BaggageCard extends StatelessWidget {
           ),
           if (baggagePhotoUrl != null) ...[
             const SizedBox(height: 14),
-            ClipRRect(
+            InkWell(
+              onTap: () => showDialog<void>(
+                context: context,
+                builder: (_) => _NetworkPhotoPreviewDialog(
+                  title: 'Foto Barang Bawaan',
+                  imageUrl: baggagePhotoUrl,
+                ),
+              ),
               borderRadius: BorderRadius.circular(18),
-              child: AspectRatio(
-                aspectRatio: 16 / 10,
-                child: Image.network(
-                  baggagePhotoUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.white,
-                      alignment: Alignment.center,
-                      child: Text(
-                        'Foto barang bawaan belum dapat ditampilkan.',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: TravSTheme.navyMuted,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: AspectRatio(
+                  aspectRatio: 16 / 10,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _NetworkPhotoImage(
+                        imageUrl: baggagePhotoUrl,
+                        fit: BoxFit.cover,
+                        fallbackText:
+                            'Foto barang bawaan belum dapat ditampilkan.',
+                      ),
+                      Positioned(
+                        right: 10,
+                        bottom: 10,
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.46),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: const Icon(
+                            Icons.zoom_out_map_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
                         ),
                       ),
-                    );
-                  },
+                    ],
+                  ),
                 ),
               ),
             ),
           ],
         ],
       ),
+    );
+  }
+}
+
+class _NetworkPhotoPreviewDialog extends StatelessWidget {
+  const _NetworkPhotoPreviewDialog({
+    required this.title,
+    required this.imageUrl,
+  });
+
+  final String title;
+  final String imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog.fullscreen(
+      backgroundColor: Colors.black.withValues(alpha: 0.92),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    color: Colors.white,
+                  ),
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4,
+                child: Center(
+                  child: _NetworkPhotoImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.contain,
+                    foregroundColor: Colors.white,
+                    fallbackText: 'Foto belum dapat ditampilkan.',
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NetworkPhotoImage extends StatelessWidget {
+  const _NetworkPhotoImage({
+    required this.imageUrl,
+    required this.fit,
+    required this.fallbackText,
+    this.foregroundColor = TravSTheme.navyMuted,
+  });
+
+  final String imageUrl;
+  final BoxFit fit;
+  final String fallbackText;
+  final Color foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.network(
+      imageUrl,
+      fit: fit,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) {
+          return child;
+        }
+
+        return const Center(child: CircularProgressIndicator());
+      },
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          color: foregroundColor == Colors.white
+              ? Colors.transparent
+              : Colors.white,
+          alignment: Alignment.center,
+          child: Text(
+            fallbackText,
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: foregroundColor),
+          ),
+        );
+      },
     );
   }
 }

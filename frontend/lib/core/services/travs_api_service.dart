@@ -17,7 +17,7 @@ class TravSApiException implements Exception {
 }
 
 class TravSApiService {
-  static const Duration _requestTimeout = Duration(seconds: 3);
+  static const Duration _requestTimeout = Duration(seconds: 10);
   static String? _lastSuccessfulBaseUrl;
 
   static List<String> get baseUrls {
@@ -230,6 +230,18 @@ class TravSApiService {
         decoded['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
 
     return TravSDriverDashboard.fromJson(data);
+  }
+
+  Future<List<TravSDriverTripItem>> loadDriverTrips(String token) async {
+    final response = await getWithFallback(
+      '/api/pengemudi/trips',
+      headers: jsonHeaders(token: token),
+    );
+
+    return _decodeDataList(
+      response,
+      (item) => TravSDriverTripItem.fromJson(item),
+    );
   }
 
   /// Memuat daftar pemesanan penumpang dari backend.
@@ -461,6 +473,21 @@ class TravSApiService {
     );
   }
 
+  Future<TravSBookingResult> refreshPaymentStatus({
+    required String token,
+    required int bookingId,
+  }) async {
+    final response = await postWithFallback(
+      '/api/penumpang/bookings/$bookingId/refresh-payment-status',
+      headers: jsonHeaders(token: token),
+    );
+
+    return _decodeDataObject(
+      response,
+      (data) => TravSBookingResult.fromJson(data),
+    );
+  }
+
   Future<TravSScanTicketResult> scanDriverTicket({
     required String token,
     required String ticketToken,
@@ -474,6 +501,22 @@ class TravSApiService {
     return _decodeDataObject(
       response,
       (data) => TravSScanTicketResult.fromJson(data),
+    );
+  }
+
+  Future<TravSDriverManifestPassenger> markDriverPassengerDropoff({
+    required String token,
+    required int tripId,
+    required int detailId,
+  }) async {
+    final response = await postWithFallback(
+      '/api/pengemudi/trips/$tripId/passengers/$detailId/dropoff',
+      headers: jsonHeaders(token: token),
+    );
+
+    return _decodeDataObject(
+      response,
+      (data) => TravSDriverManifestPassenger.fromJson(data),
     );
   }
 
@@ -636,7 +679,8 @@ class TravSApiService {
     Future<http.Response> Function(String baseUrl) request,
   ) async {
     Object? lastError;
-    for (final candidate in _orderedBaseUrls()) {
+    final candidates = _orderedBaseUrls();
+    for (final candidate in candidates) {
       try {
         final response = await request(candidate).timeout(_requestTimeout);
         _lastSuccessfulBaseUrl = candidate;
@@ -647,7 +691,10 @@ class TravSApiService {
     }
 
     if (lastError != null) {
-      throw lastError;
+      throw TravSApiException(
+        'Backend lokal belum terhubung ke ${candidates.join(' atau ')}. '
+        'Pastikan Laravel berjalan di port 8000 dan adb reverse aktif jika memakai HP fisik.',
+      );
     }
 
     throw const TravSApiException(
@@ -1143,39 +1190,92 @@ class TravSDriverTripItem {
 
 class TravSDriverManifestPassenger {
   const TravSDriverManifestPassenger({
+    required this.bookingId,
+    required this.detailId,
+    required this.bookingCode,
     required this.name,
     required this.seatNumber,
     required this.phone,
+    required this.requesterName,
+    required this.requesterEmail,
+    required this.requesterPhone,
+    this.requesterPhotoUrl,
     required this.pickupAddress,
     required this.baggageLabel,
     required this.fareLabel,
+    required this.paymentStatus,
+    required this.paymentMethod,
+    required this.paymentChannel,
+    required this.paymentLabel,
     required this.attendanceStatus,
+    required this.isPickedUp,
+    required this.isDroppedOff,
+    this.droppedOffAt,
+    required this.ticketCode,
+    required this.ticketToken,
     required this.ticketScanned,
   });
 
+  final int bookingId;
+  final int detailId;
+  final String bookingCode;
   final String name;
   final int seatNumber;
   final String phone;
+  final String requesterName;
+  final String requesterEmail;
+  final String requesterPhone;
+  final String? requesterPhotoUrl;
   final String pickupAddress;
   final String baggageLabel;
   final String fareLabel;
+  final String paymentStatus;
+  final String paymentMethod;
+  final String paymentChannel;
+  final String paymentLabel;
   final String attendanceStatus;
+  final bool isPickedUp;
+  final bool isDroppedOff;
+  final String? droppedOffAt;
+  final String ticketCode;
+  final String ticketToken;
   final bool ticketScanned;
 
   factory TravSDriverManifestPassenger.fromJson(Map<String, dynamic> json) {
+    final requester = _asMap(json['akun_pemesan']);
     final pickup = _asMap(json['pickup']);
+    final dropoff = _asMap(json['dropoff']);
     final baggage = _asMap(json['baggage']);
     final fare = _asMap(json['fare']);
+    final payment = _asMap(json['pembayaran']);
     final ticket = _asMap(json['ticket']);
+    final paymentLabel =
+        payment['label'] as String? ?? fare['label'] as String? ?? '-';
 
     return TravSDriverManifestPassenger(
+      bookingId: _readInt(json['booking_id']),
+      detailId: _readInt(json['detail_id']),
+      bookingCode: json['kode_booking'] as String? ?? '-',
       name: json['nama_penumpang'] as String? ?? '-',
       seatNumber: _readInt(json['nomor_kursi']),
       phone: json['no_hp_penumpang'] as String? ?? '-',
+      requesterName: requester['nama'] as String? ?? '-',
+      requesterEmail: requester['email'] as String? ?? '-',
+      requesterPhone: requester['no_hp'] as String? ?? '-',
+      requesterPhotoUrl: requester['foto_url'] as String?,
       pickupAddress: pickup['address'] as String? ?? '-',
       baggageLabel: baggage['label'] as String? ?? '-',
       fareLabel: fare['label'] as String? ?? '-',
+      paymentStatus: payment['status'] as String? ?? '-',
+      paymentMethod: payment['metode'] as String? ?? '-',
+      paymentChannel: payment['channel'] as String? ?? '-',
+      paymentLabel: paymentLabel,
       attendanceStatus: json['status_kehadiran'] as String? ?? 'menunggu',
+      isPickedUp: _readBool(pickup['is_picked_up']),
+      isDroppedOff: _readBool(dropoff['is_dropped_off']),
+      droppedOffAt: dropoff['dropped_off_at'] as String?,
+      ticketCode: ticket['kode_qr'] as String? ?? '-',
+      ticketToken: ticket['token'] as String? ?? '',
       ticketScanned: _readBool(ticket['sudah_dipindai']),
     );
   }

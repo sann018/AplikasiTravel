@@ -126,7 +126,12 @@ class _TravSHomePageState extends State<TravSHomePage> {
       final dashboard = await _apiService.loadDriverDashboard(
         widget.session!.token,
       );
-      return _HomeBundle(payload: payload, driverDashboard: dashboard);
+      final trips = await _apiService.loadDriverTrips(widget.session!.token);
+      return _HomeBundle(
+        payload: payload,
+        driverDashboard: dashboard,
+        driverTrips: trips,
+      );
     }
 
     return _HomeBundle(payload: payload);
@@ -285,38 +290,137 @@ class _TravSHomePageState extends State<TravSHomePage> {
   }
 
   Future<void> _openDriverJourney(_DriverJourneyRecord record) async {
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
+    final shouldRefresh = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (_) => _DriverJourneyDetailPage(
           record: record,
           onOpenScanner: _openScanner,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _openScanner() async {
-    if (widget.session == null) {
-      _showMessage('Login sebagai pengemudi diperlukan untuk scan tiket.');
-      return;
-    }
-
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => _ScanTicketPage(
-          apiService: _apiService,
-          token: widget.session!.token,
+          onReloadRecord: () => _refreshDriverRecord(record.id),
+          onShowPassengerDetail: _showPassengerManifestDetail,
+          onMarkPassengerDropoff: (passenger) async {
+            final isUpdated = await _markPassengerDropoff(record, passenger);
+            return isUpdated;
+          },
         ),
       ),
     );
 
-    if (mounted) {
+    if (shouldRefresh == true && mounted) {
       await _refresh();
     }
   }
 
-  List<_DriverJourneyRecord> _driverJourneys(_HomeBundle bundle) {
-    final trips = bundle.driverDashboard?.upcomingTrips ?? const [];
+  Future<_DriverJourneyRecord?> _refreshDriverRecord(int recordId) async {
+    final future = _loadBundle();
+    if (mounted) {
+      setState(() {
+        _future = future;
+      });
+    }
+
+    final bundle = await future;
+    return _driverJourneys(
+      bundle,
+      includeHistory: true,
+    ).where((record) => record.id == recordId).firstOrNull;
+  }
+
+  Future<void> _showPassengerManifestDetail(
+    _ManifestPassengerRecord passenger,
+  ) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PassengerManifestDetailSheet(passenger: passenger),
+    );
+  }
+
+  Future<bool> _markPassengerDropoff(
+    _DriverJourneyRecord record,
+    _ManifestPassengerRecord passenger,
+  ) async {
+    final session = widget.session;
+    if (session == null) {
+      _showMessage('Login sebagai pengemudi diperlukan untuk validasi turun.');
+      return false;
+    }
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PassengerDropoffConfirmationSheet(passenger: passenger),
+    );
+
+    if (confirmed != true) {
+      return false;
+    }
+
+    try {
+      await _apiService.markDriverPassengerDropoff(
+        token: session.token,
+        tripId: record.id,
+        detailId: passenger.detailId,
+      );
+      if (!mounted) {
+        return false;
+      }
+
+      await _refresh();
+      _showMessage('Penumpang berhasil ditandai turun.');
+      return true;
+    } on TravSApiException catch (error) {
+      if (mounted) {
+        _showMessage(error.message);
+      }
+    } catch (_) {
+      if (mounted) {
+        _showMessage('Validasi turun belum berhasil. Coba lagi sebentar.');
+      }
+    }
+
+    return false;
+  }
+
+  Future<bool> _openScanner({Future<void> Function()? onValidScan}) async {
+    if (widget.session == null) {
+      _showMessage('Login sebagai pengemudi diperlukan untuk scan tiket.');
+      return false;
+    }
+
+    var hasValidScan = false;
+
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => _ScanTicketPage(
+          apiService: _apiService,
+          token: widget.session!.token,
+          onValidScan: () async {
+            hasValidScan = true;
+            if (onValidScan != null) {
+              await onValidScan();
+              return;
+            }
+
+            await _refresh();
+          },
+        ),
+      ),
+    );
+
+    return hasValidScan;
+  }
+
+  List<_DriverJourneyRecord> _driverJourneys(
+    _HomeBundle bundle, {
+    bool includeHistory = false,
+  }) {
+    final trips = includeHistory
+        ? bundle.driverTrips ??
+              bundle.driverDashboard?.upcomingTrips ??
+              const []
+        : bundle.driverDashboard?.upcomingTrips ?? const [];
     return _DriverJourneyRecord.fromTrips(trips);
   }
 
@@ -417,7 +521,8 @@ class _TravSHomePageState extends State<TravSHomePage> {
       case AppRolePreview.driver:
         return [
           _buildDriverHome(bundle),
-          _buildDriverManifest(bundle),
+          _buildDriverSchedule(bundle),
+          _buildDriverPassengers(bundle),
           _buildDriverHistory(bundle),
           _buildDriverProfile(bundle),
         ];
@@ -433,7 +538,8 @@ class _TravSHomePageState extends State<TravSHomePage> {
         return [
           _buildGuestHome(bundle),
           _buildGuestRoutes(bundle),
-          _buildGuestInfo(bundle),
+          _buildGuestOrders(bundle),
+          _buildGuestTickets(bundle),
           _buildGuestAccount(bundle),
         ];
     }
@@ -726,6 +832,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
   }
 
   Widget _buildDriverHome(_HomeBundle bundle) {
+    final session = widget.session;
     final dashboard =
         bundle.driverDashboard ??
         const TravSDriverDashboard(
@@ -735,6 +842,13 @@ class _TravSHomePageState extends State<TravSHomePage> {
         );
     final records = _driverJourneys(bundle);
     final nextTrip = records.isEmpty ? null : records.first;
+    final manifestCount = records.fold<int>(
+      0,
+      (total, record) => total + record.passengerCount,
+    );
+    final totalPassengers = dashboard.penumpangTerdaftar > 0
+        ? dashboard.penumpangTerdaftar
+        : manifestCount;
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -744,88 +858,59 @@ class _TravSHomePageState extends State<TravSHomePage> {
           title: 'Halo, $_displayName!',
           subtitle: 'Pantau perjalanan yang ditugaskan hari ini.',
           trailing: IconButton(
-            onPressed: _openScanner,
+            onPressed: () => _openScanner(),
             icon: const Icon(Icons.qr_code_scanner_rounded),
           ),
         ),
         const SizedBox(height: 16),
         _DriverHeroCard(
           displayName: _displayName,
-          simNumber: widget.session?.user.nomorSim ?? '-',
+          email: session?.user.email ?? '-',
+          phone: session?.user.noHp ?? '-',
+          photoUrl: TravSApiService.resolveMediaUrl(session?.user.fotoProfil),
+          isActive: session?.user.statusAktif ?? false,
           stats: [
-            _HeroStat(label: 'Jadwal aktif', value: '${dashboard.jadwalAktif}'),
             _HeroStat(
-              label: 'Penumpang',
-              value: '${dashboard.penumpangTerdaftar}',
+              label: 'Trip hari ini',
+              value: '${dashboard.jadwalAktif}',
             ),
-            _HeroStat(label: 'Manifest', value: '${records.length}'),
+            _HeroStat(label: 'Penumpang', value: '$totalPassengers'),
+            _HeroStat(label: 'SIM', value: session?.user.nomorSim ?? '-'),
           ],
         ),
         const SizedBox(height: 18),
-        _SectionHeader(
-          eyebrow: 'Menu',
-          title: 'Akses cepat',
-          subtitle:
-              'Buka manifest, riwayat perjalanan, dan pindai tiket dari satu tempat.',
-        ),
-        const SizedBox(height: 12),
-        _ShortcutTile(
-          icon: Icons.assignment_rounded,
-          title: 'Manifest Penumpang',
-          subtitle: 'Lihat daftar penumpang pada perjalanan aktif.',
-          accent: TravSTheme.orange,
-          onTap: () => setState(() => _selectedTabIndex = 1),
-        ),
-        const SizedBox(height: 10),
-        _ShortcutTile(
-          icon: Icons.history_rounded,
-          title: 'Riwayat Perjalanan',
-          subtitle: 'Pantau trip berjalan dan perjalanan yang selesai.',
-          accent: TravSTheme.navy,
-          onTap: () => setState(() => _selectedTabIndex = 2),
-        ),
-        const SizedBox(height: 10),
-        _ShortcutTile(
-          icon: Icons.qr_code_scanner_rounded,
-          title: 'Pindai Tiket',
-          subtitle: 'Validasi tiket penumpang saat keberangkatan.',
-          accent: TravSTheme.success,
-          onTap: _openScanner,
-        ),
+        _DriverVehicleAssignmentCard(record: nextTrip),
         const SizedBox(height: 18),
-        if (nextTrip != null)
-          _InlineActionCard(
-            title: 'Tugas terdekat',
-            description:
-                '${nextTrip.route} - ${_formatDateTime(nextTrip.departureAt)} - ${nextTrip.vehicle}',
-            actionLabel: 'Lihat Manifest',
-            icon: Icons.assignment_turned_in_outlined,
-            onTap: () => _openDriverJourney(nextTrip),
-          ),
-        if (nextTrip != null) const SizedBox(height: 16),
         _SectionHeader(
           eyebrow: 'Perjalanan',
-          title: 'Trip aktif',
+          title: 'Trip hari ini',
           subtitle:
-              'Fokus ke jadwal, manifest, dan akses pindai tiket untuk tugas pengemudi.',
+              'Jadwal yang ditugaskan ke akun pengemudi tampil dari backend.',
         ),
         const SizedBox(height: 12),
-        ...records
-            .take(3)
-            .map(
-              (record) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _DriverJourneyCard(
-                  record: record,
-                  onTap: () => _openDriverJourney(record),
+        if (records.isEmpty)
+          const _EmptyStateCard(
+            title: 'Belum ada trip aktif.',
+            subtitle:
+                'Saat admin menetapkan jadwal ke akun pengemudi, trip akan tampil di halaman ini.',
+          )
+        else
+          ...records
+              .take(2)
+              .map(
+                (record) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _DriverJourneyCard(
+                    record: record,
+                    onTap: () => _openDriverJourney(record),
+                  ),
                 ),
               ),
-            ),
       ],
     );
   }
 
-  Widget _buildDriverManifest(_HomeBundle bundle) {
+  Widget _buildDriverSchedule(_HomeBundle bundle) {
     final records = _driverJourneys(bundle);
 
     return ListView(
@@ -834,25 +919,25 @@ class _TravSHomePageState extends State<TravSHomePage> {
       children: [
         _PageTopBar(
           leading: _backToHomeButton(),
-          title: 'Manifest',
-          subtitle: 'Daftar penumpang per perjalanan.',
+          title: 'Jadwal Pengemudi',
+          subtitle: 'Daftar trip yang ditugaskan ke akun pengemudi.',
           trailing: IconButton(
-            onPressed: _openScanner,
+            onPressed: () => _openScanner(),
             icon: const Icon(Icons.qr_code_scanner_rounded),
           ),
         ),
         const SizedBox(height: 16),
         if (records.isEmpty)
           const _EmptyStateCard(
-            title: 'Belum ada manifest aktif.',
+            title: 'Belum ada jadwal aktif.',
             subtitle:
-                'Saat jadwal ditetapkan ke akun pengemudi, data perjalanan akan tampil di sini.',
+                'Jadwal akan muncul setelah admin menetapkan perjalanan untuk akun pengemudi.',
           )
         else
           ...records.map(
             (record) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
-              child: _DriverJourneyCard(
+              child: _DriverScheduleCard(
                 record: record,
                 onTap: () => _openDriverJourney(record),
               ),
@@ -862,8 +947,57 @@ class _TravSHomePageState extends State<TravSHomePage> {
     );
   }
 
-  Widget _buildDriverHistory(_HomeBundle bundle) {
+  Widget _buildDriverPassengers(_HomeBundle bundle) {
     final records = _driverJourneys(bundle);
+
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
+      children: [
+        _PageTopBar(
+          leading: _backToHomeButton(),
+          title: 'Penumpang',
+          subtitle: 'Manifest penumpang dari trip yang ditugaskan.',
+          trailing: IconButton(
+            onPressed: () => _openScanner(),
+            icon: const Icon(Icons.qr_code_scanner_rounded),
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (records.isEmpty)
+          const _EmptyStateCard(
+            title: 'Belum ada manifest penumpang.',
+            subtitle:
+                'Data penumpang akan tampil setelah ada trip aktif dan pemesanan terdaftar.',
+          )
+        else
+          ...records.map(
+            (record) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _DriverManifestSectionCard(
+                record: record,
+                onOpenDetail: () => _openDriverJourney(record),
+                onOpenScanner: () => _openScanner(),
+                onShowPassengerDetail: _showPassengerManifestDetail,
+                onMarkPassengerDropoff: (passenger) =>
+                    _markPassengerDropoff(record, passenger),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDriverHistory(_HomeBundle bundle) {
+    final records = _driverJourneys(bundle, includeHistory: true);
+    final historyRecords = records
+        .where(
+          (record) =>
+              record.status == 'selesai' ||
+              record.status == 'berangkat' ||
+              record.status == 'dibuka',
+        )
+        .toList();
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -885,15 +1019,22 @@ class _TravSHomePageState extends State<TravSHomePage> {
           ],
         ),
         const SizedBox(height: 16),
-        ...records.map(
-          (record) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _DriverHistoryCard(
-              record: record,
-              onTap: () => _openDriverJourney(record),
+        if (historyRecords.isEmpty)
+          const _EmptyStateCard(
+            title: 'Belum ada riwayat perjalanan.',
+            subtitle:
+                'Trip yang berjalan atau selesai akan tampil di halaman ini.',
+          )
+        else
+          ...historyRecords.map(
+            (record) => Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _DriverHistoryCard(
+                record: record,
+                onTap: () => _openDriverJourney(record),
+              ),
             ),
           ),
-        ),
       ],
     );
   }
@@ -903,6 +1044,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
     if (session == null) {
       return _buildGuestAccount(bundle);
     }
+    final records = _driverJourneys(bundle);
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -916,31 +1058,28 @@ class _TravSHomePageState extends State<TravSHomePage> {
         const SizedBox(height: 16),
         _ProfileSummaryCard(session: session),
         const SizedBox(height: 16),
+        _DriverProfileVehicleCard(
+          record: records.isEmpty ? null : records.first,
+        ),
+        const SizedBox(height: 16),
         _ProfileMenuTile(
-          icon: Icons.history_rounded,
-          title: 'Riwayat Perjalanan',
-          subtitle: 'Lihat trip berjalan dan yang sudah selesai.',
-          onTap: () => setState(() => _selectedTabIndex = 2),
+          icon: Icons.edit_outlined,
+          title: 'Edit Profil',
+          subtitle: 'Atur foto, nama, email, nomor HP, dan password.',
+          onTap: () => _openEditProfile(session),
         ),
         const SizedBox(height: 10),
         _ProfileMenuTile(
           icon: Icons.notifications_none_rounded,
-          title: 'Notifikasi',
+          title: 'Pengaturan Notifikasi',
           subtitle: 'Pantau pembaruan manifest dan jadwal.',
           onTap: () => _openNotifications(bundle),
         ),
         const SizedBox(height: 10),
         _ProfileMenuTile(
-          icon: Icons.qr_code_scanner_rounded,
-          title: 'Pindai Tiket',
-          subtitle: 'Buka halaman scan untuk validasi tiket penumpang.',
-          onTap: _openScanner,
-        ),
-        const SizedBox(height: 10),
-        _ProfileMenuTile(
           icon: Icons.info_outline_rounded,
-          title: 'Tentang Mode Pengemudi',
-          subtitle: 'Manifest, scan, dan riwayat operasi harian.',
+          title: 'Tentang Aplikasi',
+          subtitle: 'Ringkasan fitur pengemudi dan layanan travel.',
           onTap: () => _showAboutSheet(
             title: 'Tentang Mode Pengemudi',
             description:
@@ -959,83 +1098,206 @@ class _TravSHomePageState extends State<TravSHomePage> {
   }
 
   Widget _buildGuestHome(_HomeBundle bundle) {
+    final routes = _buildRouteBookmarks(bundle.payload.featuredSchedules);
+    final featuredSchedule = bundle.payload.featuredSchedules.isEmpty
+        ? null
+        : bundle.payload.featuredSchedules.first;
+
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
       children: [
         _PageTopBar(
           title: 'Halo, Tamu!',
-          subtitle: 'Mau cek rute mana hari ini?',
+          subtitle: 'Mau pergi ke mana hari ini?',
           trailing: IconButton(
             onPressed: widget.onOpenAuth,
-            icon: const Icon(Icons.login_rounded),
+            icon: const Icon(Icons.notifications_none_rounded),
           ),
         ),
         const SizedBox(height: 16),
-        _HomeHeroCard(
-          title: 'Mode tamu RuslyTravel',
-          subtitle:
-              'Cek rute, jadwal, harga, kursi, dan kendaraan sebelum login.',
+        _PassengerDashboardHero(
+          name: 'Tamu',
           stats: [
             _HeroStat(
               label: 'Jadwal',
               value: '${bundle.payload.featuredSchedules.length}',
             ),
-            const _HeroStat(label: 'Pemesanan', value: 'Login dulu'),
-            const _HeroStat(label: 'Tiket', value: 'Login dulu'),
+            const _HeroStat(label: 'Pesanan', value: 'Terkunci'),
+            const _HeroStat(label: 'Tiket', value: 'Terkunci'),
           ],
         ),
         const SizedBox(height: 18),
-        _SectionHeader(
-          eyebrow: 'Menu',
-          title: 'Akses cepat',
-          subtitle:
-              'Buka rute, info, lalu masuk ketika ingin melanjutkan pemesanan.',
-        ),
-        const SizedBox(height: 12),
-        _ShortcutTile(
-          icon: Icons.route_rounded,
-          title: 'Lihat Rute dan Jadwal',
-          subtitle: 'Cek tujuan, kendaraan, harga, dan kursi tersedia.',
-          accent: TravSTheme.orange,
-          onTap: () => setState(() => _selectedTabIndex = 1),
-        ),
-        const SizedBox(height: 10),
-        _ShortcutTile(
-          icon: Icons.info_outline_rounded,
-          title: 'Info Pemesanan',
-          subtitle: 'Lihat ringkasan kursi, pembayaran, tiket, dan pengemudi.',
-          accent: TravSTheme.navy,
-          onTap: () => setState(() => _selectedTabIndex = 2),
-        ),
-        const SizedBox(height: 10),
-        _ShortcutTile(
-          icon: Icons.login_rounded,
-          title: 'Masuk atau Daftar',
-          subtitle: 'Lanjutkan ke akun penumpang atau pengemudi.',
-          accent: TravSTheme.success,
+        if (featuredSchedule != null) ...[
+          _GuestSchedulePreviewCard(
+            schedule: featuredSchedule,
+            onTap: () => _openScheduleDetail(featuredSchedule),
+          ),
+          const SizedBox(height: 12),
+        ],
+        _LockedFeatureCard(
+          title: 'Pemesanan dan tiket dikunci',
+          description:
+              'Tamu bisa cek rute, jadwal, harga, kendaraan, dan sisa kursi. Untuk memilih kursi, menyimpan pemesanan, dan membuka tiket QR, silakan masuk sebagai penumpang.',
+          actionLabel: 'Masuk / Daftar',
+          icon: Icons.lock_outline_rounded,
           onTap: widget.onOpenAuth,
         ),
         const SizedBox(height: 18),
-        _SectionHeader(
-          eyebrow: 'Jadwal populer',
-          title: 'Rute siap dicek',
-          subtitle:
-              'Daftar ini tetap live dari backend, jadi tamu bisa melihat gambaran perjalanan sebelum login.',
-        ),
-        const SizedBox(height: 12),
-        ...bundle.payload.featuredSchedules
-            .take(3)
-            .map(
-              (schedule) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ScheduleCard(
-                  schedule: schedule,
-                  onTap: () => _openScheduleDetail(schedule),
-                  ctaLabel: 'Lihat Detail',
+        if (routes.isNotEmpty) ...[
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Rute Populer',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: TravSTheme.navy,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
+              TextButton(
+                onPressed: () => setState(() => _selectedTabIndex = 1),
+                child: const Text('Lihat Semua'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...routes
+              .take(2)
+              .map(
+                (route) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _RouteBookmarkCard(
+                    route: route,
+                    onTap: () {
+                      setState(() {
+                        _selectedRouteKey = route.key;
+                        _selectedTabIndex = 1;
+                      });
+                    },
+                  ),
+                ),
+              ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildGuestOrders(_HomeBundle bundle) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
+      children: [
+        _PageTopBar(
+          leading: _backToHomeButton(),
+          title: 'Daftar Pemesanan',
+          subtitle: 'Masuk untuk melihat status pemesanan dan pembayaran.',
+          trailing: IconButton(
+            onPressed: widget.onOpenAuth,
+            icon: const Icon(Icons.notifications_none_rounded),
+          ),
+        ),
+        const SizedBox(height: 16),
+        const Row(
+          children: [
+            Expanded(
+              child: _CountPill(label: 'Menunggu', value: '0'),
             ),
+            SizedBox(width: 10),
+            Expanded(
+              child: _CountPill(label: 'Terbayar', value: '0'),
+            ),
+            SizedBox(width: 10),
+            Expanded(
+              child: _CountPill(label: 'Total', value: '0'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _LockedFeatureCard(
+          title: 'Daftar pemesanan terkunci',
+          description:
+              'Pemesanan hanya tersimpan di akun penumpang agar kursi, pembayaran, dan data tiket tidak tertukar dengan pengguna lain.',
+          actionLabel: 'Masuk sebagai Penumpang',
+          icon: Icons.receipt_long_outlined,
+          onTap: widget.onOpenAuth,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGuestTickets(_HomeBundle bundle) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
+      children: [
+        _PageTopBar(
+          leading: _backToHomeButton(),
+          title: 'Daftar Tiket',
+          subtitle: 'Tiket QR muncul setelah pemesanan terbayar.',
+          trailing: IconButton(
+            onPressed: widget.onOpenAuth,
+            icon: const Icon(Icons.notifications_none_rounded),
+          ),
+        ),
+        const SizedBox(height: 16),
+        const _SectionHeader(
+          eyebrow: 'Tiket',
+          title: 'Tiket aktif',
+          subtitle:
+              'Mode tamu tidak menyimpan tiket agar data perjalanan tetap aman.',
+        ),
+        const SizedBox(height: 12),
+        _LockedFeatureCard(
+          title: 'Tiket digital terkunci',
+          description:
+              'Masuk sebagai penumpang untuk melihat tiket terbaru, tiket aktif, QR per kursi, dan riwayat perjalanan.',
+          actionLabel: 'Masuk / Daftar',
+          icon: Icons.confirmation_number_outlined,
+          onTap: widget.onOpenAuth,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGuestAccount(_HomeBundle bundle) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
+      children: [
+        _PageTopBar(
+          leading: _backToHomeButton(),
+          title: 'Profil',
+          subtitle: 'Mode tamu hanya untuk melihat informasi perjalanan.',
+        ),
+        const SizedBox(height: 16),
+        const _GuestProfileSummaryCard(),
+        const SizedBox(height: 16),
+        _ProfileMenuTile(
+          icon: Icons.login_rounded,
+          title: 'Masuk sebagai Penumpang',
+          subtitle: 'Simpan pemesanan, pembayaran, dan tiket digital.',
+          onTap: widget.onOpenAuth,
+        ),
+        const SizedBox(height: 10),
+        _ProfileMenuTile(
+          icon: Icons.directions_car_filled_outlined,
+          title: 'Masuk sebagai Pengemudi',
+          subtitle: 'Akun pengemudi dipakai untuk manifest dan scan tiket.',
+          onTap: widget.onOpenAuth,
+        ),
+        const SizedBox(height: 10),
+        _ProfileMenuTile(
+          icon: Icons.info_outline_rounded,
+          title: 'Tentang Aplikasi',
+          subtitle: 'Ringkasan fitur penumpang dan layanan travel.',
+          onTap: () => _showAboutSheet(
+            title: 'Tentang RuslyTravel',
+            description:
+                'RuslyTravel membantu penumpang mengecek rute, memilih kursi, mengisi titik jemput, membayar pemesanan, dan membuka tiket digital setelah pembayaran berhasil.',
+          ),
+        ),
       ],
     );
   }
@@ -1185,64 +1447,6 @@ class _TravSHomePageState extends State<TravSHomePage> {
     );
   }
 
-  Widget _buildGuestInfo(_HomeBundle bundle) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
-      children: [
-        _PageTopBar(
-          leading: _backToHomeButton(),
-          title: 'Info Pemesanan',
-          subtitle: 'Ringkasan fitur utama alur penumpang.',
-        ),
-        const SizedBox(height: 16),
-        const _InfoCard(
-          title: 'Pilih kursi & titik jemput',
-          description:
-              'Penumpang bisa memilih kursi, mengambil titik jemput dari GPS, atau memilih dari peta.',
-          icon: Icons.place_outlined,
-        ),
-        const SizedBox(height: 12),
-        const _InfoCard(
-          title: 'Pembayaran & tiket',
-          description:
-              'Pembayaran QRIS, transfer, dan tunai tetap dibedakan agar sesuai alur gateway dan verifikasi tiket.',
-          icon: Icons.payments_rounded,
-        ),
-        const SizedBox(height: 12),
-        const _InfoCard(
-          title: 'Operasional pengemudi',
-          description:
-              'Manifest penumpang, riwayat perjalanan, notifikasi, dan halaman scan disiapkan khusus untuk mode pengemudi.',
-          icon: Icons.directions_car_filled_rounded,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGuestAccount(_HomeBundle bundle) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
-      children: [
-        _PageTopBar(
-          leading: _backToHomeButton(),
-          title: 'Akun',
-          subtitle: 'Mode tamu hanya untuk melihat informasi perjalanan.',
-        ),
-        const SizedBox(height: 16),
-        _InlineActionCard(
-          title: 'Masuk sebagai penumpang atau pengemudi',
-          description:
-              'Penumpang bisa menyimpan pemesanan dan tiket. Pengemudi memakai akun dari admin untuk manifest dan scan.',
-          actionLabel: 'Buka Login',
-          icon: Icons.login_rounded,
-          onTap: widget.onOpenAuth,
-        ),
-      ],
-    );
-  }
-
   void _showAboutSheet({required String title, required String description}) {
     showModalBottomSheet<void>(
       context: context,
@@ -1289,7 +1493,12 @@ class _TravSHomePageState extends State<TravSHomePage> {
             selectedIcon: Icons.home_rounded,
           ),
           _NavItem(
-            label: 'Manifest',
+            label: 'Jadwal',
+            icon: Icons.calendar_month_outlined,
+            selectedIcon: Icons.calendar_month_rounded,
+          ),
+          _NavItem(
+            label: 'Penumpang',
             icon: Icons.assignment_outlined,
             selectedIcon: Icons.assignment_rounded,
           ),
@@ -1345,12 +1554,17 @@ class _TravSHomePageState extends State<TravSHomePage> {
             selectedIcon: Icons.route_rounded,
           ),
           _NavItem(
-            label: 'Info',
-            icon: Icons.info_outline_rounded,
-            selectedIcon: Icons.info_rounded,
+            label: 'Pesanan',
+            icon: Icons.receipt_long_outlined,
+            selectedIcon: Icons.receipt_long_rounded,
           ),
           _NavItem(
-            label: 'Akun',
+            label: 'Tiket',
+            icon: Icons.confirmation_number_outlined,
+            selectedIcon: Icons.confirmation_number_rounded,
+          ),
+          _NavItem(
+            label: 'Profil',
             icon: Icons.person_outline_rounded,
             selectedIcon: Icons.person_rounded,
           ),
@@ -1404,7 +1618,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
       ),
       floatingActionButton: _role == AppRolePreview.driver
           ? FloatingActionButton(
-              onPressed: _openScanner,
+              onPressed: () => _openScanner(),
               backgroundColor: TravSTheme.navy,
               foregroundColor: Colors.white,
               child: const Icon(Icons.qr_code_scanner_rounded),
@@ -1582,12 +1796,14 @@ class _HomeBundle {
     this.passengerDashboard,
     this.passengerBookings,
     this.driverDashboard,
+    this.driverTrips,
   });
 
   final TravSHomePayload payload;
   final TravSPassengerDashboard? passengerDashboard;
   final List<TravSBookingResult>? passengerBookings;
   final TravSDriverDashboard? driverDashboard;
+  final List<TravSDriverTripItem>? driverTrips;
 }
 
 class _PageTopBar extends StatelessWidget {
@@ -1729,75 +1945,6 @@ class _SectionHeader extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _HomeHeroCard extends StatelessWidget {
-  const _HomeHeroCard({
-    required this.title,
-    required this.subtitle,
-    required this.stats,
-  });
-
-  final String title;
-  final String subtitle;
-  final List<_HeroStat> stats;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(30),
-        border: Border.all(color: TravSTheme.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: theme.textTheme.titleLarge?.copyWith(
-              color: TravSTheme.navy,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            subtitle,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: TravSTheme.navyMuted,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Container(
-            height: 140,
-            decoration: BoxDecoration(
-              gradient: TravSTheme.headerGradient,
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: const Center(
-              child: Icon(
-                Icons.directions_bus_filled_rounded,
-                color: Colors.white,
-                size: 44,
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              for (var index = 0; index < stats.length; index++) ...[
-                Expanded(child: _HeroStatTile(stat: stats[index])),
-                if (index != stats.length - 1) const SizedBox(width: 10),
-              ],
-            ],
-          ),
-        ],
-      ),
     );
   }
 }
@@ -2051,65 +2198,65 @@ class _TripMeta extends StatelessWidget {
 class _DriverHeroCard extends StatelessWidget {
   const _DriverHeroCard({
     required this.displayName,
-    required this.simNumber,
+    required this.email,
+    required this.phone,
+    required this.isActive,
     required this.stats,
+    this.photoUrl,
   });
 
   final String displayName;
-  final String simNumber;
+  final String email;
+  final String phone;
+  final bool isActive;
   final List<_HeroStat> stats;
+  final String? photoUrl;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final initials = displayName.isEmpty
-        ? 'S'
-        : displayName.substring(0, 1).toUpperCase();
 
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: TravSTheme.headerGradient,
-        borderRadius: BorderRadius.circular(30),
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: TravSTheme.navy.withValues(alpha: 0.12),
+            blurRadius: 22,
+            offset: const Offset(0, 12),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Colors.white24),
-                ),
-                child: Center(
-                  child: Text(
-                    initials,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
+              _ProfileAvatarPreview(
+                name: displayName,
+                radius: 24,
+                imageUrl: photoUrl,
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      displayName,
-                      style: theme.textTheme.titleLarge?.copyWith(
+                      'Halo, $displayName',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 4),
                     Text(
-                      'SIM $simNumber',
+                      phone,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: Colors.white70,
                       ),
@@ -2117,20 +2264,46 @@ class _DriverHeroCard extends StatelessWidget {
                   ],
                 ),
               ),
+              _StatusPill(
+                label: isActive ? 'Aktif' : 'Nonaktif',
+                color: isActive ? TravSTheme.success : TravSTheme.warning,
+                textColor: isActive ? TravSTheme.success : TravSTheme.warning,
+              ),
             ],
           ),
-          const SizedBox(height: 18),
-          Text(
-            'Operasional pengemudi hari ini',
-            style: theme.textTheme.headlineSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w800,
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(16),
             ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Akses manifest penumpang, riwayat perjalanan, dan scan tiket dari layar yang sama.',
-            style: theme.textTheme.bodySmall?.copyWith(color: Colors.white70),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.directions_car_filled_rounded,
+                  color: Colors.white,
+                  size: 34,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Operasional Pengemudi',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  email,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: Colors.white70,
+                  ),
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 16),
           Row(
@@ -2176,94 +2349,31 @@ class _HeroStatTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            stat.value,
-            style: theme.textTheme.titleLarge?.copyWith(
-              color: dark ? Colors.white : TravSTheme.navy,
-              fontWeight: FontWeight.w800,
+          SizedBox(
+            width: double.infinity,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                stat.value,
+                maxLines: 1,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  color: dark ? Colors.white : TravSTheme.navy,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 4),
           Text(
             stat.label,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodySmall?.copyWith(
               color: dark ? Colors.white70 : TravSTheme.navyMuted,
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ShortcutTile extends StatelessWidget {
-  const _ShortcutTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.accent,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final Color accent;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(24),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: TravSTheme.line),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Icon(icon, color: accent),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: TravSTheme.navy,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: TravSTheme.navyMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: TravSTheme.navyMuted,
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -2328,6 +2438,616 @@ class _InlineActionCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 TextButton(onPressed: onTap, child: Text(actionLabel)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DriverVehicleAssignmentCard extends StatelessWidget {
+  const _DriverVehicleAssignmentCard({required this.record});
+
+  final _DriverJourneyRecord? record;
+
+  @override
+  Widget build(BuildContext context) {
+    final vehicle = record?.vehicle.trim();
+    final route = record?.route.trim();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: _softCardDecoration(),
+      child: Row(
+        children: [
+          _NetworkThumbnail(
+            imageUrl: _vehicleImageUrl(vehicle ?? ''),
+            fallbackIcon: Icons.directions_car_filled_rounded,
+            label: vehicle == null || vehicle.isEmpty ? 'Kendaraan' : vehicle,
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Kendaraan ditugaskan',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: TravSTheme.navy,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  vehicle == null || vehicle.isEmpty
+                      ? 'Belum ada kendaraan aktif'
+                      : vehicle,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: TravSTheme.navyMuted),
+                ),
+                if (route != null && route.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  _TinyInfoPill(icon: Icons.route_rounded, label: route),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DriverProfileVehicleCard extends StatelessWidget {
+  const _DriverProfileVehicleCard({required this.record});
+
+  final _DriverJourneyRecord? record;
+
+  @override
+  Widget build(BuildContext context) {
+    return _DriverVehicleAssignmentCard(record: record);
+  }
+}
+
+class _DriverScheduleCard extends StatefulWidget {
+  const _DriverScheduleCard({required this.record, required this.onTap});
+
+  final _DriverJourneyRecord record;
+  final VoidCallback onTap;
+
+  @override
+  State<_DriverScheduleCard> createState() => _DriverScheduleCardState();
+}
+
+class _DriverScheduleCardState extends State<_DriverScheduleCard> {
+  bool _isExpanded = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final record = widget.record;
+    final theme = Theme.of(context);
+    final statusColor = _driverStatusColor(record.status);
+
+    return Container(
+      decoration: _softCardDecoration(radius: 26),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            borderRadius: BorderRadius.circular(26),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 58,
+                    height: 58,
+                    decoration: BoxDecoration(
+                      color: TravSTheme.orangeSoft,
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    child: const Icon(
+                      Icons.calendar_month_rounded,
+                      color: TravSTheme.orange,
+                      size: 28,
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          record.route,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: TravSTheme.navy,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatDateTime(
+                            record.departureAt,
+                          ).replaceAll(', ', ' - '),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: TravSTheme.navyMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  _StatusPill(
+                    label: record.statusLabel,
+                    color: statusColor,
+                    textColor: statusColor,
+                  ),
+                  const SizedBox(width: 4),
+                  AnimatedRotation(
+                    turns: _isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: TravSTheme.navy,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+              child: Column(
+                children: [
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _MetaColumn(
+                          label: 'Kendaraan',
+                          value: record.vehicle,
+                        ),
+                      ),
+                      Expanded(
+                        child: _MetaColumn(
+                          label: 'Penumpang',
+                          value: '${record.passengerCount}',
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: widget.onTap,
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        side: const BorderSide(color: TravSTheme.line),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      icon: const Icon(Icons.assignment_outlined),
+                      label: const Text('Lihat Detail Trip'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            crossFadeState: _isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 180),
+            sizeCurve: Curves.easeOut,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DriverManifestSectionCard extends StatefulWidget {
+  const _DriverManifestSectionCard({
+    required this.record,
+    required this.onOpenDetail,
+    required this.onOpenScanner,
+    required this.onShowPassengerDetail,
+    required this.onMarkPassengerDropoff,
+  });
+
+  final _DriverJourneyRecord record;
+  final VoidCallback onOpenDetail;
+  final VoidCallback onOpenScanner;
+  final ValueChanged<_ManifestPassengerRecord> onShowPassengerDetail;
+  final Future<bool> Function(_ManifestPassengerRecord passenger)
+  onMarkPassengerDropoff;
+
+  @override
+  State<_DriverManifestSectionCard> createState() =>
+      _DriverManifestSectionCardState();
+}
+
+class _DriverManifestSectionCardState
+    extends State<_DriverManifestSectionCard> {
+  bool _isExpanded = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final record = widget.record;
+    final theme = Theme.of(context);
+    final statusColor = _driverStatusColor(record.status);
+    final presentCount = record.manifest
+        .where((passenger) => passenger.isPresent || passenger.isDroppedOff)
+        .length;
+
+    return Container(
+      decoration: _softCardDecoration(radius: 26),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            borderRadius: BorderRadius.circular(26),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          record.route,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: TravSTheme.navy,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${record.passengerCount} penumpang - ${_formatShortDate(record.departureAt)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: TravSTheme.navyMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  _StatusPill(
+                    label: record.statusLabel,
+                    color: statusColor,
+                    textColor: statusColor,
+                  ),
+                  const SizedBox(width: 4),
+                  AnimatedRotation(
+                    turns: _isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: TravSTheme.navy,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
+              child: Column(
+                children: [
+                  const Divider(height: 1),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Manifest Penumpang'.toUpperCase(),
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: TravSTheme.navyMuted,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      _StatusPill(
+                        label: '$presentCount/${record.passengerCount} Hadir',
+                        color: TravSTheme.success,
+                        textColor: TravSTheme.success,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (record.manifest.isEmpty)
+                    const _InlineEmptyMessage(
+                      title: 'Belum ada penumpang pada trip ini.',
+                    )
+                  else
+                    ...record.manifest.map(
+                      (passenger) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _ManifestPassengerTile(
+                          passenger: passenger,
+                          onShowDetail: () =>
+                              widget.onShowPassengerDetail(passenger),
+                          onOpenScanner: widget.onOpenScanner,
+                          onMarkDropoff: () =>
+                              widget.onMarkPassengerDropoff(passenger),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 4),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: widget.onOpenDetail,
+                      icon: const Icon(Icons.open_in_new_rounded),
+                      label: const Text('Buka Detail Manifest'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            crossFadeState: _isExpanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 180),
+            sizeCurve: Curves.easeOut,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GuestSchedulePreviewCard extends StatelessWidget {
+  const _GuestSchedulePreviewCard({
+    required this.schedule,
+    required this.onTap,
+  });
+
+  final TravSSchedule schedule;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(18),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: TravSTheme.line),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Jadwal tersedia',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: TravSTheme.navy,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      _StatusPill(
+                        label: 'Preview',
+                        color: TravSTheme.orange,
+                        textColor: TravSTheme.orange,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    '${schedule.asal} - ${schedule.tujuan}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: TravSTheme.navy,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _MetaColumn(
+                          label: 'Tanggal',
+                          value: _formatShortDate(schedule.waktuBerangkat),
+                        ),
+                      ),
+                      Expanded(
+                        child: _MetaColumn(
+                          label: 'Waktu',
+                          value: _formatScheduleTime(schedule.waktuBerangkat),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 14),
+            ElevatedButton(
+              onPressed: onTap,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: TravSTheme.navy,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                minimumSize: const Size(78, 44),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+              child: const Text('Detail'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LockedFeatureCard extends StatelessWidget {
+  const _LockedFeatureCard({
+    required this.title,
+    required this.description,
+    required this.actionLabel,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final String title;
+  final String description;
+  final String actionLabel;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: TravSTheme.line),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: TravSTheme.surfaceSoft,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(icon, color: TravSTheme.navy),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: TravSTheme.navy,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  description,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: TravSTheme.navyMuted,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: onTap,
+                    icon: const Icon(Icons.login_rounded),
+                    label: Text(actionLabel),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: TravSTheme.navy,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GuestProfileSummaryCard extends StatelessWidget {
+  const _GuestProfileSummaryCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: TravSTheme.line),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 60,
+            height: 60,
+            decoration: const BoxDecoration(
+              color: TravSTheme.navy,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.person_outline_rounded,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Tamu RuslyTravel',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    color: TravSTheme.navy,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Belum masuk akun',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: TravSTheme.navyMuted,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Tamu',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: TravSTheme.orange,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ],
             ),
           ),
@@ -2415,38 +3135,106 @@ class _CountPill extends StatelessWidget {
   }
 }
 
+BoxDecoration _softCardDecoration({double radius = 16}) {
+  return BoxDecoration(
+    color: Colors.white,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: TravSTheme.line),
+    boxShadow: [
+      BoxShadow(
+        color: TravSTheme.navy.withValues(alpha: 0.04),
+        blurRadius: 16,
+        offset: const Offset(0, 8),
+      ),
+    ],
+  );
+}
+
+Color _driverStatusColor(String status) {
+  switch (status.toLowerCase()) {
+    case 'selesai':
+      return TravSTheme.success;
+    case 'berangkat':
+      return TravSTheme.navy;
+    case 'dibatalkan':
+      return TravSTheme.danger;
+    default:
+      return TravSTheme.orange;
+  }
+}
+
+class _InlineEmptyMessage extends StatelessWidget {
+  const _InlineEmptyMessage({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: TravSTheme.surfaceSoft,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.inbox_outlined, color: TravSTheme.navyMuted),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              title,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: TravSTheme.navyMuted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _DriverJourneyRecord {
   const _DriverJourneyRecord({
+    required this.id,
     required this.code,
     required this.route,
     required this.departureAt,
     required this.vehicle,
     required this.status,
+    required this.passengerCount,
     required this.revenue,
     required this.manifest,
   });
 
+  final int id;
   final String code;
   final String route;
   final String departureAt;
   final String vehicle;
   final String status;
+  final int passengerCount;
   final double revenue;
   final List<_ManifestPassengerRecord> manifest;
 
   String get statusLabel => _humanizeStatus(status);
-  int get passengerCount => manifest.length;
 
   static List<_DriverJourneyRecord> fromTrips(List<TravSDriverTripItem> trips) {
     final records = <_DriverJourneyRecord>[];
     for (final trip in trips) {
       records.add(
         _DriverJourneyRecord(
+          id: trip.id,
           code: trip.code,
           route: trip.rute,
           departureAt: trip.waktuBerangkat,
           vehicle: trip.kendaraan,
           status: trip.status,
+          passengerCount: trip.passengerCount > 0
+              ? trip.passengerCount
+              : trip.manifest.length,
           revenue: trip.revenue,
           manifest: trip.manifest
               .map((passenger) => _ManifestPassengerRecord.fromApi(passenger))
@@ -2461,33 +3249,113 @@ class _DriverJourneyRecord {
 
 class _ManifestPassengerRecord {
   const _ManifestPassengerRecord({
+    required this.bookingId,
+    required this.detailId,
+    required this.bookingCode,
     required this.name,
     required this.seatLabel,
     required this.phone,
+    required this.requesterName,
+    required this.requesterEmail,
+    required this.requesterPhone,
+    this.requesterPhotoUrl,
     required this.pickupAddress,
     required this.baggageLabel,
     required this.fareLabel,
+    required this.paymentStatus,
+    required this.paymentMethod,
+    required this.paymentChannel,
+    required this.paymentLabel,
+    required this.attendanceStatus,
+    required this.isPickedUp,
+    required this.isDroppedOff,
+    this.droppedOffAt,
+    required this.ticketCode,
+    required this.ticketToken,
+    required this.ticketScanned,
   });
 
+  final int bookingId;
+  final int detailId;
+  final String bookingCode;
   final String name;
   final String seatLabel;
   final String phone;
+  final String requesterName;
+  final String requesterEmail;
+  final String requesterPhone;
+  final String? requesterPhotoUrl;
   final String pickupAddress;
   final String baggageLabel;
   final String fareLabel;
+  final String paymentStatus;
+  final String paymentMethod;
+  final String paymentChannel;
+  final String paymentLabel;
+  final String attendanceStatus;
+  final bool isPickedUp;
+  final bool isDroppedOff;
+  final String? droppedOffAt;
+  final String ticketCode;
+  final String ticketToken;
+  final bool ticketScanned;
+
+  bool get isPresent => attendanceStatus == 'hadir' || ticketScanned;
+
+  String get manifestStatusLabel {
+    if (isDroppedOff) {
+      return 'TELAH TURUN';
+    }
+
+    if (isPresent) {
+      return 'HADIR';
+    }
+
+    return 'BELUM HADIR';
+  }
+
+  Color get manifestStatusColor {
+    if (isDroppedOff) {
+      return TravSTheme.navyMuted;
+    }
+
+    if (isPresent) {
+      return TravSTheme.success;
+    }
+
+    return TravSTheme.navyMuted;
+  }
 
   factory _ManifestPassengerRecord.fromApi(
     TravSDriverManifestPassenger passenger,
   ) {
     return _ManifestPassengerRecord(
+      bookingId: passenger.bookingId,
+      detailId: passenger.detailId,
+      bookingCode: passenger.bookingCode,
       name: passenger.name,
       seatLabel: 'No. ${passenger.seatNumber.toString().padLeft(2, '0')}',
       phone: passenger.phone,
+      requesterName: passenger.requesterName,
+      requesterEmail: passenger.requesterEmail,
+      requesterPhone: passenger.requesterPhone,
+      requesterPhotoUrl: passenger.requesterPhotoUrl,
       pickupAddress: passenger.pickupAddress,
       baggageLabel: passenger.ticketScanned
           ? '${passenger.baggageLabel} - tiket dipindai'
           : passenger.baggageLabel,
       fareLabel: passenger.fareLabel,
+      paymentStatus: passenger.paymentStatus,
+      paymentMethod: passenger.paymentMethod,
+      paymentChannel: passenger.paymentChannel,
+      paymentLabel: passenger.paymentLabel,
+      attendanceStatus: passenger.attendanceStatus,
+      isPickedUp: passenger.isPickedUp,
+      isDroppedOff: passenger.isDroppedOff,
+      droppedOffAt: passenger.droppedOffAt,
+      ticketCode: passenger.ticketCode,
+      ticketToken: passenger.ticketToken,
+      ticketScanned: passenger.ticketScanned,
     );
   }
 }
@@ -2640,17 +3508,75 @@ class _NotificationTile extends StatelessWidget {
   }
 }
 
-class _DriverJourneyDetailPage extends StatelessWidget {
+class _DriverJourneyDetailPage extends StatefulWidget {
   const _DriverJourneyDetailPage({
     required this.record,
     required this.onOpenScanner,
+    required this.onReloadRecord,
+    required this.onShowPassengerDetail,
+    required this.onMarkPassengerDropoff,
   });
 
   final _DriverJourneyRecord record;
-  final VoidCallback onOpenScanner;
+  final Future<bool> Function({Future<void> Function()? onValidScan})
+  onOpenScanner;
+  final Future<_DriverJourneyRecord?> Function() onReloadRecord;
+  final ValueChanged<_ManifestPassengerRecord> onShowPassengerDetail;
+  final Future<bool> Function(_ManifestPassengerRecord passenger)
+  onMarkPassengerDropoff;
+
+  @override
+  State<_DriverJourneyDetailPage> createState() =>
+      _DriverJourneyDetailPageState();
+}
+
+class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
+  late _DriverJourneyRecord _record;
+  bool _isReloadingRecord = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _record = widget.record;
+  }
+
+  Future<void> _reloadRecord() async {
+    if (_isReloadingRecord) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isReloadingRecord = true;
+      });
+    }
+
+    try {
+      final updatedRecord = await widget.onReloadRecord();
+      if (!mounted || updatedRecord == null) {
+        return;
+      }
+
+      setState(() {
+        _record = updatedRecord;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isReloadingRecord = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _openScannerFromDetail() async {
+    await widget.onOpenScanner(onValidScan: _reloadRecord);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final record = _record;
+
     return Scaffold(
       appBar: AppBar(title: const Text('Detail Perjalanan')),
       body: Container(
@@ -2743,15 +3669,38 @@ class _DriverJourneyDetailPage extends StatelessWidget {
                   ...record.manifest.map(
                     (passenger) => Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: _ManifestPassengerTile(passenger: passenger),
+                      child: _ManifestPassengerTile(
+                        passenger: passenger,
+                        onShowDetail: () =>
+                            widget.onShowPassengerDetail(passenger),
+                        onOpenScanner: _openScannerFromDetail,
+                        onMarkDropoff: () async {
+                          final updated = await widget.onMarkPassengerDropoff(
+                            passenger,
+                          );
+                          if (updated && context.mounted) {
+                            await _reloadRecord();
+                          }
+                        },
+                      ),
                     ),
                   ),
+                  if (_isReloadingRecord) ...[
+                    const SizedBox(height: 8),
+                    const Center(
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.4),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              onPressed: onOpenScanner,
+              onPressed: _openScannerFromDetail,
               icon: const Icon(Icons.qr_code_scanner_rounded),
               label: const Text('Pindai Tiket'),
             ),
@@ -2763,63 +3712,224 @@ class _DriverJourneyDetailPage extends StatelessWidget {
 }
 
 class _ManifestPassengerTile extends StatelessWidget {
-  const _ManifestPassengerTile({required this.passenger});
+  const _ManifestPassengerTile({
+    required this.passenger,
+    required this.onShowDetail,
+    required this.onOpenScanner,
+    required this.onMarkDropoff,
+  });
+
+  final _ManifestPassengerRecord passenger;
+  final VoidCallback onShowDetail;
+  final VoidCallback onOpenScanner;
+  final Future<void> Function() onMarkDropoff;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final statusColor = passenger.manifestStatusColor;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: TravSTheme.line),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 4,
+            height: 128,
+            decoration: BoxDecoration(
+              color: statusColor,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: RichText(
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        text: TextSpan(
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: TravSTheme.navyMuted,
+                            fontWeight: FontWeight.w700,
+                          ),
+                          children: [
+                            TextSpan(text: '${passenger.seatLabel}  '),
+                            TextSpan(
+                              text: passenger.name,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: TravSTheme.navy,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            TextSpan(
+                              text:
+                                  ' • Kursi ${passenger.seatLabel.replaceFirst('No. ', '')}',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    _StatusPill(
+                      label: passenger.manifestStatusLabel,
+                      color: statusColor,
+                      textColor: statusColor,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.place_outlined,
+                      size: 16,
+                      color: TravSTheme.navyMuted,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        passenger.pickupAddress,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: TravSTheme.navyMuted,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _MiniInfoPill(
+                      icon: Icons.confirmation_number_outlined,
+                      label: passenger.ticketScanned
+                          ? 'Tiket dipindai'
+                          : passenger.ticketCode,
+                    ),
+                    _MiniInfoPill(
+                      icon: Icons.payments_outlined,
+                      label: passenger.paymentLabel,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: onShowDetail,
+                        icon: const Icon(Icons.info_outline_rounded, size: 18),
+                        label: const Text('Detail'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(child: _buildActionButton(context)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton(BuildContext context) {
+    if (passenger.isDroppedOff) {
+      return OutlinedButton.icon(
+        onPressed: null,
+        icon: const Icon(Icons.done_all_rounded, size: 18),
+        label: const Text('Turun'),
+      );
+    }
+
+    if (!passenger.isPresent) {
+      return ElevatedButton.icon(
+        onPressed: onOpenScanner,
+        icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+        label: const Text('Scan QR'),
+      );
+    }
+
+    return ElevatedButton.icon(
+      onPressed: onMarkDropoff,
+      icon: const Icon(Icons.exit_to_app_rounded, size: 18),
+      label: const Text('Turun'),
+    );
+  }
+}
+
+class _DriverPassengerInfoPanel extends StatelessWidget {
+  const _DriverPassengerInfoPanel({required this.passenger});
 
   final _ManifestPassengerRecord passenger;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final requesterName = passenger.requesterName == '-'
+        ? passenger.name
+        : passenger.requesterName;
+    final requesterPhone = passenger.requesterPhone == '-'
+        ? passenger.phone
+        : passenger.requesterPhone;
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: TravSTheme.surfaceSoft,
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: TravSTheme.line),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _MetaColumn(label: 'Akun pemesan', value: requesterName),
+          const SizedBox(height: 10),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  passenger.name,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: TravSTheme.navy,
-                    fontWeight: FontWeight.w800,
-                  ),
+                child: _MetaColumn(
+                  label: 'Email',
+                  value: passenger.requesterEmail,
                 ),
               ),
-              _StatusPill(
-                label: passenger.seatLabel,
-                color: TravSTheme.navy,
-                textColor: TravSTheme.navy,
+              Expanded(
+                child: _MetaColumn(label: 'No. HP', value: requesterPhone),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            passenger.phone,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: TravSTheme.navyMuted,
-            ),
-          ),
-          const SizedBox(height: 8),
-          _MetaColumn(label: 'Pickup', value: passenger.pickupAddress),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
                 child: _MetaColumn(
-                  label: 'Barang bawaan',
-                  value: passenger.baggageLabel,
+                  label: 'Metode bayar',
+                  value: passenger.paymentMethod.toUpperCase(),
                 ),
               ),
               Expanded(
                 child: _MetaColumn(
-                  label: 'Harga penumpang',
-                  value: passenger.fareLabel,
+                  label: 'Channel',
+                  value: passenger.paymentChannel,
                 ),
               ),
             ],
@@ -2830,13 +3940,389 @@ class _ManifestPassengerTile extends StatelessWidget {
   }
 }
 
+class _MiniInfoPill extends StatelessWidget {
+  const _MiniInfoPill({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: TravSTheme.surfaceSoft,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: TravSTheme.orange),
+          const SizedBox(width: 6),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 150),
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: TravSTheme.navy,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PassengerManifestDetailSheet extends StatelessWidget {
+  const _PassengerManifestDetailSheet({required this.passenger});
+
+  final _ManifestPassengerRecord passenger;
+
+  @override
+  Widget build(BuildContext context) {
+    final avatarUrl = TravSApiService.resolveMediaUrl(
+      passenger.requesterPhotoUrl,
+    );
+
+    return SafeArea(
+      top: false,
+      child: DraggableScrollableSheet(
+        initialChildSize: 0.82,
+        minChildSize: 0.5,
+        maxChildSize: 0.94,
+        builder: (context, scrollController) {
+          return Material(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            child: ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              children: [
+                const _SheetHandle(),
+                const SizedBox(height: 18),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _ProfileAvatarPreview(
+                      name: passenger.requesterName != '-'
+                          ? passenger.requesterName
+                          : passenger.name,
+                      radius: 30,
+                      imageUrl: avatarUrl,
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            passenger.name,
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
+                                  color: TravSTheme.navy,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${passenger.seatLabel} • ${passenger.bookingCode}',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: TravSTheme.navyMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _StatusPill(
+                      label: passenger.manifestStatusLabel,
+                      color: passenger.manifestStatusColor,
+                      textColor: passenger.manifestStatusColor,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                _DriverPassengerInfoPanel(passenger: passenger),
+                const SizedBox(height: 14),
+                _SheetInfoGroup(
+                  title: 'Informasi tiket dan pembayaran',
+                  children: [
+                    _SheetInfoRow(
+                      label: 'Kode tiket',
+                      value: passenger.ticketCode,
+                    ),
+                    _SheetInfoRow(
+                      label: 'Status tiket',
+                      value: passenger.ticketScanned
+                          ? 'Sudah dipindai'
+                          : 'Belum dipindai',
+                    ),
+                    _SheetInfoRow(
+                      label: 'Status bayar',
+                      value: _humanizeStatus(passenger.paymentStatus),
+                    ),
+                    _SheetInfoRow(
+                      label: 'Metode bayar',
+                      value: passenger.paymentMethod.toUpperCase(),
+                    ),
+                    _SheetInfoRow(
+                      label: 'Total pembayaran',
+                      value: passenger.paymentLabel,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _SheetInfoGroup(
+                  title: 'Perjalanan dan barang bawaan',
+                  children: [
+                    _SheetInfoRow(
+                      label: 'Pickup',
+                      value: passenger.pickupAddress,
+                    ),
+                    _SheetInfoRow(
+                      label: 'Barang bawaan',
+                      value: passenger.baggageLabel,
+                    ),
+                    _SheetInfoRow(
+                      label: 'Status jemput',
+                      value: passenger.isPickedUp
+                          ? 'Sudah dijemput'
+                          : 'Belum dijemput',
+                    ),
+                    _SheetInfoRow(
+                      label: 'Status turun',
+                      value: passenger.isDroppedOff
+                          ? 'Sudah turun ${_formatDateTime(passenger.droppedOffAt ?? '')}'
+                          : 'Belum turun',
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _PassengerDropoffConfirmationSheet extends StatelessWidget {
+  const _PassengerDropoffConfirmationSheet({required this.passenger});
+
+  final _ManifestPassengerRecord passenger;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Material(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _SheetHandle(),
+              const SizedBox(height: 20),
+              Text(
+                'Konfirmasi Penurunan Penumpang',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: TravSTheme.navy,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: TravSTheme.surfaceSoft,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: TravSTheme.orange.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Icon(
+                        Icons.place_rounded,
+                        color: TravSTheme.orange,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${passenger.name} (${passenger.seatLabel})',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleSmall
+                                ?.copyWith(
+                                  color: TravSTheme.navy,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            passenger.pickupAddress,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: TravSTheme.navyMuted),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                'Apakah penumpang ini sudah turun di alamat tujuan dengan barang bawaannya (${passenger.baggageLabel})?',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: TravSTheme.navy,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 22),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Batal'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text('Ya, Penumpang Turun'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SheetInfoGroup extends StatelessWidget {
+  const _SheetInfoGroup({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: TravSTheme.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+              color: TravSTheme.navy,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetInfoRow extends StatelessWidget {
+  const _SheetInfoRow({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: TravSTheme.navyMuted,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              value,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: TravSTheme.navy,
+                fontWeight: FontWeight.w800,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Container(
+        width: 44,
+        height: 4,
+        decoration: BoxDecoration(
+          color: TravSTheme.line,
+          borderRadius: BorderRadius.circular(999),
+        ),
+      ),
+    );
+  }
+}
+
 enum _ScanPreviewState { scanner, processing, valid, invalid }
 
 class _ScanTicketPage extends StatefulWidget {
-  const _ScanTicketPage({required this.apiService, required this.token});
+  const _ScanTicketPage({
+    required this.apiService,
+    required this.token,
+    required this.onValidScan,
+  });
 
   final TravSApiService apiService;
   final String token;
+  final Future<void> Function() onValidScan;
 
   @override
   State<_ScanTicketPage> createState() => _ScanTicketPageState();
@@ -2900,6 +4386,14 @@ class _ScanTicketPageState extends State<_ScanTicketPage> {
             : 'Tiket tidak valid untuk manifest aktif.';
         _detailLines = result.detailLines;
       });
+
+      if (result.valid) {
+        try {
+          await widget.onValidScan();
+        } catch (_) {
+          // Scan sudah valid di server; kalau refresh UI gagal, user tetap bisa pull refresh.
+        }
+      }
     } on TravSApiException catch (error) {
       if (!mounted) {
         return;
@@ -3028,6 +4522,8 @@ class _ScanTicketPageState extends State<_ScanTicketPage> {
                     icon: Icons.check_circle_outline_rounded,
                     detailLines: _detailLines,
                     onReset: _resetScanner,
+                    onClose: () => Navigator.of(context).pop(true),
+                    closeLabel: 'Kembali ke Manifest',
                   ),
                   _ScanPreviewState.invalid => _ScanResultCard(
                     key: const ValueKey('invalid'),
@@ -3482,6 +4978,8 @@ class _ScanResultCard extends StatelessWidget {
     required this.icon,
     required this.detailLines,
     required this.onReset,
+    this.onClose,
+    this.closeLabel = 'Kembali',
     super.key,
   });
 
@@ -3491,6 +4989,8 @@ class _ScanResultCard extends StatelessWidget {
   final IconData icon;
   final List<String> detailLines;
   final VoidCallback onReset;
+  final VoidCallback? onClose;
+  final String closeLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -3555,122 +5055,16 @@ class _ScanResultCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+        if (onClose != null) ...[
+          ElevatedButton.icon(
+            onPressed: onClose,
+            icon: const Icon(Icons.arrow_back_rounded),
+            label: Text(closeLabel),
+          ),
+          const SizedBox(height: 10),
+        ],
         OutlinedButton(onPressed: onReset, child: const Text('Ulangi Pindai')),
       ],
-    );
-  }
-}
-
-class _ScheduleCard extends StatelessWidget {
-  const _ScheduleCard({
-    required this.schedule,
-    required this.onTap,
-    required this.ctaLabel,
-  });
-
-  final TravSSchedule schedule;
-  final VoidCallback onTap;
-  final String ctaLabel;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(26),
-      child: Container(
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(26),
-          border: Border.all(color: TravSTheme.line),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _NetworkThumbnail(
-                  imageUrl: _vehicleImageUrl(schedule.kendaraan),
-                  fallbackIcon: Icons.directions_car_filled_rounded,
-                  label: schedule.kendaraan,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${schedule.asal} - ${schedule.tujuan}',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: TravSTheme.navy,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        schedule.jalur,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: TravSTheme.navyMuted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    _StatusPill(
-                      label: '${schedule.sisaKursi} kursi',
-                      color: schedule.sisaKursi > 2
-                          ? TravSTheme.success
-                          : TravSTheme.warning,
-                      textColor: schedule.sisaKursi > 2
-                          ? TravSTheme.success
-                          : TravSTheme.warning,
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: _MetaColumn(
-                    label: 'Berangkat',
-                    value: _formatDateTime(schedule.waktuBerangkat),
-                  ),
-                ),
-                Expanded(
-                  child: _MetaColumn(
-                    label: 'Kendaraan',
-                    value: schedule.kendaraan,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    _formatCurrency(schedule.hargaTiket),
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: TravSTheme.navy,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                TextButton(onPressed: onTap, child: Text(ctaLabel)),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -3715,6 +5109,11 @@ class _BookingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final vehicle = booking.kendaraan;
+    final driver = booking.pengemudi;
+    final vehicleImageUrl =
+        TravSApiService.resolveMediaUrl(vehicle?.fotoUrl) ??
+        _vehicleImageUrl(vehicle?.displayName ?? '');
 
     return InkWell(
       onTap: onTap,
@@ -3767,6 +5166,65 @@ class _BookingCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
+            if (vehicle != null) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: TravSTheme.surfaceSoft,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  children: [
+                    _NetworkThumbnail(
+                      imageUrl: vehicleImageUrl,
+                      fallbackIcon: Icons.directions_car_filled_rounded,
+                      label: vehicle.displayName,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            vehicle.displayName.isEmpty
+                                ? vehicle.merk
+                                : vehicle.displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              color: TravSTheme.navy,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${vehicle.warna} | ${vehicle.kapasitas} kursi',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: TravSTheme.navyMuted,
+                            ),
+                          ),
+                          if (driver != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Pengemudi: ${driver.nama}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: TravSTheme.navyMuted,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             Row(
               children: [
                 Expanded(
@@ -4462,6 +5920,8 @@ class _ProfileAvatarPreview extends StatelessWidget {
         ? 'P'
         : name.trim().substring(0, 1).toUpperCase();
     final size = radius * 2;
+    final hasLocalImage = imageBytes != null;
+    final hasNetworkImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
 
     Widget initialAvatar() {
       return CircleAvatar(
@@ -4477,57 +5937,177 @@ class _ProfileAvatarPreview extends StatelessWidget {
       );
     }
 
+    Widget withPreview(Widget avatar) {
+      if (!hasLocalImage && !hasNetworkImage) {
+        return avatar;
+      }
+
+      return InkWell(
+        onTap: () => showDialog<void>(
+          context: context,
+          builder: (_) => _ProfilePhotoPreviewDialog(
+            name: name,
+            imageBytes: imageBytes,
+            imageUrl: imageUrl,
+          ),
+        ),
+        customBorder: const CircleBorder(),
+        child: avatar,
+      );
+    }
+
     if (imageBytes != null) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundColor: TravSTheme.navy,
-        child: ClipOval(
-          child: Image.memory(
-            imageBytes!,
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
+      return withPreview(
+        CircleAvatar(
+          radius: radius,
+          backgroundColor: TravSTheme.navy,
+          child: ClipOval(
+            child: Image.memory(
+              imageBytes!,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+            ),
           ),
         ),
       );
     }
 
     if (imageUrl != null && imageUrl!.trim().isNotEmpty) {
-      return CircleAvatar(
-        radius: radius,
-        backgroundColor: TravSTheme.navy,
-        child: ClipOval(
-          child: Image.network(
-            imageUrl!,
-            width: size,
-            height: size,
-            fit: BoxFit.cover,
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) {
-                return child;
-              }
+      return withPreview(
+        CircleAvatar(
+          radius: radius,
+          backgroundColor: TravSTheme.navy,
+          child: ClipOval(
+            child: Image.network(
+              imageUrl!,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, progress) {
+                if (progress == null) {
+                  return child;
+                }
 
-              return SizedBox(
-                width: size,
-                height: size,
-                child: const Center(
-                  child: SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                return SizedBox(
+                  width: size,
+                  height: size,
+                  child: const Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
                   ),
-                ),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return initialAvatar();
-            },
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return initialAvatar();
+              },
+            ),
           ),
         ),
       );
     }
 
     return initialAvatar();
+  }
+}
+
+class _ProfilePhotoPreviewDialog extends StatelessWidget {
+  const _ProfilePhotoPreviewDialog({
+    required this.name,
+    this.imageBytes,
+    this.imageUrl,
+  });
+
+  final String name;
+  final Uint8List? imageBytes;
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasLocalImage = imageBytes != null;
+    final hasNetworkImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+
+    Widget imageWidget() {
+      if (hasLocalImage) {
+        return Image.memory(imageBytes!, fit: BoxFit.contain);
+      }
+
+      if (hasNetworkImage) {
+        return Image.network(
+          imageUrl!,
+          fit: BoxFit.contain,
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) {
+              return child;
+            }
+
+            return const Center(child: CircularProgressIndicator());
+          },
+          errorBuilder: (context, error, stackTrace) {
+            return Center(
+              child: Text(
+                'Foto profil belum dapat ditampilkan.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white,
+                ),
+              ),
+            );
+          },
+        );
+      }
+
+      return Center(
+        child: Text(
+          'Foto profil belum tersedia.',
+          style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white),
+        ),
+      );
+    }
+
+    return Dialog.fullscreen(
+      backgroundColor: Colors.black.withValues(alpha: 0.92),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    color: Colors.white,
+                  ),
+                  Expanded(
+                    child: Text(
+                      name.trim().isEmpty ? 'Foto Profil' : name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4,
+                child: Center(child: imageWidget()),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -4878,6 +6458,10 @@ String _humanizeStatus(String status) {
       return 'Berangkat';
     case 'selesai':
       return 'Selesai';
+    case 'hadir':
+      return 'Hadir';
+    case 'tidak_hadir':
+      return 'Tidak hadir';
     default:
       return status.replaceAll('_', ' ');
   }
@@ -5000,23 +6584,23 @@ TravSBookingResult? _nextPaidUpcomingBooking(
   List<TravSBookingResult> bookings,
 ) {
   final now = DateTime.now();
-  final paidUpcoming = bookings.where((booking) {
-    final departure = DateTime.tryParse(booking.waktuBerangkat);
-    if (departure == null) {
-      return false;
-    }
+  final paidUpcoming =
+      bookings.where((booking) {
+        final departure = DateTime.tryParse(booking.waktuBerangkat);
+        if (departure == null) {
+          return false;
+        }
 
-    // Card beranda hanya boleh menampilkan pemesanan yang sudah lunas,
-    // belum selesai perjalanannya, dan bukan booking yang dibatalkan.
-    return booking.status == 'terbayar' &&
-        booking.payment.status == 'berhasil' &&
-        !departure.isBefore(now);
-  }).toList()
-    ..sort((first, second) {
-      return _scheduleDateValue(
-        first.waktuBerangkat,
-      ).compareTo(_scheduleDateValue(second.waktuBerangkat));
-    });
+        // Card beranda hanya boleh menampilkan pemesanan yang sudah lunas,
+        // belum selesai perjalanannya, dan bukan booking yang dibatalkan.
+        return booking.status == 'terbayar' &&
+            booking.payment.status == 'berhasil' &&
+            !departure.isBefore(now);
+      }).toList()..sort((first, second) {
+        return _scheduleDateValue(
+          first.waktuBerangkat,
+        ).compareTo(_scheduleDateValue(second.waktuBerangkat));
+      });
 
   return paidUpcoming.isEmpty ? null : paidUpcoming.first;
 }

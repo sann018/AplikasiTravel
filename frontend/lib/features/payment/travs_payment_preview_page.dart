@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -81,7 +82,8 @@ class TravSPaymentPreviewPage extends StatefulWidget {
       _TravSPaymentPreviewPageState();
 }
 
-class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
+class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
+    with WidgetsBindingObserver {
   final TravSApiService _apiService = TravSApiService();
   final TravSLocationService _locationService = TravSLocationService();
   final ImagePicker _imagePicker = ImagePicker();
@@ -99,15 +101,18 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
   bool _isSubmitting = false;
   bool _isResolvingPickup = false;
   bool _isUploadingBaggagePhoto = false;
+  bool _isRefreshingPaymentStatus = false;
   bool _hasOpenedGatewayCheckout = false;
   String? _errorMessage;
   TravSBookingResult? _createdBooking;
   XFile? _selectedBaggagePhoto;
+  Uint8List? _selectedBaggagePhotoBytes;
   TravSUploadedBaggagePhoto? _uploadedBaggagePhoto;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _paymentOptions = _resolvePaymentOptions(widget.detail.paymentMethods);
     _selectedMethod = _paymentOptions.isNotEmpty
         ? _paymentOptions.first.key
@@ -129,6 +134,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pickupLatitudeController.dispose();
     _pickupLongitudeController.dispose();
     _pickupAddressController.dispose();
@@ -136,6 +142,26 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
       passenger.dispose();
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      final booking = _createdBooking;
+      if (booking != null && _isGatewayPaymentWaiting(booking)) {
+        _refreshCreatedBookingStatus(showSuccessMessage: false);
+      }
+    }
+  }
+
+  bool _isGatewayPaymentWaiting(TravSBookingResult booking) {
+    final method = booking.payment.method;
+    return (method == 'qris' || method == 'transfer') &&
+        booking.payment.usesGateway &&
+        !booking.isPaid &&
+        booking.status != 'dibatalkan' &&
+        booking.payment.status == 'menunggu';
   }
 
   bool get _hasBaggageData =>
@@ -270,8 +296,11 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
         return;
       }
 
+      final bytes = await photo.readAsBytes();
+
       setState(() {
         _selectedBaggagePhoto = photo;
+        _selectedBaggagePhotoBytes = bytes;
         _uploadedBaggagePhoto = null;
         _errorMessage = null;
       });
@@ -470,6 +499,73 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
       if (mounted) {
         setState(() {
           _errorMessage = 'Gagal membuka halaman pembayaran Pakasir.';
+        });
+      }
+    }
+  }
+
+  Future<void> _refreshCreatedBookingStatus({
+    bool showSuccessMessage = true,
+  }) async {
+    final booking = _createdBooking;
+    if (booking == null || _isRefreshingPaymentStatus) {
+      return;
+    }
+
+    setState(() {
+      _isRefreshingPaymentStatus = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final refreshedBooking = await _apiService.refreshPaymentStatus(
+        token: widget.session.token,
+        bookingId: booking.id,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _createdBooking = refreshedBooking;
+      });
+
+      if (refreshedBooking.isPaid) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pembayaran berhasil. Tiket sudah diterbitkan.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      if (showSuccessMessage) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Status pembayaran masih menunggu dari Pakasir.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } on TravSApiException catch (error) {
+      if (mounted && showSuccessMessage) {
+        setState(() {
+          _errorMessage = error.message;
+        });
+      }
+    } catch (_) {
+      if (mounted && showSuccessMessage) {
+        setState(() {
+          _errorMessage =
+              'Status pembayaran belum bisa dicek. Pastikan backend lokal dan koneksi Pakasir aktif.';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshingPaymentStatus = false;
         });
       }
     }
@@ -1007,6 +1103,14 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
 
   Widget _buildBaggageCard(BuildContext context) {
     final theme = Theme.of(context);
+    final uploadedPhoto = _uploadedBaggagePhoto;
+    final uploadedPhotoUrl = uploadedPhoto == null
+        ? null
+        : TravSApiService.resolveMediaUrl(
+            uploadedPhoto.url.isNotEmpty
+                ? uploadedPhoto.url
+                : uploadedPhoto.path,
+          );
 
     return _SectionCard(
       title: 'Barang Bawaan',
@@ -1104,6 +1208,19 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
               ),
             ),
             const SizedBox(height: 12),
+            if (_selectedBaggagePhotoBytes != null || uploadedPhotoUrl != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _BaggagePhotoPreviewTile(
+                  title: 'Preview foto barang',
+                  subtitle:
+                      _selectedBaggagePhoto?.name ??
+                      uploadedPhoto?.originalName ??
+                      'Foto barang bawaan',
+                  imageBytes: _selectedBaggagePhotoBytes,
+                  imageUrl: uploadedPhotoUrl,
+                ),
+              ),
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -1372,6 +1489,27 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
               ),
               const SizedBox(height: 14),
             ],
+            if (_isGatewayPaymentWaiting(booking)) ...[
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _isRefreshingPaymentStatus
+                      ? null
+                      : () => _refreshCreatedBookingStatus(),
+                  icon: Icon(
+                    _isRefreshingPaymentStatus
+                        ? Icons.sync_rounded
+                        : Icons.refresh_rounded,
+                  ),
+                  label: Text(
+                    _isRefreshingPaymentStatus
+                        ? 'Mengecek Pembayaran...'
+                        : 'Cek Status Pembayaran',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
 
             // QRIS ditampilkan sebagai fallback atau pelengkap
             Container(
@@ -1521,6 +1659,27 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
                   ],
                 ),
               ),
+            if (_isGatewayPaymentWaiting(booking)) ...[
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _isRefreshingPaymentStatus
+                      ? null
+                      : () => _refreshCreatedBookingStatus(),
+                  icon: Icon(
+                    _isRefreshingPaymentStatus
+                        ? Icons.sync_rounded
+                        : Icons.refresh_rounded,
+                  ),
+                  label: Text(
+                    _isRefreshingPaymentStatus
+                        ? 'Mengecek Pembayaran...'
+                        : 'Cek Status Pembayaran',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
             const SizedBox(height: 14),
             _SummaryRow(
               label: 'Nominal transaksi',
@@ -1660,7 +1819,7 @@ class _CheckoutFormView extends StatelessWidget {
   }
 }
 
-class _SectionCard extends StatelessWidget {
+class _SectionCard extends StatefulWidget {
   const _SectionCard({
     required this.title,
     required this.subtitle,
@@ -1672,6 +1831,19 @@ class _SectionCard extends StatelessWidget {
   final Widget child;
 
   @override
+  State<_SectionCard> createState() => _SectionCardState();
+}
+
+class _SectionCardState extends State<_SectionCard> {
+  late bool _isExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = true;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
@@ -1681,24 +1853,254 @@ class _SectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: TravSTheme.navy,
-                fontWeight: FontWeight.w800,
+            InkWell(
+              onTap: () => setState(() => _isExpanded = !_isExpanded),
+              borderRadius: BorderRadius.circular(16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: TravSTheme.navy,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: _isExpanded ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: TravSTheme.navy,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              subtitle,
+              widget.subtitle,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: TravSTheme.navyMuted,
               ),
             ),
-            const SizedBox(height: 18),
-            child,
+            AnimatedCrossFade(
+              firstChild: const SizedBox.shrink(),
+              secondChild: Padding(
+                padding: const EdgeInsets.only(top: 18),
+                child: widget.child,
+              ),
+              crossFadeState: _isExpanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 180),
+              sizeCurve: Curves.easeOut,
+            ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _BaggagePhotoPreviewTile extends StatelessWidget {
+  const _BaggagePhotoPreviewTile({
+    required this.title,
+    required this.subtitle,
+    this.imageBytes,
+    this.imageUrl,
+  });
+
+  final String title;
+  final String subtitle;
+  final Uint8List? imageBytes;
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: () => showDialog<void>(
+        context: context,
+        builder: (_) => _PhotoPreviewDialog(
+          title: title,
+          imageBytes: imageBytes,
+          imageUrl: imageUrl,
+        ),
+      ),
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: TravSTheme.line),
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: SizedBox(
+                width: 64,
+                height: 64,
+                child: _PhotoPreviewImage(
+                  imageBytes: imageBytes,
+                  imageUrl: imageUrl,
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: TravSTheme.navy,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: TravSTheme.navyMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.zoom_out_map_rounded, color: TravSTheme.orange),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoPreviewDialog extends StatelessWidget {
+  const _PhotoPreviewDialog({
+    required this.title,
+    this.imageBytes,
+    this.imageUrl,
+  });
+
+  final String title;
+  final Uint8List? imageBytes;
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog.fullscreen(
+      backgroundColor: Colors.black.withValues(alpha: 0.92),
+      child: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    color: Colors.white,
+                  ),
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: InteractiveViewer(
+                minScale: 0.8,
+                maxScale: 4,
+                child: Center(
+                  child: _PhotoPreviewImage(
+                    imageBytes: imageBytes,
+                    imageUrl: imageUrl,
+                    fit: BoxFit.contain,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PhotoPreviewImage extends StatelessWidget {
+  const _PhotoPreviewImage({
+    required this.fit,
+    this.imageBytes,
+    this.imageUrl,
+    this.foregroundColor = TravSTheme.navyMuted,
+  });
+
+  final Uint8List? imageBytes;
+  final String? imageUrl;
+  final BoxFit fit;
+  final Color foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageBytes != null) {
+      return Image.memory(imageBytes!, fit: fit);
+    }
+
+    if (imageUrl != null && imageUrl!.trim().isNotEmpty) {
+      return Image.network(
+        imageUrl!,
+        fit: fit,
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) {
+            return child;
+          }
+
+          return const Center(child: CircularProgressIndicator());
+        },
+        errorBuilder: (context, error, stackTrace) {
+          return _PhotoPreviewFallback(color: foregroundColor);
+        },
+      );
+    }
+
+    return _PhotoPreviewFallback(color: foregroundColor);
+  }
+}
+
+class _PhotoPreviewFallback extends StatelessWidget {
+  const _PhotoPreviewFallback({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: color == Colors.white ? Colors.transparent : Colors.white,
+      alignment: Alignment.center,
+      child: Text(
+        'Foto belum dapat ditampilkan.',
+        textAlign: TextAlign.center,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: color),
       ),
     );
   }

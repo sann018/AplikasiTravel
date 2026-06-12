@@ -104,6 +104,14 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
       setState(() {
         _errorMessage = error.message;
       });
+    } on TravSApiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _errorMessage = error.message;
+      });
     } catch (_) {
       if (!mounted) {
         return;
@@ -620,10 +628,7 @@ class _RoleAccessSummary extends StatelessWidget {
 }
 
 class _LoginRolePicker extends StatelessWidget {
-  const _LoginRolePicker({
-    required this.selectedRole,
-    required this.onChanged,
-  });
+  const _LoginRolePicker({required this.selectedRole, required this.onChanged});
 
   final String selectedRole;
   final ValueChanged<String> onChanged;
