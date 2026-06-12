@@ -197,6 +197,83 @@ class DriverController extends Controller
         ]);
     }
 
+    public function markPassengerDropoff(Request $request, Jadwal $jadwal, DetailPemesanan $detail): JsonResponse
+    {
+        $this->ensureDriverOwnsTrip($request, $jadwal);
+
+        $passenger = DB::transaction(function () use ($jadwal, $detail) {
+            $lockedDetail = DetailPemesanan::query()
+                ->lockForUpdate()
+                ->with([
+                    'tiketElektronik',
+                    'pemesanan.detailPemesanan',
+                    'pemesanan.itemBagasi',
+                    'pemesanan.pengguna',
+                    'pemesanan.pembayaran',
+                    'pemesanan.jadwal.rute',
+                    'pemesanan.jadwal.kendaraan',
+                ])
+                ->whereKey($detail->id)
+                ->whereHas('pemesanan', fn ($query) => $query
+                    ->where('jadwal_id', $jadwal->id)
+                    ->whereIn('status_pemesanan', ['terbayar', 'selesai']))
+                ->first();
+
+            if (! $lockedDetail || ! $lockedDetail->pemesanan) {
+                abort(response()->json([
+                    'success' => false,
+                    'message' => 'Penumpang tidak ditemukan pada manifest aktif.',
+                ], 404));
+            }
+
+            if ($lockedDetail->status_kehadiran !== 'hadir') {
+                abort(response()->json([
+                    'success' => false,
+                    'message' => 'Penumpang harus scan tiket dulu sebelum ditandai turun.',
+                ], 422));
+            }
+
+            if (! $lockedDetail->diturunkan_pada) {
+                $lockedDetail->update(['diturunkan_pada' => now()]);
+                $lockedDetail->refresh();
+            }
+
+            $booking = $lockedDetail->pemesanan;
+            $booking->load('detailPemesanan');
+
+            // Jika semua kursi pada satu pemesanan sudah turun, pemesanan masuk riwayat selesai.
+            $allPassengersDroppedOff = $booking->detailPemesanan->every(
+                fn (DetailPemesanan $bookingDetail) => $bookingDetail->diturunkan_pada !== null,
+            );
+
+            if ($booking->status_pemesanan === 'terbayar' && $allPassengersDroppedOff) {
+                $booking->update(['status_pemesanan' => 'selesai']);
+            }
+
+            $hasActivePaidBooking = Pemesanan::query()
+                ->where('jadwal_id', $jadwal->id)
+                ->where('status_pemesanan', 'terbayar')
+                ->exists();
+
+            if (! $hasActivePaidBooking && in_array($jadwal->status, ['dibuka', 'berangkat'], true)) {
+                Jadwal::query()
+                    ->whereKey($jadwal->id)
+                    ->update(['status' => 'selesai']);
+            }
+
+            return $this->formatManifestPassenger(
+                $booking->fresh(['itemBagasi', 'pengguna', 'pembayaran', 'jadwal.rute', 'jadwal.kendaraan']),
+                $lockedDetail->fresh(['tiketElektronik']),
+            );
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Penumpang berhasil ditandai turun.',
+            'data' => $passenger,
+        ]);
+    }
+
     public function updateTripStatus(Request $request, Jadwal $jadwal): JsonResponse
     {
         $payload = $request->validate([
@@ -360,6 +437,10 @@ class DriverController extends Controller
                 'is_picked_up' => $detail->dijemput_pada !== null,
                 'picked_up_at' => $detail->dijemput_pada?->toIso8601String(),
             ],
+            'dropoff' => [
+                'is_dropped_off' => $detail->diturunkan_pada !== null,
+                'dropped_off_at' => $detail->diturunkan_pada?->toIso8601String(),
+            ],
             'baggage' => [
                 'items' => (int) $baggageItems,
                 'weight_kg' => $baggageWeight,
@@ -370,6 +451,13 @@ class DriverController extends Controller
             'fare' => [
                 'total' => (float) $booking->total_harga,
                 'label' => 'Rp'.number_format((float) $booking->total_harga, 0, ',', '.'),
+            ],
+            'pembayaran' => [
+                'status' => $booking->pembayaran?->status_bayar,
+                'metode' => $booking->pembayaran?->metode_bayar,
+                'channel' => $booking->pembayaran?->paid_channel,
+                'total' => (float) ($booking->pembayaran?->jumlah_bayar ?? $booking->total_harga),
+                'label' => 'Rp'.number_format((float) ($booking->pembayaran?->jumlah_bayar ?? $booking->total_harga), 0, ',', '.'),
             ],
             'ticket' => $ticket ? [
                 'kode_qr' => $ticket->kode_qr,

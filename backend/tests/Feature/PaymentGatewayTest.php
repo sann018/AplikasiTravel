@@ -232,6 +232,80 @@ class PaymentGatewayTest extends TestCase
         $this->assertSame('terbayar', $booking->fresh()->status_pemesanan);
     }
 
+    public function test_passenger_can_refresh_qris_payment_after_pakasir_simulation(): void
+    {
+        $booking = $this->makePendingGatewayBooking('qris');
+        $user = User::query()->findOrFail($booking->pengguna_id);
+
+        Http::fake([
+            'app.pakasir.test/api/transactiondetail*' => Http::response([
+                'transaction' => [
+                    'order_id' => $booking->kode_booking,
+                    'status' => 'completed',
+                    'payment_method' => 'qris',
+                    'amount' => 230000,
+                    'total_payment' => 231500,
+                    'completed_at' => now()->toIso8601String(),
+                ],
+            ]),
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson("/api/penumpang/bookings/{$booking->id}/refresh-payment-status");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.status', 'terbayar')
+            ->assertJsonPath('data.payment.status', 'berhasil');
+
+        $booking->refresh();
+        $payment = $booking->pembayaran()->firstOrFail();
+
+        $this->assertSame('terbayar', $booking->status_pemesanan);
+        $this->assertSame('berhasil', $payment->status_bayar);
+        $this->assertDatabaseHas('tiket_elektronik', [
+            'detail_pemesanan_id' => $booking->detailPemesanan()->firstOrFail()->id,
+        ]);
+    }
+
+    public function test_passenger_can_refresh_transfer_payment_after_pakasir_simulation(): void
+    {
+        $booking = $this->makePendingGatewayBooking('transfer');
+        $user = User::query()->findOrFail($booking->pengguna_id);
+
+        Http::fake([
+            'app.pakasir.test/api/transactiondetail*' => Http::response([
+                'transaction' => [
+                    'order_id' => $booking->kode_booking,
+                    'status' => 'completed',
+                    'payment_method' => 'transfer',
+                    'amount' => 230000,
+                    'total_payment' => 231500,
+                    'completed_at' => now()->toIso8601String(),
+                ],
+            ]),
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson("/api/penumpang/bookings/{$booking->id}/refresh-payment-status");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.status', 'terbayar')
+            ->assertJsonPath('data.payment.status', 'berhasil');
+
+        $booking->refresh();
+        $payment = $booking->pembayaran()->firstOrFail();
+
+        $this->assertSame('terbayar', $booking->status_pemesanan);
+        $this->assertSame('berhasil', $payment->status_bayar);
+        $this->assertDatabaseHas('tiket_elektronik', [
+            'detail_pemesanan_id' => $booking->detailPemesanan()->firstOrFail()->id,
+        ]);
+    }
+
     public function test_expired_pakasir_webhook_marks_payment_expired_without_issuing_ticket(): void
     {
         $booking = $this->makePendingQrisBooking();
@@ -312,6 +386,11 @@ class PaymentGatewayTest extends TestCase
 
     private function makePendingQrisBooking(): Pemesanan
     {
+        return $this->makePendingGatewayBooking('qris');
+    }
+
+    private function makePendingGatewayBooking(string $paymentMethod): Pemesanan
+    {
         $user = User::query()->where('email', 'penumpang@travs.com')->firstOrFail();
         $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
         $seat = KursiJadwal::query()
@@ -349,9 +428,9 @@ class PaymentGatewayTest extends TestCase
 
         $booking->pembayaran()->create([
             'order_id_gateway' => $booking->kode_booking,
-            'gateway_reference' => 'QRIS-PKS-001',
-            'metode_bayar' => 'qris',
-            'paid_channel' => 'qris',
+            'gateway_reference' => strtoupper($paymentMethod).'-PKS-001',
+            'metode_bayar' => $paymentMethod,
+            'paid_channel' => $paymentMethod,
             'jumlah_bayar' => 231500,
             'status_bayar' => 'menunggu',
             'expired_at' => now()->addMinutes(15),

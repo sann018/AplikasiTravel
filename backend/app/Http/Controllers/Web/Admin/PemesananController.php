@@ -27,7 +27,14 @@ class PemesananController extends Controller
 
         $query = Pemesanan::query()
             ->with(['pengguna', 'jadwal.rute', 'pembayaran'])
-            ->withCount('detailPemesanan');
+            ->withCount([
+                'detailPemesanan',
+                'detailPemesanan as penumpang_hadir_count' => fn ($detailQuery) => $detailQuery
+                    ->where('status_kehadiran', 'hadir'),
+                'detailPemesanan as penumpang_turun_count' => fn ($detailQuery) => $detailQuery
+                    ->whereNotNull('diturunkan_pada'),
+                'itemBagasi',
+            ]);
 
         if (filled($filters['search'] ?? null)) {
             $search = $this->escapeLikeValue((string) $filters['search']);

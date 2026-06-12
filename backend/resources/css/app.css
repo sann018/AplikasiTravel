@@ -601,6 +601,9 @@ svg {
 .travs-user-avatar img {
     width: 100%;
     height: 100%;
+    max-width: 34px;
+    max-height: 34px;
+    display: block;
     object-fit: cover;
 }
 
@@ -789,8 +792,10 @@ svg {
     gap: 4px;
     padding: 12px 16px;
     border-radius: 18px;
-    background: linear-gradient(135deg, rgba(245, 138, 42, 0.12) 0%, rgba(245, 138, 42, 0.05) 100%);
+    background: #eef2f6;
+    border: 1px solid #d9e0ea;
     text-align: right;
+    min-width: 128px;
 }
 
 .travs-dashboard-panel-chip strong {
@@ -1431,6 +1436,22 @@ svg {
     align-items: center;
     gap: 12px;
     min-width: 180px;
+    max-width: 320px;
+    overflow: hidden;
+}
+
+.travs-person-cell > div:last-child {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.travs-person-cell strong,
+.travs-person-cell .travs-table-subcopy {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .travs-avatar {
@@ -1450,6 +1471,29 @@ svg {
 .travs-avatar img {
     width: 100%;
     height: 100%;
+    max-width: 46px;
+    max-height: 46px;
+    display: block;
+    object-fit: cover;
+}
+
+.travs-table .travs-avatar,
+.travs-table .travs-person-cell .travs-avatar {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+    min-width: 42px;
+    max-width: 42px;
+    max-height: 42px;
+}
+
+.travs-table .travs-avatar img,
+.travs-table .travs-person-cell .travs-avatar img {
+    width: 42px;
+    height: 42px;
+    max-width: 42px;
+    max-height: 42px;
+    display: block;
     object-fit: cover;
 }
 
@@ -1470,6 +1514,9 @@ svg {
 .travs-current-photo img {
     width: 54px;
     height: 54px;
+    max-width: 54px;
+    max-height: 54px;
+    display: block;
     border-radius: 50%;
     object-fit: cover;
 }
@@ -1593,14 +1640,14 @@ svg {
     margin: 18px 0 0;
 }
 
-.travs-description-list div {
+.travs-description-list > div {
     padding: 14px 16px;
     border: 1px solid var(--travs-border);
     border-radius: 16px;
     background: var(--travs-surface);
 }
 
-.travs-description-list dt {
+.travs-description-list > div > dt {
     margin-bottom: 8px;
     color: var(--travs-text-soft);
     font-size: 0.78rem;
@@ -1609,7 +1656,7 @@ svg {
     text-transform: uppercase;
 }
 
-.travs-description-list dd {
+.travs-description-list > div > dd {
     margin: 0;
     color: var(--travs-primary);
     font-size: 0.94rem;
@@ -1647,6 +1694,41 @@ svg {
 
 .travs-detail-money .is-total strong {
     font-size: 1.08rem;
+}
+
+.travs-operational-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.travs-operational-summary div {
+    display: grid;
+    gap: 4px;
+    padding: 14px;
+    border: 1px solid var(--travs-border);
+    border-radius: 16px;
+    background: var(--travs-surface);
+}
+
+.travs-operational-summary small {
+    color: var(--travs-text-soft);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.travs-operational-summary strong {
+    color: var(--travs-primary);
+    font-size: 1.08rem;
+}
+
+.travs-operational-summary span {
+    color: var(--travs-text-soft);
+    font-size: 0.82rem;
+    font-weight: 700;
 }
 
 .travs-subsection {
@@ -1819,6 +1901,7 @@ svg {
     .travs-split-grid,
     .travs-detail-grid,
     .travs-description-list,
+    .travs-operational-summary,
     .travs-form-grid-2,
     .travs-filter-grid,
     .travs-filter-grid-wide {

@@ -6,7 +6,7 @@
     <title>@yield('title', 'Dashboard Admin') - {{ config('app.name') }}</title>
     <link rel="stylesheet" href="{{ asset('vendor/mazer/css/app.css') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <link rel="stylesheet" href="{{ asset('vendor/mazer/css/travs-bridge.css') }}">
+    <link rel="stylesheet" href="{{ asset('vendor/mazer/css/travs-bridge.css') }}?v={{ filemtime(public_path('vendor/mazer/css/travs-bridge.css')) }}">
 </head>
 <body class="travs-mazer-admin">
     @php
@@ -190,8 +190,69 @@
         </div>
     </div>
 
+    <div class="travs-photo-preview-modal" data-photo-preview-modal hidden>
+        <button type="button" class="travs-photo-preview-close" data-photo-preview-close aria-label="Tutup preview foto">
+            &times;
+        </button>
+        <figure class="travs-photo-preview-card">
+            <img src="" alt="Preview foto" data-photo-preview-image>
+            <figcaption data-photo-preview-caption></figcaption>
+        </figure>
+    </div>
+
     <script src="{{ asset('vendor/mazer/js/perfect-scrollbar.min.js') }}"></script>
     <script src="{{ asset('vendor/mazer/js/app.js') }}"></script>
+    <script>
+        document.addEventListener('click', function (event) {
+            const previewTarget = event.target.closest('.travs-photo-preview-trigger');
+            const modal = document.querySelector('[data-photo-preview-modal]');
+
+            if (previewTarget && modal) {
+                const previewImage = modal.querySelector('[data-photo-preview-image]');
+                const caption = modal.querySelector('[data-photo-preview-caption]');
+
+                previewImage.src = previewTarget.dataset.previewSrc || previewTarget.currentSrc || previewTarget.src;
+                previewImage.alt = previewTarget.alt || 'Preview foto';
+                caption.textContent = previewTarget.alt || 'Preview foto';
+                modal.hidden = false;
+                document.body.classList.add('travs-photo-preview-open');
+                return;
+            }
+
+            if (
+                event.target.matches('[data-photo-preview-close]') ||
+                event.target.matches('[data-photo-preview-modal]')
+            ) {
+                const image = modal?.querySelector('[data-photo-preview-image]');
+
+                if (image) {
+                    image.src = '';
+                }
+
+                modal.hidden = true;
+                document.body.classList.remove('travs-photo-preview-open');
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Escape') {
+                return;
+            }
+
+            const modal = document.querySelector('[data-photo-preview-modal]');
+            const image = modal?.querySelector('[data-photo-preview-image]');
+
+            if (image) {
+                image.src = '';
+            }
+
+            if (modal) {
+                modal.hidden = true;
+            }
+
+            document.body.classList.remove('travs-photo-preview-open');
+        });
+    </script>
     @stack('scripts')
 </body>
 </html>

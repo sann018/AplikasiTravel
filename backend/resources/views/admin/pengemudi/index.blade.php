@@ -83,7 +83,7 @@
                                 <div class="travs-person-cell">
                                     <div class="travs-avatar">
                                         @if ($item->pengguna->foto_profil)
-                                            <img src="/storage/{{ ltrim($item->pengguna->foto_profil, '/') }}" alt="Foto {{ $item->pengguna->nama }}">
+                                            <img class="travs-avatar-image travs-photo-preview-trigger" src="/storage/{{ ltrim($item->pengguna->foto_profil, '/') }}" alt="Foto {{ $item->pengguna->nama }}">
                                         @else
                                             <span>{{ strtoupper(mb_substr($item->pengguna->nama, 0, 1)) }}</span>
                                         @endif

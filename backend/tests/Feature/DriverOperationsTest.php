@@ -107,6 +107,56 @@ class DriverOperationsTest extends TestCase
         $this->assertSame('menunggu', $detail->status_kehadiran);
     }
 
+    public function test_driver_can_mark_passenger_dropoff_after_ticket_scan(): void
+    {
+        $driver = User::query()->where('email', 'pengemudi@travs.com')->firstOrFail();
+        $ticket = TiketElektronik::query()
+            ->whereHas('detailPemesanan.pemesanan.jadwal.pengemudi.pengguna', fn ($query) => $query->whereKey($driver->id))
+            ->where('sudah_dipindai', false)
+            ->firstOrFail();
+
+        $detail = $ticket->detailPemesanan()->with('pemesanan.jadwal')->firstOrFail();
+        $jadwal = $detail->pemesanan->jadwal;
+
+        Sanctum::actingAs($driver);
+
+        $this->postJson('/api/pengemudi/tickets/scan', [
+            'token' => $ticket->token_unik_qr,
+        ])->assertOk();
+
+        $response = $this->postJson("/api/pengemudi/trips/{$jadwal->id}/passengers/{$detail->id}/dropoff");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.detail_id', $detail->id)
+            ->assertJsonPath('data.dropoff.is_dropped_off', true);
+
+        $detail->refresh();
+        $this->assertSame('hadir', $detail->status_kehadiran);
+        $this->assertNotNull($detail->diturunkan_pada);
+    }
+
+    public function test_driver_cannot_mark_dropoff_before_passenger_is_present(): void
+    {
+        $driver = User::query()->where('email', 'pengemudi@travs.com')->firstOrFail();
+        $detail = DetailPemesanan::query()
+            ->whereHas('pemesanan.jadwal.pengemudi.pengguna', fn ($query) => $query->whereKey($driver->id))
+            ->whereHas('pemesanan', fn ($query) => $query->where('status_pemesanan', 'terbayar'))
+            ->where('status_kehadiran', 'menunggu')
+            ->firstOrFail();
+
+        $jadwal = $detail->pemesanan->jadwal;
+
+        Sanctum::actingAs($driver);
+
+        $this->postJson("/api/pengemudi/trips/{$jadwal->id}/passengers/{$detail->id}/dropoff")
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+
+        $this->assertNull($detail->fresh()->diturunkan_pada);
+    }
+
     public function test_driver_cannot_pickup_passenger_from_other_trip(): void
     {
         $otherDriver = User::query()->where('email', 'pengemudi2@travs.com')->firstOrFail();

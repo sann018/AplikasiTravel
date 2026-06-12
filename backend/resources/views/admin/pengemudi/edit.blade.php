@@ -54,7 +54,7 @@
                     <label for="foto_profil">Foto Profil Pengemudi</label>
                     @if ($pengemudi->pengguna->foto_profil)
                         <div class="travs-current-photo">
-                            <img src="/storage/{{ ltrim($pengemudi->pengguna->foto_profil, '/') }}" alt="Foto {{ $pengemudi->pengguna->nama }}">
+                            <img class="travs-photo-preview-trigger" src="/storage/{{ ltrim($pengemudi->pengguna->foto_profil, '/') }}" alt="Foto {{ $pengemudi->pengguna->nama }}">
                             <span>Foto profil aktif</span>
                         </div>
                     @endif

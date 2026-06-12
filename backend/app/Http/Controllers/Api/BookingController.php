@@ -42,21 +42,8 @@ class BookingController extends Controller
                     'harga_tiket' => (float) $jadwal->rute->harga_tiket,
                     'durasi_menit' => $jadwal->rute->estimasi_durasi_menit,
                 ],
-                'kendaraan' => [
-                    'merk' => $jadwal->kendaraan->merk_kendaraan,
-                    'plat' => $jadwal->kendaraan->nomor_plat,
-                    'warna' => $jadwal->kendaraan->warna,
-                    'tipe' => $jadwal->kendaraan->tipe_kendaraan,
-                    'kapasitas' => $jadwal->kendaraan->kapasitas_kursi,
-                    'fasilitas' => $jadwal->kendaraan->fasilitas,
-                    'seat_layout' => $jadwal->kendaraan->getSeatLayoutConfig(),
-                    'foto_url' => $this->publicStorageUrl($jadwal->kendaraan->foto_kendaraan),
-                ],
-                'pengemudi' => [
-                    'nama' => $jadwal->pengemudi->pengguna->nama,
-                    'nomor_sim' => $jadwal->pengemudi->nomor_sim,
-                    'foto_url' => $this->publicStorageUrl($jadwal->pengemudi->pengguna->foto_profil),
-                ],
+                'kendaraan' => $this->formatVehicle($jadwal),
+                'pengemudi' => $this->formatDriver($jadwal),
                 'seat_map' => $jadwal->kursi
                     ->sortBy('nomor_kursi')
                     ->values()
@@ -208,7 +195,14 @@ class BookingController extends Controller
         $this->bookingService->releaseExpiredResources();
 
         $bookings = Pemesanan::query()
-            ->with(['pengguna', 'jadwal.rute', 'detailPemesanan.tiketElektronik', 'pembayaran'])
+            ->with([
+                'pengguna',
+                'jadwal.rute',
+                'jadwal.kendaraan',
+                'jadwal.pengemudi.pengguna',
+                'detailPemesanan.tiketElektronik',
+                'pembayaran',
+            ])
             ->where('pengguna_id', $request->user()->id)
             ->latest()
             ->get();
@@ -228,6 +222,7 @@ class BookingController extends Controller
             'pengguna',
             'jadwal.rute',
             'jadwal.kendaraan',
+            'jadwal.pengemudi.pengguna',
             'detailPemesanan.tiketElektronik',
             'itemBagasi',
             'pembayaran',
@@ -325,6 +320,8 @@ class BookingController extends Controller
                 ? $booking->jadwal->rute->kota_asal.' - '.$booking->jadwal->rute->kota_tujuan
                 : null,
             'waktu_berangkat' => $booking->jadwal?->waktu_berangkat?->toIso8601String(),
+            'kendaraan' => $this->formatVehicle($booking->jadwal),
+            'pengemudi' => $this->formatDriver($booking->jadwal),
             'payment' => [
                 'status' => $booking->pembayaran?->status_bayar,
                 'method' => $booking->pembayaran?->metode_bayar,
@@ -353,13 +350,6 @@ class BookingController extends Controller
                 'longitude' => (float) $booking->bujur_jemput,
                 'address' => $booking->alamat_jemput,
             ],
-            'kendaraan' => $booking->jadwal?->kendaraan
-                ? [
-                    'merk' => $booking->jadwal->kendaraan->merk_kendaraan,
-                    'plat' => $booking->jadwal->kendaraan->nomor_plat,
-                    'warna' => $booking->jadwal->kendaraan->warna,
-                ]
-                : null,
             'passengers' => $booking->detailPemesanan->map(fn ($detail) => [
                 'seat_number' => $detail->nomor_kursi,
                 'nama_penumpang' => $detail->nama_penumpang,
@@ -393,5 +383,41 @@ class BookingController extends Controller
         }
 
         return '/storage/'.ltrim($path, '/');
+    }
+
+    private function formatVehicle(?Jadwal $jadwal): ?array
+    {
+        $kendaraan = $jadwal?->kendaraan;
+        if (! $kendaraan) {
+            return null;
+        }
+
+        return [
+            'merk' => $kendaraan->merk_kendaraan,
+            'plat' => $kendaraan->nomor_plat,
+            'warna' => $kendaraan->warna,
+            'tipe' => $kendaraan->tipe_kendaraan,
+            'kapasitas' => (int) $kendaraan->kapasitas_kursi,
+            'fasilitas' => $kendaraan->fasilitas,
+            'foto_url' => $this->publicStorageUrl($kendaraan->foto_kendaraan),
+        ];
+    }
+
+    private function formatDriver(?Jadwal $jadwal): ?array
+    {
+        $pengemudi = $jadwal?->pengemudi;
+        $pengguna = $pengemudi?->pengguna;
+        if (! $pengemudi || ! $pengguna) {
+            return null;
+        }
+
+        return [
+            'nama' => $pengguna->nama,
+            'email' => $pengguna->email,
+            'no_hp' => $pengguna->no_hp,
+            'nomor_sim' => $pengemudi->nomor_sim,
+            'status' => $pengemudi->status,
+            'foto_url' => $this->publicStorageUrl($pengguna->foto_profil),
+        ];
     }
 }

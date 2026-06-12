@@ -9,6 +9,18 @@
         $cashVerificationReady = $pemesanan->pembayaran?->metode_bayar === 'cash'
             && $pemesanan->pembayaran?->status_bayar === 'menunggu'
             && $pemesanan->status_pemesanan === 'menunggu_pembayaran';
+        $totalManifest = $pemesanan->detailPemesanan->count();
+        $totalHadir = $pemesanan->detailPemesanan
+            ->where('status_kehadiran', 'hadir')
+            ->count();
+        $totalTurun = $pemesanan->detailPemesanan
+            ->filter(fn ($detail) => $detail->diturunkan_pada !== null)
+            ->count();
+        $totalBagasi = $pemesanan->itemBagasi->count();
+        $bagasiAman = $totalBagasi === 0 || $totalTurun >= $totalManifest;
+        $operasionalClear = $totalManifest > 0
+            && $totalHadir >= $totalManifest
+            && $totalTurun >= $totalManifest;
     @endphp
 
     <section class="travs-detail-grid">
@@ -25,7 +37,7 @@
                         <div class="travs-person-cell">
                             <div class="travs-avatar">
                                 @if ($pemesanan->pengguna->foto_profil)
-                                    <img src="/storage/{{ ltrim($pemesanan->pengguna->foto_profil, '/') }}" alt="Foto {{ $pemesanan->pengguna->nama }}">
+                                    <img class="travs-avatar-image travs-photo-preview-trigger" src="/storage/{{ ltrim($pemesanan->pengguna->foto_profil, '/') }}" alt="Foto {{ $pemesanan->pengguna->nama }}">
                                 @else
                                     <span>{{ strtoupper(mb_substr($pemesanan->pengguna->nama, 0, 1)) }}</span>
                                 @endif
@@ -92,6 +104,24 @@
                     <div class="is-total"><span>Total</span><strong>Rp{{ number_format($pemesanan->total_harga, 0, ',', '.') }}</strong></div>
                 </div>
 
+                <div class="travs-operational-summary">
+                    <div>
+                        <small>Kehadiran</small>
+                        <strong>{{ $totalHadir }}/{{ $totalManifest }}</strong>
+                        <span>{{ $totalManifest > 0 && $totalHadir >= $totalManifest ? 'Semua hadir' : 'Belum lengkap' }}</span>
+                    </div>
+                    <div>
+                        <small>Status Turun</small>
+                        <strong>{{ $totalTurun }}/{{ $totalManifest }}</strong>
+                        <span>{{ $operasionalClear ? 'Clear' : 'Belum clear' }}</span>
+                    </div>
+                    <div>
+                        <small>Barang Bawaan</small>
+                        <strong>{{ $totalBagasi }} item</strong>
+                        <span>{{ $bagasiAman ? 'Aman' : 'Perlu cek saat turun' }}</span>
+                    </div>
+                </div>
+
                 <div class="travs-form-actions travs-inline">
                     <a href="{{ route('admin.pemesanan.index') }}" class="travs-button-secondary">Kembali ke Daftar</a>
                     <a href="{{ route('admin.pembayaran.index', ['search' => $pemesanan->kode_booking]) }}" class="travs-button-secondary">Buka Pembayaran</a>
@@ -127,6 +157,7 @@
                             <th>Nama Penumpang</th>
                             <th>No. HP</th>
                             <th>Status Hadir</th>
+                            <th>Status Turun</th>
                             <th>Tiket</th>
                         </tr>
                     </thead>
@@ -136,7 +167,19 @@
                                 <td>{{ $detail->nomor_kursi }}</td>
                                 <td>{{ $detail->nama_penumpang }}</td>
                                 <td>{{ $detail->no_hp_penumpang }}</td>
-                                <td>{{ ucfirst(str_replace('_', ' ', $detail->status_kehadiran)) }}</td>
+                                <td>
+                                    <span class="travs-status-pill travs-status-{{ $detail->status_kehadiran }}">
+                                        {{ ucfirst(str_replace('_', ' ', $detail->status_kehadiran)) }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="travs-status-pill travs-status-{{ $detail->diturunkan_pada ? 'selesai' : 'menunggu' }}">
+                                        {{ $detail->diturunkan_pada ? 'Sudah turun' : 'Belum turun' }}
+                                    </span>
+                                    <div class="travs-table-subcopy">
+                                        {{ $detail->diturunkan_pada ? $detail->diturunkan_pada->format('d M Y H:i') : 'Barang bawaan perlu dicek saat turun' }}
+                                    </div>
+                                </td>
                                 <td>{{ $detail->tiketElektronik?->kode_qr ?: 'Belum terbit' }}</td>
                             </tr>
                         @endforeach

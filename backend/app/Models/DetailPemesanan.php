@@ -28,12 +28,14 @@ class DetailPemesanan extends Model
         'no_hp_penumpang',
         'status_kehadiran',
         'dijemput_pada',
+        'diturunkan_pada',
     ];
 
     protected function casts(): array
     {
         return [
             'dijemput_pada' => 'datetime',
+            'diturunkan_pada' => 'datetime',
         ];
     }
 

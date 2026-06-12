@@ -12,8 +12,10 @@ use App\Models\Rute;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class JadwalController extends Controller
@@ -129,7 +131,7 @@ class JadwalController extends Controller
 
     public function update(Request $request, Jadwal $jadwal): RedirectResponse
     {
-        $payload = $this->validatedPayload($request);
+        $payload = $this->validatedPayload($request, $jadwal);
 
         DB::transaction(function () use ($jadwal, $payload) {
             $lockedJadwal = Jadwal::query()
@@ -174,7 +176,7 @@ class JadwalController extends Controller
         return back()->with('status', 'Jadwal perjalanan berhasil dihapus.');
     }
 
-    private function validatedPayload(Request $request): array
+    private function validatedPayload(Request $request, ?Jadwal $currentJadwal = null): array
     {
         $validated = $request->validate([
             'kendaraan_id' => ['required', 'exists:kendaraan,id'],
@@ -188,12 +190,35 @@ class JadwalController extends Controller
         $pengemudi = Pengemudi::query()->findOrFail($validated['pengemudi_id']);
 
         if ($pengemudi->status !== 'aktif' || $pengemudi->status_verifikasi !== 'terverifikasi') {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'pengemudi_id' => 'Pengemudi harus aktif dan sudah diverifikasi sebelum dimasukkan ke jadwal.',
             ]);
         }
 
+        if ($this->driverHasScheduleAtSameMinute($validated, $currentJadwal)) {
+            throw ValidationException::withMessages([
+                'pengemudi_id' => 'Pengemudi ini sudah memiliki jadwal pada tanggal dan jam keberangkatan yang sama.',
+            ]);
+        }
+
         return $validated;
+    }
+
+    private function driverHasScheduleAtSameMinute(array $payload, ?Jadwal $currentJadwal = null): bool
+    {
+        $departureMinute = Carbon::parse($payload['waktu_berangkat']);
+
+        // Cek bentrok berdasarkan menit keberangkatan agar input HTML datetime-local
+        // yang tidak membawa detik tetap terbaca konsisten oleh database.
+        return Jadwal::query()
+            ->where('pengemudi_id', $payload['pengemudi_id'])
+            ->where('status', '!=', 'dibatalkan')
+            ->whereBetween('waktu_berangkat', [
+                $departureMinute->copy()->startOfMinute(),
+                $departureMinute->copy()->endOfMinute(),
+            ])
+            ->when($currentJadwal, fn ($query) => $query->whereKeyNot($currentJadwal->id))
+            ->exists();
     }
 
     private function syncSeatMap(Jadwal $jadwal): void

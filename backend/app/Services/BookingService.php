@@ -822,6 +822,7 @@ class BookingService
             'pengguna',
             'jadwal.rute',
             'jadwal.kendaraan',
+            'jadwal.pengemudi.pengguna',
             'detailPemesanan.tiketElektronik',
             'detailPemesanan.kursiJadwal',
             'itemBagasi',
