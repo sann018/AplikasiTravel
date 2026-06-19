@@ -243,6 +243,8 @@ class _TicketCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final ticket = passenger.ticket!;
     final qrData = ticket.token.isNotEmpty ? ticket.token : ticket.kodeQr;
+    final driver = booking.pengemudi;
+    final vehicle = booking.kendaraan;
 
     return Card(
       child: Padding(
@@ -292,35 +294,35 @@ class _TicketCard extends StatelessWidget {
               ).textTheme.bodyMedium?.copyWith(color: TravSTheme.navyMuted),
             ),
             const SizedBox(height: 20),
-            Center(
-              child: Container(
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: TravSTheme.line),
-                ),
-                child: QrImageView(
-                  data: qrData,
-                  size: 220,
-                  backgroundColor: Colors.white,
-                  eyeStyle: const QrEyeStyle(
-                    eyeShape: QrEyeShape.square,
-                    color: TravSTheme.navy,
-                  ),
-                  dataModuleStyle: const QrDataModuleStyle(
-                    dataModuleShape: QrDataModuleShape.square,
-                    color: TravSTheme.navy,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 18),
-            _TicketMetaRow(label: 'Kode QR', value: ticket.kodeQr),
-            _TicketMetaRow(label: 'Token unik', value: qrData),
-            _TicketMetaRow(
-              label: 'Waktu berangkat',
-              value: _formatDateTime(booking.waktuBerangkat),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final qrBox = _TicketQrBox(data: qrData);
+                final infoPanel = _TicketTravelInfoPanel(
+                  booking: booking,
+                  passenger: passenger,
+                  driver: driver,
+                  vehicle: vehicle,
+                );
+
+                if (constraints.maxWidth >= 720) {
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: Center(child: qrBox)),
+                      const SizedBox(width: 20),
+                      Expanded(child: infoPanel),
+                    ],
+                  );
+                }
+
+                return Column(
+                  children: [
+                    Center(child: qrBox),
+                    const SizedBox(height: 18),
+                    infoPanel,
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -329,41 +331,506 @@ class _TicketCard extends StatelessWidget {
   }
 }
 
-class _TicketMetaRow extends StatelessWidget {
-  const _TicketMetaRow({required this.label, required this.value});
+class _TicketQrBox extends StatelessWidget {
+  const _TicketQrBox({required this.data});
 
-  final String label;
-  final String value;
+  final String data;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: TravSTheme.line),
+      ),
+      child: QrImageView(
+        data: data,
+        size: 220,
+        backgroundColor: Colors.white,
+        eyeStyle: const QrEyeStyle(
+          eyeShape: QrEyeShape.square,
+          color: TravSTheme.navy,
+        ),
+        dataModuleStyle: const QrDataModuleStyle(
+          dataModuleShape: QrDataModuleShape.square,
+          color: TravSTheme.navy,
+        ),
+      ),
+    );
+  }
+}
+
+class _TicketTravelInfoPanel extends StatelessWidget {
+  const _TicketTravelInfoPanel({
+    required this.booking,
+    required this.passenger,
+    required this.driver,
+    required this.vehicle,
+  });
+
+  final TravSBookingResult booking;
+  final TravSBookingPassengerInfo passenger;
+  final TravSBookingDriverInfo? driver;
+  final TravSBookingVehicleInfo? vehicle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: TravSTheme.surfaceSoft,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: TravSTheme.line),
+      ),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 104,
-            child: Text(
-              label,
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: TravSTheme.navyMuted),
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: TravSTheme.orangeSoft,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.verified_user_outlined,
+                  color: TravSTheme.orange,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Tunjukkan QR ini hanya kepada petugas atau pengemudi saat keberangkatan.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: TravSTheme.navy,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _TicketDriverVehicleCard(driver: driver, vehicle: vehicle),
+          const SizedBox(height: 14),
+          _TicketScheduleInfoPanel(booking: booking, passenger: passenger),
+        ],
+      ),
+    );
+  }
+}
+
+class _TicketDriverVehicleCard extends StatelessWidget {
+  const _TicketDriverVehicleCard({required this.driver, required this.vehicle});
+
+  final TravSBookingDriverInfo? driver;
+  final TravSBookingVehicleInfo? vehicle;
+
+  @override
+  Widget build(BuildContext context) {
+    final driverPhoto = TravSApiService.resolveMediaUrl(driver?.fotoUrl);
+    final vehiclePhoto = TravSApiService.resolveMediaUrl(vehicle?.fotoUrl);
+    final vehicleName = vehicle?.merk ?? 'Armada belum tersedia';
+    final vehiclePlate = vehicle?.plat ?? 'Nopol belum tersedia';
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: TravSTheme.line),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final useCompactLayout = constraints.maxWidth < 260;
+          final content = [
+            _TicketPersonOrVehicleInfo(
+              imageUrl: driverPhoto,
+              previewLabel: driver?.nama ?? 'Sopir',
+              imageIcon: Icons.person_rounded,
+              circleImage: true,
+              title: driver?.nama ?? 'Sopir belum ditentukan',
+              subtitle: driver?.noHp ?? 'Nomor HP belum tersedia',
+            ),
+            _TicketPersonOrVehicleInfo(
+              imageUrl: vehiclePhoto,
+              previewLabel: vehicleName,
+              imageIcon: Icons.directions_car_filled_rounded,
+              circleImage: false,
+              title: vehicleName,
+              subtitle: vehiclePlate,
+              reverse: !useCompactLayout,
+            ),
+          ];
+
+          if (useCompactLayout) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                content[0],
+                const SizedBox(height: 12),
+                Divider(height: 1, color: TravSTheme.line),
+                const SizedBox(height: 12),
+                content[1],
+              ],
+            );
+          }
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: content[0]),
+              const SizedBox(width: 12),
+              Container(width: 1, height: 64, color: TravSTheme.line),
+              const SizedBox(width: 12),
+              Expanded(child: content[1]),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _TicketPersonOrVehicleInfo extends StatelessWidget {
+  const _TicketPersonOrVehicleInfo({
+    required this.imageUrl,
+    required this.previewLabel,
+    required this.imageIcon,
+    required this.circleImage,
+    required this.title,
+    required this.subtitle,
+    this.reverse = false,
+  });
+
+  final String? imageUrl;
+  final String previewLabel;
+  final IconData imageIcon;
+  final bool circleImage;
+  final String title;
+  final String subtitle;
+  final bool reverse;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final image = _TicketPreviewImage(
+      imageUrl: imageUrl,
+      label: previewLabel,
+      icon: imageIcon,
+      circle: circleImage,
+      size: 52,
+    );
+    final text = Expanded(
+      child: Column(
+        crossAxisAlignment: reverse
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: reverse ? TextAlign.end : TextAlign.start,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: TravSTheme.navy,
+              fontWeight: FontWeight.w800,
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: TravSTheme.navy,
-                fontWeight: FontWeight.w700,
-              ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            textAlign: reverse ? TextAlign.end : TextAlign.start,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: TravSTheme.navyMuted,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
       ),
     );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: reverse
+          ? [text, const SizedBox(width: 10), image]
+          : [image, const SizedBox(width: 10), text],
+    );
   }
+}
+
+class _TicketScheduleInfoPanel extends StatelessWidget {
+  const _TicketScheduleInfoPanel({
+    required this.booking,
+    required this.passenger,
+  });
+
+  final TravSBookingResult booking;
+  final TravSBookingPassengerInfo passenger;
+
+  @override
+  Widget build(BuildContext context) {
+    final vehicle = booking.kendaraan;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 360),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: TravSTheme.line),
+          ),
+          child: Column(
+            children: [
+              _TicketInfoRow(
+                label: 'Hari/Tanggal',
+                value: _formatDayDate(booking.waktuBerangkat),
+                icon: Icons.calendar_today_rounded,
+              ),
+              _TicketInfoDivider(),
+              _TicketInfoRow(
+                label: 'Jam',
+                value: _formatTime(booking.waktuBerangkat),
+                icon: Icons.schedule_rounded,
+              ),
+              _TicketInfoDivider(),
+              _TicketInfoRow(
+                label: 'Kursi',
+                value: 'A${passenger.seatNumber}',
+                icon: Icons.event_seat_rounded,
+              ),
+              _TicketInfoDivider(),
+              _TicketInfoRow(
+                label: 'Nopol',
+                value: vehicle?.plat ?? '-',
+                icon: Icons.confirmation_number_outlined,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TicketInfoDivider extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Divider(height: 1, color: TravSTheme.line),
+    );
+  }
+}
+
+class _TicketInfoRow extends StatelessWidget {
+  const _TicketInfoRow({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: TravSTheme.surfaceSoft,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(icon, size: 18, color: TravSTheme.navyMuted),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: TravSTheme.navyMuted,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: TravSTheme.navy,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TicketPreviewImage extends StatelessWidget {
+  const _TicketPreviewImage({
+    required this.imageUrl,
+    required this.label,
+    required this.icon,
+    required this.circle,
+    this.size = 58,
+  });
+
+  final String? imageUrl;
+  final String label;
+  final IconData icon;
+  final bool circle;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
+    final radius = BorderRadius.circular(circle ? 999 : 16);
+
+    Widget fallback() {
+      return Container(
+        decoration: BoxDecoration(
+          color: TravSTheme.surfaceSoft,
+          borderRadius: radius,
+        ),
+        child: Icon(icon, color: TravSTheme.navyMuted),
+      );
+    }
+
+    Widget image() {
+      if (!hasImage) {
+        return fallback();
+      }
+
+      return Image.network(
+        imageUrl!,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => fallback(),
+        loadingBuilder: (context, child, progress) {
+          if (progress == null) {
+            return child;
+          }
+
+          return Container(
+            color: TravSTheme.surfaceSoft,
+            child: const Center(
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        },
+      );
+    }
+
+    return Semantics(
+      button: hasImage,
+      label: 'Preview foto $label',
+      child: InkWell(
+        onTap: hasImage
+            ? () => _showTicketImagePreview(context, imageUrl!, label)
+            : null,
+        borderRadius: radius,
+        child: ClipRRect(
+          borderRadius: radius,
+          child: SizedBox(width: size, height: size, child: image()),
+        ),
+      ),
+    );
+  }
+}
+
+void _showTicketImagePreview(
+  BuildContext context,
+  String imageUrl,
+  String label,
+) {
+  showDialog<void>(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(
+                              color: TravSTheme.navy,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: AspectRatio(
+                    aspectRatio: 1,
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: TravSTheme.surfaceSoft,
+                          child: const Icon(
+                            Icons.broken_image_outlined,
+                            color: TravSTheme.navyMuted,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 class _TicketErrorState extends StatelessWidget {
@@ -429,4 +896,30 @@ String _formatDateTime(String value) {
   }
 
   return DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(parsed);
+}
+
+String _formatDayDate(String value) {
+  if (value.isEmpty) {
+    return '-';
+  }
+
+  final parsed = DateTime.tryParse(value)?.toLocal();
+  if (parsed == null) {
+    return '-';
+  }
+
+  return DateFormat('EEEE, dd MMM yyyy', 'id_ID').format(parsed);
+}
+
+String _formatTime(String value) {
+  if (value.isEmpty) {
+    return '-';
+  }
+
+  final parsed = DateTime.tryParse(value)?.toLocal();
+  if (parsed == null) {
+    return '-';
+  }
+
+  return DateFormat('HH:mm', 'id_ID').format(parsed);
 }

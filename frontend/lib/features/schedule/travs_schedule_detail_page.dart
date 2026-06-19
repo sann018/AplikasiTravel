@@ -503,7 +503,7 @@ class _HeroCard extends StatelessWidget {
             spacing: 10,
             runSpacing: 10,
             children: [
-              _BadgePill(label: 'Data Langsung', color: TravSTheme.success),
+              _BadgePill(label: 'Tersedia', color: TravSTheme.success),
               _BadgePill(
                 label: selectedRole == AppRolePreview.driver
                     ? 'Mode Pengemudi'
@@ -550,13 +550,6 @@ class _HeroCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 18),
-          Text(
-            detail.sourceLabel,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.76),
-            ),
-          ),
         ],
       ),
     );
@@ -576,7 +569,7 @@ class _InfoGrid extends StatelessWidget {
           _MetricCardData(
             title: 'Harga Tiket',
             value: 'Rp${_formatCurrency(detail.schedule.hargaTiket)}',
-            subtitle: 'Belum termasuk admin fee dan bagasi tambahan',
+            subtitle: 'Belum termasuk bagasi tambahan',
             icon: Icons.payments_outlined,
           ),
           _MetricCardData(
@@ -584,6 +577,8 @@ class _InfoGrid extends StatelessWidget {
             value: detail.schedule.kendaraan,
             subtitle: detail.vehicleType,
             icon: Icons.directions_car_filled_outlined,
+            imageUrl:
+                detail.vehiclePhotoUrl ?? detail.schedule.kendaraanFotoUrl,
           ),
           _MetricCardData(
             title: 'Pengemudi',
@@ -1050,7 +1045,7 @@ class _DriverBriefCard extends StatelessWidget {
               value: '${detail.bookedSeatCount}',
             ),
             _PriceRow(
-              label: 'Seat lock aktif',
+              label: 'Kursi dikunci',
               value: '${detail.lockedSeatCount}',
             ),
             _PriceRow(
@@ -1063,7 +1058,7 @@ class _DriverBriefCard extends StatelessWidget {
               child: ElevatedButton.icon(
                 onPressed: onPrimaryAction,
                 icon: const Icon(Icons.qr_code_scanner_outlined),
-                label: const Text('Siapkan Modul Manifest'),
+                label: const Text('Buka Manifest'),
               ),
             ),
           ],
@@ -1081,6 +1076,7 @@ class _MetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final resolvedImageUrl = TravSApiService.resolveMediaUrl(data.imageUrl);
 
     return Card(
       child: Padding(
@@ -1094,7 +1090,33 @@ class _MetricCard extends StatelessWidget {
                 color: TravSTheme.orangeSoft,
                 borderRadius: BorderRadius.circular(18),
               ),
-              child: Icon(data.icon, color: TravSTheme.orange),
+              child: resolvedImageUrl == null
+                  ? Icon(data.icon, color: TravSTheme.orange)
+                  : ClipRRect(
+                      borderRadius: BorderRadius.circular(18),
+                      child: Image.network(
+                        resolvedImageUrl,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) =>
+                            Icon(data.icon, color: TravSTheme.orange),
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) {
+                            return child;
+                          }
+
+                          return Center(
+                            child: SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: TravSTheme.orange,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -1140,6 +1162,11 @@ class _VehicleSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final vehiclePhotoUrl =
+        TravSApiService.resolveMediaUrl(
+          detail.vehiclePhotoUrl ?? detail.schedule.kendaraanFotoUrl,
+        ) ??
+        '';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1192,11 +1219,35 @@ class _VehicleSummaryCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: TravSTheme.line),
             ),
-            child: const Icon(
-              Icons.directions_car_filled_rounded,
-              color: TravSTheme.navy,
-              size: 42,
-            ),
+            clipBehavior: Clip.antiAlias,
+            child: vehiclePhotoUrl.isEmpty
+                ? const Icon(
+                    Icons.directions_car_filled_rounded,
+                    color: TravSTheme.navy,
+                    size: 42,
+                  )
+                : Image.network(
+                    vehiclePhotoUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => const Icon(
+                      Icons.directions_car_filled_rounded,
+                      color: TravSTheme.navy,
+                      size: 42,
+                    ),
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) {
+                        return child;
+                      }
+
+                      return const Center(
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -2256,12 +2307,14 @@ class _MetricCardData {
     required this.value,
     required this.subtitle,
     required this.icon,
+    this.imageUrl,
   });
 
   final String title;
   final String value;
   final String subtitle;
   final IconData icon;
+  final String? imageUrl;
 }
 
 int _clampInt(int value, int min, int max) {

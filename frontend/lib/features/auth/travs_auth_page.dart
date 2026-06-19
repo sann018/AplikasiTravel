@@ -111,7 +111,7 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
 
       setState(() {
         _errorMessage =
-            'Proses masuk gagal. Backend lokal belum terhubung. Jika memakai HP fisik, jalankan adb reverse tcp:8000 tcp:8000 atau pakai IP laptop sebagai API_BASE_URL.';
+            'Proses masuk gagal. Aplikasi belum terhubung ke server. Pastikan server aktif, lalu coba lagi.';
       });
     } finally {
       if (mounted) {
@@ -555,8 +555,8 @@ class _AuthHero extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           isRegisterMode
-              ? 'Daftar lebih cepat untuk mulai pemesanan travel, memilih kursi, dan menerima tiket digital.'
-              : 'Masuk agar pemesanan, tiket QR, dan status layanan lebih tertata.',
+              ? 'Selamat Datang, Sobat Perjalanan.'
+              : 'Daftar lebih cepat untuk mulai pemesanan travel, memilih kursi, dan menerima tiket digital.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
         ),
@@ -620,10 +620,7 @@ class _RoleAccessSummary extends StatelessWidget {
 }
 
 class _LoginRolePicker extends StatelessWidget {
-  const _LoginRolePicker({
-    required this.selectedRole,
-    required this.onChanged,
-  });
+  const _LoginRolePicker({required this.selectedRole, required this.onChanged});
 
   final String selectedRole;
   final ValueChanged<String> onChanged;

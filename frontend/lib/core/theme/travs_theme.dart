@@ -60,17 +60,37 @@ class TravSTheme {
           headlineSmall: GoogleFonts.plusJakartaSans(
             fontWeight: FontWeight.w700,
           ),
-          titleLarge: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
-          titleMedium: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
-          titleSmall: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700),
-          bodyLarge: GoogleFonts.plusJakartaSans(height: 1.45),
-          bodyMedium: GoogleFonts.plusJakartaSans(height: 1.45),
-          bodySmall: GoogleFonts.plusJakartaSans(height: 1.45),
+          titleLarge: GoogleFonts.plusJakartaSans(
+            color: navy,
+            fontWeight: FontWeight.w700,
+          ),
+          titleMedium: GoogleFonts.plusJakartaSans(
+            color: navy,
+            fontWeight: FontWeight.w700,
+          ),
+          titleSmall: GoogleFonts.plusJakartaSans(
+            color: navy,
+            fontWeight: FontWeight.w700,
+          ),
+          bodyLarge: GoogleFonts.plusJakartaSans(color: navy, height: 1.45),
+          bodyMedium: GoogleFonts.plusJakartaSans(color: navy, height: 1.45),
+          bodySmall: GoogleFonts.plusJakartaSans(
+            color: navyMuted,
+            height: 1.45,
+          ),
+          labelLarge: GoogleFonts.plusJakartaSans(color: navy),
+          labelMedium: GoogleFonts.plusJakartaSans(color: navy),
+          labelSmall: GoogleFonts.plusJakartaSans(color: navyMuted),
         );
 
     return base.copyWith(
       scaffoldBackgroundColor: background,
       textTheme: textTheme,
+      textSelectionTheme: const TextSelectionThemeData(
+        cursorColor: navy,
+        selectionColor: orangeSoft,
+        selectionHandleColor: navy,
+      ),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         foregroundColor: navy,
@@ -117,6 +137,19 @@ class TravSTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surface,
+        prefixIconColor: navyMuted,
+        suffixIconColor: navyMuted,
+        iconColor: navyMuted,
+        hintStyle: textTheme.bodyMedium?.copyWith(color: navyMuted),
+        labelStyle: textTheme.bodyMedium?.copyWith(color: navy),
+        floatingLabelStyle: textTheme.bodyMedium?.copyWith(
+          color: orange,
+          fontWeight: FontWeight.w700,
+        ),
+        errorStyle: textTheme.bodySmall?.copyWith(
+          color: danger,
+          fontWeight: FontWeight.w700,
+        ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 18,
           vertical: 16,

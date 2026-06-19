@@ -163,7 +163,7 @@ class TravSApiService {
     return TravSHomePayload(
       appName: branding['app_name'] as String? ?? 'TravS',
       featuredSchedules: schedulesById.values.toList(),
-      sourceLabel: 'Live dari Laravel API',
+      sourceLabel: 'Data tersedia',
       serviceWhatsapp: branding['service_whatsapp'] as String?,
       adminContact: branding['contact'] as String?,
     );
@@ -230,6 +230,21 @@ class TravSApiService {
         decoded['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
 
     return TravSDriverDashboard.fromJson(data);
+  }
+
+  Future<TravSDriverTripItem> loadDriverTripManifest({
+    required String token,
+    required int tripId,
+  }) async {
+    final response = await getWithFallback(
+      '/api/pengemudi/trips/$tripId/manifest',
+      headers: jsonHeaders(token: token),
+    );
+
+    return _decodeDataObject(
+      response,
+      (data) => TravSDriverTripItem.fromJson(data),
+    );
   }
 
   /// Memuat daftar pemesanan penumpang dari backend.
@@ -461,6 +476,21 @@ class TravSApiService {
     );
   }
 
+  Future<TravSBookingResult> refreshPaymentStatus({
+    required String token,
+    required int bookingId,
+  }) async {
+    final response = await postWithFallback(
+      '/api/penumpang/bookings/$bookingId/refresh-payment-status',
+      headers: jsonHeaders(token: token),
+    );
+
+    return _decodeDataObject(
+      response,
+      (data) => TravSBookingResult.fromJson(data),
+    );
+  }
+
   Future<TravSScanTicketResult> scanDriverTicket({
     required String token,
     required String ticketToken,
@@ -474,6 +504,38 @@ class TravSApiService {
     return _decodeDataObject(
       response,
       (data) => TravSScanTicketResult.fromJson(data),
+    );
+  }
+
+  Future<TravSDriverManifestPassenger> confirmDriverPassengerCash({
+    required String token,
+    required int tripId,
+    required int detailId,
+  }) async {
+    final response = await postWithFallback(
+      '/api/pengemudi/trips/$tripId/passengers/$detailId/confirm-cash',
+      headers: jsonHeaders(token: token),
+    );
+
+    return _decodeDataObject(
+      response,
+      (data) => TravSDriverManifestPassenger.fromJson(data),
+    );
+  }
+
+  Future<TravSDriverManifestPassenger> markDriverPassengerDropoff({
+    required String token,
+    required int tripId,
+    required int detailId,
+  }) async {
+    final response = await postWithFallback(
+      '/api/pengemudi/trips/$tripId/passengers/$detailId/dropoff',
+      headers: jsonHeaders(token: token),
+    );
+
+    return _decodeDataObject(
+      response,
+      (data) => TravSDriverManifestPassenger.fromJson(data),
     );
   }
 
@@ -651,7 +713,7 @@ class TravSApiService {
     }
 
     throw const TravSApiException(
-      'Backend lokal belum dapat dijangkau. Pastikan Laravel berjalan dan alamat API sesuai perangkat.',
+      'Aplikasi belum terhubung ke server. Pastikan server aktif, lalu coba lagi.',
     );
   }
 
@@ -728,6 +790,7 @@ class TravSSchedule {
     required this.jalur,
     required this.pengemudi,
     required this.kendaraan,
+    this.kendaraanFotoUrl,
     required this.waktuBerangkat,
     required this.estimasiTiba,
     required this.hargaTiket,
@@ -742,6 +805,7 @@ class TravSSchedule {
   final String jalur;
   final String pengemudi;
   final String kendaraan;
+  final String? kendaraanFotoUrl;
   final String waktuBerangkat;
   final String estimasiTiba;
   final double hargaTiket;
@@ -756,12 +820,14 @@ class TravSSchedule {
     final seatMap = json['seat_map'] as List<dynamic>? ?? <dynamic>[];
 
     String kendaraan = '-';
+    String? kendaraanFotoUrl;
     if (kendaraanData is String) {
       kendaraan = kendaraanData;
     } else if (kendaraanData is Map) {
       final kendaraanMap = _asMap(kendaraanData);
       kendaraan =
           '${kendaraanMap['merk'] ?? '-'} - ${kendaraanMap['plat'] ?? '-'}';
+      kendaraanFotoUrl = kendaraanMap['foto_url'] as String?;
     }
 
     String pengemudi = '-';
@@ -778,6 +844,7 @@ class TravSSchedule {
       jalur: route['jalur'] as String? ?? '-',
       pengemudi: pengemudi,
       kendaraan: kendaraan,
+      kendaraanFotoUrl: kendaraanFotoUrl,
       waktuBerangkat: json['waktu_berangkat'] as String? ?? '',
       estimasiTiba: json['estimasi_tiba'] as String? ?? '',
       hargaTiket: _readDouble(json['harga_tiket'] ?? route['harga_tiket']),
@@ -809,6 +876,7 @@ class TravSScheduleDetail {
     required this.baggageRules,
     required this.vehicleFacilities,
     required this.vehicleType,
+    this.vehiclePhotoUrl,
     required this.driverLicenseNumber,
     required this.sourceLabel,
     required this.isLive,
@@ -827,6 +895,7 @@ class TravSScheduleDetail {
   final TravSBaggageRules baggageRules;
   final String vehicleFacilities;
   final String vehicleType;
+  final String? vehiclePhotoUrl;
   final String driverLicenseNumber;
   final String sourceLabel;
   final bool isLive;
@@ -860,8 +929,9 @@ class TravSScheduleDetail {
       baggageRules: TravSBaggageRules.fromJson(_asMap(json['bagasi'])),
       vehicleFacilities: kendaraan['fasilitas'] as String? ?? '-',
       vehicleType: kendaraan['tipe'] as String? ?? '-',
+      vehiclePhotoUrl: kendaraan['foto_url'] as String?,
       driverLicenseNumber: pengemudi['nomor_sim'] as String? ?? '-',
-      sourceLabel: 'Live dari Laravel API',
+      sourceLabel: 'Data tersedia',
       isLive: true,
     );
   }
@@ -1104,6 +1174,7 @@ class TravSDriverTripItem {
     required this.rute,
     required this.waktuBerangkat,
     required this.kendaraan,
+    required this.kendaraanFotoUrl,
     required this.status,
     this.passengerCount = 0,
     this.revenue = 0,
@@ -1115,6 +1186,7 @@ class TravSDriverTripItem {
   final String rute;
   final String waktuBerangkat;
   final String kendaraan;
+  final String? kendaraanFotoUrl;
   final String status;
   final int passengerCount;
   final double revenue;
@@ -1127,6 +1199,7 @@ class TravSDriverTripItem {
       rute: json['rute'] as String? ?? '-',
       waktuBerangkat: json['waktu_berangkat'] as String? ?? '',
       kendaraan: json['kendaraan'] as String? ?? '-',
+      kendaraanFotoUrl: json['kendaraan_foto_url'] as String?,
       status: json['status'] as String? ?? '-',
       passengerCount: _readInt(json['passenger_count']),
       revenue: _readDouble(json['revenue']),
@@ -1143,40 +1216,86 @@ class TravSDriverTripItem {
 
 class TravSDriverManifestPassenger {
   const TravSDriverManifestPassenger({
+    required this.bookingId,
+    required this.detailId,
     required this.name,
+    required this.accountName,
+    required this.accountEmail,
+    required this.accountPhone,
+    required this.profilePhotoUrl,
     required this.seatNumber,
     required this.phone,
     required this.pickupAddress,
     required this.baggageLabel,
+    required this.baggagePhotoUrl,
     required this.fareLabel,
     required this.attendanceStatus,
+    required this.bookingStatus,
+    required this.paymentStatus,
+    required this.paymentMethod,
+    required this.paymentLabel,
+    required this.canConfirmCash,
+    required this.hasTicket,
     required this.ticketScanned,
+    required this.isDroppedOff,
   });
 
+  final int bookingId;
+  final int detailId;
   final String name;
+  final String accountName;
+  final String accountEmail;
+  final String accountPhone;
+  final String? profilePhotoUrl;
   final int seatNumber;
   final String phone;
   final String pickupAddress;
   final String baggageLabel;
+  final String? baggagePhotoUrl;
   final String fareLabel;
   final String attendanceStatus;
+  final String bookingStatus;
+  final String paymentStatus;
+  final String paymentMethod;
+  final String paymentLabel;
+  final bool canConfirmCash;
+  final bool hasTicket;
   final bool ticketScanned;
+  final bool isDroppedOff;
 
   factory TravSDriverManifestPassenger.fromJson(Map<String, dynamic> json) {
     final pickup = _asMap(json['pickup']);
     final baggage = _asMap(json['baggage']);
     final fare = _asMap(json['fare']);
+    final payment = _asMap(json['pembayaran']);
     final ticket = _asMap(json['ticket']);
+    final account = _asMap(json['akun_pemesan']);
+    final dropoff = _asMap(json['dropoff']);
 
     return TravSDriverManifestPassenger(
+      bookingId: _readInt(json['booking_id']),
+      detailId: _readInt(json['detail_id']),
       name: json['nama_penumpang'] as String? ?? '-',
+      accountName: account['nama'] as String? ?? '-',
+      accountEmail: account['email'] as String? ?? '-',
+      accountPhone: account['no_hp'] as String? ?? '-',
+      profilePhotoUrl: account['foto_url'] as String?,
       seatNumber: _readInt(json['nomor_kursi']),
       phone: json['no_hp_penumpang'] as String? ?? '-',
       pickupAddress: pickup['address'] as String? ?? '-',
       baggageLabel: baggage['label'] as String? ?? '-',
+      baggagePhotoUrl: baggage['foto_url'] as String?,
       fareLabel: fare['label'] as String? ?? '-',
       attendanceStatus: json['status_kehadiran'] as String? ?? 'menunggu',
+      bookingStatus: json['status_pemesanan'] as String? ?? '-',
+      paymentStatus: payment['status'] as String? ?? '-',
+      paymentMethod: payment['metode'] as String? ?? '-',
+      paymentLabel:
+          (payment['label'] as String?) ?? (fare['label'] as String?) ?? '-',
+      canConfirmCash: _readBool(payment['can_confirm_cash']),
+      hasTicket: ticket.isNotEmpty,
       ticketScanned: _readBool(ticket['sudah_dipindai']),
+      isDroppedOff: _readBool(dropoff['is_dropped_off']),
     );
   }
 }

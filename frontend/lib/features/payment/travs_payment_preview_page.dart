@@ -81,7 +81,8 @@ class TravSPaymentPreviewPage extends StatefulWidget {
       _TravSPaymentPreviewPageState();
 }
 
-class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
+class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
+    with WidgetsBindingObserver {
   final TravSApiService _apiService = TravSApiService();
   final TravSLocationService _locationService = TravSLocationService();
   final ImagePicker _imagePicker = ImagePicker();
@@ -99,6 +100,9 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
   bool _isSubmitting = false;
   bool _isResolvingPickup = false;
   bool _isUploadingBaggagePhoto = false;
+  bool _isPickingBaggagePhoto = false;
+  bool _isRefreshingPayment = false;
+  bool _showLeaveWarningOnResume = false;
   bool _hasOpenedGatewayCheckout = false;
   String? _errorMessage;
   TravSBookingResult? _createdBooking;
@@ -108,6 +112,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _paymentOptions = _resolvePaymentOptions(widget.detail.paymentMethods);
     _selectedMethod = _paymentOptions.isNotEmpty
         ? _paymentOptions.first.key
@@ -129,6 +134,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _pickupLatitudeController.dispose();
     _pickupLongitudeController.dispose();
     _pickupAddressController.dispose();
@@ -136,6 +142,35 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
       passenger.dispose();
     }
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.inactive) {
+      if (_createdBooking == null && !_isPickingBaggagePhoto) {
+        _showLeaveWarningOnResume = true;
+      }
+      return;
+    }
+
+    if (state != AppLifecycleState.resumed) {
+      return;
+    }
+
+    if (_createdBooking != null) {
+      _refreshCreatedBookingStatus(showSuccessMessage: true);
+      return;
+    }
+
+    if (_showLeaveWarningOnResume && mounted) {
+      _showLeaveWarningOnResume = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _confirmLeaveFlow();
+        }
+      });
+    }
   }
 
   bool get _hasBaggageData =>
@@ -258,6 +293,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
   }
 
   Future<void> _selectBaggagePhoto(ImageSource source) async {
+    _isPickingBaggagePhoto = true;
     try {
       final photo = await _imagePicker.pickImage(
         source: source,
@@ -284,6 +320,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
         _errorMessage =
             'Foto barang bawaan belum bisa dipilih. Coba gunakan galeri atau kamera lain.';
       });
+    } finally {
+      _isPickingBaggagePhoto = false;
     }
   }
 
@@ -475,6 +513,64 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
     }
   }
 
+  Future<void> _refreshCreatedBookingStatus({
+    bool showSuccessMessage = false,
+  }) async {
+    final booking = _createdBooking;
+    if (booking == null || _isRefreshingPayment) {
+      return;
+    }
+
+    setState(() {
+      _isRefreshingPayment = true;
+    });
+
+    try {
+      final refreshedBooking = await _apiService.refreshPaymentStatus(
+        token: widget.session.token,
+        bookingId: booking.id,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      final wasPaid = _createdBooking?.isPaid ?? false;
+      setState(() {
+        _createdBooking = refreshedBooking;
+        _errorMessage = null;
+      });
+
+      if (showSuccessMessage && refreshedBooking.isPaid && !wasPaid) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Pembayaran berhasil. Tiket sudah aktif.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } on TravSApiException catch (error) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = error.message;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _errorMessage =
+              'Status pembayaran belum dapat diperbarui. Silakan coba lagi beberapa saat.';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshingPayment = false;
+        });
+      }
+    }
+  }
+
   List<TravSBaggagePayload> _buildBaggagePayload(String? baggagePhotoUrl) {
     if (!_hasBaggageData) {
       return const <TravSBaggagePayload>[];
@@ -579,13 +675,13 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage> {
   Future<void> _confirmLeaveFlow() async {
     final isPaymentStep = _createdBooking != null;
     final title = isPaymentStep
-        ? 'Batalkan pembayaran?'
+        ? 'Keluar dari pembayaran?'
         : 'Batalkan pemesanan?';
     final content = isPaymentStep
-        ? 'Pembayaran belum selesai. Jika dibatalkan, kamu bisa kehilangan batas waktu pembayaran yang sedang berjalan.'
+        ? 'Pemesanan tetap tersimpan sampai batas pembayaran habis. Kamu bisa kembali membayar dari daftar pemesanan.'
         : 'Data pemesanan yang belum dikirim akan hilang jika kamu keluar dari halaman ini.';
     final cancelLabel = isPaymentStep
-        ? 'Ya, batalkan pembayaran'
+        ? 'Keluar, tetap simpan'
         : 'Ya, batalkan pemesanan';
     final continueLabel = isPaymentStep
         ? 'Lanjutkan pembayaran'
