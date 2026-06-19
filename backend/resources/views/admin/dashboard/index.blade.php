@@ -1,8 +1,8 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Dashboard')
+@section('title', 'Dasbor')
 @section('page-title', 'Dasbor')
-@section('page-description', 'Ringkasan operasional RuslyTravel yang lebih visual, cepat dibaca, dan siap dipakai admin setiap hari.')
+@section('page-description', 'Ringkasan operasional harian.')
 
 @section('content')
     @php
@@ -55,7 +55,7 @@
             <div class="travs-panel-header">
                 <div class="travs-panel-title">
                     <h3>Ringkasan Pendapatan 7 Hari</h3>
-                    <p>Bahasa visual mengikuti mockup: grafik bersih, ruang lega, dan angka utama mudah dipindai.</p>
+                    <p>Grafik pendapatan harian.</p>
                 </div>
                 <div class="travs-dashboard-panel-chip">
                     <strong>Rp{{ number_format($pendapatanHarian->sum('total'), 0, ',', '.') }}</strong>
@@ -83,7 +83,7 @@
                     <div class="travs-empty-state">
                         <div class="travs-empty-illustration"></div>
                         <strong>Belum ada pendapatan tercatat</strong>
-                        <p>Grafik akan terisi otomatis saat transaksi berhasil mulai tercatat pada sistem.</p>
+                        <p>Grafik akan muncul setelah ada pembayaran berhasil.</p>
                     </div>
                 @endif
             </div>
@@ -93,7 +93,7 @@
             <div class="travs-panel-header">
                 <div class="travs-panel-title">
                     <h3>Fokus Hari Ini</h3>
-                    <p>Daftar area yang paling perlu perhatian admin.</p>
+                    <p>Hal yang perlu dicek hari ini.</p>
                 </div>
             </div>
 
@@ -101,17 +101,17 @@
                 <div class="travs-dashboard-focus-item">
                     <span class="travs-status-pill travs-status-menunggu">Prioritas</span>
                     <strong>{{ number_format($stats['booking_menunggu']) }} booking menunggu pembayaran</strong>
-                    <p>Buka modul pemesanan untuk follow up invoice, transfer, atau konfirmasi manual.</p>
+                    <p>Cek pembayaran yang masih menunggu.</p>
                 </div>
                 <div class="travs-dashboard-focus-item">
                     <span class="travs-status-pill travs-status-terverifikasi">Driver</span>
                     <strong>{{ number_format($stats['pengemudi_terverifikasi']) }} driver sudah diverifikasi</strong>
-                    <p>Pastikan jadwal baru hanya memakai akun pengemudi yang statusnya aktif dan terverifikasi.</p>
+                    <p>Gunakan pengemudi aktif untuk jadwal baru.</p>
                 </div>
                 <div class="travs-dashboard-focus-item">
                     <span class="travs-status-pill travs-status-qris">Operasional</span>
                     <strong>Biaya hari ini Rp{{ number_format($stats['biaya_harian'], 0, ',', '.') }}</strong>
-                    <p>Catat tambahan biaya perjalanan agar rekap laporan tidak tertinggal.</p>
+                    <p>Catat biaya perjalanan terbaru.</p>
                 </div>
             </div>
         </article>
@@ -120,7 +120,7 @@
             <div class="travs-panel-header">
                 <div class="travs-panel-title">
                     <h3>Pemesanan Terbaru</h3>
-                    <p>Booking baru yang masuk ke sistem dan perlu dilihat cepat.</p>
+                    <p>Pemesanan terbaru.</p>
                 </div>
                 <a href="{{ route('admin.pemesanan.index') }}" class="travs-button-link">Lihat semua</a>
             </div>
@@ -149,7 +149,7 @@
             <div class="travs-panel-header">
                 <div class="travs-panel-title">
                     <h3>Jadwal Keberangkatan Hari Ini</h3>
-                    <p>Manifest singkat keberangkatan yang aktif pada hari ini.</p>
+                    <p>Keberangkatan aktif hari ini.</p>
                 </div>
                 <a href="{{ route('admin.jadwal.index') }}" class="travs-button-link">Kelola jadwal</a>
             </div>
@@ -186,7 +186,7 @@
             <div class="travs-panel-header">
                 <div class="travs-panel-title">
                     <h3>Biaya Operasional Terbaru</h3>
-                    <p>Pengeluaran yang baru masuk agar kontrol biaya tetap rapi.</p>
+                    <p>Biaya operasional terbaru.</p>
                 </div>
                 <a href="{{ route('admin.biaya.index') }}" class="travs-button-link">Input biaya</a>
             </div>

@@ -13,6 +13,21 @@ use Illuminate\View\View;
 
 class KendaraanController extends Controller
 {
+    private const VEHICLE_TYPE_OPTIONS = [
+        'MPV' => 'MPV - Multi Purpose Vehicle',
+        'SUV' => 'SUV - Sport Utility Vehicle',
+        'Sedan' => 'Sedan - Mobil penumpang bagasi terpisah',
+        'Hatchback' => 'Hatchback - Mobil kecil pintu belakang',
+        'City Car' => 'City Car - Mobil kecil perkotaan',
+        'Minibus' => 'Minibus - Kendaraan penumpang kapasitas sedang',
+        'Van' => 'Van - Mobil penumpang dan bagasi',
+        'Double Cabin' => 'Double Cabin - Pick up kabin ganda',
+        'Station Wagon' => 'Station Wagon - Mobil keluarga bagasi luas',
+        'Travel Executive' => 'Travel Executive - Unit travel premium',
+        'Travel Regular' => 'Travel Regular - Unit travel reguler',
+        'Travel Shuttle' => 'Travel Shuttle - Unit antar kota',
+    ];
+
     public function index(Request $request): View
     {
         $query = Kendaraan::query()->withCount('jadwal');
@@ -47,13 +62,16 @@ class KendaraanController extends Controller
 
     public function create(): View
     {
-        return view('admin.kendaraan.create');
+        return view('admin.kendaraan.create', [
+            'vehicleTypeOptions' => $this->vehicleTypeOptions(),
+        ]);
     }
 
     public function edit(Kendaraan $kendaraan): View
     {
         return view('admin.kendaraan.edit', [
             'kendaraan' => $kendaraan,
+            'vehicleTypeOptions' => $this->vehicleTypeOptions($kendaraan),
         ]);
     }
 
@@ -113,7 +131,7 @@ class KendaraanController extends Controller
             'merk_kendaraan' => ['required', 'string', 'max:100'],
             'warna' => ['required', 'string', 'max:30'],
             'tahun_kendaraan' => ['nullable', 'integer', 'min:2000', 'max:2100'],
-            'tipe_kendaraan' => ['nullable', 'string', 'max:100'],
+            'tipe_kendaraan' => ['nullable', Rule::in(array_keys($this->vehicleTypeOptions($kendaraan)))],
             'kapasitas_kursi' => ['required', 'integer', 'min:1', 'max:20'],
             'seat_layout' => ['nullable', 'string', 'max:200'],
             'fasilitas' => ['nullable', 'string'],
@@ -138,5 +156,17 @@ class KendaraanController extends Controller
         }
 
         return $validated;
+    }
+
+    private function vehicleTypeOptions(?Kendaraan $kendaraan = null): array
+    {
+        $options = self::VEHICLE_TYPE_OPTIONS;
+        $currentType = $kendaraan?->tipe_kendaraan;
+
+        if ($currentType && ! array_key_exists($currentType, $options)) {
+            $options[$currentType] = $currentType . ' - Tipe lama tersimpan';
+        }
+
+        return $options;
     }
 }

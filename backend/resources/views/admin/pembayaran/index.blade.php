@@ -1,8 +1,8 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Dashboard Pembayaran')
-@section('page-title', 'Dashboard Pembayaran')
-@section('page-description', 'Pantau pembayaran cash, QRIS, transfer, dan exception status agar booking tetap sinkron dengan tiket.')
+@section('title', 'Pembayaran')
+@section('page-title', 'Pembayaran')
+@section('page-description', 'Pantau pembayaran tunai, QRIS, dan transfer.')
 
 @section('content')
     <section class="travs-summary-grid">
@@ -22,16 +22,16 @@
             <span>Butuh konfirmasi admin</span>
         </article>
         <article class="travs-summary-card">
-            <small>Exception</small>
+            <small>Perlu Dicek</small>
             <strong>{{ number_format($summary['exceptions']) }}</strong>
-            <span>Perlu tindak lanjut</span>
+            <span>Status belum normal</span>
         </article>
     </section>
 
     <article class="travs-section-card">
         <div class="travs-panel-title">
             <h3>Filter Pembayaran</h3>
-            <p>Cari transaksi berdasarkan kode booking, penumpang, rute, metode, status, dan tipe exception.</p>
+            <p>Cari transaksi berdasarkan kode, penumpang, rute, metode, atau status.</p>
         </div>
 
         <form method="GET" class="travs-filter-grid travs-filter-grid-wide">
@@ -58,15 +58,15 @@
                 </select>
             </div>
             <div class="travs-field">
-                <label for="exception">Exception</label>
+                <label for="exception">Catatan Status</label>
                 <select id="exception" name="exception" class="travs-select">
                     <option value="">Semua data</option>
                     @foreach ([
                         'perlu_tindak_lanjut' => 'Perlu Tindak Lanjut',
-                        'perlu_verifikasi_cash' => 'Perlu Verifikasi Cash',
-                        'gateway_gagal' => 'Gateway Gagal',
+                        'perlu_verifikasi_cash' => 'Perlu Verifikasi Tunai',
+                        'gateway_gagal' => 'Pembayaran Gagal',
                         'kedaluwarsa' => 'Kedaluwarsa',
-                        'status_tidak_sinkron' => 'Status Tidak Sinkron',
+                        'status_tidak_sinkron' => 'Status Perlu Dicek',
                     ] as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['exception'] ?? '') === $value)>{{ $label }}</option>
                     @endforeach
@@ -95,7 +95,7 @@
                         <th>Metode</th>
                         <th>Status</th>
                         <th>Nominal</th>
-                        <th>Exception</th>
+                        <th>Catatan Status</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>

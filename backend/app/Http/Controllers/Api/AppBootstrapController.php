@@ -6,18 +6,21 @@ use App\Http\Controllers\Controller;
 use App\Models\Jadwal;
 use App\Models\PengaturanSistem;
 use App\Services\BookingService;
+use App\Services\ScheduleLifecycleService;
 use Illuminate\Http\JsonResponse;
 
 class AppBootstrapController extends Controller
 {
     public function __construct(
         private readonly BookingService $bookingService,
+        private readonly ScheduleLifecycleService $scheduleLifecycleService,
     ) {
     }
 
     public function index(): JsonResponse
     {
         $this->bookingService->releaseExpiredResources();
+        $this->scheduleLifecycleService->closeOpenSchedulesNearDeparture();
 
         $jadwal = Jadwal::query()
             ->with(['rute', 'kendaraan', 'pengemudi.pengguna', 'kursi'])

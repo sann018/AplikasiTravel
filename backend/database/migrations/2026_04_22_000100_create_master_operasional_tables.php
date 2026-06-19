@@ -56,7 +56,7 @@ return new class extends Migration
             $table->foreignId('pengemudi_id')->constrained('pengemudi')->restrictOnDelete();
             $table->dateTime('waktu_berangkat');
             $table->dateTime('estimasi_tiba')->nullable();
-            $table->enum('status', ['draft', 'dibuka', 'berangkat', 'selesai', 'dibatalkan'])->default('draft');
+            $table->enum('status', ['draft', 'dibuka', 'ditutup', 'berangkat', 'selesai', 'dibatalkan'])->default('draft');
             $table->timestamps();
         });
 

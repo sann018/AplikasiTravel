@@ -179,6 +179,28 @@ svg {
     box-shadow: 0 0 0 4px rgba(245, 138, 42, 0.12);
 }
 
+.travs-input.is-invalid,
+.travs-select.is-invalid,
+.travs-textarea.is-invalid {
+    border-color: rgba(220, 53, 69, 0.75);
+    background: #fffafa;
+}
+
+.travs-input.is-invalid:focus,
+.travs-select.is-invalid:focus,
+.travs-textarea.is-invalid:focus {
+    border-color: rgba(220, 53, 69, 0.85);
+    box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.12);
+}
+
+.travs-field-error {
+    margin-top: 8px;
+    color: var(--travs-danger);
+    font-size: 0.84rem;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
 .travs-textarea {
     min-height: 120px;
     resize: vertical;
@@ -1230,6 +1252,96 @@ svg {
     gap: 16px;
 }
 
+.travs-admin-account-card {
+    width: 100%;
+    max-width: none;
+    padding: 22px;
+}
+
+.travs-admin-account-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 18px;
+    align-items: start;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--travs-border);
+}
+
+.travs-admin-account-head h3 {
+    margin: 12px 0 8px;
+    color: var(--travs-primary);
+    font-size: 1.18rem;
+}
+
+.travs-admin-account-head p {
+    max-width: 620px;
+    margin: 0;
+    color: var(--travs-text-soft);
+    line-height: 1.65;
+}
+
+.travs-admin-account-badge {
+    display: grid;
+    gap: 4px;
+    min-width: 240px;
+    padding: 14px 16px;
+    border: 1px solid var(--travs-border);
+    border-radius: 16px;
+    background: var(--travs-surface);
+}
+
+.travs-admin-account-badge span {
+    color: var(--travs-text-soft);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.travs-admin-account-badge strong {
+    color: var(--travs-primary);
+    font-size: 0.95rem;
+    overflow-wrap: anywhere;
+}
+
+.travs-admin-account-form {
+    display: grid;
+    gap: 18px;
+    margin-top: 18px;
+}
+
+.travs-admin-account-primary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.travs-admin-password-panel {
+    display: grid;
+    gap: 14px;
+    padding: 18px;
+    border: 1px solid var(--travs-border);
+    border-radius: 18px;
+    background: linear-gradient(180deg, rgba(16, 35, 63, 0.035), rgba(16, 35, 63, 0.015));
+}
+
+.travs-admin-password-copy h4 {
+    margin: 0 0 6px;
+    color: var(--travs-primary);
+    font-size: 1rem;
+}
+
+.travs-admin-password-copy p {
+    margin: 0;
+    color: var(--travs-text-soft);
+    line-height: 1.6;
+}
+
+.travs-admin-account-actions {
+    justify-content: flex-end;
+    margin-top: 0;
+}
+
 .travs-settings-tabs {
     display: grid;
     gap: 16px;
@@ -1519,6 +1631,45 @@ svg {
     display: block;
     border-radius: 50%;
     object-fit: cover;
+}
+
+.travs-current-document img {
+    width: 84px;
+    height: 54px;
+    max-width: 84px;
+    max-height: 54px;
+    border-radius: 12px;
+}
+
+.travs-current-vehicle-photo img {
+    width: 84px;
+    height: 54px;
+    max-width: 84px;
+    max-height: 54px;
+    border-radius: 12px;
+}
+
+.travs-photo-preview-trigger {
+    cursor: zoom-in;
+}
+
+.travs-vehicle-thumb {
+    width: 52px;
+    height: 52px;
+    max-width: 52px;
+    max-height: 52px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid var(--travs-border);
+    border-radius: 14px;
+    object-fit: cover;
+    background: var(--travs-soft);
+    color: var(--travs-primary);
+}
+
+.travs-vehicle-thumb-fallback {
+    font-size: 1.15rem;
 }
 
 .travs-table-actions {
@@ -1902,10 +2053,29 @@ svg {
     .travs-detail-grid,
     .travs-description-list,
     .travs-operational-summary,
+    .travs-admin-account-head,
+    .travs-admin-account-primary,
     .travs-form-grid-2,
     .travs-filter-grid,
     .travs-filter-grid-wide {
         grid-template-columns: 1fr;
+    }
+
+    .travs-admin-account-card {
+        padding: 18px;
+    }
+
+    .travs-admin-account-badge {
+        min-width: 0;
+    }
+
+    .travs-admin-account-actions {
+        justify-content: stretch;
+    }
+
+    .travs-admin-account-actions .travs-button {
+        width: 100%;
+        justify-content: center;
     }
 
     .travs-form-card {

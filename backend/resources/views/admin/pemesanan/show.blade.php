@@ -2,7 +2,7 @@
 
 @section('title', 'Detail Pemesanan')
 @section('page-title', 'Detail Pemesanan')
-@section('page-description', 'Lihat rincian booking, penumpang per kursi, pembayaran, bagasi, dan ubah status bila diperlukan.')
+@section('page-description', 'Lihat rincian pemesanan, pembayaran, dan penumpang.')
 
 @section('content')
     @php
@@ -75,7 +75,7 @@
         <article class="travs-section-card">
             <div class="travs-panel-title">
                 <h3>Status dan Pembayaran</h3>
-                <p>Admin dapat menyesuaikan status booking untuk kebutuhan verifikasi operasional.</p>
+                <p>Ubah status jika diperlukan.</p>
             </div>
 
             <form method="POST" action="{{ route('admin.pemesanan.update', $pemesanan) }}" class="travs-form-grid">
@@ -84,7 +84,7 @@
 
                 <div class="travs-field">
                     <label for="status_pemesanan">Status Booking</label>
-                    <select id="status_pemesanan" name="status_pemesanan" class="travs-select">
+                    <select id="status_pemesanan" name="status_pemesanan" class="travs-select @error('status_pemesanan') is-invalid @enderror">
                         @foreach (['menunggu_pembayaran' => 'Menunggu Pembayaran', 'terbayar' => 'Terbayar', 'dibatalkan' => 'Dibatalkan', 'selesai' => 'Selesai'] as $value => $label)
                             <option
                                 value="{{ $value }}"
@@ -95,6 +95,7 @@
                             </option>
                         @endforeach
                     </select>
+                    @include('admin.partials.field-error', ['name' => 'status_pemesanan'])
                 </div>
 
                 <div class="travs-detail-money">
@@ -132,7 +133,7 @@
             @if ($cashVerificationReady)
                 <div class="travs-subsection">
                     <strong>Verifikasi Cash</strong>
-                    <p class="travs-empty-inline">Booking ini menunggu pembayaran tunai. Gunakan aksi khusus agar audit pembayaran, tiket, dan notifikasi tersinkron.</p>
+                    <p class="travs-empty-inline">Pemesanan ini menunggu pembayaran tunai.</p>
                     <form method="POST" action="{{ route('admin.pembayaran.confirm-cash', $pemesanan) }}">
                         @csrf
                         <button type="submit" class="travs-button">Verifikasi Cash</button>
@@ -146,7 +147,7 @@
         <article class="travs-section-card">
             <div class="travs-panel-title">
                 <h3>Penumpang per Kursi</h3>
-                <p>Detail manifest penumpang yang terkait dengan booking ini.</p>
+                <p>Daftar penumpang pada pemesanan ini.</p>
             </div>
 
             <div class="travs-table-wrap">
@@ -191,7 +192,7 @@
         <article class="travs-section-card">
             <div class="travs-panel-title">
                 <h3>Pembayaran dan Bagasi</h3>
-                <p>Rincian metode bayar, status gateway, dan item bagasi yang dilaporkan.</p>
+                <p>Rincian pembayaran dan bagasi.</p>
             </div>
 
             <dl class="travs-description-list">

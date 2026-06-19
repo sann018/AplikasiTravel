@@ -2,7 +2,7 @@
 
 @section('title', 'Laporan Pemesanan')
 @section('page-title', 'Laporan Pemesanan')
-@section('page-description', 'Filter dan pantau data booking per periode untuk kebutuhan analisis operasional dan penyusunan laporan tugas akhir.')
+@section('page-description', 'Pantau pemesanan berdasarkan periode.')
 
 @section('content')
     <section class="travs-summary-grid">

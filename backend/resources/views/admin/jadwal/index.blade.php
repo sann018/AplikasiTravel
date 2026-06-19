@@ -17,6 +17,11 @@
             <span>Siap dipesan penumpang</span>
         </article>
         <article class="travs-summary-card">
+            <small>Ditutup</small>
+            <strong>{{ number_format($stats['ditutup']) }}</strong>
+            <span>Tidak tampil di aplikasi</span>
+        </article>
+        <article class="travs-summary-card">
             <small>Sedang Berangkat</small>
             <strong>{{ number_format($stats['berangkat']) }}</strong>
             <span>Trip dalam operasional</span>
@@ -46,7 +51,7 @@
                 <label for="status">Status</label>
                 <select id="status" name="status" class="travs-select">
                     <option value="">Semua status</option>
-                    @foreach (['draft' => 'Draft', 'dibuka' => 'Dibuka', 'berangkat' => 'Berangkat', 'selesai' => 'Selesai', 'dibatalkan' => 'Dibatalkan'] as $value => $label)
+                    @foreach (['draft' => 'Draft', 'dibuka' => 'Dibuka', 'ditutup' => 'Ditutup', 'berangkat' => 'Berangkat', 'selesai' => 'Selesai', 'dibatalkan' => 'Dibatalkan'] as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['status'] ?? '') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>

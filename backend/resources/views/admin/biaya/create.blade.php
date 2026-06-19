@@ -20,9 +20,7 @@
                             </option>
                         @endforeach
                     </select>
-                    @error('jadwal_id')
-                        <small class="text-danger">{{ $message }}</small>
-                    @enderror
+                    @include('admin.partials.field-error', ['name' => 'jadwal_id'])
                 </div>
 
                 <div class="travs-field">
@@ -35,9 +33,7 @@
                         required
                         placeholder="Contoh: BBM, Tol, Parkir"
                     >
-                    @error('jenis_biaya')
-                        <small class="text-danger">{{ $message }}</small>
-                    @enderror
+                    @include('admin.partials.field-error', ['name' => 'jenis_biaya'])
                 </div>
 
                 <div class="travs-field">
@@ -52,9 +48,7 @@
                         placeholder="Contoh: 500000"
                         min="0"
                     >
-                    @error('nominal')
-                        <small class="text-danger">{{ $message }}</small>
-                    @enderror
+                    @include('admin.partials.field-error', ['name' => 'nominal'])
                 </div>
 
                 <div class="travs-field">
@@ -67,9 +61,7 @@
                         value="{{ old('tanggal_biaya', now()->format('Y-m-d\TH:i')) }}"
                         required
                     >
-                    @error('tanggal_biaya')
-                        <small class="text-danger">{{ $message }}</small>
-                    @enderror
+                    @include('admin.partials.field-error', ['name' => 'tanggal_biaya'])
                 </div>
 
                 <div class="travs-field travs-field-span-2">
@@ -81,9 +73,7 @@
                         rows="3"
                         placeholder="Detail tambahan tentang biaya ini"
                     >{{ old('keterangan') }}</textarea>
-                    @error('keterangan')
-                        <small class="text-danger">{{ $message }}</small>
-                    @enderror
+                    @include('admin.partials.field-error', ['name' => 'keterangan'])
                 </div>
             </div>
 

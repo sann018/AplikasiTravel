@@ -7,6 +7,7 @@ use App\Models\Rute;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class RuteController extends Controller
@@ -95,10 +96,11 @@ class RuteController extends Controller
             'jarak_km' => ['nullable', 'numeric', 'min:0'],
             'estimasi_durasi_menit' => ['nullable', 'integer', 'min:1'],
             'harga_tiket' => ['required', 'numeric', 'min:0'],
-            'status_aktif' => ['nullable', 'boolean'],
+            'status' => ['required', Rule::in(['aktif', 'nonaktif'])],
         ]);
 
-        $payload['status_aktif'] = (bool) ($payload['status_aktif'] ?? false);
+        $payload['status_aktif'] = $payload['status'] === 'aktif';
+        unset($payload['status']);
 
         return $payload;
     }

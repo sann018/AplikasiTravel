@@ -84,6 +84,7 @@ Route::prefix('admin')->group(function () {
 
         Route::get('/pengaturan', [PengaturanController::class, 'index'])->name('admin.pengaturan.index');
         Route::put('/pengaturan', [PengaturanController::class, 'update'])->name('admin.pengaturan.update');
+        Route::put('/pengaturan/akun', [PengaturanController::class, 'updateAccount'])->name('admin.pengaturan.account.update');
         Route::post('/logout', [AuthController::class, 'logout'])->name('admin.logout');
     });
 });

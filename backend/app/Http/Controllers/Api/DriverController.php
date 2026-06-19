@@ -8,6 +8,8 @@ use App\Models\Jadwal;
 use App\Models\Pengemudi;
 use App\Models\Pemesanan;
 use App\Models\TiketElektronik;
+use App\Services\BookingService;
+use App\Services\ScheduleLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,12 +19,19 @@ use Illuminate\Validation\Rule;
 
 class DriverController extends Controller
 {
+    public function __construct(
+        private readonly BookingService $bookingService,
+        private readonly ScheduleLifecycleService $scheduleLifecycleService,
+    ) {
+    }
+
     public function dashboard(Request $request): JsonResponse
     {
+        $this->scheduleLifecycleService->closeOpenSchedulesNearDeparture();
         $pengemudi = $this->activeDriverFor($request);
 
         $jadwalAktif = $this->driverTripsQuery($pengemudi)
-            ->whereIn('status', ['dibuka', 'berangkat'])
+            ->whereIn('status', ['dibuka', 'ditutup', 'berangkat'])
             ->get();
 
         return response()->json([
@@ -41,6 +50,7 @@ class DriverController extends Controller
 
     public function trips(Request $request): JsonResponse
     {
+        $this->scheduleLifecycleService->closeOpenSchedulesNearDeparture();
         $pengemudi = $this->activeDriverFor($request);
 
         $trips = $this->driverTripsQuery($pengemudi)->get();
@@ -54,6 +64,7 @@ class DriverController extends Controller
     public function manifest(Request $request, Jadwal $jadwal): JsonResponse
     {
         $this->ensureDriverOwnsTrip($request, $jadwal);
+        $this->scheduleLifecycleService->closeSingleIfPastBookingWindow($jadwal);
 
         $jadwal->load($this->tripRelations());
 
@@ -161,9 +172,9 @@ class DriverController extends Controller
                     'pemesanan.jadwal.kendaraan',
                 ])
                 ->whereKey($detail->id)
-                ->whereHas('pemesanan', fn ($query) => $query
-                    ->where('jadwal_id', $jadwal->id)
-                    ->where('status_pemesanan', 'terbayar'))
+                ->whereHas('pemesanan', fn ($query) => $this->scopeManifestVisibleBookings(
+                    $query->where('jadwal_id', $jadwal->id),
+                ))
                 ->first();
 
             if (! $lockedDetail || ! $lockedDetail->pemesanan) {
@@ -194,6 +205,36 @@ class DriverController extends Controller
             'success' => true,
             'message' => 'Status pickup penumpang berhasil ditandai.',
             'data' => $passenger,
+        ]);
+    }
+
+    public function confirmPassengerCash(Request $request, Jadwal $jadwal, DetailPemesanan $detail): JsonResponse
+    {
+        $this->ensureDriverOwnsTrip($request, $jadwal);
+
+        $detail->load('pemesanan.pembayaran');
+        $booking = $detail->pemesanan;
+
+        if (! $booking || (int) $booking->jadwal_id !== (int) $jadwal->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Penumpang tidak ditemukan pada manifest pengemudi.',
+            ], 404);
+        }
+
+        $updatedBooking = $this->bookingService->confirmCashPaymentByDriver(
+            $booking,
+            $request->user(),
+        );
+
+        $updatedDetail = $updatedBooking->detailPemesanan
+            ->firstWhere('id', $detail->id)
+            ?? $updatedBooking->detailPemesanan()->with('tiketElektronik')->findOrFail($detail->id);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Pembayaran tunai berhasil dikonfirmasi. Tiket digital sudah diterbitkan.',
+            'data' => $this->formatManifestPassenger($updatedBooking, $updatedDetail),
         ]);
     }
 
@@ -255,7 +296,7 @@ class DriverController extends Controller
                 ->where('status_pemesanan', 'terbayar')
                 ->exists();
 
-            if (! $hasActivePaidBooking && in_array($jadwal->status, ['dibuka', 'berangkat'], true)) {
+            if (! $hasActivePaidBooking && in_array($jadwal->status, ['dibuka', 'ditutup', 'berangkat'], true)) {
                 Jadwal::query()
                     ->whereKey($jadwal->id)
                     ->update(['status' => 'selesai']);
@@ -289,6 +330,7 @@ class DriverController extends Controller
 
             $allowed = [
                 'dibuka' => ['berangkat'],
+                'ditutup' => ['berangkat'],
                 'berangkat' => ['selesai'],
             ];
 
@@ -366,9 +408,24 @@ class DriverController extends Controller
             'rute',
             'kendaraan',
             'pemesanan' => fn ($query) => $query
-                ->whereIn('status_pemesanan', ['terbayar', 'selesai'])
+                ->where(fn ($bookingQuery) => $this->scopeManifestVisibleBookings($bookingQuery))
                 ->with(['pengguna', 'detailPemesanan.tiketElektronik', 'itemBagasi', 'pembayaran']),
         ];
+    }
+
+    private function scopeManifestVisibleBookings($query)
+    {
+        return $query->where(function ($visibleQuery) {
+            $visibleQuery
+                ->whereIn('status_pemesanan', ['terbayar', 'selesai'])
+                ->orWhere(function ($cashQuery) {
+                    $cashQuery
+                        ->where('status_pemesanan', 'menunggu_pembayaran')
+                        ->whereHas('pembayaran', fn ($paymentQuery) => $paymentQuery
+                            ->where('metode_bayar', 'cash')
+                            ->where('status_bayar', 'menunggu'));
+                });
+        });
     }
 
     private function formatTrip(Jadwal $jadwal): array
@@ -391,6 +448,7 @@ class DriverController extends Controller
             'waktu_berangkat' => $jadwal->waktu_berangkat?->toIso8601String(),
             'estimasi_tiba' => $jadwal->estimasi_tiba?->toIso8601String(),
             'kendaraan' => $jadwal->kendaraan->merk_kendaraan.' '.$jadwal->kendaraan->nomor_plat,
+            'kendaraan_foto_url' => $this->publicStorageUrl($jadwal->kendaraan?->foto_kendaraan),
             'status' => $jadwal->status,
             'passenger_count' => $this->manifestPassengers($jadwal)->count(),
             'revenue' => $jadwal->pemesanan->sum(fn (Pemesanan $booking) => (float) $booking->total_harga),
@@ -415,10 +473,16 @@ class DriverController extends Controller
         $baggageItems = $booking->itemBagasi->sum('jumlah_item');
         $baggageWeight = $booking->itemBagasi->sum(fn ($item) => (float) $item->berat_kg);
         $ticket = $detail->tiketElektronik;
+        $paymentStatus = $booking->pembayaran?->status_bayar;
+        $paymentMethod = $booking->pembayaran?->metode_bayar;
+        $isCashPending = $booking->status_pemesanan === 'menunggu_pembayaran'
+            && $paymentMethod === 'cash'
+            && $paymentStatus === 'menunggu';
 
         return [
             'booking_id' => $booking->id,
             'kode_booking' => $booking->kode_booking,
+            'status_pemesanan' => $booking->status_pemesanan,
             'detail_id' => $detail->id,
             'nama_penumpang' => $detail->nama_penumpang,
             'no_hp_penumpang' => $detail->no_hp_penumpang,
@@ -447,17 +511,20 @@ class DriverController extends Controller
                 'label' => $baggageItems > 0
                     ? "{$baggageItems} item / {$baggageWeight} kg"
                     : 'Tidak ada bagasi tercatat',
+                'foto_url' => $this->publicStorageUrl($booking->itemBagasi->firstWhere('foto_url', '!=', null)?->foto_url),
             ],
             'fare' => [
                 'total' => (float) $booking->total_harga,
                 'label' => 'Rp'.number_format((float) $booking->total_harga, 0, ',', '.'),
             ],
             'pembayaran' => [
-                'status' => $booking->pembayaran?->status_bayar,
-                'metode' => $booking->pembayaran?->metode_bayar,
+                'status' => $paymentStatus,
+                'metode' => $paymentMethod,
                 'channel' => $booking->pembayaran?->paid_channel,
                 'total' => (float) ($booking->pembayaran?->jumlah_bayar ?? $booking->total_harga),
                 'label' => 'Rp'.number_format((float) ($booking->pembayaran?->jumlah_bayar ?? $booking->total_harga), 0, ',', '.'),
+                'is_cash_pending' => $isCashPending,
+                'can_confirm_cash' => $isCashPending,
             ],
             'ticket' => $ticket ? [
                 'kode_qr' => $ticket->kode_qr,
