@@ -5,6 +5,92 @@
 @section('page-description', 'Atur identitas aplikasi, logika booking, pembayaran, bagasi, dan template notifikasi dari satu pusat konfigurasi.')
 
 @section('content')
+    <section id="akun-admin" class="travs-card travs-admin-account-card mb-4">
+        <div class="travs-admin-account-head">
+            <div>
+                <span class="travs-eyebrow">Akun Admin</span>
+                <h3>Email dan Password</h3>
+                <p>Perbarui email login atau ganti password dashboard admin.</p>
+            </div>
+            <div class="travs-admin-account-badge">
+                <span>Akun aktif</span>
+                <strong>{{ $adminUser->email }}</strong>
+            </div>
+        </div>
+
+        <form method="POST" action="{{ route('admin.pengaturan.account.update') }}" class="travs-admin-account-form">
+            @csrf
+            @method('PUT')
+
+            <div class="travs-admin-account-primary">
+                <div class="travs-field">
+                    <label for="admin_email">Email Admin</label>
+                    <input
+                        id="admin_email"
+                        name="email"
+                        type="email"
+                        class="travs-input @error('email') is-invalid @enderror"
+                        value="{{ old('email', $adminUser->email) }}"
+                        required
+                        autocomplete="email"
+                    >
+                    @include('admin.partials.field-error', ['name' => 'email'])
+                </div>
+
+                <div class="travs-field">
+                    <label for="current_password">Password Lama</label>
+                    <input
+                        id="current_password"
+                        name="current_password"
+                        type="password"
+                        class="travs-input @error('current_password') is-invalid @enderror"
+                        required
+                        autocomplete="current-password"
+                        placeholder="Masukkan password lama"
+                    >
+                    @include('admin.partials.field-error', ['name' => 'current_password'])
+                </div>
+            </div>
+
+            <div class="travs-admin-password-panel">
+                <div class="travs-admin-password-copy">
+                    <h4>Ganti Password</h4>
+                    <p>Isi dua kolom ini hanya jika ingin mengganti password. Jika tidak, biarkan kosong.</p>
+                </div>
+                <div class="travs-form-grid-2">
+                    <div class="travs-field">
+                        <label for="password">Password Baru</label>
+                        <input
+                            id="password"
+                            name="password"
+                            type="password"
+                            class="travs-input @error('password') is-invalid @enderror"
+                            autocomplete="new-password"
+                            placeholder="Minimal 8 karakter"
+                        >
+                        @include('admin.partials.field-error', ['name' => 'password'])
+                    </div>
+
+                    <div class="travs-field">
+                        <label for="password_confirmation">Konfirmasi Password Baru</label>
+                        <input
+                            id="password_confirmation"
+                            name="password_confirmation"
+                            type="password"
+                            class="travs-input"
+                            autocomplete="new-password"
+                            placeholder="Ulangi password baru"
+                        >
+                    </div>
+                </div>
+            </div>
+
+            <div class="travs-form-actions travs-admin-account-actions">
+                <button type="submit" class="travs-button">Simpan Perubahan Akun</button>
+            </div>
+        </form>
+    </section>
+
     <form method="POST" action="{{ route('admin.pengaturan.update') }}" class="travs-settings-grid">
         @csrf
         @method('PUT')
@@ -89,13 +175,13 @@
                                 <textarea
                                     id="{{ $setting->kunci }}"
                                     name="settings[{{ $setting->kunci }}]"
-                                    class="travs-textarea"
+                                    class="travs-textarea @error('settings.'.$setting->kunci) is-invalid @enderror"
                                 >{{ is_array($castValue) ? json_encode($castValue, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) : $castValue }}</textarea>
                             @elseif (str_contains($setting->kunci, 'template') || str_contains($setting->kunci, 'note') || str_contains($setting->kunci, 'alamat'))
                                 <textarea
                                     id="{{ $setting->kunci }}"
                                     name="settings[{{ $setting->kunci }}]"
-                                    class="travs-textarea"
+                                    class="travs-textarea @error('settings.'.$setting->kunci) is-invalid @enderror"
                                 >{{ $castValue }}</textarea>
                             @else
                                 <input
@@ -103,7 +189,7 @@
                                     name="settings[{{ $setting->kunci }}]"
                                     type="{{ in_array($setting->tipe_data, ['integer', 'decimal'], true) ? 'number' : 'text' }}"
                                     step="{{ $setting->tipe_data === 'decimal' ? '0.01' : '1' }}"
-                                    class="travs-input"
+                                    class="travs-input @error('settings.'.$setting->kunci) is-invalid @enderror"
                                     value="{{ $castValue }}"
                                 >
                             @endif
@@ -111,6 +197,7 @@
                             <div class="travs-field-meta">
                                 {{ $setting->deskripsi }}
                             </div>
+                            @include('admin.partials.field-error', ['name' => 'settings.'.$setting->kunci])
                         </div>
                     @endforeach
                 </div>

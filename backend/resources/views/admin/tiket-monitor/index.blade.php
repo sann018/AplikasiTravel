@@ -2,7 +2,7 @@
 
 @section('title', 'Monitoring Tiket QR')
 @section('page-title', 'Monitoring Tiket QR')
-@section('page-description', 'Pantau status scan tiket QR penumpang secara real-time untuk memastikan boarding berjalan lancar.')
+@section('page-description', 'Pantau status scan tiket QR penumpang.')
 
 @section('content')
     <section class="travs-summary-grid">
@@ -31,7 +31,7 @@
     <article class="travs-section-card">
         <div class="travs-panel-title">
             <h3>Filter Tiket</h3>
-            <p>Cari berdasarkan kode QR, booking, penumpang, jadwal, dan status scan.</p>
+            <p>Cari tiket berdasarkan kode, penumpang, jadwal, atau status.</p>
         </div>
 
         <form method="GET" class="travs-filter-grid travs-filter-grid-wide">

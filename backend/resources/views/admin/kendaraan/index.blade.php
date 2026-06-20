@@ -61,6 +61,7 @@
             <table class="travs-table">
                 <thead>
                     <tr>
+                        <th>Foto</th>
                         <th>Armada</th>
                         <th>Kapasitas</th>
                         <th>Status</th>
@@ -71,6 +72,19 @@
                 <tbody>
                     @forelse ($kendaraan as $item)
                         <tr>
+                            <td>
+                                @if ($item->foto_kendaraan)
+                                    <img
+                                        class="travs-vehicle-thumb travs-photo-preview-trigger"
+                                        src="/storage/{{ ltrim($item->foto_kendaraan, '/') }}"
+                                        alt="Foto {{ $item->merk_kendaraan }}"
+                                    >
+                                @else
+                                    <div class="travs-vehicle-thumb travs-vehicle-thumb-fallback" aria-label="Foto kendaraan belum ada">
+                                        <i class="bi bi-car-front-fill"></i>
+                                    </div>
+                                @endif
+                            </td>
                             <td>
                                 <strong>{{ $item->merk_kendaraan }}</strong>
                                 <div class="travs-table-subcopy">{{ $item->nomor_plat }} &middot; {{ $item->tipe_kendaraan ?: 'Tipe belum diisi' }}</div>
@@ -95,7 +109,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="travs-table-empty">Belum ada data armada kendaraan.</td>
+                            <td colspan="6" class="travs-table-empty">Belum ada data armada kendaraan.</td>
                         </tr>
                     @endforelse
                 </tbody>

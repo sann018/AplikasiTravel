@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Jadwal;
 use App\Services\BookingService;
+use App\Services\ScheduleLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -12,12 +13,14 @@ class GuestController extends Controller
 {
     public function __construct(
         private readonly BookingService $bookingService,
+        private readonly ScheduleLifecycleService $scheduleLifecycleService,
     ) {
     }
 
     public function schedules(Request $request): JsonResponse
     {
         $this->bookingService->releaseExpiredResources();
+        $this->scheduleLifecycleService->closeOpenSchedulesNearDeparture();
 
         $validated = $request->validate([
             'asal' => ['nullable', 'string', 'max:100'],

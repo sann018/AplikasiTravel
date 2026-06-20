@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', 'Dashboard Admin') - {{ config('app.name') }}</title>
+    <title>@yield('title', 'Admin') - {{ config('app.name') }}</title>
     <link rel="stylesheet" href="{{ asset('vendor/mazer/css/app.css') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link rel="stylesheet" href="{{ asset('vendor/mazer/css/travs-bridge.css') }}?v={{ filemtime(public_path('vendor/mazer/css/travs-bridge.css')) }}">
@@ -45,7 +45,7 @@
                 ],
             ],
         ];
-        $pageTitle = trim($__env->yieldContent('page-title', 'Dashboard'));
+        $pageTitle = trim($__env->yieldContent('page-title', 'Dasbor'));
         $pageDescription = trim($__env->yieldContent('page-description', 'Kelola operasional travel secara terpusat dan nyaman dipakai setiap hari.'));
         $unreadAdminNotifications = \App\Models\Notifikasi::query()
             ->where('pengguna_id', auth()->id())
@@ -176,12 +176,6 @@
                 @if (session('error'))
                     <div class="travs-alert travs-alert-danger mb-4">
                         {{ session('error') }}
-                    </div>
-                @endif
-
-                @if ($errors->any())
-                    <div class="travs-alert travs-alert-danger mb-4">
-                        {{ $errors->first() }}
                     </div>
                 @endif
 

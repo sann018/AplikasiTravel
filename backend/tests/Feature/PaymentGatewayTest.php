@@ -8,6 +8,7 @@ use App\Models\KursiJadwal;
 use App\Models\Pemesanan;
 use App\Models\TiketElektronik;
 use App\Models\User;
+use App\Services\BookingService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -303,6 +304,43 @@ class PaymentGatewayTest extends TestCase
         $this->assertSame('berhasil', $payment->status_bayar);
         $this->assertDatabaseHas('tiket_elektronik', [
             'detail_pemesanan_id' => $booking->detailPemesanan()->firstOrFail()->id,
+        ]);
+    }
+
+    public function test_gateway_completed_payment_is_synced_before_expired_booking_cleanup(): void
+    {
+        $booking = $this->makePendingGatewayBooking('qris');
+        $detailId = $booking->detailPemesanan()->firstOrFail()->id;
+
+        $booking->update([
+            'batas_pembayaran' => now()->subMinutes(10),
+        ]);
+        $booking->pembayaran()->update([
+            'expired_at' => now()->subMinutes(10),
+        ]);
+
+        Http::fake([
+            'app.pakasir.test/api/transactiondetail*' => Http::response([
+                'transaction' => [
+                    'order_id' => $booking->kode_booking,
+                    'status' => 'completed',
+                    'payment_method' => 'qris',
+                    'amount' => 230000,
+                    'total_payment' => 231500,
+                    'completed_at' => now()->toIso8601String(),
+                ],
+            ]),
+        ]);
+
+        app(BookingService::class)->releaseExpiredResources($booking->jadwal_id);
+
+        $booking->refresh();
+        $payment = $booking->pembayaran()->firstOrFail();
+
+        $this->assertSame('terbayar', $booking->status_pemesanan);
+        $this->assertSame('berhasil', $payment->status_bayar);
+        $this->assertDatabaseHas('tiket_elektronik', [
+            'detail_pemesanan_id' => $detailId,
         ]);
     }
 

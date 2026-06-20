@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\BookingCalculator;
 use App\Services\BookingService;
 use App\Services\PakasirService;
+use App\Services\ScheduleLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,12 +21,14 @@ class BookingController extends Controller
         private readonly BookingService $bookingService,
         private readonly BookingCalculator $bookingCalculator,
         private readonly PakasirService $pakasirService,
+        private readonly ScheduleLifecycleService $scheduleLifecycleService,
     ) {
     }
 
     public function scheduleDetail(Jadwal $jadwal): JsonResponse
     {
         $this->bookingService->releaseExpiredResources($jadwal->id);
+        $this->scheduleLifecycleService->closeSingleIfPastBookingWindow($jadwal);
         $jadwal->load(['rute', 'kendaraan', 'pengemudi.pengguna', 'kursi']);
 
         return response()->json([
@@ -101,6 +104,15 @@ class BookingController extends Controller
         ]);
 
         $schedule = Jadwal::query()->with('rute')->findOrFail($validated['jadwal_id']);
+        $this->scheduleLifecycleService->closeSingleIfPastBookingWindow($schedule);
+
+        if ($schedule->status !== 'dibuka') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Jadwal yang dipilih sudah ditutup untuk pemesanan.',
+            ], 422);
+        }
+
         $totals = $this->bookingCalculator->calculate(
             $schedule,
             (int) $validated['seat_count'],

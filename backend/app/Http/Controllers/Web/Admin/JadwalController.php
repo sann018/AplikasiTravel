@@ -9,6 +9,8 @@ use App\Models\KursiJadwal;
 use App\Models\Notifikasi;
 use App\Models\Pengemudi;
 use App\Models\Rute;
+use App\Services\DriverAvailabilityService;
+use App\Services\ScheduleLifecycleService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -20,8 +22,16 @@ use Illuminate\View\View;
 
 class JadwalController extends Controller
 {
+    public function __construct(
+        private readonly DriverAvailabilityService $driverAvailabilityService,
+        private readonly ScheduleLifecycleService $scheduleLifecycleService,
+    ) {
+    }
+
     public function index(Request $request): View
     {
+        $this->scheduleLifecycleService->closeOpenSchedulesNearDeparture();
+
         $query = Jadwal::query()
             ->with(['rute', 'kendaraan', 'pengemudi.pengguna'])
             ->withCount([
@@ -65,6 +75,7 @@ class JadwalController extends Controller
             'stats' => [
                 'total' => Jadwal::query()->count(),
                 'dibuka' => Jadwal::query()->where('status', 'dibuka')->count(),
+                'ditutup' => Jadwal::query()->where('status', 'ditutup')->count(),
                 'berangkat' => Jadwal::query()->where('status', 'berangkat')->count(),
                 'selesai' => Jadwal::query()->where('status', 'selesai')->count(),
             ],
@@ -72,19 +83,24 @@ class JadwalController extends Controller
         ]);
     }
 
-    public function create(): View
+    public function create(Request $request): View
     {
+        $pengemudiOptions = Pengemudi::query()
+            ->with('pengguna')
+            ->where('status', 'aktif')
+            ->where('status_verifikasi', 'terverifikasi')
+            ->orderBy('nomor_sim')
+            ->get();
+        $availabilityDeparture = $this->parseAvailabilityDeparture($request->old('waktu_berangkat'));
+
         return view('admin.jadwal.create', [
             'kendaraanOptions' => Kendaraan::query()
                 ->where('status_kendaraan', 'aktif')
                 ->orderBy('nomor_plat')
                 ->get(),
-            'pengemudiOptions' => Pengemudi::query()
-                ->with('pengguna')
-                ->where('status', 'aktif')
-                ->where('status_verifikasi', 'terverifikasi')
-                ->orderBy('nomor_sim')
-                ->get(),
+            'pengemudiOptions' => $pengemudiOptions,
+            'pengemudiAvailability' => $this->driverAvailabilityService
+                ->availabilityForOptions($pengemudiOptions, $availabilityDeparture),
             'ruteOptions' => Rute::query()
                 ->where('status_aktif', true)
                 ->orderBy('kota_asal')
@@ -92,9 +108,19 @@ class JadwalController extends Controller
         ]);
     }
 
-    public function edit(Jadwal $jadwal): View
+    public function edit(Request $request, Jadwal $jadwal): View
     {
+        $this->scheduleLifecycleService->closeSingleIfPastBookingWindow($jadwal);
         $jadwal->load(['kendaraan', 'rute', 'pengemudi']);
+        $pengemudiOptions = Pengemudi::query()
+            ->with('pengguna')
+            ->where('status', 'aktif')
+            ->where('status_verifikasi', 'terverifikasi')
+            ->orderBy('nomor_sim')
+            ->get();
+        $availabilityDeparture = $this->parseAvailabilityDeparture(
+            $request->old('waktu_berangkat') ?: $jadwal->waktu_berangkat?->format('Y-m-d H:i'),
+        );
 
         return view('admin.jadwal.edit', [
             'jadwal' => $jadwal,
@@ -102,12 +128,9 @@ class JadwalController extends Controller
                 ->where('status_kendaraan', 'aktif')
                 ->orderBy('nomor_plat')
                 ->get(),
-            'pengemudiOptions' => Pengemudi::query()
-                ->with('pengguna')
-                ->where('status', 'aktif')
-                ->where('status_verifikasi', 'terverifikasi')
-                ->orderBy('nomor_sim')
-                ->get(),
+            'pengemudiOptions' => $pengemudiOptions,
+            'pengemudiAvailability' => $this->driverAvailabilityService
+                ->availabilityForOptions($pengemudiOptions, $availabilityDeparture, $jadwal),
             'ruteOptions' => Rute::query()
                 ->where('status_aktif', true)
                 ->orderBy('kota_asal')
@@ -184,7 +207,7 @@ class JadwalController extends Controller
             'pengemudi_id' => ['required', 'exists:pengemudi,id'],
             'waktu_berangkat' => ['required', 'date'],
             'estimasi_tiba' => ['nullable', 'date', 'after:waktu_berangkat'],
-            'status' => ['required', Rule::in(['draft', 'dibuka', 'berangkat', 'selesai', 'dibatalkan'])],
+            'status' => ['required', Rule::in(['draft', 'dibuka', 'ditutup', 'berangkat', 'selesai', 'dibatalkan'])],
         ]);
 
         $pengemudi = Pengemudi::query()->findOrFail($validated['pengemudi_id']);
@@ -195,30 +218,34 @@ class JadwalController extends Controller
             ]);
         }
 
-        if ($this->driverHasScheduleAtSameMinute($validated, $currentJadwal)) {
+        $conflictingSchedule = $this->driverAvailabilityService->conflictingSchedule(
+            (int) $validated['pengemudi_id'],
+            Carbon::parse($validated['waktu_berangkat']),
+            $currentJadwal,
+        );
+
+        if ($conflictingSchedule) {
             throw ValidationException::withMessages([
-                'pengemudi_id' => 'Pengemudi ini sudah memiliki jadwal pada tanggal dan jam keberangkatan yang sama.',
+                'pengemudi_id' => $this->driverAvailabilityService->conflictMessage($conflictingSchedule),
             ]);
         }
 
         return $validated;
     }
 
-    private function driverHasScheduleAtSameMinute(array $payload, ?Jadwal $currentJadwal = null): bool
+    private function parseAvailabilityDeparture(?string $value): ?Carbon
     {
-        $departureMinute = Carbon::parse($payload['waktu_berangkat']);
+        if (! $value) {
+            return null;
+        }
 
-        // Waktu dibandingkan sampai menit karena input `datetime-local` tidak
-        // mengirim detik. Cara ini menjaga pemeriksaan bentrok tetap konsisten.
-        return Jadwal::query()
-            ->where('pengemudi_id', $payload['pengemudi_id'])
-            ->where('status', '!=', 'dibatalkan')
-            ->whereBetween('waktu_berangkat', [
-                $departureMinute->copy()->startOfMinute(),
-                $departureMinute->copy()->endOfMinute(),
-            ])
-            ->when($currentJadwal, fn ($query) => $query->whereKeyNot($currentJadwal->id))
-            ->exists();
+        // Nilai tanggal dari filter boleh kosong atau tidak valid, jadi parser
+        // mengembalikan null agar halaman tetap bisa menampilkan daftar jadwal.
+        try {
+            return Carbon::parse($value);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function syncSeatMap(Jadwal $jadwal): void

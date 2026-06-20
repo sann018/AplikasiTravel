@@ -2,14 +2,14 @@
 
 @section('title', 'Log Notifikasi')
 @section('page-title', 'Log Notifikasi')
-@section('page-description', 'Pantau notifikasi sistem yang tersimpan ke database untuk penumpang, pengemudi, dan admin operasional.')
+@section('page-description', 'Pantau notifikasi untuk penumpang, pengemudi, dan admin.')
 
 @section('content')
     <section class="travs-summary-grid">
         <article class="travs-summary-card">
             <small>Total Notifikasi</small>
             <strong>{{ number_format($stats['total']) }}</strong>
-            <span>Semua log notifikasi</span>
+            <span>Semua notifikasi</span>
         </article>
         <article class="travs-summary-card">
             <small>Belum Dibaca</small>
@@ -31,7 +31,7 @@
     <article class="travs-section-card">
         <div class="travs-panel-title">
             <h3>Filter Notifikasi</h3>
-            <p>Cari log notifikasi berdasarkan judul, isi pesan, jenis, dan status baca.</p>
+            <p>Cari notifikasi berdasarkan judul, pesan, jenis, atau status baca.</p>
         </div>
 
         <form method="GET" class="travs-filter-grid">

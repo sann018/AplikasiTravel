@@ -31,34 +31,41 @@
             <div class="travs-form-grid-2">
                 <div class="travs-field">
                     <label for="kota_asal">Kota Asal</label>
-                    <input id="kota_asal" name="kota_asal" class="travs-input" value="{{ old('kota_asal') }}" required placeholder="Contoh: Pontianak">
+                    <input id="kota_asal" name="kota_asal" class="travs-input @error('kota_asal') is-invalid @enderror" value="{{ old('kota_asal') }}" required placeholder="Contoh: Pontianak">
+                    @include('admin.partials.field-error', ['name' => 'kota_asal'])
                 </div>
                 <div class="travs-field">
                     <label for="kota_tujuan">Kota Tujuan</label>
-                    <input id="kota_tujuan" name="kota_tujuan" class="travs-input" value="{{ old('kota_tujuan') }}" required placeholder="Contoh: Sanggau">
+                    <input id="kota_tujuan" name="kota_tujuan" class="travs-input @error('kota_tujuan') is-invalid @enderror" value="{{ old('kota_tujuan') }}" required placeholder="Contoh: Sanggau">
+                    @include('admin.partials.field-error', ['name' => 'kota_tujuan'])
                 </div>
                 <div class="travs-field">
                     <label for="harga_tiket">Harga Tiket (Rp)</label>
-                    <input id="harga_tiket" name="harga_tiket" type="number" class="travs-input" value="{{ old('harga_tiket') }}" required placeholder="Contoh: 150000">
+                    <input id="harga_tiket" name="harga_tiket" type="number" class="travs-input @error('harga_tiket') is-invalid @enderror" value="{{ old('harga_tiket') }}" required placeholder="Contoh: 150000">
+                    @include('admin.partials.field-error', ['name' => 'harga_tiket'])
                 </div>
                 <div class="travs-field">
                     <label for="estimasi_durasi_menit">Estimasi Durasi (menit)</label>
-                    <input id="estimasi_durasi_menit" name="estimasi_durasi_menit" type="number" class="travs-input" value="{{ old('estimasi_durasi_menit') }}" required placeholder="Contoh: 180">
+                    <input id="estimasi_durasi_menit" name="estimasi_durasi_menit" type="number" class="travs-input @error('estimasi_durasi_menit') is-invalid @enderror" value="{{ old('estimasi_durasi_menit') }}" required placeholder="Contoh: 180">
+                    @include('admin.partials.field-error', ['name' => 'estimasi_durasi_menit'])
                 </div>
                 <div class="travs-field travs-field-span-2">
                     <label for="deskripsi_jalur">Deskripsi Jalur</label>
-                    <textarea id="deskripsi_jalur" name="deskripsi_jalur" class="travs-textarea" placeholder="Deskripsi jalur atau titik-titik penting di sepanjang rute">{{ old('deskripsi_jalur') }}</textarea>
+                    <textarea id="deskripsi_jalur" name="deskripsi_jalur" class="travs-textarea @error('deskripsi_jalur') is-invalid @enderror" placeholder="Deskripsi jalur atau titik-titik penting di sepanjang rute">{{ old('deskripsi_jalur') }}</textarea>
+                    @include('admin.partials.field-error', ['name' => 'deskripsi_jalur'])
                 </div>
                 <div class="travs-field">
                     <label for="jarak_km">Jarak (km)</label>
-                    <input id="jarak_km" name="jarak_km" type="number" class="travs-input" value="{{ old('jarak_km') }}" placeholder="Contoh: 220">
+                    <input id="jarak_km" name="jarak_km" type="number" class="travs-input @error('jarak_km') is-invalid @enderror" value="{{ old('jarak_km') }}" placeholder="Contoh: 220">
+                    @include('admin.partials.field-error', ['name' => 'jarak_km'])
                 </div>
                 <div class="travs-field">
                     <label for="status">Status Rute</label>
-                    <select id="status" name="status" class="travs-select" required>
+                    <select id="status" name="status" class="travs-select @error('status') is-invalid @enderror" required>
                         <option value="aktif" @selected(old('status', 'aktif') === 'aktif')>Aktif</option>
                         <option value="nonaktif" @selected(old('status') === 'nonaktif')>Nonaktif</option>
                     </select>
+                    @include('admin.partials.field-error', ['name' => 'status'])
                 </div>
             </div>
 

@@ -11,6 +11,7 @@ use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -49,6 +50,110 @@ class BookingFlowTest extends TestCase
                     'bagasi',
                 ],
             ]);
+    }
+
+    public function test_guest_schedule_list_hides_schedule_one_hour_before_departure(): void
+    {
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        $jadwal->update([
+            'waktu_berangkat' => Carbon::parse('2026-06-19 10:00:00'),
+            'estimasi_tiba' => Carbon::parse('2026-06-19 16:00:00'),
+            'status' => 'dibuka',
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-06-19 09:00:00'));
+
+        try {
+            $response = $this->getJson('/api/guest/jadwal');
+
+            $response
+                ->assertOk()
+                ->assertJsonPath('success', true)
+                ->assertJsonMissing(['id' => $jadwal->id]);
+
+            $this->assertSame('ditutup', $jadwal->fresh()->status);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_admin_schedule_index_marks_schedule_closed_one_hour_before_departure(): void
+    {
+        $admin = User::query()->where('email', 'admin@travs.com')->firstOrFail();
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        $jadwal->update([
+            'waktu_berangkat' => Carbon::parse('2026-06-19 10:00:00'),
+            'estimasi_tiba' => Carbon::parse('2026-06-19 16:00:00'),
+            'status' => 'dibuka',
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-06-19 09:00:00'));
+
+        try {
+            $response = $this
+                ->actingAs($admin)
+                ->get(route('admin.jadwal.index'));
+
+            $response
+                ->assertOk()
+                ->assertSee('Ditutup');
+
+            $this->assertSame('ditutup', $jadwal->fresh()->status);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_passenger_cannot_estimate_closed_schedule_one_hour_before_departure(): void
+    {
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        $jadwal->update([
+            'waktu_berangkat' => Carbon::parse('2026-06-19 10:00:00'),
+            'estimasi_tiba' => Carbon::parse('2026-06-19 16:00:00'),
+            'status' => 'dibuka',
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-06-19 09:00:00'));
+
+        try {
+            Sanctum::actingAs($user);
+
+            $response = $this->postJson('/api/penumpang/bookings/estimate', [
+                'jadwal_id' => $jadwal->id,
+                'seat_count' => 1,
+                'baggage_items' => [],
+            ]);
+
+            $response
+                ->assertStatus(422)
+                ->assertJsonPath('success', false);
+
+            $this->assertSame('ditutup', $jadwal->fresh()->status);
+        } finally {
+            Carbon::setTestNow();
+        }
+    }
+
+    public function test_console_command_closes_schedule_one_hour_before_departure(): void
+    {
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        $jadwal->update([
+            'waktu_berangkat' => Carbon::parse('2026-06-19 10:00:00'),
+            'estimasi_tiba' => Carbon::parse('2026-06-19 16:00:00'),
+            'status' => 'dibuka',
+        ]);
+
+        Carbon::setTestNow(Carbon::parse('2026-06-19 09:00:00'));
+
+        try {
+            $this->artisan('travs:close-near-departure-schedules')
+                ->assertExitCode(0);
+
+            $this->assertSame('ditutup', $jadwal->fresh()->status);
+        } finally {
+            Carbon::setTestNow();
+        }
     }
 
     public function test_passenger_can_lock_seats_for_checkout_form(): void

@@ -32,23 +32,42 @@
             <div class="travs-form-grid-2">
                 <div class="travs-field">
                     <label for="nama">Nama Lengkap</label>
-                    <input id="nama" name="nama" class="travs-input" value="{{ old('nama', $pengemudi->pengguna->nama) }}" required>
+                    <input id="nama" name="nama" class="travs-input @error('nama') is-invalid @enderror" value="{{ old('nama', $pengemudi->pengguna->nama) }}" required>
+                    @include('admin.partials.field-error', ['name' => 'nama'])
                 </div>
                 <div class="travs-field">
                     <label for="nomor_sim">Nomor SIM</label>
-                    <input id="nomor_sim" name="nomor_sim" class="travs-input" value="{{ old('nomor_sim', $pengemudi->nomor_sim) }}" required>
+                    <input id="nomor_sim" name="nomor_sim" class="travs-input @error('nomor_sim') is-invalid @enderror" value="{{ old('nomor_sim', $pengemudi->nomor_sim) }}" required minlength="12" maxlength="16" inputmode="numeric" pattern="[0-9]{12,16}">
+                    <div class="travs-field-meta">Gunakan 12-16 digit angka sesuai nomor SIM Indonesia.</div>
+                    @include('admin.partials.field-error', ['name' => 'nomor_sim'])
                 </div>
                 <div class="travs-field">
                     <label for="email">Email</label>
-                    <input id="email" name="email" type="email" class="travs-input" value="{{ old('email', $pengemudi->pengguna->email) }}" required>
+                    <input id="email" name="email" type="email" class="travs-input @error('email') is-invalid @enderror" value="{{ old('email', $pengemudi->pengguna->email) }}" required>
+                    @include('admin.partials.field-error', ['name' => 'email'])
                 </div>
                 <div class="travs-field">
                     <label for="no_hp">Nomor HP</label>
-                    <input id="no_hp" name="no_hp" class="travs-input" value="{{ old('no_hp', $pengemudi->pengguna->no_hp) }}" required>
+                    <input id="no_hp" name="no_hp" class="travs-input @error('no_hp') is-invalid @enderror" value="{{ old('no_hp', $pengemudi->pengguna->no_hp) }}" required minlength="10" maxlength="16" inputmode="tel" pattern="(\+62|62|0)8[1-9][0-9]{7,10}">
+                    <div class="travs-field-meta">Nomor Indonesia, contoh 081234567890 atau +6281234567890.</div>
+                    @include('admin.partials.field-error', ['name' => 'no_hp'])
                 </div>
                 <div class="travs-field">
-                    <label for="foto_sim">Foto SIM / URL Dokumen</label>
-                    <input id="foto_sim" name="foto_sim" class="travs-input" value="{{ old('foto_sim', $pengemudi->foto_sim) }}">
+                    <label for="foto_sim">Foto SIM</label>
+                    @if ($pengemudi->foto_sim)
+                        @php
+                            $fotoSimUrl = str_starts_with($pengemudi->foto_sim, 'http')
+                                ? $pengemudi->foto_sim
+                                : asset('storage/'.ltrim($pengemudi->foto_sim, '/'));
+                        @endphp
+                        <div class="travs-current-photo travs-current-document">
+                            <img class="travs-photo-preview-trigger" src="{{ $fotoSimUrl }}" alt="Foto SIM {{ $pengemudi->pengguna->nama }}">
+                            <span>Foto SIM aktif</span>
+                        </div>
+                    @endif
+                    <input id="foto_sim" name="foto_sim" type="file" class="travs-input @error('foto_sim') is-invalid @enderror" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+                    <div class="travs-field-meta">Kosongkan jika tidak ingin mengganti foto SIM. Maksimal 2MB.</div>
+                    @include('admin.partials.field-error', ['name' => 'foto_sim'])
                 </div>
                 <div class="travs-field">
                     <label for="foto_profil">Foto Profil Pengemudi</label>
@@ -58,31 +77,36 @@
                             <span>Foto profil aktif</span>
                         </div>
                     @endif
-                    <input id="foto_profil" name="foto_profil" type="file" class="travs-input" accept="image/*">
+                    <input id="foto_profil" name="foto_profil" type="file" class="travs-input @error('foto_profil') is-invalid @enderror" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
                     <div class="travs-field-meta">Kosongkan jika tidak ingin mengganti foto. Maksimal 2MB.</div>
+                    @include('admin.partials.field-error', ['name' => 'foto_profil'])
                 </div>
                 <div class="travs-field">
                     <label for="status">Status Akun</label>
-                    <select id="status" name="status" class="travs-select" required>
+                    <select id="status" name="status" class="travs-select @error('status') is-invalid @enderror" required>
                         <option value="aktif" @selected(old('status', $pengemudi->status) === 'aktif')>Aktif</option>
                         <option value="nonaktif" @selected(old('status', $pengemudi->status) === 'nonaktif')>Nonaktif</option>
                     </select>
+                    @include('admin.partials.field-error', ['name' => 'status'])
                 </div>
                 <div class="travs-field">
                     <label for="status_verifikasi">Status Verifikasi</label>
-                    <select id="status_verifikasi" name="status_verifikasi" class="travs-select" required>
+                    <select id="status_verifikasi" name="status_verifikasi" class="travs-select @error('status_verifikasi') is-invalid @enderror" required>
                         <option value="menunggu" @selected(old('status_verifikasi', $pengemudi->status_verifikasi) === 'menunggu')>Menunggu Verifikasi</option>
                         <option value="terverifikasi" @selected(old('status_verifikasi', $pengemudi->status_verifikasi) === 'terverifikasi')>Terverifikasi</option>
                         <option value="ditolak" @selected(old('status_verifikasi', $pengemudi->status_verifikasi) === 'ditolak')>Ditolak</option>
                     </select>
+                    @include('admin.partials.field-error', ['name' => 'status_verifikasi'])
                 </div>
                 <div class="travs-field travs-field-span-2">
                     <label for="password">Password Baru (opsional)</label>
-                    <input id="password" name="password" type="password" class="travs-input" placeholder="Kosongkan jika tidak diubah">
+                    <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror" placeholder="Kosongkan jika tidak diubah">
+                    @include('admin.partials.field-error', ['name' => 'password'])
                 </div>
                 <div class="travs-field travs-field-span-2">
                     <label for="catatan_verifikasi">Catatan Verifikasi</label>
-                    <textarea id="catatan_verifikasi" name="catatan_verifikasi" class="travs-textarea" placeholder="Catatan admin untuk hasil verifikasi dokumen pengemudi">{{ old('catatan_verifikasi', $pengemudi->catatan_verifikasi) }}</textarea>
+                    <textarea id="catatan_verifikasi" name="catatan_verifikasi" class="travs-textarea @error('catatan_verifikasi') is-invalid @enderror" placeholder="Catatan admin untuk hasil verifikasi dokumen pengemudi">{{ old('catatan_verifikasi', $pengemudi->catatan_verifikasi) }}</textarea>
+                    @include('admin.partials.field-error', ['name' => 'catatan_verifikasi'])
                 </div>
             </div>
 

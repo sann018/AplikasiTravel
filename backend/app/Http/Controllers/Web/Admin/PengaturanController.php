@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\PengaturanSistem;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class PengaturanController extends Controller
@@ -45,7 +47,50 @@ class PengaturanController extends Controller
             'settings' => $settings,
             'groupLabels' => $groupLabels,
             'activeTab' => $activeTab,
+            'adminUser' => $request->user(),
         ]);
+    }
+
+    public function updateAccount(Request $request): RedirectResponse
+    {
+        $admin = $request->user();
+
+        $validated = $request->validate([
+            'email' => [
+                'required',
+                'email',
+                'max:100',
+                Rule::unique('pengguna', 'email')->ignore($admin->id),
+            ],
+            'current_password' => ['required', 'string'],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+        ], [
+            'email.required' => 'Email admin wajib diisi.',
+            'email.email' => 'Format email admin belum valid.',
+            'email.unique' => 'Email ini sudah dipakai akun lain.',
+            'current_password.required' => 'Password lama wajib diisi untuk menyimpan perubahan akun.',
+            'password.min' => 'Password baru minimal 8 karakter.',
+            'password.confirmed' => 'Konfirmasi password baru belum sama.',
+        ]);
+
+        if (! Hash::check($validated['current_password'], $admin->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => 'Password lama tidak sesuai.',
+            ]);
+        }
+
+        $admin->email = $validated['email'];
+
+        if ($request->filled('password')) {
+            // Password dicasting hashed oleh model User, jadi tidak pernah disimpan plain text.
+            $admin->password = $validated['password'];
+        }
+
+        $admin->save();
+
+        return redirect()
+            ->route('admin.pengaturan.index')
+            ->with('status', 'Akun admin berhasil diperbarui.');
     }
 
     public function update(Request $request): RedirectResponse

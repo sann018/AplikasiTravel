@@ -83,7 +83,8 @@ class PengemudiController extends Controller
         $verificationAttributes = $this->verificationAttributes($payload, null, $request->user()->id);
 
         DB::transaction(function () use ($request, $payload, $normalizedStatus, $verificationAttributes) {
-            $profilePhotoPath = $this->storeProfilePhoto($request);
+            $profilePhotoPath = $this->storeUploadedImage($request, 'foto_profil', 'profiles');
+            $simPhotoPath = $this->storeUploadedImage($request, 'foto_sim', 'driver-documents');
 
             $user = User::query()->create([
                 'nama' => $payload['nama'],
@@ -99,7 +100,7 @@ class PengemudiController extends Controller
             Pengemudi::query()->create([
                 'pengguna_id' => $user->id,
                 'nomor_sim' => $payload['nomor_sim'],
-                'foto_sim' => $payload['foto_sim'] ?? null,
+                'foto_sim' => $simPhotoPath,
                 'status' => $normalizedStatus['status'],
                 ...$verificationAttributes,
             ]);
@@ -119,7 +120,10 @@ class PengemudiController extends Controller
         $verificationAttributes = $this->verificationAttributes($payload, $pengemudi, $request->user()->id);
 
         DB::transaction(function () use ($request, $pengemudi, $payload, $normalizedStatus, $verificationAttributes) {
-            $profilePhotoPath = $this->storeProfilePhoto($request, $pengemudi->pengguna);
+            $oldProfilePhotoPath = $pengemudi->pengguna->foto_profil;
+            $oldSimPhotoPath = $pengemudi->foto_sim;
+            $profilePhotoPath = $this->storeUploadedImage($request, 'foto_profil', 'profiles');
+            $simPhotoPath = $this->storeUploadedImage($request, 'foto_sim', 'driver-documents');
 
             $pengemudi->pengguna->update([
                 'nama' => $payload['nama'],
@@ -134,10 +138,18 @@ class PengemudiController extends Controller
 
             $pengemudi->update([
                 'nomor_sim' => $payload['nomor_sim'],
-                'foto_sim' => $payload['foto_sim'] ?? null,
+                ...($simPhotoPath ? ['foto_sim' => $simPhotoPath] : []),
                 'status' => $normalizedStatus['status'],
                 ...$verificationAttributes,
             ]);
+
+            if ($profilePhotoPath) {
+                $this->deletePublicFile($oldProfilePhotoPath);
+            }
+
+            if ($simPhotoPath) {
+                $this->deletePublicFile($oldSimPhotoPath);
+            }
         });
 
         return redirect()
@@ -173,16 +185,20 @@ class PengemudiController extends Controller
             'no_hp' => [
                 'required',
                 'string',
-                'max:20',
+                'min:10',
+                'max:16',
+                'regex:/^(?:\+62|62|0)8[1-9][0-9]{7,10}$/',
                 Rule::unique('pengguna', 'no_hp')->ignore($user?->id),
             ],
             'nomor_sim' => [
                 'required',
                 'string',
-                'max:50',
+                'min:12',
+                'max:16',
+                'regex:/^[0-9]{12,16}$/',
                 Rule::unique('pengemudi', 'nomor_sim')->ignore($pengemudi?->id),
             ],
-            'foto_sim' => ['nullable', 'string', 'max:255'],
+            'foto_sim' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'status' => ['required', Rule::in(['aktif', 'nonaktif'])],
             'status_verifikasi' => ['required', Rule::in(['menunggu', 'terverifikasi', 'ditolak'])],
             'catatan_verifikasi' => ['nullable', 'string', 'max:1000'],
@@ -191,19 +207,22 @@ class PengemudiController extends Controller
         ]);
     }
 
-    private function storeProfilePhoto(Request $request, ?User $user = null): ?string
+    private function storeUploadedImage(Request $request, string $fieldName, string $folder): ?string
     {
-        if (! $request->hasFile('foto_profil')) {
+        if (! $request->hasFile($fieldName)) {
             return null;
         }
 
-        $path = $request->file('foto_profil')->store('profiles', 'public');
+        return $request->file($fieldName)->store($folder, 'public');
+    }
 
-        if ($user?->foto_profil) {
-            Storage::disk('public')->delete($user->foto_profil);
+    private function deletePublicFile(?string $path): void
+    {
+        if (! $path || str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return;
         }
 
-        return $path;
+        Storage::disk('public')->delete($path);
     }
 
     private function normalizeStatus(array $payload): array

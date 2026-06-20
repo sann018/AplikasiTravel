@@ -39,7 +39,7 @@
                 <div class="travs-form-grid-2">
                     <div class="travs-field travs-field-span-2">
                         <label for="jadwal_id">Jadwal Terkait</label>
-                        <select id="jadwal_id" name="jadwal_id" class="travs-select" required>
+                        <select id="jadwal_id" name="jadwal_id" class="travs-select @error('jadwal_id') is-invalid @enderror" required>
                             <option value="">Pilih jadwal</option>
                             @foreach ($jadwalOptions as $jadwal)
                                 <option value="{{ $jadwal->id }}" @selected((string) old('jadwal_id', $editingBiaya?->jadwal_id) === (string) $jadwal->id)>
@@ -47,22 +47,27 @@
                                 </option>
                             @endforeach
                         </select>
+                        @include('admin.partials.field-error', ['name' => 'jadwal_id'])
                     </div>
                     <div class="travs-field">
                         <label for="jenis_biaya">Jenis Biaya</label>
-                        <input id="jenis_biaya" name="jenis_biaya" class="travs-input" value="{{ old('jenis_biaya', $editingBiaya?->jenis_biaya) }}" required>
+                        <input id="jenis_biaya" name="jenis_biaya" class="travs-input @error('jenis_biaya') is-invalid @enderror" value="{{ old('jenis_biaya', $editingBiaya?->jenis_biaya) }}" required>
+                        @include('admin.partials.field-error', ['name' => 'jenis_biaya'])
                     </div>
                     <div class="travs-field">
                         <label for="nominal">Nominal</label>
-                        <input id="nominal" name="nominal" type="number" step="0.01" class="travs-input" value="{{ old('nominal', $editingBiaya?->nominal) }}" required>
+                        <input id="nominal" name="nominal" type="number" step="0.01" class="travs-input @error('nominal') is-invalid @enderror" value="{{ old('nominal', $editingBiaya?->nominal) }}" required>
+                        @include('admin.partials.field-error', ['name' => 'nominal'])
                     </div>
                     <div class="travs-field">
                         <label for="tanggal_biaya">Tanggal Biaya</label>
-                        <input id="tanggal_biaya" name="tanggal_biaya" type="datetime-local" class="travs-input" value="{{ old('tanggal_biaya', optional($editingBiaya?->tanggal_biaya)->format('Y-m-d\TH:i')) }}" required>
+                        <input id="tanggal_biaya" name="tanggal_biaya" type="datetime-local" class="travs-input @error('tanggal_biaya') is-invalid @enderror" value="{{ old('tanggal_biaya', optional($editingBiaya?->tanggal_biaya)->format('Y-m-d\TH:i')) }}" required>
+                        @include('admin.partials.field-error', ['name' => 'tanggal_biaya'])
                     </div>
                     <div class="travs-field travs-field-span-2">
                         <label for="keterangan">Keterangan</label>
-                        <textarea id="keterangan" name="keterangan" class="travs-textarea">{{ old('keterangan', $editingBiaya?->keterangan) }}</textarea>
+                        <textarea id="keterangan" name="keterangan" class="travs-textarea @error('keterangan') is-invalid @enderror">{{ old('keterangan', $editingBiaya?->keterangan) }}</textarea>
+                        @include('admin.partials.field-error', ['name' => 'keterangan'])
                     </div>
                 </div>
 
