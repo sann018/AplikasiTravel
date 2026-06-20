@@ -16,14 +16,14 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     /**
-     * The table associated with the model.
+     * Nama tabel database yang digunakan model ini.
      *
      * @var string
      */
     protected $table = 'pengguna';
 
     /**
-     * The attributes that are mass assignable.
+     * Kolom yang boleh diisi sekaligus saat membuat atau memperbarui data.
      *
      * @var array<int, string>
      */
@@ -39,7 +39,7 @@ class User extends Authenticatable
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
+     * Kolom sensitif yang tidak boleh ikut tampil pada JSON atau balasan API.
      *
      * @var array<int, string>
      */
@@ -49,7 +49,7 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
+     * Mengatur perubahan tipe data otomatis saat nilai dibaca dari model.
      *
      * @return array<string, string>
      */

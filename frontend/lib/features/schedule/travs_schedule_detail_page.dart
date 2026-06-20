@@ -264,7 +264,7 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
           child: FutureBuilder<TravSScheduleDetail>(
             future: _future,
             builder: (context, snapshot) {
-              // State loading — tampilkan spinner saat detail jadwal dimuat
+              // Spinner memberi tanda bahwa detail jadwal masih diambil dari backend.
               if (snapshot.connectionState == ConnectionState.waiting &&
                   !snapshot.hasData) {
                 return TravSAsyncState.loading(
@@ -272,7 +272,7 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
                 );
               }
 
-              // State error — tampilkan pesan error jujur dengan tombol retry
+              // Saat gagal, tampilkan pesan dan tombol untuk mencoba memuat ulang.
               if (snapshot.hasError && !snapshot.hasData) {
                 return TravSAsyncState.error(
                   error: snapshot.error!,
@@ -352,8 +352,8 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
                         isPreparingCheckout: _isPreparingCheckout,
                         onClearSeatSelection: () => _clearSeatSelection(detail),
                         onPrimaryAction: () async {
-                          // Jika tamu atau sesi kosong, langsung navigasi
-                          // kembali ke halaman login — bukan cuma toast.
+                          // Tamu harus masuk akun sebelum memilih kursi agar
+                          // penguncian kursi tercatat pada pengguna yang benar.
                           if (widget.selectedRole == AppRolePreview.guest ||
                               widget.session == null) {
                             Navigator.of(context).pop('open_login');
@@ -1465,8 +1465,8 @@ class _VehicleSeatLayoutItem {
   final double y;
 }
 
-/// Membangun posisi kursi berdasarkan seat_layout dari admin.
-/// Jika seatLayout kosong, fallback ke pattern default berdasarkan jumlah kursi.
+/// Menyusun posisi tombol kursi berdasarkan pengaturan armada dari admin.
+/// Jika belum ada pengaturan, susunan dibuat dari jumlah kursi yang tersedia.
 List<_VehicleSeatLayoutItem> _buildVehicleSeatLayout(
   List<TravSSeatItem> seats,
   List<int> seatLayout,

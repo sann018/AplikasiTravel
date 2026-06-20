@@ -8,14 +8,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Kendaraan extends Model
 {
     /**
-     * The table associated with the model.
+     * Nama tabel database yang digunakan model ini.
      *
      * @var string
      */
     protected $table = 'kendaraan';
 
     /**
-     * The attributes that are mass assignable.
+     * Kolom yang boleh diisi sekaligus saat membuat atau memperbarui data.
      *
      * @var array<int, string>
      */
@@ -45,21 +45,21 @@ class Kendaraan extends Model
         ];
     }
 
-    /// Mengembalikan konfigurasi baris kursi.
-    /// Jika seat_layout belum diisi, generate default berdasarkan kapasitas.
-    /// Format: [1, 3, 2] = baris 1 ada 1 kursi, baris 2 ada 3 kursi, baris 3 ada 2 kursi.
+    /// Mengembalikan susunan kursi per baris untuk denah di aplikasi.
+    /// Jika admin belum mengatur susunan, sistem membuat susunan awal dari kapasitas.
+    /// Contoh [1, 3, 2]: baris pertama 1 kursi, kedua 3 kursi, ketiga 2 kursi.
     public function getSeatLayoutConfig(): array
     {
         if (! empty($this->seat_layout) && is_array($this->seat_layout)) {
             return $this->seat_layout;
         }
 
-        // Default layout: baris depan 1 kursi (samping sopir), sisanya dibagi rata
+        // Kursi pertama ditempatkan di depan, sisanya dibagi ke baris belakang.
         return $this->defaultSeatLayout($this->kapasitas_kursi);
     }
 
-    /// Generate layout kursi default berdasarkan kapasitas.
-    /// Pola umum travel: 1 kursi depan (samping sopir), lalu baris 2-3 kursi.
+    /// Membuat susunan kursi awal berdasarkan kapasitas kendaraan.
+    /// Polanya satu kursi depan, lalu dua atau tiga kursi pada baris berikutnya.
     private function defaultSeatLayout(int $capacity): array
     {
         if ($capacity <= 0) return [];
@@ -72,7 +72,7 @@ class Kendaraan extends Model
         if ($capacity == 7) return [1, 3, 3];
         if ($capacity == 8) return [1, 3, 2, 2];
 
-        // Untuk kapasitas lebih besar, baris pertama 1, sisanya baris 3
+        // Kendaraan besar tetap memakai satu kursi depan dan tiga kursi per baris.
         $rows = [1];
         $remaining = $capacity - 1;
         while ($remaining > 0) {

@@ -97,7 +97,8 @@ class TravSAuthService {
         headers: TravSApiService.jsonHeaders(token: token),
       );
     } catch (_) {
-      // Best effort only. Local session tetap dihapus.
+      // Walau logout di server gagal, sesi lokal tetap dibersihkan
+      // supaya akun tidak terlihat masih aktif di aplikasi.
     } finally {
       await clearSession();
     }
@@ -151,7 +152,8 @@ class TravSAuthService {
         return refreshedSession;
       }
     } catch (_) {
-      // Jika backend belum siap, pakai session lama agar user tidak mental logout.
+      // Kalau backend sedang belum bisa dihubungi, pakai sesi lama dulu
+      // agar pengguna tidak langsung terlempar keluar aplikasi.
     }
 
     return session;
@@ -164,7 +166,7 @@ class TravSAuthService {
         headers: TravSApiService.jsonHeaders(token: token),
       );
     } catch (_) {
-      // Tidak memblokir UX login mobile.
+      // Kegagalan logout admin tidak perlu menghentikan pesan utama ke pengguna.
     }
   }
 
@@ -175,7 +177,7 @@ class TravSAuthService {
         return decoded;
       }
     } catch (_) {
-      // Balikkan fallback di bawah.
+      // Kalau body bukan JSON valid, balikan map kosong agar alur tetap aman.
     }
 
     return <String, dynamic>{};

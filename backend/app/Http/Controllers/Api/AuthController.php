@@ -285,10 +285,9 @@ class AuthController extends Controller
         ]);
     }
 
-    /// Endpoint forgot password — membuat token reset dan mengembalikannya.
-    /// Pada implementasi production, token dikirim via email/SMS.
-    /// Untuk Tugas Akhir ini, token dikembalikan langsung agar bisa diuji
-    /// tanpa memerlukan mail server eksternal.
+    /// Membuat token untuk proses lupa password.
+    /// Pada mode demo token dikembalikan lewat API agar fitur bisa diuji tanpa
+    /// layanan email/SMS. Saat produksi, token seharusnya dikirim ke pengguna.
     public function forgotPassword(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -298,14 +297,14 @@ class AuthController extends Controller
         $user = User::query()->where('email', $validated['email'])->first();
 
         if (! $user) {
-            // Tidak membocorkan apakah email terdaftar atau tidak (rules #26)
+            // Pesan dibuat sama agar orang lain tidak bisa menebak email yang terdaftar.
             return response()->json([
                 'success' => true,
                 'message' => 'Jika email terdaftar, token reset telah dikirim.',
             ]);
         }
 
-        // Hapus token lama jika ada, lalu buat token baru
+        // Token lama dihapus supaya hanya token terbaru yang dapat dipakai.
         DB::table('password_reset_tokens')->where('email', $user->email)->delete();
 
         $token = Str::random(64);
@@ -320,16 +319,16 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Jika email terdaftar, token reset telah dikirim.',
             'data' => [
-                // Token dikembalikan langsung untuk keperluan demo/testing.
-                // Di production, token dikirim via email/SMS, bukan di response.
+                // Khusus mode demo, token dikirim lewat balasan API agar mudah diuji.
+                // Pada sistem produksi, token harus dikirim melalui email atau SMS.
                 'reset_token' => $token,
                 'expires_in_minutes' => 60,
             ],
         ]);
     }
 
-    /// Endpoint reset password — memvalidasi token dan mengubah password.
-    /// Token hanya bisa digunakan sekali dan kedaluwarsa dalam 60 menit.
+    /// Memeriksa token lalu mengganti password jika token masih berlaku.
+    /// Token hanya boleh dipakai sekali dan kedaluwarsa dalam 60 menit.
     public function resetPassword(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -348,14 +347,14 @@ class AuthController extends Controller
             ]);
         }
 
-        // Verifikasi token cocok (hashed di database)
+        // Hash token dibandingkan agar token asli tidak perlu disimpan di database.
         if (! Hash::check($validated['token'], $record->token)) {
             throw ValidationException::withMessages([
                 'token' => ['Token reset tidak valid atau sudah kedaluwarsa.'],
             ]);
         }
 
-        // Cek kedaluwarsa — 60 menit
+        // Token yang berumur lebih dari 60 menit tidak boleh digunakan lagi.
         $createdAt = \Carbon\Carbon::parse($record->created_at);
         if ($createdAt->addMinutes(60)->isPast()) {
             DB::table('password_reset_tokens')->where('email', $validated['email'])->delete();
@@ -365,7 +364,7 @@ class AuthController extends Controller
             ]);
         }
 
-        // Update password pengguna
+        // Password baru disimpan melalui model agar proses hashing tetap berjalan.
         $user = User::query()->where('email', $validated['email'])->first();
 
         if (! $user) {
@@ -376,10 +375,10 @@ class AuthController extends Controller
 
         $user->update(['password' => $validated['password']]);
 
-        // Hapus token setelah digunakan (sekali pakai)
+        // Token langsung dihapus setelah berhasil agar tidak bisa dipakai ulang.
         DB::table('password_reset_tokens')->where('email', $validated['email'])->delete();
 
-        // Revoke semua token aktif agar user harus login ulang
+        // Semua sesi lama dicabut agar perangkat lain wajib login ulang.
         $user->tokens()->delete();
 
         return response()->json([

@@ -73,6 +73,8 @@ class PakasirService
     }
 
     /**
+     * Membuat transaksi baru di Pakasir dan mengembalikan data pembayarannya.
+     *
      * @return array<string, mixed>
      */
     public function createTransaction(string $method, string $orderId, int|float|string $amount): array
@@ -93,6 +95,8 @@ class PakasirService
     }
 
     /**
+     * Menjalankan simulasi pembayaran untuk kebutuhan pengujian lokal.
+     *
      * @return array<string, mixed>
      */
     public function simulatePayment(string $orderId, int|float|string $amount): array
@@ -106,6 +110,8 @@ class PakasirService
     }
 
     /**
+     * Membatalkan transaksi Pakasir berdasarkan kode pesanan dan nominalnya.
+     *
      * @return array<string, mixed>
      */
     public function cancelTransaction(string $orderId, int|float|string $amount): array
@@ -119,6 +125,8 @@ class PakasirService
     }
 
     /**
+     * Mengambil status terbaru transaksi langsung dari Pakasir.
+     *
      * @return array<string, mixed>
      */
     public function transactionDetail(string $orderId, int|float|string $amount): array
@@ -154,6 +162,8 @@ class PakasirService
     }
 
     /**
+     * Mengubah data gateway yang tersimpan sebagai JSON menjadi array PHP.
+     *
      * @return array<string, mixed>
      */
     public function decodeGatewayResponse(?string $gatewayResponse): array
@@ -186,6 +196,8 @@ class PakasirService
     }
 
     /**
+     * Mengirim permintaan POST ke Pakasir dengan batas waktu yang sudah diatur.
+     *
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
@@ -201,6 +213,8 @@ class PakasirService
     }
 
     /**
+     * Mengambil data dari Pakasir melalui permintaan GET.
+     *
      * @param  array<string, mixed>  $query
      * @return array<string, mixed>
      */
@@ -215,6 +229,8 @@ class PakasirService
     }
 
     /**
+     * Membaca balasan Pakasir dan mengubah pesan gagal menjadi pengecualian.
+     *
      * @return array<string, mixed>
      */
     private function decodeResponse(int $statusCode, string $body): array

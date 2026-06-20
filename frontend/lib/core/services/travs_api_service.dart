@@ -54,8 +54,8 @@ class TravSApiService {
       final uri = Uri.tryParse(raw);
       final baseUri = Uri.parse(baseUrl);
       if (uri != null && uri.path.startsWith('/storage/')) {
-        // Session lama pernah menyimpan URL ngrok. Untuk file storage backend,
-        // pakai host API yang aktif agar gambar tetap muncul di lokal/mobile.
+        // Jika sesi lama menyimpan alamat server yang berbeda, pakai alamat API
+        // yang sedang aktif supaya foto tetap terbaca di web dan HP.
         return baseUri.replace(path: uri.path, query: uri.query).toString();
       }
 
@@ -116,9 +116,8 @@ class TravSApiService {
     };
   }
 
-  /// Memuat data beranda dari backend (bootstrap + jadwal).
-  /// Melempar TravSApiException jika koneksi gagal atau response tidak valid,
-  /// agar UI bisa menampilkan error state yang jujur ke pengguna.
+  /// Memuat data awal beranda dan daftar jadwal dari backend.
+  /// Jika gagal, kesalahan diteruskan agar halaman menampilkan pesan yang jelas.
   Future<TravSHomePayload> loadHomePayload() async {
     final responses = await Future.wait([
       getWithFallback('/api/mobile/bootstrap', headers: jsonHeaders()),
@@ -169,8 +168,8 @@ class TravSApiService {
     );
   }
 
-  /// Memuat detail jadwal dari backend.
-  /// Melempar TravSApiException jika gagal, agar UI menampilkan error yang jujur.
+  /// Memuat detail satu jadwal, termasuk kursi, bagasi, dan metode bayar.
+  /// Kesalahan diteruskan agar halaman tidak diam saat data gagal dimuat.
   Future<TravSScheduleDetail> loadScheduleDetail(TravSSchedule schedule) async {
     final response = await getWithFallback(
       '/api/guest/jadwal/${schedule.id}',
@@ -190,8 +189,8 @@ class TravSApiService {
     return TravSScheduleDetail.fromJson(data);
   }
 
-  /// Memuat dashboard penumpang dari backend.
-  /// Melempar TravSApiException jika gagal — tidak lagi fallback ke data palsu.
+  /// Memuat ringkasan beranda penumpang dari backend.
+  /// Data palsu tidak dipakai agar status pemesanan tetap sesuai database.
   Future<TravSPassengerDashboard> loadPassengerDashboard(String token) async {
     final response = await getWithFallback(
       '/api/penumpang/dashboard',
@@ -211,8 +210,8 @@ class TravSApiService {
     return TravSPassengerDashboard.fromJson(data);
   }
 
-  /// Memuat dashboard pengemudi dari backend.
-  /// Melempar TravSApiException jika gagal — tidak lagi fallback ke data palsu.
+  /// Memuat ringkasan tugas pengemudi dari backend.
+  /// Kalau gagal, halaman menampilkan pesan daripada menebak data sendiri.
   Future<TravSDriverDashboard> loadDriverDashboard(String token) async {
     final response = await getWithFallback(
       '/api/pengemudi/dashboard',
@@ -247,8 +246,8 @@ class TravSApiService {
     );
   }
 
-  /// Memuat daftar pemesanan penumpang dari backend.
-  /// Melempar TravSApiException jika gagal — tidak lagi fallback ke data palsu.
+  /// Memuat daftar pemesanan milik penumpang yang sedang login.
+  /// Data harus dari backend supaya status bayar dan tiket selalu akurat.
   Future<List<TravSBookingResult>> loadPassengerBookings(String token) async {
     final response = await getWithFallback(
       '/api/penumpang/bookings',
@@ -539,8 +538,8 @@ class TravSApiService {
     );
   }
 
-  /// Mengirim request forgot password ke backend.
-  /// Mengembalikan token reset jika email terdaftar.
+  /// Meminta token reset password ke backend.
+  /// Pada mode demo, token bisa dikembalikan agar alur reset mudah diuji.
   Future<String?> forgotPassword({required String email}) async {
     final response = await postWithFallback(
       '/api/auth/forgot-password',
@@ -557,8 +556,7 @@ class TravSApiService {
     return data?['reset_token'] as String?;
   }
 
-  /// Mengirim request reset password ke backend.
-  /// Membutuhkan email, token, dan password baru.
+  /// Mengirim token dan password baru untuk mengganti password akun.
   Future<void> resetPassword({
     required String email,
     required String token,
@@ -624,7 +622,7 @@ class TravSApiService {
         return decoded;
       }
     } catch (_) {
-      // Fallback ke map kosong di bawah.
+      // Kalau isi balasan bukan JSON valid, pakai map kosong agar pesan tetap aman.
     }
 
     return <String, dynamic>{};
@@ -885,9 +883,9 @@ class TravSScheduleDetail {
   final TravSSchedule schedule;
   final List<TravSSeatItem> seatMap;
 
-  /// Konfigurasi baris kursi dari backend (per kendaraan).
-  /// Format: [1, 3, 2] = baris 1 ada 1 kursi, baris 2 ada 3 kursi, baris 3 ada 2 kursi.
-  /// Jika kosong, frontend akan generate default berdasarkan jumlah kursi.
+  /// Susunan kursi dari admin untuk kendaraan ini.
+  /// Contoh [1, 3, 2]: baris depan 1 kursi, tengah 3, belakang 2.
+  /// Jika belum diatur, aplikasi membuat susunan sederhana dari jumlah kursi.
   final List<int> seatLayout;
 
   final TravSBookingRules bookingRules;
@@ -910,7 +908,7 @@ class TravSScheduleDetail {
     final kendaraan = _asMap(json['kendaraan']);
     final pengemudi = _asMap(json['pengemudi']);
 
-    // Parse seat_layout dari response API kendaraan
+    // Ambil susunan kursi dari data kendaraan agar tampilan denah mengikuti armada.
     final rawLayout = kendaraan['seat_layout'];
     final seatLayout = rawLayout is List
         ? rawLayout.map((e) => _readInt(e)).toList()

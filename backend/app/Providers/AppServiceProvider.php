@@ -11,15 +11,14 @@ use Illuminate\Support\ServiceProvider;
 class AppServiceProvider extends ServiceProvider
 {
     /**
-     * Register any application services.
+     * Tempat mendaftarkan service tambahan jika nanti dibutuhkan aplikasi.
      */
     public function register(): void
     {
-        //
     }
 
     /**
-     * Bootstrap any application services.
+     * Menyiapkan pembagian halaman dan batas permintaan saat aplikasi mulai berjalan.
      */
     public function boot(): void
     {
@@ -31,7 +30,8 @@ class AppServiceProvider extends ServiceProvider
 
     private function configureRateLimiters(): void
     {
-        // Rate limit ini menjadi pagar backend agar klik berulang tidak terus menjalankan query.
+        // Batas permintaan mencegah klik berulang menjalankan query terlalu sering
+        // dan membantu menjaga endpoint penting dari spam.
         RateLimiter::for('travs-read', function (Request $request) {
             return Limit::perMinute(90)->by($this->rateLimitKey($request));
         });

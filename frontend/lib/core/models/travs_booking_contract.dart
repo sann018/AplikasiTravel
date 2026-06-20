@@ -144,15 +144,14 @@ class TravSBookingPaymentInfo {
   final double totalPayment;
   final String paymentNumber;
 
-  /// URL halaman pembayaran Pakasir — penumpang diarahkan ke sini
-  /// untuk menyelesaikan pembayaran via browser.
+  /// Tautan halaman Pakasir yang dibuka penumpang untuk menyelesaikan pembayaran.
   final String checkoutUrl;
 
   final String gatewayStatus;
 
   bool get hasPaymentNumber => paymentNumber.trim().isNotEmpty;
 
-  /// Apakah ada URL checkout dari gateway untuk redirect pembayaran.
+  /// Menandai apakah tautan pembayaran dari Pakasir tersedia dan bisa dibuka.
   bool get hasCheckoutUrl => checkoutUrl.trim().isNotEmpty;
 
   factory TravSBookingPaymentInfo.fromJson(Map<String, dynamic> json) {

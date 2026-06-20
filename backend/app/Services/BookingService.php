@@ -29,6 +29,8 @@ class BookingService
     }
 
     /**
+     * Mengunci kursi sementara selama pengguna mengisi form pemesanan.
+     *
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      * @throws ValidationException
@@ -74,6 +76,8 @@ class BookingService
     }
 
     /**
+     * Membuat pemesanan menunggu pembayaran beserta kursi, penumpang, dan bagasi.
+     *
      * @param  array<string, mixed>  $payload
      * @throws ValidationException
      */
@@ -254,6 +258,8 @@ class BookingService
     }
 
     /**
+     * Menandai pembayaran berhasil melalui fitur simulasi khusus lingkungan lokal.
+     *
      * @throws ValidationException
      */
     public function simulatePaymentSuccess(Pemesanan $booking, User $user): Pemesanan
@@ -317,6 +323,8 @@ class BookingService
     }
 
     /**
+     * Menyimpan hasil pembayaran tunai yang sudah dikonfirmasi admin.
+     *
      * @throws ValidationException
      */
     public function confirmCashPayment(Pemesanan $booking, User $admin): Pemesanan
@@ -408,6 +416,8 @@ class BookingService
     }
 
     /**
+     * Memeriksa ulang status transaksi Pakasir lalu menyinkronkannya ke pemesanan.
+     *
      * @throws ValidationException
      */
     public function refreshGatewayPaymentStatus(
@@ -459,6 +469,8 @@ class BookingService
     }
 
     /**
+     * Memproses notifikasi Pakasir dan mencari pemesanan yang sesuai.
+     *
      * @param  array<string, mixed>  $payload
      * @throws ValidationException
      */
@@ -590,6 +602,8 @@ class BookingService
     }
 
     /**
+     * Mengubah status pemesanan ketika pembayaran gagal atau kedaluwarsa.
+     *
      * @param  array<string, mixed>  $transaction
      * @param  array<string, mixed>|null  $webhookPayload
      */
@@ -658,6 +672,8 @@ class BookingService
     }
 
     /**
+     * Menyimpan pembayaran berhasil, mengaktifkan tiket, dan mengunci kursi permanen.
+     *
      * @param  array<string, mixed>  $transaction
      * @param  array<string, mixed>|null  $webhookPayload
      */
@@ -897,6 +913,8 @@ class BookingService
     }
 
     /**
+     * Memastikan data setiap penumpang cocok dengan kursi yang dipilih.
+     *
      * @param  Collection<int, array<string, mixed>>  $passengers
      * @param  Collection<int, int>  $seatNumbers
      * @throws ValidationException
@@ -923,6 +941,8 @@ class BookingService
     }
 
     /**
+     * Memastikan metode pembayaran yang dipilih sedang diaktifkan oleh admin.
+     *
      * @throws ValidationException
      */
     private function ensurePaymentMethodEnabled(string $paymentMethod): void
@@ -942,6 +962,8 @@ class BookingService
     }
 
     /**
+     * Memastikan jumlah dan nomor kursi yang dipilih memenuhi aturan pemesanan.
+     *
      * @param  Collection<int, int>  $seatNumbers
      * @throws ValidationException
      */
@@ -968,6 +990,8 @@ class BookingService
     }
 
     /**
+     * Memastikan semua kursi yang diminta benar-benar ada pada jadwal tersebut.
+     *
      * @param  Collection<int, KursiJadwal>  $selectedSeats
      * @param  Collection<int, int>  $seatNumbers
      * @throws ValidationException
@@ -982,6 +1006,8 @@ class BookingService
     }
 
     /**
+     * Memastikan kursi belum dipesan atau dikunci oleh pengguna lain.
+     *
      * @param  Collection<int, KursiJadwal>  $selectedSeats
      * @throws ValidationException
      */
@@ -1013,6 +1039,8 @@ class BookingService
     }
 
     /**
+     * Memastikan jadwal masih dibuka sebelum proses pemesanan dilanjutkan.
+     *
      * @throws ValidationException
      */
     private function ensureScheduleOpen(Jadwal $schedule): void
@@ -1025,6 +1053,8 @@ class BookingService
     }
 
     /**
+     * Mengambil baris kursi sekaligus menguncinya selama transaksi database berjalan.
+     *
      * @param  Collection<int, int>  $seatNumbers
      * @return Collection<int, KursiJadwal>
      */
@@ -1041,6 +1071,8 @@ class BookingService
     }
 
     /**
+     * Membersihkan dan mengubah daftar nomor kursi menjadi kumpulan angka positif.
+     *
      * @param  array<int, mixed>  $seatNumbers
      * @return Collection<int, int>
      */

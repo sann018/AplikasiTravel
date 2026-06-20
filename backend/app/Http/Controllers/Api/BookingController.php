@@ -268,8 +268,8 @@ class BookingController extends Controller
         $fee = (float) data_get($createPayment, 'fee', 0);
         $totalPayment = (float) data_get($createPayment, 'total_payment', $booking->pembayaran?->jumlah_bayar);
 
-        // URL halaman pembayaran Pakasir — penumpang akan diarahkan ke sini
-        // untuk menyelesaikan pembayaran via browser/webview.
+        // Tautan ini membuka halaman Pakasir agar pembayaran diselesaikan
+        // melalui browser, bukan diproses langsung oleh aplikasi mobile.
         $checkoutUrl = (string) data_get(
             $gatewayMeta,
             'checkout_url',

@@ -8,42 +8,42 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class PengaturanSistem extends Model
 {
     /**
-     * The table associated with the model.
+     * Nama tabel database yang digunakan model ini.
      *
      * @var string
      */
     protected $table = 'pengaturan_sistem';
 
     /**
-     * Indicates if the model should be timestamped.
+     * Menentukan apakah Laravel perlu mengatur waktu pembuatan/perubahan otomatis.
      *
      * @var bool
      */
     public $timestamps = false;
 
     /**
-     * The primary key associated with the table.
+     * Kolom yang menjadi kunci utama tabel pengaturan.
      *
      * @var string
      */
     protected $primaryKey = 'kunci';
 
     /**
-     * Indicates if the IDs are auto-incrementing.
+     * Menentukan apakah nilai kunci utama bertambah otomatis.
      *
      * @var bool
      */
     public $incrementing = false;
 
     /**
-     * The "type" of the auto-incrementing ID.
+     * Tipe data kunci utama karena tabel ini memakai teks, bukan angka otomatis.
      *
      * @var string
      */
     protected $keyType = 'string';
 
     /**
-     * The attributes that are mass assignable.
+     * Kolom yang boleh diisi sekaligus saat membuat atau memperbarui data.
      *
      * @var array<int, string>
      */

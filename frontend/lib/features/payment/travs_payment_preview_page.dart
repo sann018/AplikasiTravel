@@ -199,13 +199,13 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     );
   }
 
-  /// Otomatis konversi koordinat yang diketik manual menjadi nama alamat jalan.
-  /// Dipanggil saat user selesai mengedit field latitude atau longitude.
+  /// Mengubah koordinat yang diketik manual menjadi alamat yang mudah dibaca.
+  /// Fungsi ini dijalankan setelah pengguna selesai mengisi latitude/longitude.
   Future<void> _autoResolveAddressFromCoordinates() async {
     final latitude = double.tryParse(_pickupLatitudeController.text.trim());
     final longitude = double.tryParse(_pickupLongitudeController.text.trim());
 
-    // Hanya resolve jika kedua koordinat valid
+    // Pencarian alamat hanya dijalankan jika kedua koordinat sudah valid.
     if (latitude == null || longitude == null) return;
     if (latitude < -90 || latitude > 90) return;
     if (longitude < -180 || longitude > 180) return;
@@ -966,7 +966,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                     min: -90,
                     max: 90,
                   ),
-                  // Otomatis resolve alamat saat user selesai edit koordinat
+                  // Cari nama alamat setelah pengguna selesai mengisi koordinat.
                   onEditingComplete: _autoResolveAddressFromCoordinates,
                 ),
               ),
@@ -988,7 +988,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                     min: -180,
                     max: 180,
                   ),
-                  // Otomatis resolve alamat saat user selesai edit koordinat
+                  // Cari nama alamat setelah pengguna selesai mengisi koordinat.
                   onEditingComplete: _autoResolveAddressFromCoordinates,
                 ),
               ),
@@ -1141,9 +1141,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                   ),
               ],
             ),
-          // Upload foto bagasi selalu ditampilkan untuk penumpang login,
-          // tidak peduli apakah ada data bagasi atau tidak — agar pengguna
-          // bisa mendokumentasikan barang bawaan mereka.
+          // Opsi foto tetap tersedia agar penumpang bisa mendokumentasikan
+          // barang bawaan sebelum pemesanan dikirim.
           ...[
             const SizedBox(height: 12),
             Container(
@@ -1446,8 +1445,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
             ),
             const SizedBox(height: 14),
 
-            // Jika ada checkout URL dari Pakasir, tampilkan tombol utama
-            // untuk redirect ke halaman pembayaran Pakasir — bukan QRIS statis.
+            // Jika Pakasir memberi tautan pembayaran, arahkan pengguna ke sana
+            // supaya transaksi diproses melalui halaman penyedia pembayaran.
             if (payment.hasCheckoutUrl) ...[
               SizedBox(
                 width: double.infinity,
@@ -1469,7 +1468,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
               const SizedBox(height: 14),
             ],
 
-            // QRIS ditampilkan sebagai fallback atau pelengkap
+            // Kode QR tetap ditampilkan jika nomor pembayaran QRIS tersedia.
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),

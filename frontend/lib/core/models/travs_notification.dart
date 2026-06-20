@@ -1,9 +1,9 @@
 // Model notifikasi yang dipakai aplikasi mobile.
 //
 // KONSEP:
-// Setiap kali terjadi event penting di backend (pembayaran berhasil, tiket terbit,
+// Setiap kali terjadi kejadian penting di backend (pembayaran berhasil, tiket terbit,
 // jadwal berubah), backend menyimpan satu baris ke tabel `notifikasi`. Mobile
-// kemudian mengambil data ini lewat polling endpoint `/api/v1/notifications`.
+// mengambil data ini secara berkala lewat endpoint `/api/v1/notifications`.
 
 class TravSNotification {
   const TravSNotification({
@@ -16,38 +16,36 @@ class TravSNotification {
     required this.createdAt,
   });
 
-  /// ID unik notifikasi dari database backend (auto-increment).
+  /// ID unik yang dibuat otomatis oleh database.
   /// Dipakai untuk menentukan mana notifikasi yang "baru" vs "sudah pernah dilihat".
   final int id;
 
   /// Judul singkat notifikasi, contoh: "Pembayaran Berhasil", "Manifest Baru".
   final String judul;
 
-  /// Isi pesan lengkap notifikasi yang ditampilkan di body notif sistem Android.
+  /// Isi lengkap yang ditampilkan pada notifikasi sistem Android.
   final String pesan;
 
   /// Kategori notifikasi: 'pembayaran', 'perjalanan', atau 'sistem'.
-  /// Dipakai untuk menentukan warna dan icon di UI.
+  /// Dipakai untuk menentukan warna dan ikon di tampilan aplikasi.
   final String jenis;
 
   /// ID referensi ke entitas terkait (misal ID pemesanan atau ID jadwal).
-  /// Nullable karena tidak semua notifikasi punya referensi spesifik.
+  /// Boleh kosong karena tidak semua notifikasi terkait dengan data tertentu.
   final int? referensiId;
 
-  /// Apakah notifikasi ini sudah dibaca oleh user.
-  /// Dipakai untuk menampilkan dot/badge "belum dibaca" di UI.
+  /// Menandai apakah notifikasi sudah dibaca oleh pengguna.
+  /// Dipakai untuk menampilkan titik atau angka pada ikon notifikasi.
   final bool sudahDibaca;
 
   /// Waktu notifikasi dibuat di backend.
   /// Ditampilkan sebagai label waktu di UI (contoh: "2 jam lalu").
   final DateTime? createdAt;
 
-  /// Factory constructor untuk mengubah JSON dari API menjadi object Dart.
+  /// Mengubah JSON dari API menjadi objek Dart yang siap dipakai tampilan.
   ///
-  /// POLA DEFENSIVE PARSING:
-  /// Setiap field di-cast dengan null-safety (`as num?`, `as String?`) dan
-  /// diberi default value (`?? 0`, `?? ''`). Ini mencegah crash jika backend
-  /// mengirim data yang tidak lengkap atau format berubah.
+  /// Pembacaan dibuat hati-hati karena data dari backend bisa saja kosong
+  /// atau berubah format. Nilai awal dipakai agar aplikasi tidak berhenti.
   factory TravSNotification.fromJson(Map<String, dynamic> json) {
     final createdRaw = json['created_at'];
     return TravSNotification(
@@ -57,20 +55,17 @@ class TravSNotification {
       jenis: (json['jenis'] as String?) ?? 'sistem',
       referensiId: (json['referensi_id'] as num?)?.toInt(),
       sudahDibaca: (json['sudah_dibaca'] as bool?) ?? false,
-      // DateTime.tryParse aman — mengembalikan null jika format string tidak valid.
+      // Kalau format tanggal tidak valid, nilainya dibuat null agar UI tetap aman.
       createdAt: createdRaw is String ? DateTime.tryParse(createdRaw) : null,
     );
   }
 }
 
-/// Hasil polling endpoint notifikasi — berisi daftar item + jumlah belum dibaca.
+/// Hasil pengambilan notifikasi berisi daftar pesan dan jumlah yang belum dibaca.
 ///
-/// KENAPA DIPISAH DARI TravSNotification:
-/// Endpoint `/api/v1/notifications` mengembalikan object dengan 2 field:
-/// - `items`: array notifikasi
-/// - `unread_count`: angka untuk badge
-///
-/// Class ini membungkus keduanya agar mudah dipakai di UI tanpa parsing manual.
+/// Data ini dipisahkan dari satu notifikasi karena endpoint mengirim dua bagian:
+/// daftar notifikasi pada `items` dan jumlah belum dibaca pada `unread_count`.
+/// Kelas ini menyatukan keduanya agar halaman tidak perlu membaca JSON manual.
 class TravSNotificationFeed {
   const TravSNotificationFeed({
     required this.items,
@@ -80,14 +75,13 @@ class TravSNotificationFeed {
   /// Daftar notifikasi terbaru (sudah diurutkan dari yang paling baru oleh backend).
   final List<TravSNotification> items;
 
-  /// Jumlah total notifikasi yang belum dibaca — untuk badge angka di icon lonceng.
+  /// Jumlah notifikasi belum dibaca untuk angka pada ikon lonceng.
   final int unreadCount;
 
-  /// Factory constructor untuk parsing response JSON dari backend.
+  /// Mengubah data balikan backend menjadi objek yang mudah dipakai.
   factory TravSNotificationFeed.fromJson(Map<String, dynamic> json) {
     final rawItems = json['items'];
-    // whereType<Map<String, dynamic>> memfilter item yang bukan Map (safety).
-    // Ini mencegah crash jika backend mengirim null atau format aneh di array.
+    // Hanya item berbentuk Map yang diproses, supaya data kosong/aneh tidak bikin crash.
     final list = rawItems is List
         ? rawItems
               .whereType<Map<String, dynamic>>()
@@ -101,6 +95,6 @@ class TravSNotificationFeed {
     );
   }
 
-  /// Konstanta untuk state awal sebelum polling pertama selesai.
+  /// Nilai awal sebelum aplikasi selesai mengambil notifikasi pertama kali.
   static const empty = TravSNotificationFeed(items: [], unreadCount: 0);
 }

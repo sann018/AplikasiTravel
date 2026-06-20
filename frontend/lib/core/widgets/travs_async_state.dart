@@ -3,12 +3,11 @@ import 'package:flutter/material.dart';
 import '../services/travs_api_service.dart';
 import '../theme/travs_theme.dart';
 
-/// Widget reusable untuk menampilkan state loading, error, dan empty secara
-/// konsisten di seluruh halaman TravS. Menghilangkan kebutuhan fallback mock
-/// karena setiap state ditangani secara eksplisit dan jujur ke pengguna.
+/// Widget bantu untuk menampilkan kondisi memuat, gagal, atau data kosong
+/// dengan tampilan yang sama di seluruh halaman RuslyTravel.
 ///
-/// Prinsip: satu widget, satu tanggung jawab — menampilkan feedback async
-/// yang ramah tanpa menyembunyikan kegagalan dari pengguna.
+/// Tujuannya supaya tiap halaman tidak perlu membuat tampilan gagal sendiri,
+/// dan pengguna tetap mendapat pesan yang jelas saat data belum siap.
 class TravSAsyncState extends StatelessWidget {
   const TravSAsyncState._({
     required this.icon,
@@ -18,7 +17,7 @@ class TravSAsyncState extends StatelessWidget {
     this.isLoading = false,
   });
 
-  /// State loading — ditampilkan saat data sedang dimuat dari backend.
+  /// Dipakai saat halaman sedang mengambil data dari backend.
   factory TravSAsyncState.loading({String? message}) {
     return TravSAsyncState._(
       icon: Icons.hourglass_top_rounded,
@@ -28,14 +27,14 @@ class TravSAsyncState extends StatelessWidget {
     );
   }
 
-  /// State error — ditampilkan saat API gagal atau koneksi terputus.
-  /// [onRetry] memberikan tombol "Coba Lagi" agar pengguna punya aksi.
+  /// Dipakai saat API gagal atau koneksi terputus.
+  /// [onRetry] membuat pengguna bisa mencoba memuat data lagi.
   factory TravSAsyncState.error({
     required Object error,
     VoidCallback? onRetry,
   }) {
-    // Ambil pesan error yang ramah untuk ditampilkan ke pengguna.
-    // Tidak menampilkan stack trace atau detail teknis (rules #26).
+    // Pesan teknis disaring dulu supaya yang tampil tetap mudah dipahami.
+    // Detail seperti stack trace tidak cocok ditampilkan ke pengguna.
     final message = friendlyErrorMessage(error);
 
     return TravSAsyncState._(
@@ -46,7 +45,7 @@ class TravSAsyncState extends StatelessWidget {
     );
   }
 
-  /// State empty — ditampilkan saat data berhasil dimuat tapi kosong.
+  /// Dipakai saat permintaan berhasil, tetapi memang belum ada data.
   factory TravSAsyncState.empty({
     String? title,
     String? subtitle,
@@ -65,8 +64,8 @@ class TravSAsyncState extends StatelessWidget {
   final VoidCallback? onRetry;
   final bool isLoading;
 
-  /// Mengekstrak pesan error yang ramah tanpa menampilkan detail teknis
-  /// seperti stack trace atau nama tabel ke pengguna (sesuai rules #26).
+  /// Mengubah kesalahan mentah menjadi pesan yang aman dan ramah dibaca pengguna.
+  /// Detail teknis cukup untuk log/developer, bukan untuk layar aplikasi.
   static String friendlyErrorMessage(Object error) {
     if (error is TravSApiException) {
       return error.message;
@@ -101,7 +100,7 @@ class TravSAsyncState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Ikon status — loading pakai spinner, lainnya pakai ikon statis
+            // Saat masih memuat data, tampilkan pemutar agar pengguna tahu prosesnya berjalan.
             if (isLoading)
               const SizedBox(
                 width: 48,
@@ -123,7 +122,7 @@ class TravSAsyncState extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // Judul state
+            // Judul singkat agar pengguna langsung paham kondisi halaman.
             Text(
               title,
               textAlign: TextAlign.center,
@@ -135,7 +134,7 @@ class TravSAsyncState extends StatelessWidget {
 
             const SizedBox(height: 8),
 
-            // Deskripsi — pesan ramah tanpa detail teknis
+            // Deskripsi dibuat sederhana, tanpa membocorkan detail teknis server.
             Text(
               subtitle,
               textAlign: TextAlign.center,
@@ -145,7 +144,7 @@ class TravSAsyncState extends StatelessWidget {
               ),
             ),
 
-            // Tombol retry jika tersedia
+            // Tombol ini hanya muncul jika halaman menyediakan aksi coba lagi.
             if (onRetry != null) ...[
               const SizedBox(height: 24),
               FilledButton.icon(

@@ -90,7 +90,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
         _languageCode = prefs.getString(_languagePrefsKey) ?? 'id';
       });
     } catch (_) {
-      // Jika preferensi lokal bermasalah, aplikasi tetap jalan dengan default.
+      // Jika data pengaturan lokal rusak, aplikasi tetap memakai pengaturan awal.
     }
   }
 
@@ -128,7 +128,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
       await _authService.saveSession(latestSession);
       widget.onSessionUpdated?.call(latestSession);
     } catch (_) {
-      // Profil tetap bisa dibuka dari session lama saat backend belum siap.
+      // Data sesi lama dipakai sementara agar profil tetap bisa dibuka saat backend lambat.
     }
   }
 
@@ -187,7 +187,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
 
     if (!mounted) return;
 
-    // Jika guest klik tombol booking, arahkan langsung ke halaman login
+    // Tamu diarahkan ke login karena pemesanan hanya boleh dibuat oleh akun penumpang.
     if (result == 'open_login') {
       widget.onOpenAuth();
       return;
@@ -1613,13 +1613,13 @@ class _TravSHomePageState extends State<TravSHomePage> {
           child: FutureBuilder<_HomeBundle>(
             future: _future,
             builder: (context, snapshot) {
-              // State loading — tampilkan spinner saat data belum tersedia
+              // Tampilkan spinner selama data beranda masih dimuat.
               if (snapshot.connectionState == ConnectionState.waiting &&
                   !snapshot.hasData) {
                 return TravSAsyncState.loading(message: 'Memuat beranda...');
               }
 
-              // State error — tampilkan pesan error yang jujur dengan retry
+              // Jika gagal, beri pesan yang jelas dan tombol untuk mencoba lagi.
               if (snapshot.hasError && !snapshot.hasData) {
                 return TravSAsyncState.error(
                   error: snapshot.error!,
@@ -1627,7 +1627,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
                 );
               }
 
-              // Data tersedia — render halaman normal
+              // Setelah data tersedia, tampilkan isi beranda sesuai role pengguna.
               final bundle = snapshot.data!;
               final pages = _pagesForRole(bundle);
 
@@ -6144,7 +6144,7 @@ String _humanizeStatus(String status) {
   }
 }
 
-// Daftar rute dibuat dari jadwal yang sudah dimuat, jadi klik rute tidak memanggil API baru.
+// Daftar rute memakai data jadwal yang sudah ada agar tidak meminta data ulang ke backend.
 List<_RouteBookmark> _buildRouteBookmarks(List<TravSSchedule> schedules) {
   final groupedSchedules = <String, List<TravSSchedule>>{};
 
@@ -6214,7 +6214,7 @@ _RouteBookmark? _findRouteBookmark(
   return null;
 }
 
-// Filter jadwal tetap di sisi Flutter agar pindah chip tidak menambah request ke backend.
+// Filter dijalankan di Flutter agar pergantian pilihan terasa cepat dan tidak mengulang query.
 List<TravSSchedule> _filterSchedulesForRoute({
   required List<TravSSchedule> schedules,
   required String routeKey,
@@ -6268,8 +6268,8 @@ TravSBookingResult? _nextPaidUpcomingBooking(
           return false;
         }
 
-        // Card beranda hanya boleh menampilkan pemesanan yang sudah lunas,
-        // belum selesai perjalanannya, dan bukan booking yang dibatalkan.
+        // Perjalanan berikutnya hanya mengambil pemesanan lunas yang masih aktif,
+        // sehingga pesanan batal atau perjalanan selesai tidak ikut tampil.
         return booking.status == 'terbayar' &&
             booking.payment.status == 'berhasil' &&
             !departure.isBefore(now);

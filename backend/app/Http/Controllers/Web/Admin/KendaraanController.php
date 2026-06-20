@@ -125,8 +125,8 @@ class KendaraanController extends Controller
             'foto_kendaraan' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:3072'],
         ]);
 
-        // Parse seat_layout dari string input (contoh: "1,3,2") menjadi JSON array.
-        // Admin memasukkan angka dipisahkan koma untuk menentukan jumlah kursi per baris.
+        // Input seperti "1,3,2" diubah menjadi daftar angka agar mudah disimpan
+        // dan dipakai kembali saat aplikasi menyusun denah kursi.
         if (! empty($validated['seat_layout'])) {
             $layoutParts = array_filter(
                 array_map('intval', explode(',', $validated['seat_layout'])),

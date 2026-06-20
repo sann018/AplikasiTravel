@@ -9,21 +9,21 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class KursiJadwal extends Model
 {
     /**
-     * The table associated with the model.
+     * Nama tabel database yang digunakan model ini.
      *
      * @var string
      */
     protected $table = 'kursi_jadwal';
 
     /**
-     * Indicates if the model should be timestamped.
+     * Menentukan apakah Laravel perlu mengatur waktu pembuatan/perubahan otomatis.
      *
      * @var bool
      */
     public $timestamps = false;
 
     /**
-     * The attributes that are mass assignable.
+     * Kolom yang boleh diisi sekaligus saat membuat atau memperbarui data.
      *
      * @var array<int, string>
      */

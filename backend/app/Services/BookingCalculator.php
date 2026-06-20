@@ -9,7 +9,7 @@ use Illuminate\Validation\ValidationException;
 class BookingCalculator
 {
     /**
-     * Calculate booking totals based on route price and baggage settings.
+     * Menghitung total tiket dan biaya bagasi sesuai aturan yang aktif.
      *
      * @param  array<int, array<string, mixed>>  $baggageItems
      * @return array<string, mixed>
@@ -20,10 +20,8 @@ class BookingCalculator
     {
         $subtotalTiket = (float) $jadwal->rute->harga_tiket * $seatCount;
 
-        // Admin fee tidak lagi dihitung manual di sisi aplikasi.
-        // Fee ditentukan secara dinamis oleh Payment Gateway (Pakasir) saat
-        // transaksi dibuat, dan ditampilkan di response gateway sebagai 'fee'.
-        // Ini memastikan fee selalu akurat sesuai kebijakan gateway.
+        // Biaya layanan tidak ditentukan oleh travel. Nilainya baru mengikuti
+        // Pakasir saat transaksi dibuat agar tidak terjadi perbedaan nominal.
         $adminFee = 0.0;
 
         $totals = [

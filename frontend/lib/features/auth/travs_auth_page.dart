@@ -807,9 +807,9 @@ class _InlineMessage extends StatelessWidget {
   }
 }
 
-/// Halaman Lupa Password — dua langkah:
-/// 1. Masukkan email untuk menerima token reset
-/// 2. Masukkan token dan password baru untuk mereset
+/// Halaman lupa password dibagi menjadi dua tahap agar alurnya mudah diikuti:
+/// pengguna meminta token lewat email, lalu memakai token itu untuk membuat
+/// password baru.
 class _ForgotPasswordPage extends StatefulWidget {
   const _ForgotPasswordPage();
 
@@ -821,10 +821,10 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
   final TravSApiService _apiService = TravSApiService();
   final _formKey = GlobalKey<FormState>();
 
-  // Controllers untuk step 1 (request token)
+  // Pengendali ini menyimpan email yang dipakai untuk meminta token reset.
   final _emailController = TextEditingController();
 
-  // Controllers untuk step 2 (reset password)
+  // Ketiga pengendali ini menyimpan token serta password baru dari form.
   final _tokenController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -844,7 +844,7 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
     super.dispose();
   }
 
-  /// Step 1: Request token reset via email
+  /// Meminta token reset menggunakan email yang sudah terdaftar.
   Future<void> _requestToken() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -865,7 +865,7 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
         _isSubmitting = false;
         _isStep2 = true;
         _successMessage = 'Token reset telah dikirim ke email Anda.';
-        // Untuk demo/testing, token diisi otomatis dari response
+        // Pada mode demo, token dari backend diisikan otomatis agar alur mudah diuji.
         if (token != null && token.isNotEmpty) {
           _tokenController.text = token;
         }
@@ -881,7 +881,7 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
     }
   }
 
-  /// Step 2: Reset password dengan token
+  /// Mengirim token dan password baru untuk memperbarui akses akun.
   Future<void> _resetPassword() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -900,7 +900,7 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
 
       if (!mounted) return;
 
-      // Kembali ke halaman login dengan indikasi sukses
+      // Nilai true memberi tahu halaman login bahwa reset password berhasil.
       Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) return;
@@ -937,7 +937,7 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Header
+                  // Bagian atas menjelaskan tahap reset yang sedang dikerjakan.
                   Icon(
                     _isStep2 ? Icons.lock_reset_rounded : Icons.email_outlined,
                     size: 56,
@@ -966,7 +966,7 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Error/Success messages
+                  // Pesan hasil proses ditampilkan dekat form agar mudah terlihat.
                   if (_errorMessage != null) ...[
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -1026,9 +1026,9 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
                     const SizedBox(height: 14),
                   ],
 
-                  // Form fields
+                  // Isi form berubah sesuai tahap permintaan token atau reset password.
                   if (!_isStep2) ...[
-                    // Step 1: Email input
+                    // Tahap pertama hanya membutuhkan email akun.
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -1052,7 +1052,7 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
                           _isSubmitting ? null : _requestToken(),
                     ),
                   ] else ...[
-                    // Step 2: Token + new password
+                    // Tahap kedua meminta token beserta password baru.
                     TextFormField(
                       controller: _tokenController,
                       textInputAction: TextInputAction.next,
@@ -1124,7 +1124,7 @@ class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
 
                   const SizedBox(height: 24),
 
-                  // Submit button
+                  // Tombol menjalankan proses sesuai tahap yang sedang aktif.
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(

@@ -8,45 +8,22 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Controller untuk endpoint notifikasi mobile.
+ * Menyediakan data notifikasi untuk aplikasi mobile.
  *
- * KONSEP UTAMA:
- * Aplikasi Flutter melakukan "polling" — yaitu menanyakan ke server secara berkala
- * (setiap 30 detik) apakah ada notifikasi baru. Ini berbeda dengan "push" (FCM)
- * di mana server yang aktif mengirim ke HP. Polling lebih sederhana karena tidak
- * butuh layanan eksternal seperti Firebase.
- *
- * ALUR KERJA:
- * 1. User login di mobile → Flutter mulai timer polling setiap 30 detik
- * 2. Setiap 30 detik, Flutter panggil GET /api/v1/notifications
- * 3. Backend cek tabel `notifikasi` milik user tersebut
- * 4. Jika ada notif baru → Flutter tampilkan sebagai notifikasi sistem Android
- * 5. User buka halaman notifikasi → Flutter panggil POST /read-all
- *
- * KEAMANAN:
- * - Setiap endpoint memerlukan auth:sanctum (token login)
- * - User hanya bisa melihat notifikasi miliknya sendiri (filter pengguna_id)
- * - Rate limit `travs-read` mencegah spam request berlebihan
+ * Flutter mengecek notifikasi secara berkala. Setiap query selalu dibatasi
+ * dengan ID pengguna supaya satu akun tidak bisa membaca notifikasi akun lain.
  */
 class NotificationController extends Controller
 {
     /**
-     * Mengembalikan daftar notifikasi user yang sedang login.
-     *
-     * PARAMETER OPTIONAL:
-     * - `since_id`: ID notifikasi terakhir yang sudah diterima mobile.
-     *   Jika dikirim, backend hanya mengembalikan notifikasi dengan ID lebih besar.
-     *   Ini menghemat bandwidth karena mobile tidak perlu download ulang notif lama.
-     * - `limit`: Jumlah maksimal notifikasi yang dikembalikan (default 20, max 50).
-     *
-     * RESPONSE:
-     * - `items`: Array notifikasi terbaru (urut dari yang paling baru)
-     * - `unread_count`: Jumlah notifikasi yang belum dibaca (untuk badge angka di icon lonceng)
+     * Mengambil notifikasi milik pengguna yang sedang login.
+     * `since_id` mencegah data lama dikirim ulang, sedangkan `limit` membatasi
+     * jumlah hasil agar balasan API tetap ringan.
      */
     public function index(Request $request): JsonResponse
     {
-        // Validasi input dari mobile — Laravel otomatis menolak jika format salah.
-        // Ini penting agar user tidak bisa mengirim data aneh yang merusak query.
+        // Parameter dari mobile divalidasi dulu agar nilai yang tidak sesuai
+        // tidak ikut masuk ke proses pencarian database.
         $validated = $request->validate([
             'since_id' => ['nullable', 'integer', 'min:0'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
@@ -55,19 +32,17 @@ class NotificationController extends Controller
         $sinceId = (int) ($validated['since_id'] ?? 0);
         $limit = (int) ($validated['limit'] ?? 20);
 
-        // Ambil user yang sedang login dari token Sanctum.
-        // Laravel Sanctum otomatis memverifikasi token di header Authorization.
+        // Pengguna diambil dari token yang sudah diverifikasi oleh Sanctum.
         $user = $request->user();
 
-        // Query notifikasi milik user ini saja, urut dari yang terbaru.
-        // `pengguna_id` memastikan user A tidak bisa lihat notifikasi user B.
+        // Filter berdasarkan pengguna mencegah notifikasi akun lain ikut terbaca.
+        // Hasil diurutkan dari yang terbaru agar informasi penting tampil lebih dulu.
         $query = Notifikasi::query()
             ->where('pengguna_id', $user->id)
             ->orderByDesc('id');
 
-        // Filter since_id: hanya ambil notifikasi yang lebih baru dari ID tertentu.
-        // Mobile menyimpan ID terakhir yang sudah diterima, lalu kirim ke sini
-        // agar tidak download ulang notifikasi yang sudah ada di lokal.
+        // Jika mobile mengirim ID terakhir, backend cukup mengambil notifikasi
+        // yang lebih baru agar data lama tidak dikirim berulang kali.
         if ($sinceId > 0) {
             $query->where('id', '>', $sinceId);
         }
@@ -77,9 +52,9 @@ class NotificationController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                // Map setiap model Notifikasi ke format JSON yang konsisten.
+                // Setiap notifikasi dibentuk dengan struktur JSON yang sama untuk mobile.
                 'items' => $notifikasi->map(fn (Notifikasi $row) => $this->formatNotifikasi($row))->all(),
-                // Hitung total notifikasi belum dibaca — dipakai untuk badge angka.
+                // Jumlah belum dibaca dipakai sebagai angka pada ikon lonceng.
                 'unread_count' => Notifikasi::query()
                     ->where('pengguna_id', $user->id)
                     ->where('sudah_dibaca', false)
@@ -89,15 +64,8 @@ class NotificationController extends Controller
     }
 
     /**
-     * Endpoint ringan khusus untuk polling badge unread di header app.
-     *
-     * KENAPA DIPISAH DARI INDEX:
-     * Endpoint ini hanya mengembalikan angka (integer), bukan daftar notifikasi.
-     * Ini jauh lebih ringan dan cepat — cocok untuk dipanggil lebih sering
-     * (misalnya setiap 15 detik) tanpa membebani server.
-     *
-     * DIPAKAI UNTUK:
-     * Badge angka merah di icon lonceng pada header aplikasi mobile.
+     * Mengambil jumlah notifikasi yang belum dibaca untuk angka pada ikon lonceng.
+     * Endpoint ini dipisah karena hanya membutuhkan satu angka, bukan seluruh daftar.
      */
     public function unreadCount(Request $request): JsonResponse
     {
@@ -115,21 +83,12 @@ class NotificationController extends Controller
     }
 
     /**
-     * Menandai satu notifikasi sebagai sudah dibaca.
-     *
-     * KEAMANAN:
-     * Memakai route model binding (`Notifikasi $notifikasi`) — Laravel otomatis
-     * mencari notifikasi berdasarkan ID di URL. Jika tidak ditemukan, otomatis 404.
-     * Setelah itu kita cek apakah notifikasi tersebut milik user yang login.
-     * Ini mencegah user A menandai notifikasi user B sebagai dibaca.
-     *
-     * DIPAKAI SAAT:
-     * User tap/klik salah satu item notifikasi di halaman daftar notifikasi.
+     * Menandai satu notifikasi sebagai sudah dibaca setelah kepemilikannya dicek.
      */
     public function markAsRead(Request $request, Notifikasi $notifikasi): JsonResponse
     {
-        // Cek kepemilikan: notifikasi ini harus milik user yang sedang login.
-        // Tanpa pengecekan ini, user bisa manipulasi ID di URL untuk akses data orang lain.
+        // Kepemilikan wajib dicek agar perubahan ID pada URL tidak memberi
+        // akses ke notifikasi milik akun lain.
         if ($notifikasi->pengguna_id !== $request->user()->id) {
             return response()->json([
                 'success' => false,
@@ -137,8 +96,8 @@ class NotificationController extends Controller
             ], 404);
         }
 
-        // forceFill dipakai karena `sudah_dibaca` mungkin tidak ada di $fillable.
-        // Ini aman karena kita yang mengontrol value-nya (selalu true).
+        // Nilai `sudah_dibaca` dikendalikan backend dan selalu diisi true,
+        // jadi pengguna tidak bisa menentukan nilainya sendiri dari permintaan.
         $notifikasi->forceFill(['sudah_dibaca' => true])->save();
 
         return response()->json([
@@ -149,19 +108,12 @@ class NotificationController extends Controller
     }
 
     /**
-     * Menandai seluruh notifikasi user sebagai sudah dibaca (bulk update).
-     *
-     * DIPAKAI SAAT:
-     * User membuka halaman daftar notifikasi — semua dianggap sudah dilihat.
-     * Ini lebih efisien daripada memanggil markAsRead satu per satu.
-     *
-     * RESPONSE:
-     * - `affected`: Jumlah notifikasi yang berubah status. Berguna untuk debugging.
+     * Menandai semua notifikasi pengguna sebagai sudah dibaca lewat satu query.
      */
     public function markAllAsRead(Request $request): JsonResponse
     {
-        // Update langsung di database tanpa load model satu per satu.
-        // Ini jauh lebih cepat daripada loop + save() untuk setiap notifikasi.
+        // Semua notifikasi diperbarui lewat satu query agar lebih ringan
+        // dibandingkan menyimpan setiap baris satu per satu.
         $affected = Notifikasi::query()
             ->where('pengguna_id', $request->user()->id)
             ->where('sudah_dibaca', false)
@@ -177,11 +129,7 @@ class NotificationController extends Controller
     }
 
     /**
-     * Format model Notifikasi menjadi array JSON yang konsisten.
-     *
-     * KENAPA PAKAI METHOD TERPISAH:
-     * Agar format response selalu sama di semua endpoint (index, markAsRead).
-     * Jika nanti perlu tambah field, cukup ubah di satu tempat ini saja.
+     * Menyatukan bentuk JSON notifikasi agar semua endpoint memakai struktur yang sama.
      *
      * @return array<string, mixed>
      */
@@ -191,10 +139,14 @@ class NotificationController extends Controller
             'id' => $notifikasi->id,
             'judul' => $notifikasi->judul,
             'pesan' => $notifikasi->pesan,
-            'jenis' => $notifikasi->jenis,                          // 'pembayaran', 'perjalanan', atau 'sistem'
-            'referensi_id' => $notifikasi->referensi_id,            // ID pemesanan/jadwal terkait (nullable)
-            'sudah_dibaca' => (bool) $notifikasi->sudah_dibaca,     // Cast ke boolean agar JSON konsisten
-            'created_at' => $notifikasi->created_at?->toIso8601String(), // Format ISO 8601 agar Flutter mudah parse
+            // Jenis dipakai mobile untuk menentukan ikon dan warna notifikasi.
+            'jenis' => $notifikasi->jenis,
+            // Referensi menghubungkan notifikasi ke pemesanan atau jadwal, jika ada.
+            'referensi_id' => $notifikasi->referensi_id,
+            // Nilai boolean menjaga status baca tetap konsisten di Flutter.
+            'sudah_dibaca' => (bool) $notifikasi->sudah_dibaca,
+            // ISO 8601 dipakai agar waktu mudah dibaca oleh DateTime di Flutter.
+            'created_at' => $notifikasi->created_at?->toIso8601String(),
         ];
     }
 }

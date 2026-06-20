@@ -208,8 +208,8 @@ class JadwalController extends Controller
     {
         $departureMinute = Carbon::parse($payload['waktu_berangkat']);
 
-        // Cek bentrok berdasarkan menit keberangkatan agar input HTML datetime-local
-        // yang tidak membawa detik tetap terbaca konsisten oleh database.
+        // Waktu dibandingkan sampai menit karena input `datetime-local` tidak
+        // mengirim detik. Cara ini menjaga pemeriksaan bentrok tetap konsisten.
         return Jadwal::query()
             ->where('pengemudi_id', $payload['pengemudi_id'])
             ->where('status', '!=', 'dibatalkan')
