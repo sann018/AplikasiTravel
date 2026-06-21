@@ -32,6 +32,14 @@ class DriverOperationsTest extends TestCase
             ->whereHas('pengemudi.pengguna', fn ($query) => $query->whereKey($driver->id))
             ->whereHas('pemesanan', fn ($query) => $query->where('status_pemesanan', 'terbayar'))
             ->firstOrFail();
+        $booking = $jadwal->pemesanan()
+            ->where('status_pemesanan', 'terbayar')
+            ->firstOrFail();
+        $booking->update([
+            'lintang_turun' => 0.1285,
+            'bujur_turun' => 111.4986,
+            'alamat_turun' => 'Terminal Sintang, Kalimantan Barat',
+        ]);
 
         Sanctum::actingAs($driver);
 
@@ -51,11 +59,16 @@ class DriverOperationsTest extends TestCase
                             'nama_penumpang',
                             'nomor_kursi',
                             'pickup',
+                            'dropoff',
                             'ticket',
                         ],
                     ],
                 ],
             ]);
+
+        $response
+            ->assertJsonPath('data.manifest.0.dropoff.address', 'Terminal Sintang, Kalimantan Barat')
+            ->assertJsonPath('data.manifest.0.dropoff.is_dropped_off', false);
     }
 
     public function test_driver_manifest_includes_cash_booking_waiting_for_payment(): void

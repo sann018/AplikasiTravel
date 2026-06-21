@@ -30,6 +30,7 @@ class TravSUserProfile {
     String? email,
     String? noHp,
     String? fotoProfil,
+    String? nomorSim,
   }) {
     return TravSUserProfile(
       id: id,
@@ -39,7 +40,7 @@ class TravSUserProfile {
       peran: peran,
       statusAktif: statusAktif,
       fotoProfil: fotoProfil ?? this.fotoProfil,
-      nomorSim: nomorSim,
+      nomorSim: nomorSim ?? this.nomorSim,
     );
   }
 

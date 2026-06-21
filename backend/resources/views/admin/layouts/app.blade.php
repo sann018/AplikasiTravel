@@ -4,11 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>@yield('title', 'Admin') - {{ config('app.name') }}</title>
-    <link rel="stylesheet" href="{{ asset('vendor/mazer/css/app.css') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <link rel="stylesheet" href="{{ asset('vendor/mazer/css/travs-bridge.css') }}?v={{ filemtime(public_path('vendor/mazer/css/travs-bridge.css')) }}">
 </head>
-<body class="travs-mazer-admin">
+<body class="travs-admin-body">
     @php
         $navGroups = [
             [
@@ -53,10 +51,9 @@
             ->count();
     @endphp
 
-    <div id="app">
-        <div id="sidebar" class="active">
-            <div class="sidebar-wrapper active">
-                <div class="sidebar-header position-relative">
+    <div id="app" class="travs-admin-shell">
+        <aside id="sidebar" class="travs-sidebar" data-admin-sidebar>
+                <div class="travs-sidebar-head">
                     <div class="d-flex justify-content-between align-items-start gap-3">
                         <div class="travs-brand-copy">
                             <div class="travs-brand-mark">
@@ -68,18 +65,18 @@
                             </div>
                         </div>
 
-                        <div class="sidebar-toggler x">
-                            <a href="#" class="sidebar-hide d-xl-none d-block" aria-label="Tutup menu">
+                        <div>
+                            <button type="button" class="travs-icon-button d-xl-none" data-sidebar-close aria-label="Tutup menu">
                                 <i data-feather="x"></i>
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                <div class="sidebar-menu">
-                    <ul class="menu">
+                <nav class="travs-sidebar-menu" aria-label="Navigasi admin">
+                    <ul class="travs-menu">
                         @foreach ($navGroups as $group)
-                            <li class="sidebar-title">{{ $group['label'] }}</li>
+                            <li class="travs-nav-group-title">{{ $group['label'] }}</li>
 
                             @foreach ($group['items'] as $item)
                                 @php
@@ -87,8 +84,8 @@
                                     $isActive = collect($activePatterns)->contains(fn (string $pattern) => request()->routeIs($pattern));
                                 @endphp
 
-                                <li class="sidebar-item {{ $isActive ? 'active' : '' }}">
-                                    <a href="{{ route($item['route']) }}" class="sidebar-link">
+                                <li class="travs-sidebar-item {{ $isActive ? 'active' : '' }}">
+                                    <a href="{{ route($item['route']) }}" class="travs-nav-link {{ $isActive ? 'is-active' : '' }}">
                                         <i data-feather="{{ $item['icon'] }}"></i>
                                         <span>{{ $item['label'] }}</span>
                                         @if ($item['route'] === 'admin.notifikasi.index' && $unreadAdminNotifications > 0)
@@ -99,17 +96,17 @@
                             @endforeach
                         @endforeach
                     </ul>
-                </div>
-            </div>
-        </div>
+                </nav>
+        </aside>
+        <button type="button" class="travs-sidebar-backdrop" data-sidebar-backdrop hidden aria-label="Tutup menu"></button>
 
-        <div id="main" class="layout-navbar">
+        <main id="main" class="travs-admin-main">
             <header class="travs-sticky-header">
                 <nav class="travs-topbar">
                     <div class="travs-topbar-left">
-                        <a href="#" class="travs-icon-button d-xl-none" aria-label="Buka menu">
+                        <button type="button" class="travs-icon-button d-xl-none" data-sidebar-open aria-label="Buka menu">
                             <i data-feather="menu"></i>
-                        </a>
+                        </button>
                         <div class="travs-topbar-title">
                             <h3>{{ $pageTitle }}</h3>
                             <p>{{ $pageDescription }}</p>
@@ -181,21 +178,16 @@
 
                 @yield('content')
             </div>
-        </div>
+        </main>
     </div>
 
     <div class="travs-photo-preview-modal" data-photo-preview-modal hidden>
         <button type="button" class="travs-photo-preview-close" data-photo-preview-close aria-label="Tutup preview foto">
             &times;
         </button>
-        <figure class="travs-photo-preview-card">
-            <img src="" alt="Preview foto" data-photo-preview-image>
-            <figcaption data-photo-preview-caption></figcaption>
-        </figure>
+        <img src="" alt="Preview foto" data-photo-preview-image>
     </div>
 
-    <script src="{{ asset('vendor/mazer/js/perfect-scrollbar.min.js') }}"></script>
-    <script src="{{ asset('vendor/mazer/js/app.js') }}"></script>
     <script>
         document.addEventListener('click', function (event) {
             const previewTarget = event.target.closest('.travs-photo-preview-trigger');
@@ -203,11 +195,8 @@
 
             if (previewTarget && modal) {
                 const previewImage = modal.querySelector('[data-photo-preview-image]');
-                const caption = modal.querySelector('[data-photo-preview-caption]');
-
                 previewImage.src = previewTarget.dataset.previewSrc || previewTarget.currentSrc || previewTarget.src;
                 previewImage.alt = previewTarget.alt || 'Preview foto';
-                caption.textContent = previewTarget.alt || 'Preview foto';
                 modal.hidden = false;
                 document.body.classList.add('travs-photo-preview-open');
                 return;

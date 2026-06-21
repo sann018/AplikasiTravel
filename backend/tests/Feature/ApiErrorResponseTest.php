@@ -288,6 +288,11 @@ class ApiErrorResponseTest extends TestCase
                 'longitude' => 109.3425,
                 'address' => 'Test',
             ],
+            'dropoff' => [
+                'latitude' => 0.1285,
+                'longitude' => 111.4986,
+                'address' => 'Terminal tujuan',
+            ],
             'payment_method' => 'qris',
             'passengers' => [
                 [

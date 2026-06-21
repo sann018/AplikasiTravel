@@ -170,7 +170,7 @@ class AdminOperationsTest extends TestCase
                 'nama' => 'Driver Uji',
                 'email' => 'driveruji@travs.com',
                 'no_hp' => '081111111111',
-                'nomor_sim' => '610223343541',
+                'nomor_sim' => '6102233435410001',
                 'status' => 'aktif',
                 'status_verifikasi' => 'menunggu',
                 'catatan_verifikasi' => 'Masih review.',
@@ -181,7 +181,7 @@ class AdminOperationsTest extends TestCase
 
         $pengemudi = Pengemudi::query()
             ->with('pengguna')
-            ->where('nomor_sim', '610223343541')
+            ->where('nomor_sim', '6102233435410001')
             ->firstOrFail();
 
         $this->assertSame('nonaktif', $pengemudi->status);
@@ -204,7 +204,7 @@ class AdminOperationsTest extends TestCase
                 'nama' => 'Driver Foto',
                 'email' => 'driverfoto@travs.com',
                 'no_hp' => '081111111112',
-                'nomor_sim' => '610223343542',
+                'nomor_sim' => '6102233435420002',
                 'status' => 'aktif',
                 'status_verifikasi' => 'terverifikasi',
                 'catatan_verifikasi' => 'Foto profil lengkap.',
@@ -217,7 +217,7 @@ class AdminOperationsTest extends TestCase
 
         $pengemudi = Pengemudi::query()
             ->with('pengguna')
-            ->where('nomor_sim', '610223343542')
+            ->where('nomor_sim', '6102233435420002')
             ->firstOrFail();
 
         $this->assertNotNull($pengemudi->pengguna->foto_profil);

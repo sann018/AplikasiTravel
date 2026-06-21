@@ -117,19 +117,30 @@ class AuthController extends Controller
 
     public function updateProfile(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $user = $request->user()->load('pengemudiProfile');
         $photoField = $this->profilePhotoField($request);
+        $driverProfile = $user->pengemudiProfile;
 
         $validated = $request->validate([
             'nama' => ['sometimes', 'string', 'max:100'],
             'email' => ['sometimes', 'email', 'max:100', 'unique:pengguna,email,'.$user->id],
             'no_hp' => ['sometimes', 'string', 'max:20', 'unique:pengguna,no_hp,'.$user->id],
+            'nomor_sim' => [
+                'sometimes',
+                'required',
+                'string',
+                'regex:/^[0-9]{16}$/',
+                'unique:pengemudi,nomor_sim,'.($driverProfile?->id ?? 'NULL'),
+            ],
             'foto_profil' => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'foto' => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [
             'email.email' => 'Format email belum valid.',
             'email.unique' => 'Email sudah dipakai akun lain.',
             'no_hp.unique' => 'Nomor HP sudah dipakai akun lain.',
+            'nomor_sim.required' => 'Nomor SIM wajib diisi untuk akun pengemudi.',
+            'nomor_sim.regex' => 'Nomor SIM harus menggunakan NIK KTP yang terdiri dari 16 digit angka.',
+            'nomor_sim.unique' => 'Nomor SIM sudah dipakai pengemudi lain.',
             'foto_profil.image' => 'File foto profil harus berupa gambar.',
             'foto_profil.mimes' => 'Format foto profil harus JPG, JPEG, PNG, atau WEBP.',
             'foto_profil.max' => 'Ukuran foto profil maksimal 5 MB.',
@@ -138,7 +149,18 @@ class AuthController extends Controller
             'foto.max' => 'Ukuran foto profil maksimal 5 MB.',
         ]);
 
-        unset($validated['foto_profil'], $validated['foto']);
+        $driverData = [];
+        if (array_key_exists('nomor_sim', $validated)) {
+            if ($user->peran !== 'pengemudi' || ! $driverProfile) {
+                throw ValidationException::withMessages([
+                    'nomor_sim' => ['Nomor SIM hanya dapat diubah oleh akun pengemudi.'],
+                ]);
+            }
+
+            $driverData['nomor_sim'] = $validated['nomor_sim'];
+        }
+
+        unset($validated['foto_profil'], $validated['foto'], $validated['nomor_sim']);
 
         $oldPhotoPath = $user->foto_profil;
         $newPhotoPath = null;
@@ -168,8 +190,13 @@ class AuthController extends Controller
             }
         }
 
-        DB::transaction(function () use ($user, $validated) {
+        DB::transaction(function () use ($user, $validated, $driverProfile, $driverData) {
             $user->update($validated);
+
+            // Nomor SIM disimpan di profil pengemudi, bukan di tabel akun umum.
+            if ($driverData !== [] && $driverProfile) {
+                $driverProfile->update($driverData);
+            }
         });
 
         if ($newPhotoPath !== null) {

@@ -193,9 +193,8 @@ class PengemudiController extends Controller
             'nomor_sim' => [
                 'required',
                 'string',
-                'min:12',
-                'max:16',
-                'regex:/^[0-9]{12,16}$/',
+                'size:16',
+                'regex:/^[0-9]{16}$/',
                 Rule::unique('pengemudi', 'nomor_sim')->ignore($pengemudi?->id),
             ],
             'foto_sim' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
@@ -204,6 +203,10 @@ class PengemudiController extends Controller
             'catatan_verifikasi' => ['nullable', 'string', 'max:1000'],
             'password' => [$pengemudi ? 'nullable' : 'required', 'string', 'min:8', 'max:100'],
             'foto_profil' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ], [
+            'nomor_sim.size' => 'Nomor SIM harus menggunakan NIK KTP yang terdiri dari 16 digit.',
+            'nomor_sim.regex' => 'Nomor SIM hanya boleh berisi angka.',
+            'nomor_sim.unique' => 'NIK KTP tersebut sudah dipakai pengemudi lain.',
         ]);
     }
 

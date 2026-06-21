@@ -221,6 +221,35 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                           ),
                         ),
                       if (booking.pickup != null) const SizedBox(height: 16),
+                      if (booking.dropoff != null)
+                        _DetailSectionCard(
+                          title: 'Titik Tujuan / Turun',
+                          subtitle:
+                              'Lokasi ini membantu pengemudi mengantar penumpang ke tujuan yang sudah disepakati.',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _DetailRow(
+                                label: 'Koordinat',
+                                value:
+                                    '${booking.dropoff!.latitude.toStringAsFixed(6)}, ${booking.dropoff!.longitude.toStringAsFixed(6)}',
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                booking.dropoff!.address,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: TravSTheme.navy),
+                              ),
+                              const SizedBox(height: 14),
+                              OutlinedButton.icon(
+                                onPressed: () => _openMaps(booking.dropoff!),
+                                icon: const Icon(Icons.map_outlined),
+                                label: const Text('Buka di Google Maps'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (booking.dropoff != null) const SizedBox(height: 16),
                       _DetailSectionCard(
                         title: 'Penumpang & Kursi',
                         subtitle:

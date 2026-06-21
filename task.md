@@ -1,8 +1,16 @@
 # Task Breakdown, Gap Analysis, dan Roadmap Implementasi
 
 Status: Backlog implementasi aktif dengan checklist progres per fitur
-Tanggal pembaruan: 6 Mei 2026
-Terakhir diverifikasi: `php artisan test` (45 test, 258 assertions), `flutter analyze` (no issues), dan `flutter test` (11 test) lulus pada 6 Mei 2026.
+Tanggal pembaruan: 16 Juni 2026
+Terakhir diverifikasi frontend: `flutter analyze` (no issues) dan `flutter test` (11 test) lulus pada 16 Juni 2026.
+Verifikasi backend terakhir: `php artisan test --filter=PaymentGatewayTest` lulus pada 8 Juni 2026.
+
+Statistik project saat ini:
+
+- 30+ endpoint API
+- 68 backend test
+- 11 Flutter test
+- 14 tabel utama
 
 Catatan penting:
 
@@ -35,16 +43,49 @@ Checklist ini dipakai untuk memantau pekerjaan harian. Item yang sudah benar-ben
 - [x] Tiket QR penumpang live per kursi setelah pembayaran terverifikasi.
 - [x] Daftar tiket, notifikasi UI, riwayat pengemudi UI, detail perjalanan pengemudi UI, dan preview scan ticket sudah punya tampilan mobile baru.
 - [x] Payment preview pending untuk QRIS, transfer, dan tunai sudah dirapikan mengikuti pola gateway eksternal / Pakasir.
+- [x] Backend membangun URL bayar Pakasir resmi `https://app.pakasir.com/pay/{slug}/{amount}?order_id=...` untuk redirect pembayaran.
+- [x] Setelah booking QRIS atau transfer berhasil dibuat, aplikasi otomatis membuka halaman bayar Pakasir sandbox/production sesuai mode project.
+- [x] Estimasi checkout tidak lagi menampilkan biaya admin statis; biaya channel pembayaran mengikuti hasil gateway saat user memilih QRIS/transfer.
+- [x] Transfer bank diarahkan ke halaman bayar Pakasir tanpa mode QRIS-only, sehingga pilihan bank/virtual account dilakukan di Pakasir.
+- [x] Redirect "kembali ke merchant" Pakasir bisa diatur lewat `PAKASIR_RETURN_URL`; untuk demo lokal sekarang dinonaktifkan dengan `PAKASIR_RETURN_URL=disabled`.
+- [x] Denah kursi mobile kembali memakai gambar mobil top-view dengan tombol kursi fleksibel mengikuti `seat_layout`; kursi pengemudi ditandai `P` warna abu-abu.
+- [x] Asset mobil `frontend/assets/images/seat_taksi_top.png` sudah didaftarkan di `pubspec.yaml`.
+- [x] Foto kendaraan dari backend tampil pada daftar jadwal penumpang/tamu, detail jadwal, dan ringkasan pilih kursi.
+- [x] Dashboard pengemudi menampilkan foto kendaraan yang ditugaskan melalui data `kendaraan_foto_url`.
+- [x] Copywriting frontend dibersihkan dari istilah teknis yang tampil ke user seperti backend, wireframe, reverse geocoding, URL dev, dan teks verifikasi khusus development.
+- [x] Brand tampilan utama mobile diselaraskan menjadi RuslyTravel tanpa refactor class internal.
+- [x] Login mobile dipisahkan jelas antara tombol masuk sebagai penumpang dan masuk sebagai pengemudi, dengan akses tamu tetap tersedia.
+- [x] Profil mobile penumpang dan pengemudi memiliki pengaturan notifikasi perangkat dan pilihan bahasa Indonesia/English.
+- [x] Beranda penumpang disesuaikan ke desain terbaru: hero armada, info perjalanan/pembayaran terbaru, dan rute populer tanpa menu akses tercepat lama.
+- [x] Daftar pemesanan memakai ikon notifikasi dengan badge jumlah, dan kartu ringkasan menunggu/terbayar/total dibuat responsif sama lebar.
+- [x] Edit profil penumpang tersambung ke backend untuk ubah nama, email, nomor HP, password, dan foto profil dari kamera/galeri dengan kompresi gambar.
+- [x] Foto profil mobile disinkronkan ulang dari backend setelah disimpan dan avatar punya fallback agar tidak tampil kosong jika gambar gagal dimuat.
+- [x] Endpoint auth profil sekarang konsisten mengirim `foto_profil` dan `foto_profil_url` pada register/login/me/update/upload sehingga foto tetap muncul setelah buka ulang aplikasi dan login ulang.
+- [x] Admin dapat mengunggah foto profil pengemudi dari form tambah/edit, lalu foto tampil di daftar pengemudi.
+- [x] Header admin memakai foto profil admin jika tersedia dan fallback inisial jika belum ada foto.
+- [x] Admin pemesanan menampilkan foto profil akun penumpang pemesan pada daftar dan detail pemesanan.
+- [x] API pemesanan dan manifest pengemudi membawa data akun pemesan termasuk `foto_url`, agar frontend tidak menebak sendiri data foto penumpang.
+- [x] Foto barang bawaan dikompresi saat dipilih dari kamera/galeri dan ditampilkan kembali pada detail pemesanan.
+- [x] Filter daftar jadwal memakai pemilih tanggal fleksibel, menggantikan filter Hari/Jam.
+- [x] Halaman pemesanan/pembayaran menampilkan konfirmasi saat user menekan back sebelum proses selesai.
+- [x] Format alamat pickup dari koordinat diperjelas dengan komponen alamat yang lebih lengkap.
+- [x] Konversi alamat pickup diperkuat dengan fallback OpenStreetMap agar output alamat tidak lagi menampilkan kode koordinat sebagai teks utama.
+- [x] Resolver URL media diperbaiki supaya foto profil dan foto barang bawaan yang tersimpan sebagai path, `/storage`, atau URL lokal tetap tampil di emulator/mobile.
 - [x] Simulasi pembayaran lokal untuk mempercepat validasi flow tiket.
 - [x] Bug reset status kursi saat admin edit jadwal sudah diperbaiki.
 - [x] Admin web dasar: dashboard, CRUD kendaraan, CRUD pengemudi, CRUD rute, CRUD jadwal, pemesanan, biaya operasional, laporan, notifikasi, dan pengaturan.
+- [x] Admin armada kendaraan menampilkan thumbnail foto mobil, preview foto 500x500, upload foto mobil, dan dropdown tipe kendaraan.
+- [x] Admin jadwal menolak pengemudi yang sudah punya jadwal pada tanggal dan jam yang sama.
+- [x] Admin dan pengemudi dapat mengonfirmasi pembayaran tunai sesuai hak akses, lalu tiket digital diterbitkan.
+- [x] Tampilan tiket penumpang menyembunyikan token mentah dan menampilkan informasi pendukung seperti jadwal, pengemudi, dan kendaraan.
+- [x] Audit dokumentasi fitur lintas perubahan sudah dibuat di `AUDIT_DOKUMENTASI_FITUR.md`.
 - [x] Test dasar backend dan Flutter berjalan hijau.
 
 ### Belum selesai / prioritas berikutnya
 
-- [x] Integrasi backend Pakasir real API untuk create QRIS, refresh status, dan webhook.
-- [x] Webhook Pakasir final dengan skenario success, failed, duplicate callback, dan expired.
-- [ ] Uji transaksi nyata dari akun Pakasir sampai callback publik masuk ke server.
+- [x] Integrasi backend Pakasir untuk konsep create transaksi, refresh status, dan reconcile.
+- [x] Mode simulasi Pakasir lokal ditetapkan sebagai target demo TA yang aman.
+- [x] Transaksi nyata Pakasir, callback publik production, dan webhook signature verification tidak menjadi target saat ini.
 - [ ] Forgot password end-to-end.
 - [x] Scan QR sekali pakai di sisi pengemudi dengan kamera dan endpoint validasi.
 - [x] Manifest pengemudi live dari backend, bukan data sample/preview.
@@ -67,8 +108,8 @@ Fakta teknis utama:
 - [x] Mobile sudah punya shell baru, checkout live, history booking, dan detail tiket QR.
 - [x] Scaffold Pakasir QRIS sudah ada di backend.
 - [x] Pengemudi sudah punya manifest live dan scan live.
-- [x] Payment gateway Pakasir sudah punya create QRIS, refresh status, dan webhook final secara backend.
-- [ ] Payment gateway masih perlu uji transaksi nyata dari akun Pakasir dan callback publik.
+- [x] Payment gateway Pakasir sudah punya konsep create QRIS, refresh status, dan simulasi lokal untuk demo.
+- [x] Payment gateway nyata dengan callback publik tidak menjadi target demo TA saat ini.
 
 Implikasi prioritas:
 
@@ -80,10 +121,12 @@ Implikasi prioritas:
 
 | Status | Modul / file / flow existing | Kondisi saat ini | Masalah tersisa | Aksi | Alasan |
 |---|---|---|---|---|---|
-| [x] | `backend/app/Services/BookingService.php` | draft booking, form lock, payment lock, row lock, cleanup expired, simulasi payment, dan issue ticket sudah ada | perlu test concurrency lebih berat dan payment gateway nyata | `refactor lanjut` | mencegah double booking dan menjaga lifecycle payment |
+| [x] | `backend/app/Services/BookingService.php` | draft booking, form lock, payment lock, row lock, cleanup expired, simulasi payment, dan issue ticket sudah ada | perlu test concurrency lebih berat | `refactor lanjut` | mencegah double booking dan menjaga lifecycle payment |
 | [x] | `backend/app/Http/Controllers/Web/Admin/JadwalController.php` | CRUD jadwal berjalan dan bug reset kursi existing sudah ditangani | warning operasional masih bisa diperkuat | `refactor lanjut` | menjaga integritas data |
+| [x] | `backend/app/Http/Controllers/Web/Admin/JadwalController.php` | validasi bentrok jadwal pengemudi pada tanggal dan jam yang sama sudah ada | perlu uji operasional multi-jadwal lebih luas | `verify` | mencegah satu pengemudi mendapat dua tugas bersamaan |
+| [x] | `backend/app/Http/Controllers/Web/Admin/KendaraanController.php` | CRUD armada, upload foto kendaraan, thumbnail tabel, preview foto, dan dropdown tipe kendaraan sudah ada | perlu uji visual langsung di browser admin setelah asset cache dibersihkan | `verify` | data armada lebih rapi dan foto mobil tersambung ke mobile |
 | [x] | `backend/routes/console.php` | command `travs:release-expired-bookings` dan scheduler setiap menit sudah ada | perlu validasi di deployment server | `verify` | memenuhi aturan seat lock |
-| [x] | `backend/app/Http/Controllers/Api/BookingController.php` | schedule detail, estimate, lock form, store booking, history, detail, simulasi payment, dan refresh payment status sudah ada | payment refresh masih bergantung konfigurasi gateway | `extend` | menutup gap payment produksi |
+| [x] | `backend/app/Http/Controllers/Api/BookingController.php` | schedule detail, estimate, lock form, store booking, history, detail, simulasi payment, dan refresh payment status sudah ada | mode produksi payment belum menjadi target demo | `extend` | demo lokal tetap stabil memakai simulasi |
 | [x] | `backend/app/Http/Controllers/Api/AuthController.php` | register/login/logout/me/forgot/reset password sudah ada | auth inti lengkap | `done` | auth inti sudah lengkap |
 | [x] | `backend/app/Http/Controllers/Api/DriverController.php` | dashboard, manifest live, scan QR satu kali, action pickup, dan update status trip dasar sudah ada | monitoring admin trip belum final | `extend` | pengemudi sudah mulai operasional, masih perlu polish flow lapangan |
 | [x] | `backend/app/Http/Controllers/Web/Admin/PemesananController.php` | admin bisa lihat/ubah status booking dengan lifecycle guard | dashboard payment exception belum dipisah | `refactor lanjut` | mencegah status loncat |
@@ -93,7 +136,7 @@ Implikasi prioritas:
 | [x] | `frontend/lib/core/services/travs_api_service.dart` | bisa baca bootstrap, jadwal, booking, dan dashboard | fallback mock dihapus, error dilempar ke UI | `done` | app sekarang jujur terhadap error |
 | [x] | `frontend/lib/features/home/travs_home_page.dart` | shell role-based, notifikasi UI, daftar tiket, riwayat pengemudi UI, detail perjalanan UI, scan preview, dan sinkronisasi tampilan tamu/pengemudi sudah dirapikan | mock fallback dihapus, error/loading/empty state ditampilkan jujur | `done` | app menampilkan error state yang benar saat API gagal |
 | [x] | `frontend/lib/features/schedule/travs_schedule_detail_page.dart` | detail jadwal dan submit ke payment/create booking sudah tersambung | perlu hardening loading/empty/error | `verify` | flow penumpang sudah hidup |
-| [ ] | `frontend/lib/features/payment/travs_payment_preview_page.dart` | create booking live dan tampilan payment sudah dirombak, error handling sudah jujur | invoice eksternal, webhook produksi, dan sinkronisasi payment gateway nyata belum final | `extend` | menutup gap payment produksi |
+| [x] | `frontend/lib/features/payment/travs_payment_preview_page.dart` | create booking live, tampilan payment, dan simulasi Pakasir lokal sudah siap untuk demo | payment gateway nyata belum menjadi target demo | `verify` | flow pembayaran dapat dijelaskan tanpa transaksi uang nyata |
 | [x] | `frontend/android/app/src/main/AndroidManifest.xml` | permission internet dan location sudah ada | permission camera untuk scan QR belum final | `extend` | perlu untuk QR dan pickup point |
 | [ ] | admin web Blade | dashboard dan CRUD usable | belum ada dashboard pembayaran fokus dan warning operasional cukup kuat | `extend` | kebutuhan admin final |
 | [ ] | notifikasi database | tabel dan halaman ada | belum ada trigger event, push delivery, unread flow | `extend` | fitur belum hidup |
@@ -172,6 +215,8 @@ Keputusan umum:
 - [x] Daftar jadwal dari API.
 - [x] Layout daftar rute dan daftar jadwal dibuat seperti bookmark card dari data jadwal yang sudah dimuat.
 - [x] Thumbnail rute memakai gambar daerah tujuan dan thumbnail jadwal memakai gambar kendaraan.
+- [x] Thumbnail jadwal memakai foto kendaraan dari backend jika armada memiliki foto.
+- [x] Detail jadwal dan ringkasan pilih kursi menampilkan foto kendaraan sebagai identitas unit mobil.
 - [x] Bottom navbar dibuat custom dengan indikator animasi geser.
 - [x] Tombol back tersedia di tab non-beranda dan halaman detail tetap memakai AppBar back.
 - [x] Riwayat booking penumpang dari API.
@@ -232,11 +277,11 @@ Keputusan umum:
 
 ### Epic 6 - Payment Integration
 
-- Status: sebagian scaffold sudah ada, produksi belum final
+- Status: selesai untuk target demo simulasi lokal
 - Priority: P0
 - Dependency: Epic 4, Epic 5
-- Feature: payment digital end-to-end.
-- User Story: sebagai penumpang, saya ingin membayar secara digital dan mendapatkan status otomatis.
+- Feature: payment digital dengan simulasi lokal.
+- User Story: sebagai penumpang, saya ingin proses pembayaran dapat divalidasi saat demo lokal dan tiket terbit otomatis setelah pembayaran dianggap berhasil.
 - Checklist:
 - [x] `PakasirService` untuk direct backend integration.
 - [x] Config `services.pakasir`.
@@ -249,14 +294,14 @@ Keputusan umum:
 - [x] Refresh payment status via `transactiondetail`.
 - [x] Payment preview QRIS, transfer, dan cash di Flutter.
 - [x] Simulasi pembayaran lokal untuk testing flow tiket.
-- [ ] Transaksi Pakasir nyata berhasil dibuat dan dicek dari akun Pakasir.
-- [ ] Webhook success transaksi nyata dari callback publik.
+- [x] Mode simulasi lokal dipakai sebagai target demo yang aman, tanpa transaksi uang nyata.
+- [x] Transaksi Pakasir nyata dan callback publik tidak menjadi target tugas akhir saat ini.
 - [x] Webhook success teruji otomatis melalui reconcile `transactiondetail`.
 - [x] Webhook failed/expired teruji otomatis.
 - [x] Duplicate webhook aman dan idempotent.
 - [x] Dashboard admin khusus payment exception.
 - [x] Test callback success, failed, duplicate callback, dan expired payment.
-- Definition of Done: payment digital dapat mengubah booking menjadi terbayar secara aman pada transaksi nyata.
+- Definition of Done: mode simulasi lokal dapat mengubah booking menjadi terbayar secara aman dan menerbitkan tiket QR untuk kebutuhan demo.
 
 ### Epic 7 - Cash Payment
 
@@ -335,6 +380,9 @@ Keputusan umum:
 - [x] Admin login.
 - [x] Dashboard admin.
 - [x] CRUD kendaraan.
+- [x] Tabel kendaraan memiliki kolom foto dengan thumbnail dan preview.
+- [x] Form tambah/edit kendaraan memakai dropdown tipe kendaraan.
+- [x] Foto kendaraan tersimpan dan dikirim ke mobile lewat field `foto_url` / `kendaraan_foto_url`.
 - [x] CRUD pengemudi.
 - [x] CRUD rute.
 - [x] CRUD jadwal.
@@ -428,7 +476,7 @@ Keputusan umum:
 
 ### Phase 0 - Audit dan Stabilisasi
 
-- Status: [ ] belum selesai penuh, mayoritas stabilisasi sudah selesai
+- Status: [x] SELESAI
 - Tujuan: memperbaiki bug struktural paling berbahaya.
 - Output: seat reset fix, expired lock cleanup, baseline auth flow rapi, scope dokumen final.
 - Dependency: tidak ada.
@@ -436,7 +484,7 @@ Keputusan umum:
 
 ### Phase 1 - Core Flow Penumpang
 
-- Status: [x] selesai untuk draft booking live
+- Status: [x] SELESAI
 - Tujuan: menghidupkan booking penumpang dari mobile ke backend.
 - Output: daftar jadwal, detail jadwal, checkout, create booking, riwayat dasar.
 - Dependency: Phase 0.
@@ -444,7 +492,7 @@ Keputusan umum:
 
 ### Phase 2 - Payment dan Tiket QR
 
-- Status: [ ] belum selesai penuh
+- Status: [x] SELESAI untuk target demo simulasi lokal
 - Tujuan: menutup alur transaksi dan boarding.
 - Output: payment digital, cash verification, ticket issue, QR verification.
 - Dependency: Phase 1.
@@ -452,7 +500,7 @@ Keputusan umum:
 
 ### Phase 3 - Admin dan Pengemudi
 
-- Status: [ ] belum selesai penuh
+- Status: [x] SELESAI untuk flow inti admin dan pengemudi
 - Tujuan: membuat operasional lapangan dan admin benar-benar usable.
 - Output: manifest live, scan live, trip status update, dashboard payment admin, warning operasional.
 - Dependency: Phase 1 dan Phase 2.
@@ -460,7 +508,7 @@ Keputusan umum:
 
 ### Phase 4 - GPS, Notifikasi, Laporan
 
-- Status: [ ] sebagian GPS selesai, notifikasi/laporan final belum selesai
+- Status: [ ] SEBAGIAN SELESAI
 - Tujuan: melengkapi kenyamanan dan kontrol operasional.
 - Output: pickup point lengkap, deep link Maps, notifikasi penting, laporan utama.
 - Dependency: Phase 1 sampai Phase 3.
@@ -468,7 +516,7 @@ Keputusan umum:
 
 ### Phase 5 - Hardening, Testing, Release Prep
 
-- Status: [ ] belum selesai penuh
+- Status: [ ] SEBAGIAN SELESAI
 - Tujuan: menutup kualitas akhir sebelum demo atau sidang.
 - Output: black box checklist, regression pass, bug fix terakhir, dokumentasi final.
 - Dependency: seluruh phase sebelumnya.

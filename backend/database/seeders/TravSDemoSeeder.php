@@ -101,7 +101,7 @@ class TravSDemoSeeder extends Seeder
         $pengemudi = Pengemudi::query()->updateOrCreate(
             ['pengguna_id' => $driverUser->id],
             [
-                'nomor_sim' => 'SIM-A-TRAVS-001',
+                'nomor_sim' => '6171010101010001',
                 'status' => 'aktif',
                 'status_verifikasi' => 'terverifikasi',
                 'catatan_verifikasi' => 'Dokumen lengkap dan siap dijadwalkan.',
@@ -113,7 +113,7 @@ class TravSDemoSeeder extends Seeder
         $pengemudi2 = Pengemudi::query()->updateOrCreate(
             ['pengguna_id' => $driverUser2->id],
             [
-                'nomor_sim' => 'SIM-A-TRAVS-002',
+                'nomor_sim' => '6171010101010002',
                 'status' => 'aktif',
                 'status_verifikasi' => 'terverifikasi',
                 'catatan_verifikasi' => 'SIM dan kontak sudah tervalidasi.',
@@ -125,7 +125,7 @@ class TravSDemoSeeder extends Seeder
         $pengemudi3 = Pengemudi::query()->updateOrCreate(
             ['pengguna_id' => $driverUser3->id],
             [
-                'nomor_sim' => 'SIM-A-TRAVS-003',
+                'nomor_sim' => '6171010101010003',
                 'status' => 'nonaktif',
                 'status_verifikasi' => 'menunggu',
                 'catatan_verifikasi' => 'Menunggu unggahan foto SIM yang lebih jelas.',

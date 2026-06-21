@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import 'bootstrap/dist/css/bootstrap.min.css';
 
 :root {
     --travs-white: #ffffff;
@@ -30,7 +30,7 @@ html {
 
 body {
     margin: 0;
-    font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
     color: var(--travs-text);
     background: var(--travs-surface);
 }
@@ -69,9 +69,7 @@ svg {
     display: grid;
     place-items: center;
     padding: 32px 18px;
-    background:
-        radial-gradient(circle at top right, rgba(245, 138, 42, 0.12), transparent 18%),
-        linear-gradient(180deg, var(--travs-primary) 0%, var(--travs-primary-deep) 100%);
+    background: var(--travs-primary);
 }
 
 .travs-login-card {
@@ -240,7 +238,7 @@ svg {
 
 .travs-button {
     color: var(--travs-white);
-    background: linear-gradient(135deg, var(--travs-accent) 0%, var(--travs-accent-deep) 100%);
+    background: var(--travs-accent);
     box-shadow: 0 16px 28px rgba(245, 138, 42, 0.24);
 }
 
@@ -617,7 +615,7 @@ svg {
     color: var(--travs-white);
     font-weight: 800;
     font-size: 0.85rem;
-    background: linear-gradient(135deg, var(--travs-primary) 0%, var(--travs-primary-soft) 100%);
+    background: var(--travs-primary);
 }
 
 .travs-user-avatar img {
@@ -692,9 +690,7 @@ svg {
     padding: 28px;
     border-radius: 28px;
     color: var(--travs-white);
-    background:
-        radial-gradient(circle at top right, rgba(255, 183, 125, 0.18), transparent 32%),
-        linear-gradient(135deg, #002653 0%, #1a3c6e 100%);
+    background: #25396f;
 }
 
 .travs-dashboard-hero-copy {
@@ -833,8 +829,7 @@ svg {
 .travs-dashboard-chart-shell {
     padding: 18px;
     border-radius: 22px;
-    background:
-        linear-gradient(180deg, rgba(16, 35, 63, 0.03) 0%, rgba(16, 35, 63, 0.01) 100%);
+    background: #f8fafc;
     border: 1px solid var(--travs-surface-muted);
 }
 
@@ -866,8 +861,7 @@ svg {
     height: 192px;
     padding: 10px;
     border-radius: 18px;
-    background:
-        linear-gradient(180deg, rgba(16, 35, 63, 0.02) 0%, rgba(16, 35, 63, 0.08) 100%);
+    background: #eef2f6;
 }
 
 .travs-dashboard-chart-bar {
@@ -875,7 +869,7 @@ svg {
     width: 100%;
     max-width: 32px;
     border-radius: 999px;
-    background: linear-gradient(180deg, #ffb77d 0%, #f58a2a 100%);
+    background: #435ebe;
     box-shadow: 0 14px 20px rgba(245, 138, 42, 0.18);
 }
 
@@ -1080,8 +1074,7 @@ svg {
     height: 170px;
     padding: 8px;
     border-radius: 12px;
-    background:
-        linear-gradient(180deg, rgba(16, 35, 63, 0.02) 0%, rgba(16, 35, 63, 0.08) 100%);
+    background: #eef2f6;
 }
 
 .travs-chart-bar {
@@ -1089,7 +1082,7 @@ svg {
     width: 100%;
     max-width: 24px;
     border-radius: 999px;
-    background: linear-gradient(180deg, var(--travs-primary-soft) 0%, var(--travs-primary) 100%);
+    background: var(--travs-primary);
 }
 
 .travs-chart-bar-item strong {
@@ -1322,7 +1315,7 @@ svg {
     padding: 18px;
     border: 1px solid var(--travs-border);
     border-radius: 18px;
-    background: linear-gradient(180deg, rgba(16, 35, 63, 0.035), rgba(16, 35, 63, 0.015));
+    background: #f8fafc;
 }
 
 .travs-admin-password-copy h4 {
@@ -1346,7 +1339,7 @@ svg {
     display: grid;
     gap: 16px;
     padding: 20px;
-    background: linear-gradient(180deg, rgba(16, 35, 63, 0.04) 0%, rgba(16, 35, 63, 0.01) 100%);
+    background: #f8fafc;
     border: 1px solid var(--travs-border);
     border-radius: 18px;
 }
@@ -2210,7 +2203,7 @@ svg {
     height: 22px;
     padding: 0 7px;
     border-radius: 999px;
-    background: linear-gradient(135deg, var(--travs-accent) 0%, var(--travs-accent-deep) 100%);
+    background: var(--travs-accent);
     color: var(--travs-white);
     font-size: 0.72rem;
     font-weight: 800;
@@ -2233,6 +2226,341 @@ svg {
     width: 12px;
     height: 12px;
     border-radius: 999px;
-    background: linear-gradient(135deg, var(--travs-accent) 0%, var(--travs-accent-deep) 100%);
+    background: var(--travs-accent);
     box-shadow: 0 0 0 6px rgba(245, 138, 42, 0.12);
+}
+
+/* Kerangka admin ini menggantikan layout template dan menjaga sidebar tetap sederhana. */
+.travs-admin-body {
+    min-width: 320px;
+    background: #f2f7ff;
+    color: #25396f;
+}
+
+.travs-admin-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+}
+
+.travs-admin-main {
+    min-width: 0;
+}
+
+.travs-sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 1040;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 20px 16px;
+    background: #ffffff;
+    border-right: 1px solid #dce7f5;
+}
+
+.travs-sidebar-head {
+    margin-bottom: 20px;
+    padding: 0 4px 18px;
+    border-bottom: 1px solid #edf2f7;
+}
+
+.travs-sidebar-menu,
+.travs-menu {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.travs-menu {
+    display: grid;
+    gap: 4px;
+}
+
+.travs-nav-group-title {
+    margin: 14px 0 4px;
+    padding: 0 12px;
+    color: #607080;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.travs-sidebar-item {
+    min-width: 0;
+}
+
+.travs-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    color: #25396f;
+}
+
+.travs-nav-link:hover {
+    color: #435ebe;
+    background: #f2f7ff;
+}
+
+.travs-nav-link.is-active {
+    color: #ffffff;
+    background: #435ebe;
+}
+
+.travs-nav-link svg {
+    flex: 0 0 18px;
+}
+
+.travs-brand-copy {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.travs-brand-copy h3,
+.travs-brand-copy h5 {
+    margin: 0;
+    color: #25396f;
+    font-weight: 700;
+}
+
+.travs-brand-copy small {
+    color: #7c8db5;
+}
+
+.travs-brand-mark {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    flex: 0 0 42px;
+    place-items: center;
+    border-radius: 8px;
+    background: #435ebe;
+}
+
+.travs-brand-mark span {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ffffff;
+}
+
+.travs-sidebar-backdrop[hidden] {
+    display: none;
+}
+
+.travs-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1035;
+    border: 0;
+    background: rgba(37, 57, 111, 0.38);
+}
+
+.travs-topbar-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #607080;
+    font-size: 0.88rem;
+}
+
+.travs-topbar-chip svg,
+.dropdown-item svg {
+    width: 16px;
+    height: 16px;
+}
+
+#main-content {
+    width: 100%;
+    max-width: none;
+    padding: 20px;
+}
+
+/* Komponen admin dibuat lebih tenang tanpa gradient atau bayangan berlebihan. */
+.travs-admin-body .travs-card,
+.travs-admin-body .travs-panel,
+.travs-admin-body .travs-section-card,
+.travs-admin-body .travs-page-frame,
+.travs-admin-body .travs-dashboard-panel,
+.travs-admin-body .travs-overview-card,
+.travs-admin-body .travs-summary-card,
+.travs-admin-body .travs-form-card,
+.travs-admin-body .travs-filter-card {
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(37, 57, 111, 0.08);
+}
+
+.travs-admin-body .travs-button,
+.travs-admin-body .travs-sidebar-badge,
+.travs-admin-body .travs-user-avatar,
+.travs-admin-body .travs-booking-notification-dot,
+.travs-admin-body .travs-dashboard-chart-bar {
+    background: #435ebe;
+    box-shadow: none;
+}
+
+.travs-admin-body .travs-input,
+.travs-admin-body .travs-select,
+.travs-admin-body .travs-textarea,
+.travs-admin-body .form-control,
+.travs-admin-body .form-select {
+    border-radius: 6px;
+    color: #25396f;
+    background-color: #ffffff;
+}
+
+.travs-admin-body .travs-input:focus,
+.travs-admin-body .travs-select:focus,
+.travs-admin-body .travs-textarea:focus,
+.travs-admin-body .form-control:focus,
+.travs-admin-body .form-select:focus {
+    border-color: #435ebe;
+    box-shadow: 0 0 0 3px rgba(67, 94, 190, 0.14);
+}
+
+/* Preview hanya menampilkan foto agar perhatian pengguna tidak pecah oleh card tambahan. */
+.travs-photo-preview-modal[hidden] {
+    display: none;
+}
+
+.travs-photo-preview-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: grid;
+    place-items: center;
+    padding: 28px;
+    background: rgba(15, 23, 42, 0.78);
+}
+
+.travs-photo-preview-modal > img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: min(500px, 90vw);
+    max-height: min(500px, 82vh);
+    object-fit: contain;
+}
+
+.travs-photo-preview-close {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 50%;
+    color: #25396f;
+    background: #ffffff;
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+body.travs-photo-preview-open,
+body.travs-sidebar-open {
+    overflow: hidden;
+}
+
+.travs-admin-auth {
+    min-width: 320px;
+    overflow-x: hidden;
+    background: #f2f7ff;
+    color: #25396f;
+}
+
+.travs-auth-wrapper {
+    min-height: 100vh;
+}
+
+.travs-auth-card {
+    width: 100%;
+    max-width: 460px;
+    min-width: 0;
+    border-radius: 8px;
+}
+
+.travs-auth-card .card-body,
+.travs-auth-card p {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.travs-auth-card .form-group.has-icon-left {
+    position: relative;
+}
+
+.travs-auth-card .form-control-xl {
+    min-height: 52px;
+    padding-left: 46px;
+}
+
+.travs-auth-card .form-control-icon {
+    position: absolute;
+    top: 50%;
+    left: 16px;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    color: #607080;
+    transform: translateY(-50%);
+}
+
+.travs-auth-card .btn-primary {
+    background: #435ebe;
+    border-color: #435ebe;
+}
+
+@media (max-width: 1199.98px) {
+    .travs-admin-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-sidebar {
+        position: fixed;
+        left: 0;
+        width: min(280px, 86vw);
+        transform: translateX(-105%);
+        transition: transform 0.2s ease;
+    }
+
+    .travs-sidebar.is-open {
+        transform: translateX(0);
+    }
+}
+
+@media (max-width: 767.98px) {
+    #main-content {
+        padding: 14px;
+    }
+
+    .travs-topbar {
+        padding: 12px 14px;
+    }
+
+    .travs-topbar-chip {
+        display: none;
+    }
+
+    .travs-user-copy {
+        display: none;
+    }
+
+    .travs-auth-card .card-body {
+        padding: 24px !important;
+    }
+
+    .travs-auth-card {
+        width: calc(100vw - 48px) !important;
+        max-width: calc(100vw - 48px) !important;
+    }
+
+    .travs-auth-card .text-muted {
+        white-space: normal;
+    }
+
+    .travs-auth-card .btn-primary {
+        width: 100%;
+    }
 }

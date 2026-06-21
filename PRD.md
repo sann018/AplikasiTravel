@@ -4,6 +4,13 @@ Status: Revisi scope final tanpa titipan dan carter
 Tanggal pembaruan: 1 Mei 2026
 Proyek: Rancang Bangun Aplikasi Pemesanan Jasa Transportasi Umum Lintas Kota pada Rusly Travel Berbasis Mobile
 
+> ⚠️ DOKUMEN HISTORIS
+>
+> Catatan status 16 Juni 2026:
+> Dokumen ini adalah rancangan dan snapshot audit awal. Status implementasi terbaru sudah dirangkum di `STATUS_FITUR_PROJECT.md`, `task.md`, `RANGKUMAN_BELAJAR_SIDANG.md`, dan `AUDIT_DOKUMENTASI_FITUR.md`. Jika ada bagian PRD yang terlihat berbeda dengan status terbaru, gunakan dokumen status/audit terbaru sebagai acuan.
+>
+> Khusus pembayaran Pakasir, target demo saat ini adalah mode simulasi lokal. Transaksi nyata, callback publik production, dan webhook signature verification belum menjadi target tugas akhir.
+
 Dokumen ini menggantikan versi sebelumnya. Revisi ini menetapkan bahwa scope akhir difokuskan pada layanan travel penumpang lintas kota saja. Fitur tambahan seperti titipan barang, paket, dokumen, hewan, kendaraan, dan carter kendaraan dikeluarkan dari batas proyek.
 
 Dokumen ini disusun berdasarkan:
@@ -219,7 +226,7 @@ Setelah titipan dan carter dikeluarkan, gap utama sekarang adalah:
 
 - core booking penumpang belum benar-benar live dari mobile ke backend
 - seat lock aman belum selesai
-- payment digital sudah punya scaffold Pakasir dan webhook, tetapi transaksi nyata Pakasir masih perlu uji callback publik
+- payment digital untuk status terbaru memakai simulasi Pakasir lokal; transaksi nyata dan callback publik bukan target demo tugas akhir
 - pembayaran tunai sudah punya verifikasi admin dasar, audit trail, tiket, dan notifikasi
 - QR ticket sudah bisa diverifikasi satu kali pakai, masih perlu monitoring admin yang lebih lengkap
 - pengemudi sudah punya manifest, action pickup, scan live, dan aksi berangkat/selesai

@@ -502,6 +502,9 @@ class DriverController extends Controller
                 'picked_up_at' => $detail->dijemput_pada?->toIso8601String(),
             ],
             'dropoff' => [
+                'latitude' => $booking->lintang_turun !== null ? (float) $booking->lintang_turun : null,
+                'longitude' => $booking->bujur_turun !== null ? (float) $booking->bujur_turun : null,
+                'address' => $booking->alamat_turun,
                 'is_dropped_off' => $detail->diturunkan_pada !== null,
                 'dropped_off_at' => $detail->diturunkan_pada?->toIso8601String(),
             ],

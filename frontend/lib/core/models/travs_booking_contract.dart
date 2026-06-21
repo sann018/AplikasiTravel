@@ -85,6 +85,9 @@ class TravSCreateBookingPayload {
     required this.pickupLatitude,
     required this.pickupLongitude,
     required this.pickupAddress,
+    required this.dropoffLatitude,
+    required this.dropoffLongitude,
+    required this.dropoffAddress,
     required this.paymentMethod,
     required this.passengers,
     required this.baggageItems,
@@ -95,6 +98,9 @@ class TravSCreateBookingPayload {
   final double pickupLatitude;
   final double pickupLongitude;
   final String pickupAddress;
+  final double dropoffLatitude;
+  final double dropoffLongitude;
+  final String dropoffAddress;
   final String paymentMethod;
   final List<TravSPassengerPayload> passengers;
   final List<TravSBaggagePayload> baggageItems;
@@ -107,6 +113,11 @@ class TravSCreateBookingPayload {
         'latitude': pickupLatitude,
         'longitude': pickupLongitude,
         'address': pickupAddress,
+      },
+      'dropoff': {
+        'latitude': dropoffLatitude,
+        'longitude': dropoffLongitude,
+        'address': dropoffAddress,
       },
       'payment_method': paymentMethod,
       'passengers': passengers.map((item) => item.toJson()).toList(),
@@ -383,6 +394,7 @@ class TravSBookingResult {
     required this.payment,
     this.pemesan,
     this.pickup,
+    this.dropoff,
     this.kendaraan,
     this.pengemudi,
     this.passengers = const <TravSBookingPassengerInfo>[],
@@ -404,6 +416,7 @@ class TravSBookingResult {
   final TravSBookingPaymentInfo payment;
   final TravSBookingRequesterInfo? pemesan;
   final TravSBookingPickupInfo? pickup;
+  final TravSBookingPickupInfo? dropoff;
   final TravSBookingVehicleInfo? kendaraan;
   final TravSBookingDriverInfo? pengemudi;
   final List<TravSBookingPassengerInfo> passengers;
@@ -415,6 +428,7 @@ class TravSBookingResult {
 
   factory TravSBookingResult.fromJson(Map<String, dynamic> json) {
     final pickupJson = _asMapOrNull(json['pickup']);
+    final dropoffJson = _asMapOrNull(json['dropoff']);
     final vehicleJson = _asMapOrNull(json['kendaraan']);
     final driverJson = _asMapOrNull(json['pengemudi']);
     final requesterJson = _asMapOrNull(json['pemesan']);
@@ -439,6 +453,9 @@ class TravSBookingResult {
       pickup: pickupJson == null
           ? null
           : TravSBookingPickupInfo.fromJson(pickupJson),
+      dropoff: dropoffJson == null
+          ? null
+          : TravSBookingPickupInfo.fromJson(dropoffJson),
       kendaraan: vehicleJson == null
           ? null
           : TravSBookingVehicleInfo.fromJson(vehicleJson),

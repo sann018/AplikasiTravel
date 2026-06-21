@@ -226,6 +226,11 @@ class BookingFlowTest extends TestCase
                 'longitude' => 109.3425,
                 'address' => 'Jalan Ahmad Yani, Pontianak',
             ],
+            'dropoff' => [
+                'latitude' => 0.1285,
+                'longitude' => 111.4986,
+                'address' => 'Terminal Sintang, Kalimantan Barat',
+            ],
             'payment_method' => 'qris',
             'passengers' => [
                 [
@@ -258,6 +263,10 @@ class BookingFlowTest extends TestCase
             ->assertJsonPath('data.jumlah_kursi', 2);
 
         $booking = Pemesanan::query()->latest('id')->firstOrFail();
+
+        $this->assertSame(0.1285, (float) $booking->lintang_turun);
+        $this->assertSame(111.4986, (float) $booking->bujur_turun);
+        $this->assertSame('Terminal Sintang, Kalimantan Barat', $booking->alamat_turun);
 
         $this->assertDatabaseHas('detail_pemesanan', [
             'pemesanan_id' => $booking->id,
@@ -337,6 +346,11 @@ class BookingFlowTest extends TestCase
                 'longitude' => 109.3425,
                 'address' => 'Jalan Ahmad Yani, Pontianak',
             ],
+            'dropoff' => [
+                'latitude' => 0.1285,
+                'longitude' => 111.4986,
+                'address' => 'Terminal tujuan',
+            ],
             'payment_method' => 'qris',
             'passengers' => [
                 [
@@ -411,6 +425,11 @@ class BookingFlowTest extends TestCase
                 'latitude' => -0.0225,
                 'longitude' => 109.3425,
                 'address' => 'Jalan Ahmad Yani, Pontianak',
+            ],
+            'dropoff' => [
+                'latitude' => 0.1285,
+                'longitude' => 111.4986,
+                'address' => 'Terminal tujuan',
             ],
             'payment_method' => 'qris',
             'passengers' => [
@@ -498,6 +517,11 @@ class BookingFlowTest extends TestCase
                 'latitude' => -0.0225,
                 'longitude' => 109.3425,
                 'address' => 'Jalan Baru, Pontianak',
+            ],
+            'dropoff' => [
+                'latitude' => 0.1285,
+                'longitude' => 111.4986,
+                'address' => 'Terminal tujuan',
             ],
             'payment_method' => 'qris',
             'passengers' => [

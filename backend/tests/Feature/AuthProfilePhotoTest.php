@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Pengemudi;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -58,5 +59,63 @@ class AuthProfilePhotoTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.user.foto_profil', $path)
             ->assertJsonPath('data.user.foto_profil_url', fn (?string $url) => str_starts_with((string) $url, 'http://') && str_contains((string) $url, '/storage/profiles/'));
+    }
+
+    public function test_driver_can_update_phone_and_license_number_from_profile(): void
+    {
+        $driver = User::factory()->create([
+            'nama' => 'Bowo Pengemudi',
+            'email' => 'bowo-driver@example.com',
+            'no_hp' => '081299900002',
+            'peran' => 'pengemudi',
+            'status_aktif' => true,
+        ]);
+        Pengemudi::query()->create([
+            'pengguna_id' => $driver->id,
+            'nomor_sim' => '6102233435410001',
+            'status' => 'aktif',
+        ]);
+
+        Sanctum::actingAs($driver);
+
+        $response = $this->putJson('/api/auth/profile', [
+            'no_hp' => '081299900099',
+            'nomor_sim' => '6102233435990002',
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.user.no_hp', '081299900099')
+            ->assertJsonPath('data.user.nomor_sim', '6102233435990002');
+
+        $this->assertDatabaseHas('pengguna', [
+            'id' => $driver->id,
+            'no_hp' => '081299900099',
+        ]);
+        $this->assertDatabaseHas('pengemudi', [
+            'pengguna_id' => $driver->id,
+            'nomor_sim' => '6102233435990002',
+        ]);
+    }
+
+    public function test_driver_license_number_must_use_sixteen_digit_nik(): void
+    {
+        $driver = User::factory()->create([
+            'peran' => 'pengemudi',
+            'status_aktif' => true,
+        ]);
+        Pengemudi::query()->create([
+            'pengguna_id' => $driver->id,
+            'nomor_sim' => '6102233435410003',
+            'status' => 'aktif',
+        ]);
+
+        Sanctum::actingAs($driver);
+
+        $this->putJson('/api/auth/profile', [
+            'nomor_sim' => '610223343541',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('nomor_sim');
     }
 }

@@ -36,9 +36,9 @@
                     @include('admin.partials.field-error', ['name' => 'nama'])
                 </div>
                 <div class="travs-field">
-                    <label for="nomor_sim">Nomor SIM</label>
-                    <input id="nomor_sim" name="nomor_sim" class="travs-input @error('nomor_sim') is-invalid @enderror" value="{{ old('nomor_sim', $pengemudi->nomor_sim) }}" required minlength="12" maxlength="16" inputmode="numeric" pattern="[0-9]{12,16}">
-                    <div class="travs-field-meta">Gunakan 12-16 digit angka sesuai nomor SIM Indonesia.</div>
+                    <label for="nomor_sim">Nomor SIM (NIK KTP)</label>
+                    <input id="nomor_sim" name="nomor_sim" class="travs-input @error('nomor_sim') is-invalid @enderror" value="{{ old('nomor_sim', $pengemudi->nomor_sim) }}" required minlength="16" maxlength="16" inputmode="numeric" pattern="[0-9]{16}">
+                    <div class="travs-field-meta">Gunakan NIK KTP pengemudi yang terdiri dari tepat 16 digit angka.</div>
                     @include('admin.partials.field-error', ['name' => 'nomor_sim'])
                 </div>
                 <div class="travs-field">

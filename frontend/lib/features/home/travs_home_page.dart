@@ -1,11 +1,13 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/models/app_role_preview.dart';
 import '../../core/models/travs_booking_contract.dart';
@@ -1013,6 +1015,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
         const SizedBox(height: 16),
         _DriverHeroCard(
           displayName: _displayName,
+          phoneNumber: widget.session?.user.noHp ?? '-',
           simNumber: widget.session?.user.nomorSim ?? '-',
           vehicleName: nextTrip?.vehicle ?? 'Armada belum ditugaskan',
           vehiclePhotoUrl: nextTrip?.vehiclePhotoUrl,
@@ -2295,6 +2298,7 @@ class _TripMeta extends StatelessWidget {
 class _DriverHeroCard extends StatelessWidget {
   const _DriverHeroCard({
     required this.displayName,
+    required this.phoneNumber,
     required this.simNumber,
     required this.vehicleName,
     required this.vehiclePhotoUrl,
@@ -2302,6 +2306,7 @@ class _DriverHeroCard extends StatelessWidget {
   });
 
   final String displayName;
+  final String phoneNumber;
   final String simNumber;
   final String vehicleName;
   final String? vehiclePhotoUrl;
@@ -2357,7 +2362,14 @@ class _DriverHeroCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'SIM $simNumber',
+                      'Nomor HP: $phoneNumber',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.white70,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Nomor SIM: $simNumber',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: Colors.white70,
                       ),
@@ -2416,7 +2428,7 @@ class _DriverHeroCard extends StatelessWidget {
               for (var index = 0; index < stats.length; index++) ...[
                 Expanded(
                   child: SizedBox(
-                    height: 88,
+                    height: 96,
                     child: _HeroStatTile(stat: stats[index], dark: true),
                   ),
                 ),
@@ -2826,6 +2838,11 @@ class _ManifestPassengerRecord {
     required this.seatLabel,
     required this.phone,
     required this.pickupAddress,
+    required this.pickupLatitude,
+    required this.pickupLongitude,
+    required this.dropoffAddress,
+    required this.dropoffLatitude,
+    required this.dropoffLongitude,
     required this.baggageLabel,
     required this.baggagePhotoUrl,
     required this.fareLabel,
@@ -2845,6 +2862,11 @@ class _ManifestPassengerRecord {
   final String seatLabel;
   final String phone;
   final String pickupAddress;
+  final double? pickupLatitude;
+  final double? pickupLongitude;
+  final String dropoffAddress;
+  final double? dropoffLatitude;
+  final double? dropoffLongitude;
   final String baggageLabel;
   final String? baggagePhotoUrl;
   final String fareLabel;
@@ -2853,6 +2875,14 @@ class _ManifestPassengerRecord {
   final bool canConfirmCash;
   final bool canDropoff;
   final bool isDroppedOff;
+
+  String get journeyStatusLabel {
+    if (isDroppedOff) {
+      return 'Turun';
+    }
+
+    return attendanceStatus.toLowerCase() == 'hadir' ? 'Hadir' : 'Belum Hadir';
+  }
 
   factory _ManifestPassengerRecord.fromApi(
     TravSDriverManifestPassenger passenger,
@@ -2874,6 +2904,11 @@ class _ManifestPassengerRecord {
       seatLabel: 'No. ${passenger.seatNumber.toString().padLeft(2, '0')}',
       phone: passenger.phone,
       pickupAddress: passenger.pickupAddress,
+      pickupLatitude: passenger.pickupLatitude,
+      pickupLongitude: passenger.pickupLongitude,
+      dropoffAddress: passenger.dropoffAddress,
+      dropoffLatitude: passenger.dropoffLatitude,
+      dropoffLongitude: passenger.dropoffLongitude,
       baggageLabel: passenger.ticketScanned
           ? '${passenger.baggageLabel} - tiket dipindai'
           : passenger.baggageLabel,
@@ -3268,23 +3303,84 @@ class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
   }
 
   Future<void> _handleDropoff(_ManifestPassengerRecord passenger) async {
+    var baggageHasBeenChecked = false;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Konfirmasi Penumpang Turun'),
-        content: Text(
-          'Pastikan ${passenger.name} sudah turun di tujuan dan barang bawaan aman sebelum status diselesaikan.',
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: TravSTheme.surface,
+          surfaceTintColor: Colors.transparent,
+          title: const Text(
+            'Konfirmasi Penumpang Turun',
+            style: TextStyle(
+              color: TravSTheme.navy,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Pastikan ${passenger.name} sudah turun di tujuan sebelum perjalanan penumpang diselesaikan.',
+                style: const TextStyle(
+                  color: TravSTheme.navyMuted,
+                  height: 1.45,
+                ),
+              ),
+              const SizedBox(height: 14),
+              CheckboxListTile(
+                value: baggageHasBeenChecked,
+                onChanged: (value) {
+                  setDialogState(() {
+                    baggageHasBeenChecked = value ?? false;
+                  });
+                },
+                contentPadding: const EdgeInsets.symmetric(horizontal: 10),
+                controlAffinity: ListTileControlAffinity.leading,
+                activeColor: TravSTheme.orange,
+                tileColor: TravSTheme.surfaceSoft,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: const BorderSide(color: TravSTheme.line),
+                ),
+                title: const Text(
+                  'Barang bawaan sudah lengkap',
+                  style: TextStyle(
+                    color: TravSTheme.navy,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                subtitle: Text(
+                  '${passenger.baggageLabel}. Saya sudah memastikan tidak ada barang yang tertinggal.',
+                  style: const TextStyle(
+                    color: TravSTheme.navyMuted,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              style: TextButton.styleFrom(foregroundColor: TravSTheme.navy),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: baggageHasBeenChecked
+                  ? () => Navigator.of(dialogContext).pop(true)
+                  : null,
+              style: ElevatedButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: TravSTheme.orange,
+                disabledForegroundColor: TravSTheme.navyMuted,
+                disabledBackgroundColor: TravSTheme.surfaceMuted,
+              ),
+              child: const Text('Ya, Penumpang Turun'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Ya, Penumpang Turun'),
-          ),
-        ],
       ),
     );
 
@@ -3323,6 +3419,35 @@ class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
     setState(() {
       _droppingOffDetailId = null;
     });
+  }
+
+  Future<void> _openPassengerLocation({
+    required double? latitude,
+    required double? longitude,
+  }) async {
+    if (latitude == null || longitude == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Koordinat lokasi belum tersedia.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final uri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude',
+    );
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Google Maps belum dapat dibuka dari perangkat ini.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _showPassengerDetail(_ManifestPassengerRecord passenger) {
@@ -3395,6 +3520,59 @@ class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
                 ],
               ),
               const SizedBox(height: 18),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _StatusPill(
+                    label: passenger.canConfirmCash
+                        ? 'Belum Lunas'
+                        : passenger.paymentStatusLabel,
+                    color: passenger.canConfirmCash
+                        ? TravSTheme.orange
+                        : TravSTheme.success,
+                    textColor: passenger.canConfirmCash
+                        ? TravSTheme.orange
+                        : TravSTheme.success,
+                  ),
+                  _StatusPill(
+                    label: passenger.attendanceStatus.toLowerCase() == 'hadir'
+                        ? 'Hadir'
+                        : 'Belum Hadir',
+                    color: passenger.attendanceStatus.toLowerCase() == 'hadir'
+                        ? TravSTheme.success
+                        : TravSTheme.warning,
+                    textColor:
+                        passenger.attendanceStatus.toLowerCase() == 'hadir'
+                        ? TravSTheme.success
+                        : TravSTheme.warning,
+                  ),
+                  _StatusPill(
+                    label: passenger.isDroppedOff ? 'Turun' : 'Belum Turun',
+                    color: passenger.isDroppedOff
+                        ? TravSTheme.success
+                        : TravSTheme.navyMuted,
+                    textColor: passenger.isDroppedOff
+                        ? TravSTheme.success
+                        : TravSTheme.navyMuted,
+                  ),
+                ],
+              ),
+              if (passenger.canConfirmCash) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.of(sheetContext).pop();
+                      _handleConfirmCash(passenger);
+                    },
+                    icon: const Icon(Icons.payments_rounded),
+                    label: const Text('Konfirmasi Pembayaran Tunai'),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 18),
               _PassengerDetailBlock(
                 title: 'Identitas penumpang',
                 rows: [
@@ -3408,7 +3586,6 @@ class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
               _PassengerDetailBlock(
                 title: 'Informasi pemesanan',
                 rows: [
-                  _InfoRowData('Pickup', passenger.pickupAddress),
                   _InfoRowData('Barang bawaan', passenger.baggageLabel),
                   _InfoRowData('Biaya', passenger.fareLabel),
                   _InfoRowData('Pembayaran', passenger.paymentStatusLabel),
@@ -3421,6 +3598,32 @@ class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
                     passenger.isDroppedOff ? 'Sudah turun' : 'Belum turun',
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              _PassengerLocationBlock(
+                title: 'Lokasi Penjemputan',
+                address: passenger.pickupAddress,
+                icon: Icons.my_location_rounded,
+                canOpenMaps:
+                    passenger.pickupLatitude != null &&
+                    passenger.pickupLongitude != null,
+                onOpenMaps: () => _openPassengerLocation(
+                  latitude: passenger.pickupLatitude,
+                  longitude: passenger.pickupLongitude,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _PassengerLocationBlock(
+                title: 'Lokasi Tujuan / Turun',
+                address: passenger.dropoffAddress,
+                icon: Icons.location_on_rounded,
+                canOpenMaps:
+                    passenger.dropoffLatitude != null &&
+                    passenger.dropoffLongitude != null,
+                onOpenMaps: () => _openPassengerLocation(
+                  latitude: passenger.dropoffLatitude,
+                  longitude: passenger.dropoffLongitude,
+                ),
               ),
               if (baggageUrl != null) ...[
                 const SizedBox(height: 12),
@@ -3631,15 +3834,9 @@ class _ManifestPassengerTile extends StatelessWidget {
                 ),
               ),
               _StatusPill(
-                label: passenger.isDroppedOff
-                    ? 'Sudah turun'
-                    : passenger.seatLabel,
-                color: passenger.isDroppedOff
-                    ? TravSTheme.success
-                    : TravSTheme.navy,
-                textColor: passenger.isDroppedOff
-                    ? TravSTheme.success
-                    : TravSTheme.navy,
+                label: passenger.seatLabel,
+                color: TravSTheme.navy,
+                textColor: TravSTheme.navy,
               ),
             ],
           ),
@@ -3663,6 +3860,19 @@ class _ManifestPassengerTile extends StatelessWidget {
                 textColor: passenger.canConfirmCash
                     ? TravSTheme.orange
                     : TravSTheme.success,
+              ),
+              _StatusPill(
+                label: passenger.journeyStatusLabel,
+                color: passenger.isDroppedOff
+                    ? TravSTheme.navyMuted
+                    : passenger.attendanceStatus.toLowerCase() == 'hadir'
+                    ? TravSTheme.success
+                    : TravSTheme.warning,
+                textColor: passenger.isDroppedOff
+                    ? TravSTheme.navyMuted
+                    : passenger.attendanceStatus.toLowerCase() == 'hadir'
+                    ? TravSTheme.success
+                    : TravSTheme.warning,
               ),
             ],
           ),
@@ -3844,6 +4054,73 @@ class _PassengerDetailBlock extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 10),
               child: _MetaColumn(label: row.label, value: row.value),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PassengerLocationBlock extends StatelessWidget {
+  const _PassengerLocationBlock({
+    required this.title,
+    required this.address,
+    required this.icon,
+    required this.canOpenMaps,
+    required this.onOpenMaps,
+  });
+
+  final String title;
+  final String address;
+  final IconData icon;
+  final bool canOpenMaps;
+  final VoidCallback onOpenMaps;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: TravSTheme.surfaceSoft,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: TravSTheme.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 20, color: TravSTheme.orange),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: TravSTheme.navy,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            address.trim().isEmpty || address == '-'
+                ? 'Alamat belum diisi.'
+                : address,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: TravSTheme.navy,
+              height: 1.45,
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: canOpenMaps ? onOpenMaps : null,
+            icon: const Icon(Icons.map_outlined),
+            label: const Text('Buka di Google Maps'),
           ),
         ],
       ),
@@ -5071,6 +5348,7 @@ class _EditProfilePageState extends State<_EditProfilePage> {
   late final TextEditingController _nameController;
   late final TextEditingController _emailController;
   late final TextEditingController _phoneController;
+  late final TextEditingController _driverLicenseController;
   final TextEditingController _currentPasswordController =
       TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
@@ -5088,6 +5366,7 @@ class _EditProfilePageState extends State<_EditProfilePage> {
     _nameController = TextEditingController(text: user.nama);
     _emailController = TextEditingController(text: user.email);
     _phoneController = TextEditingController(text: user.noHp);
+    _driverLicenseController = TextEditingController(text: user.nomorSim ?? '');
   }
 
   @override
@@ -5095,6 +5374,7 @@ class _EditProfilePageState extends State<_EditProfilePage> {
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
+    _driverLicenseController.dispose();
     _currentPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
@@ -5157,6 +5437,9 @@ class _EditProfilePageState extends State<_EditProfilePage> {
         nama: _nameController.text,
         email: _emailController.text,
         noHp: _phoneController.text,
+        nomorSim: widget.session.user.isDriver
+            ? _driverLicenseController.text
+            : null,
       );
 
       final shouldChangePassword =
@@ -5307,7 +5590,9 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                             _validateRequiredText(value, 'Email'),
                       ),
                       const SizedBox(height: 12),
-                      const _ProfileFieldLabel('Nomor HP'),
+                      _ProfileFieldLabel(
+                        user.isDriver ? 'Nomor HP pengemudi' : 'Nomor HP',
+                      ),
                       TextFormField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
@@ -5321,6 +5606,33 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                     ],
                   ),
                 ),
+                if (user.isDriver) ...[
+                  const SizedBox(height: 14),
+                  _SectionCard(
+                    title: 'Data Pengemudi',
+                    subtitle:
+                        'Nomor SIM menggunakan NIK KTP pengemudi sebanyak 16 digit.',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _ProfileFieldLabel('Nomor SIM (NIK KTP)'),
+                        TextFormField(
+                          controller: _driverLicenseController,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                            LengthLimitingTextInputFormatter(16),
+                          ],
+                          decoration: _profileInputDecoration(
+                            hint: 'Masukkan 16 digit NIK KTP',
+                            icon: Icons.badge_outlined,
+                          ),
+                          validator: _validateDriverLicense,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 14),
                 _SectionCard(
                   title: 'Ganti Password',
@@ -5421,6 +5733,17 @@ class _EditProfilePageState extends State<_EditProfilePage> {
         _confirmPasswordController.text.trim().isNotEmpty;
     if (shouldChangePassword && (value == null || value.trim().isEmpty)) {
       return 'Password lama wajib diisi.';
+    }
+    return null;
+  }
+
+  String? _validateDriverLicense(String? value) {
+    final licenseNumber = value?.trim() ?? '';
+    if (licenseNumber.isEmpty) {
+      return 'Nomor SIM wajib diisi.';
+    }
+    if (licenseNumber.length != 16) {
+      return 'Nomor SIM harus menggunakan NIK KTP sebanyak 16 digit.';
     }
     return null;
   }

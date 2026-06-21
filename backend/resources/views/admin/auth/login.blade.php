@@ -4,10 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Login Admin - {{ config('app.name') }}</title>
-    <link rel="stylesheet" href="{{ asset('vendor/mazer/css/app.css') }}">
-    <link rel="stylesheet" href="{{ asset('vendor/mazer/css/travs-bridge.css') }}">
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="travs-mazer-auth">
+<body class="travs-admin-auth">
     <div class="travs-auth-wrapper">
         <div class="min-vh-100 d-flex align-items-center justify-content-center p-4">
             <div class="card shadow-lg border-0 travs-auth-card">
@@ -82,7 +81,5 @@
         </div>
     </div>
 
-    <script src="{{ asset('vendor/mazer/js/perfect-scrollbar.min.js') }}"></script>
-    <script src="{{ asset('vendor/mazer/js/app.js') }}"></script>
 </body>
 </html>

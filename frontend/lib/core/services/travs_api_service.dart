@@ -360,15 +360,21 @@ class TravSApiService {
     required String nama,
     required String email,
     required String noHp,
+    String? nomorSim,
   }) async {
+    final profileData = <String, String>{
+      'nama': nama.trim(),
+      'email': email.trim(),
+      'no_hp': noHp.trim(),
+    };
+    if (nomorSim != null) {
+      profileData['nomor_sim'] = nomorSim.trim();
+    }
+
     final response = await putWithFallback(
       '/api/auth/profile',
       headers: jsonHeaders(token: token),
-      body: jsonEncode({
-        'nama': nama.trim(),
-        'email': email.trim(),
-        'no_hp': noHp.trim(),
-      }),
+      body: jsonEncode(profileData),
     );
 
     return _decodeDataObject(
@@ -1224,6 +1230,11 @@ class TravSDriverManifestPassenger {
     required this.seatNumber,
     required this.phone,
     required this.pickupAddress,
+    required this.pickupLatitude,
+    required this.pickupLongitude,
+    required this.dropoffAddress,
+    required this.dropoffLatitude,
+    required this.dropoffLongitude,
     required this.baggageLabel,
     required this.baggagePhotoUrl,
     required this.fareLabel,
@@ -1248,6 +1259,11 @@ class TravSDriverManifestPassenger {
   final int seatNumber;
   final String phone;
   final String pickupAddress;
+  final double? pickupLatitude;
+  final double? pickupLongitude;
+  final String dropoffAddress;
+  final double? dropoffLatitude;
+  final double? dropoffLongitude;
   final String baggageLabel;
   final String? baggagePhotoUrl;
   final String fareLabel;
@@ -1281,6 +1297,11 @@ class TravSDriverManifestPassenger {
       seatNumber: _readInt(json['nomor_kursi']),
       phone: json['no_hp_penumpang'] as String? ?? '-',
       pickupAddress: pickup['address'] as String? ?? '-',
+      pickupLatitude: _readNullableDouble(pickup['latitude']),
+      pickupLongitude: _readNullableDouble(pickup['longitude']),
+      dropoffAddress: dropoff['address'] as String? ?? '-',
+      dropoffLatitude: _readNullableDouble(dropoff['latitude']),
+      dropoffLongitude: _readNullableDouble(dropoff['longitude']),
       baggageLabel: baggage['label'] as String? ?? '-',
       baggagePhotoUrl: baggage['foto_url'] as String?,
       fareLabel: fare['label'] as String? ?? '-',
@@ -1379,6 +1400,14 @@ double _readDouble(dynamic value, {double fallback = 0}) {
   }
 
   return double.tryParse(value.toString()) ?? fallback;
+}
+
+double? _readNullableDouble(dynamic value) {
+  if (value == null || value.toString().trim().isEmpty) {
+    return null;
+  }
+
+  return double.tryParse(value.toString());
 }
 
 bool _readBool(dynamic value) {

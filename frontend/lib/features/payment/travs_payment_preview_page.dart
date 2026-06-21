@@ -93,12 +93,19 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
       TextEditingController();
   final TextEditingController _pickupAddressController =
       TextEditingController();
+  final TextEditingController _dropoffLatitudeController =
+      TextEditingController();
+  final TextEditingController _dropoffLongitudeController =
+      TextEditingController();
+  final TextEditingController _dropoffAddressController =
+      TextEditingController();
 
   late final List<_PassengerFormController> _passengerForms;
   late final List<_PaymentMethodOption> _paymentOptions;
   String? _selectedMethod;
   bool _isSubmitting = false;
   bool _isResolvingPickup = false;
+  bool _isResolvingDropoff = false;
   bool _isUploadingBaggagePhoto = false;
   bool _isPickingBaggagePhoto = false;
   bool _isRefreshingPayment = false;
@@ -138,6 +145,9 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     _pickupLatitudeController.dispose();
     _pickupLongitudeController.dispose();
     _pickupAddressController.dispose();
+    _dropoffLatitudeController.dispose();
+    _dropoffLongitudeController.dispose();
+    _dropoffAddressController.dispose();
     for (final passenger in _passengerForms) {
       passenger.dispose();
     }
@@ -187,6 +197,27 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     final latitude = double.tryParse(_pickupLatitudeController.text.trim());
     final longitude = double.tryParse(_pickupLongitudeController.text.trim());
     final address = _pickupAddressController.text.trim();
+
+    if (latitude == null || longitude == null || address.isEmpty) {
+      return null;
+    }
+
+    return TravSPickupPoint(
+      latitude: latitude,
+      longitude: longitude,
+      address: address,
+    );
+  }
+
+  bool get _hasDropoffDraft =>
+      _dropoffLatitudeController.text.trim().isNotEmpty &&
+      _dropoffLongitudeController.text.trim().isNotEmpty &&
+      _dropoffAddressController.text.trim().isNotEmpty;
+
+  TravSPickupPoint? get _draftDropoffPoint {
+    final latitude = double.tryParse(_dropoffLatitudeController.text.trim());
+    final longitude = double.tryParse(_dropoffLongitudeController.text.trim());
+    final address = _dropoffAddressController.text.trim();
 
     if (latitude == null || longitude == null || address.isEmpty) {
       return null;
@@ -289,6 +320,63 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
 
     if (pickup != null && mounted) {
       _applyPickup(pickup);
+    }
+  }
+
+  Future<void> _autoResolveDropoffAddress() async {
+    final latitude = double.tryParse(_dropoffLatitudeController.text.trim());
+    final longitude = double.tryParse(_dropoffLongitudeController.text.trim());
+
+    if (latitude == null || longitude == null) return;
+    if (latitude < -90 || latitude > 90) return;
+    if (longitude < -180 || longitude > 180) return;
+
+    setState(() {
+      _isResolvingDropoff = true;
+    });
+
+    try {
+      final dropoff = await _locationService.resolvePickupFromCoordinates(
+        latitude: latitude,
+        longitude: longitude,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _dropoffAddressController.text = dropoff.address;
+      });
+    } catch (_) {
+      // Alamat tetap bisa diketik manual jika layanan geocoding sedang gagal.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isResolvingDropoff = false;
+        });
+      }
+    }
+  }
+
+  void _applyDropoff(TravSPickupPoint dropoff) {
+    setState(() {
+      _dropoffLatitudeController.text = dropoff.latitude.toStringAsFixed(6);
+      _dropoffLongitudeController.text = dropoff.longitude.toStringAsFixed(6);
+      _dropoffAddressController.text = dropoff.address;
+    });
+  }
+
+  Future<void> _pickDropoffFromMap() async {
+    final dropoff = await Navigator.of(context).push<TravSPickupPoint>(
+      MaterialPageRoute<TravSPickupPoint>(
+        builder: (_) => TravSPickupMapPickerPage(
+          initialPickup: _draftDropoffPoint,
+          title: 'Pilih Titik Turun',
+          locationLabel: 'titik turun',
+        ),
+      ),
+    );
+
+    if (dropoff != null && mounted) {
+      _applyDropoff(dropoff);
     }
   }
 
@@ -428,6 +516,11 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
           pickupLatitude: double.parse(_pickupLatitudeController.text.trim()),
           pickupLongitude: double.parse(_pickupLongitudeController.text.trim()),
           pickupAddress: _pickupAddressController.text.trim(),
+          dropoffLatitude: double.parse(_dropoffLatitudeController.text.trim()),
+          dropoffLongitude: double.parse(
+            _dropoffLongitudeController.text.trim(),
+          ),
+          dropoffAddress: _dropoffAddressController.text.trim(),
           paymentMethod: _selectedMethod!,
           passengers: _passengerForms
               .map(
@@ -740,6 +833,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                     header: _buildHeaderCard(context),
                     paymentMethodCard: _buildPaymentMethodCard(context),
                     pickupCard: _buildPickupCard(context),
+                    dropoffCard: _buildDropoffCard(context),
                     passengerCard: _buildPassengerCard(context),
                     baggageCard: _buildBaggageCard(context),
                     summaryCard: _buildSummaryCard(context),
@@ -1007,6 +1101,124 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                   : null,
             ),
             validator: (value) => _validateRequiredText(value, 'Alamat jemput'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDropoffCard(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return _SectionCard(
+      title: 'Titik Turun',
+      subtitle:
+          'Tentukan lokasi tujuan penumpang. Alamat ini akan tampil di manifest pengemudi dan dapat dibuka melalui Google Maps.',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          OutlinedButton.icon(
+            onPressed: _isResolvingDropoff ? null : _pickDropoffFromMap,
+            icon: const Icon(Icons.map_outlined),
+            label: const Text('Pilih Titik Turun di Peta'),
+          ),
+          if (_hasDropoffDraft) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: TravSTheme.surfaceSoft,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Tujuan Penumpang',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: TravSTheme.navy,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _dropoffAddressController.text.trim(),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: TravSTheme.navy,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Koordinat: ${_dropoffLatitudeController.text.trim()}, ${_dropoffLongitudeController.text.trim()}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: TravSTheme.navyMuted,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: TextFormField(
+                  controller: _dropoffLatitudeController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Latitude Tujuan',
+                    hintText: '0.1285',
+                  ),
+                  validator: (value) => _validateCoordinate(
+                    value,
+                    label: 'Latitude tujuan',
+                    min: -90,
+                    max: 90,
+                  ),
+                  onEditingComplete: _autoResolveDropoffAddress,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextFormField(
+                  controller: _dropoffLongitudeController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                    signed: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Longitude Tujuan',
+                    hintText: '111.4986',
+                  ),
+                  validator: (value) => _validateCoordinate(
+                    value,
+                    label: 'Longitude tujuan',
+                    min: -180,
+                    max: 180,
+                  ),
+                  onEditingComplete: _autoResolveDropoffAddress,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _dropoffAddressController,
+            minLines: 2,
+            maxLines: 3,
+            decoration: InputDecoration(
+              labelText: 'Alamat Tujuan / Tempat Turun',
+              hintText: 'Pilih melalui peta atau isi alamat tujuan lengkap.',
+              helperText: _isResolvingDropoff
+                  ? 'Mengambil nama alamat tujuan...'
+                  : null,
+            ),
+            validator: (value) => _validateRequiredText(value, 'Alamat tujuan'),
           ),
         ],
       ),
@@ -1696,6 +1908,7 @@ class _CheckoutFormView extends StatelessWidget {
     required this.header,
     required this.paymentMethodCard,
     required this.pickupCard,
+    required this.dropoffCard,
     required this.passengerCard,
     required this.baggageCard,
     required this.summaryCard,
@@ -1708,6 +1921,7 @@ class _CheckoutFormView extends StatelessWidget {
   final Widget header;
   final Widget paymentMethodCard;
   final Widget pickupCard;
+  final Widget dropoffCard;
   final Widget passengerCard;
   final Widget baggageCard;
   final Widget summaryCard;
@@ -1727,6 +1941,8 @@ class _CheckoutFormView extends StatelessWidget {
           paymentMethodCard,
           const SizedBox(height: 16),
           pickupCard,
+          const SizedBox(height: 16),
+          dropoffCard,
           const SizedBox(height: 16),
           passengerCard,
           const SizedBox(height: 16),
