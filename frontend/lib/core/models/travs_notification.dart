@@ -3,7 +3,7 @@
 // KONSEP:
 // Setiap kali terjadi kejadian penting di backend (pembayaran berhasil, tiket terbit,
 // jadwal berubah), backend menyimpan satu baris ke tabel `notifikasi`. Mobile
-// mengambil data ini secara berkala lewat endpoint `/api/v1/notifications`.
+// mengambil data ini secara berkala lewat endpoint `/api/notifications`.
 
 class TravSNotification {
   const TravSNotification({

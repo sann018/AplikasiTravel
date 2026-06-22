@@ -459,7 +459,6 @@ class PaymentGatewayTest extends TestCase
             'alamat_jemput' => 'Jalan Ahmad Yani, Pontianak',
             'subtotal_tiket' => 225000,
             'biaya_bagasi' => 0,
-            'biaya_admin' => 5000,
             'diskon' => 0,
             'total_harga' => 230000,
             'status_pemesanan' => 'menunggu_pembayaran',

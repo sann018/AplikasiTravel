@@ -101,7 +101,6 @@
                 <div class="travs-detail-money">
                     <div><span>Subtotal Tiket</span><strong>Rp{{ number_format($pemesanan->subtotal_tiket, 0, ',', '.') }}</strong></div>
                     <div><span>Biaya Bagasi</span><strong>Rp{{ number_format($pemesanan->biaya_bagasi, 0, ',', '.') }}</strong></div>
-                    <div><span>Biaya Admin</span><strong>Rp{{ number_format($pemesanan->biaya_admin, 0, ',', '.') }}</strong></div>
                     <div class="is-total"><span>Total</span><strong>Rp{{ number_format($pemesanan->total_harga, 0, ',', '.') }}</strong></div>
                 </div>
 

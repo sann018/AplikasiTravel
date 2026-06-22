@@ -5,32 +5,45 @@
 @section('page-description', 'Catat pengeluaran operasional per perjalanan agar rekap biaya dan laporan lebih akurat.')
 
 @section('content')
-    <section class="travs-summary-grid">
-        <article class="travs-summary-card">
+    <section class="collapsible-section" data-collapsible-section>
+        <div class="collapsible-section__header" data-collapse-header>
+            <div class="travs-panel-title">
+                <h3>Ringkasan Biaya</h3>
+                <p>Ikhtisar pengeluaran yang sudah tercatat.</p>
+            </div>
+            @include('admin.partials.collapsible-toggle', ['targetId' => 'cost-summary-body'])
+        </div>
+
+        <div id="cost-summary-body" class="travs-summary-grid collapsible-section__body" data-collapse-body>
+            <article class="travs-summary-card">
             <small>Biaya Hari Ini</small>
             <strong>Rp{{ number_format($stats['hari_ini'], 0, ',', '.') }}</strong>
             <span>Pengeluaran tercatat hari ini</span>
         </article>
-        <article class="travs-summary-card">
+            <article class="travs-summary-card">
             <small>Biaya Bulan Ini</small>
             <strong>Rp{{ number_format($stats['bulan_ini'], 0, ',', '.') }}</strong>
             <span>Akumulasi bulan berjalan</span>
         </article>
-        <article class="travs-summary-card">
+            <article class="travs-summary-card">
             <small>Total Item Biaya</small>
             <strong>{{ number_format($stats['total_item']) }}</strong>
             <span>Jumlah pencatatan biaya</span>
-        </article>
+            </article>
+        </div>
     </section>
 
-    <section class="travs-split-grid">
-        <article class="travs-section-card travs-form-card">
-            <div class="travs-panel-title">
+    <section class="travs-cost-workspace">
+        <article class="travs-section-card travs-form-card collapsible-section" data-collapsible-section>
+            <div class="collapsible-section__header" data-collapse-header>
+                <div class="travs-panel-title">
                 <h3>{{ $editingBiaya ? 'Edit Biaya Operasional' : 'Catat Biaya Operasional' }}</h3>
                 <p>Gunakan modul ini untuk bahan bakar, tol, makan driver, parkir, dan biaya perjalanan lainnya.</p>
+                </div>
+                @include('admin.partials.collapsible-toggle', ['targetId' => 'cost-form-body'])
             </div>
 
-            <form method="POST" action="{{ $editingBiaya ? route('admin.biaya.update', $editingBiaya) : route('admin.biaya.store') }}" class="travs-form-grid">
+            <form id="cost-form-body" method="POST" action="{{ $editingBiaya ? route('admin.biaya.update', $editingBiaya) : route('admin.biaya.store') }}" class="travs-form-grid collapsible-section__body" data-collapse-body>
                 @csrf
                 @if ($editingBiaya)
                     @method('PUT')
@@ -80,16 +93,16 @@
             </form>
         </article>
 
-        <article class="travs-section-card">
-            <div class="travs-panel-header">
+        <article class="travs-section-card collapsible-section" data-collapsible-section>
+            <div class="collapsible-section__header" data-collapse-header>
                 <div class="travs-panel-title">
-                    <h3>Daftar Biaya</h3>
-                    <p>Semua pencatatan biaya operasional yang sudah masuk akan muncul di sini.</p>
+                    <h3>Filter Daftar Biaya</h3>
+                    <p>Pilih kriteria terlebih dahulu, lalu tekan Terapkan Filter.</p>
                 </div>
-                <a href="{{ route('admin.biaya.rekap') }}" class="travs-button-secondary">Lihat Rekap</a>
+                @include('admin.partials.collapsible-toggle', ['targetId' => 'cost-filter-body'])
             </div>
 
-            <form method="GET" class="travs-filter-grid">
+            <form id="cost-filter-body" method="GET" class="travs-filter-grid collapsible-section__body" data-collapse-body>
                 <div class="travs-field">
                     <label for="search">Cari</label>
                     <input id="search" name="search" class="travs-input" value="{{ $filters['search'] ?? '' }}" placeholder="Jenis biaya, keterangan, atau rute">
@@ -118,7 +131,21 @@
                     <a href="{{ route('admin.biaya.index') }}" class="travs-button-secondary">Reset</a>
                 </div>
             </form>
+        </article>
 
+        <article class="travs-section-card collapsible-section" data-collapsible-section>
+            <div class="travs-panel-header collapsible-section__header" data-collapse-header>
+                <div class="travs-panel-title">
+                    <h3>Daftar Biaya</h3>
+                    <p>Semua pencatatan biaya operasional yang sudah masuk akan muncul di sini.</p>
+                </div>
+                <div class="collapsible-section__header-actions">
+                    <a href="{{ route('admin.biaya.rekap') }}" class="travs-button-secondary">Lihat Rekap</a>
+                    @include('admin.partials.collapsible-toggle', ['targetId' => 'cost-list-body'])
+                </div>
+            </div>
+
+            <div id="cost-list-body" class="collapsible-section__body" data-collapse-body>
             <div class="travs-table-wrap">
                 <table class="travs-table">
                     <thead>
@@ -161,6 +188,11 @@
             </div>
 
             {{ $biaya->links() }}
+            </div>
         </article>
     </section>
 @endsection
+
+@push('scripts')
+    @include('admin.partials.collapsible-section-script')
+@endpush

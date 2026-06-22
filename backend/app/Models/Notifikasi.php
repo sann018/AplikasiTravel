@@ -39,4 +39,10 @@ class Notifikasi extends Model
     {
         return $this->belongsTo(User::class, 'pengguna_id');
     }
+
+    /** Relasi ini dipakai hanya untuk notifikasi pemesanan pada dashboard admin. */
+    public function referensiBooking(): BelongsTo
+    {
+        return $this->belongsTo(Pemesanan::class, 'referensi_id');
+    }
 }

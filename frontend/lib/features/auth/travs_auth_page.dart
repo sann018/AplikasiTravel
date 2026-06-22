@@ -1,19 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../../core/models/travs_user_session.dart';
+import '../../core/models/app_settings.dart';
 import '../../core/services/travs_api_service.dart';
 import '../../core/services/travs_auth_service.dart';
 import '../../core/theme/travs_theme.dart';
+import '../../core/widgets/travs_brand_logo.dart';
 
 class TravSAuthPage extends StatefulWidget {
   const TravSAuthPage({
     required this.authService,
+    required this.appSettings,
     required this.onAuthenticated,
     required this.onContinueAsGuest,
     super.key,
   });
 
   final TravSAuthService authService;
+  final AppSettings appSettings;
   final ValueChanged<TravSUserSession> onAuthenticated;
   final VoidCallback onContinueAsGuest;
 
@@ -148,7 +152,10 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const SizedBox(height: 24),
-                      _AuthHero(isRegisterMode: _isRegisterMode),
+                      _AuthHero(
+                        isRegisterMode: _isRegisterMode,
+                        appSettings: widget.appSettings,
+                      ),
                       const SizedBox(height: 24),
                       Container(
                         padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
@@ -505,9 +512,10 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
 }
 
 class _AuthHero extends StatelessWidget {
-  const _AuthHero({required this.isRegisterMode});
+  const _AuthHero({required this.isRegisterMode, required this.appSettings});
 
   final bool isRegisterMode;
+  final AppSettings appSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -515,38 +523,14 @@ class _AuthHero extends StatelessWidget {
 
     return Column(
       children: [
-        Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: 92,
-              height: 92,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: Colors.white24),
-              ),
-              child: const Icon(
-                Icons.directions_bus_filled_rounded,
-                color: Colors.white,
-                size: 44,
-              ),
-            ),
-            const Positioned(
-              top: -2,
-              right: -2,
-              child: CircleAvatar(
-                radius: 12,
-                backgroundColor: TravSTheme.orange,
-                child: Icon(Icons.place_rounded, size: 15, color: Colors.white),
-              ),
-            ),
-          ],
+        TravSBrandLogo(
+          imageUrl: appSettings.appLogoUrl,
+          size: 92,
+          borderRadius: 30,
         ),
         const SizedBox(height: 18),
         Text(
-          'RuslyTravel',
+          appSettings.appName,
           style: theme.textTheme.headlineSmall?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w800,

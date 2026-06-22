@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../core/theme/travs_theme.dart';
+import '../../core/models/app_settings.dart';
+import '../../core/widgets/travs_brand_logo.dart';
 
 class TravSSplashPage extends StatelessWidget {
-  const TravSSplashPage({super.key});
+  const TravSSplashPage({required this.appSettings, super.key});
+
+  final AppSettings appSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -17,23 +21,14 @@ class TravSSplashPage extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Container(
-                  width: 90,
-                  height: 90,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(color: Colors.white24),
-                  ),
-                  child: const Icon(
-                    Icons.directions_car_filled_rounded,
-                    color: Colors.white,
-                    size: 42,
-                  ),
+                TravSBrandLogo(
+                  imageUrl: appSettings.appLogoUrl,
+                  size: 90,
+                  borderRadius: 28,
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'RuslyTravel',
+                  appSettings.appName,
                   style: theme.textTheme.headlineMedium?.copyWith(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,

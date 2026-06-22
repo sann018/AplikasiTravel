@@ -1,6 +1,26 @@
 # Task Breakdown, Gap Analysis, dan Roadmap Implementasi
 
-Status: Backlog implementasi aktif dengan checklist progres per fitur
+Status: Implementasi inti selesai, hardening dan backlog lanjutan aktif
+
+Pembaruan terakhir: 22 Juni 2026
+
+Verifikasi terbaru: backend 131 test/648 assertion lulus, Flutter 15 test lulus, dan `flutter analyze` tanpa issue.
+
+Ringkasan perubahan terbaru:
+
+- [x] Admin fee Rusly Travel dihapus; biaya channel mengikuti Pakasir.
+- [x] Upload logo menghasilkan WEBP maksimal 512x512 px dan dipakai web admin serta mobile.
+- [x] Dashboard admin minimalis dan card statistik menuju halaman terkait.
+- [x] Filter admin memakai tombol `Terapkan Filter` untuk membatasi request otomatis.
+- [x] Notifikasi Admin, Pengemudi, dan Penumpang otomatis terbaca saat daftar dibuka.
+- [x] Badge unread mobile mengikuti backend dan polling tidak menghabiskan status unread.
+- [x] Riwayat notifikasi terbaca dapat dihapus untuk periode 7/30/90 hari atau semua terbaca.
+- [x] Hak akses dan keamanan penghapusan notifikasi diuji.
+- [x] Notifikasi operasional dibuat wajib; tab pengaturan template/switch dihapus.
+- [x] Notifikasi admin untuk booking baru, tunai menunggu konfirmasi, pembayaran berhasil/gagal/kedaluwarsa, keberangkatan dekat, serta kapasitas hampir penuh.
+- [ ] Rekap Biaya menjadi laporan dengan export Excel/CSV.
+- [ ] Menu Audit Sistem.
+- [ ] Hapus data lama Pemesanan, Pembayaran, dan Biaya Operasional.
 Tanggal pembaruan: 16 Juni 2026
 Terakhir diverifikasi frontend: `flutter analyze` (no issues) dan `flutter test` (11 test) lulus pada 16 Juni 2026.
 Verifikasi backend terakhir: `php artisan test --filter=PaymentGatewayTest` lulus pada 8 Juni 2026.
@@ -429,7 +449,7 @@ Keputusan umum:
 
 ### Epic 12 - Notifications
 
-- Status: belum dimulai penuh
+- Status: selesai untuk inbox database, status baca, badge, dan pembersihan riwayat; FCM masih backlog
 - Priority: P2
 - Dependency: Epic 6, Epic 8, Epic 9
 - Feature: notifikasi event penting.
@@ -438,13 +458,18 @@ Keputusan umum:
 - [x] Tabel/model notifikasi dasar.
 - [x] Halaman admin notifikasi dasar.
 - [x] UI inbox/preview notifikasi di mobile.
-- [ ] Event trigger booking created.
+- [x] Event trigger booking created.
 - [x] Event trigger payment success.
-- [ ] Event trigger jadwal berubah.
+- [x] Event trigger jadwal berubah.
 - [x] Event trigger ticket active.
 - [ ] Queue job notifikasi.
 - [ ] FCM strategy.
-- [ ] Unread state live.
+- [x] Unread state dan badge tersambung ke backend saat refresh/polling.
+- [x] Daftar yang dibuka menandai item sebagai terbaca tanpa mengganggu polling latar.
+- [x] Hapus riwayat terbaca berdasarkan 7, 30, 90 hari, atau semua terbaca.
+- [x] Validasi pemilik notifikasi untuk API mobile dan middleware admin untuk web.
+- [x] Test API notifikasi, hak akses admin, dan keamanan notifikasi belum dibaca.
+- [x] Test event operasional admin dan pencegahan duplikasi pengingat jadwal.
 - [x] Test event notifikasi utama.
 - Definition of Done: event utama menghasilkan notifikasi yang konsisten.
 
@@ -508,7 +533,7 @@ Keputusan umum:
 
 ### Phase 4 - GPS, Notifikasi, Laporan
 
-- Status: [ ] SEBAGIAN SELESAI
+- Status: [ ] SEBAGIAN SELESAI (notifikasi inbox selesai, laporan lanjutan masih backlog)
 - Tujuan: melengkapi kenyamanan dan kontrol operasional.
 - Output: pickup point lengkap, deep link Maps, notifikasi penting, laporan utama.
 - Dependency: Phase 1 sampai Phase 3.

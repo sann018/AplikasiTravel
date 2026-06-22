@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -10,12 +8,16 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/models/app_role_preview.dart';
+import '../../core/models/app_settings.dart';
 import '../../core/models/travs_booking_contract.dart';
+import '../../core/models/travs_notification.dart';
 import '../../core/models/travs_user_session.dart';
 import '../../core/services/travs_api_service.dart';
+import '../../core/services/settings_api_service.dart';
 import '../../core/services/travs_auth_service.dart';
 import '../../core/theme/travs_theme.dart';
 import '../../core/widgets/travs_async_state.dart';
+import '../../core/widgets/travs_brand_logo.dart';
 import '../booking/travs_booking_detail_page.dart';
 import '../schedule/travs_schedule_detail_page.dart';
 import '../ticket/travs_ticket_detail_page.dart';
@@ -45,6 +47,7 @@ class TravSHomePage extends StatefulWidget {
 
 class _TravSHomePageState extends State<TravSHomePage> {
   final TravSApiService _apiService = TravSApiService();
+  final SettingsApiService _settingsApiService = SettingsApiService();
   final TravSAuthService _authService = TravSAuthService();
 
   late Future<_HomeBundle> _future;
@@ -55,6 +58,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
   bool _hasSyncedSessionProfile = false;
   bool _notificationsEnabled = false;
   String _languageCode = 'id';
+  AppSettings _appSettings = AppSettings.defaults;
 
   AppRolePreview get _role =>
       widget.session?.rolePreview ?? AppRolePreview.guest;
@@ -134,8 +138,14 @@ class _TravSHomePageState extends State<TravSHomePage> {
     }
   }
 
-  Future<_HomeBundle> _loadBundle() async {
-    final payload = await _apiService.loadHomePayload();
+  Future<_HomeBundle> _loadBundle({bool forceSettingsRefresh = false}) async {
+    final payloadFuture = _apiService.loadHomePayload();
+    final settingsFuture = _settingsApiService.load(
+      forceRefresh: forceSettingsRefresh,
+    );
+    final payload = await payloadFuture;
+    final appSettings = await settingsFuture;
+    _appSettings = appSettings;
     if (_role == AppRolePreview.passenger && widget.session != null) {
       final dashboardFuture = _apiService.loadPassengerDashboard(
         widget.session!.token,
@@ -143,27 +153,58 @@ class _TravSHomePageState extends State<TravSHomePage> {
       final bookingsFuture = _apiService.loadPassengerBookings(
         widget.session!.token,
       );
+      final notificationsFuture = _loadNotificationFeedSafely();
       final dashboard = await dashboardFuture;
       final bookings = await bookingsFuture;
+      final notifications = await notificationsFuture;
       return _HomeBundle(
         payload: payload,
+        appSettings: appSettings,
         passengerDashboard: dashboard,
         passengerBookings: bookings,
+        notifications: notifications,
       );
     }
 
     if (_role == AppRolePreview.driver && widget.session != null) {
-      final dashboard = await _apiService.loadDriverDashboard(
+      final dashboardFuture = _apiService.loadDriverDashboard(
         widget.session!.token,
       );
-      return _HomeBundle(payload: payload, driverDashboard: dashboard);
+      final notificationsFuture = _loadNotificationFeedSafely();
+      final dashboard = await dashboardFuture;
+      final notifications = await notificationsFuture;
+      return _HomeBundle(
+        payload: payload,
+        appSettings: appSettings,
+        driverDashboard: dashboard,
+        notifications: notifications,
+      );
     }
 
-    return _HomeBundle(payload: payload);
+    return _HomeBundle(payload: payload, appSettings: appSettings);
+  }
+
+  Future<TravSNotificationFeed> _loadNotificationFeedSafely({
+    bool markAsRead = false,
+  }) async {
+    final session = widget.session;
+    if (session == null) {
+      return TravSNotificationFeed.empty;
+    }
+
+    try {
+      return await _apiService.loadNotifications(
+        token: session.token,
+        markAsRead: markAsRead,
+      );
+    } catch (_) {
+      // Gangguan notifikasi tidak boleh membuat seluruh beranda gagal dimuat.
+      return TravSNotificationFeed.empty;
+    }
   }
 
   Future<void> _refresh() async {
-    final future = _loadBundle();
+    final future = _loadBundle(forceSettingsRefresh: true);
     setState(() {
       _future = future;
     });
@@ -183,6 +224,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
           schedule: schedule,
           selectedRole: _role,
           session: widget.session,
+          appSettings: _appSettings,
         ),
       ),
     );
@@ -297,9 +339,26 @@ class _TravSHomePageState extends State<TravSHomePage> {
   }
 
   Future<void> _openNotifications(_HomeBundle bundle) async {
-    final entries = _role == AppRolePreview.driver
-        ? _buildDriverNotifications(_driverJourneys(bundle))
-        : _buildPassengerNotifications(bundle.passengerBookings ?? const []);
+    var feed = bundle.notifications;
+    try {
+      final session = widget.session;
+      if (session != null) {
+        feed = await _apiService.loadNotifications(
+          token: session.token,
+          markAsRead: true,
+        );
+      }
+    } catch (_) {
+      if (mounted) {
+        _showMessage(
+          'Notifikasi terbaru belum bisa dimuat. Daftar terakhir tetap ditampilkan.',
+        );
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
 
     await Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
@@ -308,12 +367,49 @@ class _TravSHomePageState extends State<TravSHomePage> {
           subtitle: _role == AppRolePreview.driver
               ? 'Update operasional, pengingat jadwal, dan aktivitas scan.'
               : 'Status pemesanan, tiket, dan promo perjalanan terbaru.',
-          entries: entries,
+          entries: _buildApiNotifications(feed.items),
           notificationsEnabled: _notificationsEnabled,
           onToggleNotifications: _setNotificationsEnabled,
+          onClearHistory: _clearNotificationHistory,
         ),
       ),
     );
+
+    if (mounted) {
+      await _refresh();
+    }
+  }
+
+  Future<List<_NotificationEntry>> _clearNotificationHistory(
+    String period,
+  ) async {
+    final session = widget.session;
+    if (session == null) {
+      return const [];
+    }
+
+    try {
+      final deletedCount = await _apiService.clearNotificationHistory(
+        token: session.token,
+        period: period,
+      );
+      final refreshed = await _apiService.loadNotifications(
+        token: session.token,
+      );
+      if (mounted) {
+        _showMessage(
+          deletedCount > 0
+              ? '$deletedCount riwayat notifikasi berhasil dihapus.'
+              : 'Tidak ada riwayat notifikasi yang perlu dihapus.',
+        );
+      }
+      return _buildApiNotifications(refreshed.items);
+    } catch (_) {
+      if (mounted) {
+        _showMessage('Riwayat notifikasi belum bisa dibersihkan. Coba lagi.');
+      }
+      rethrow;
+    }
   }
 
   Future<bool> _setNotificationsEnabled(bool enabled) async {
@@ -575,94 +671,43 @@ class _TravSHomePageState extends State<TravSHomePage> {
     return _DriverJourneyRecord.fromTrips(trips);
   }
 
-  List<_NotificationEntry> _buildPassengerNotifications(
-    List<TravSBookingResult> bookings,
+  List<_NotificationEntry> _buildApiNotifications(
+    List<TravSNotification> notifications,
   ) {
-    final items = <_NotificationEntry>[];
-    for (final booking in bookings.take(3)) {
-      final tone = booking.isPaid
-          ? _NotificationTone.success
-          : booking.payment.status == 'menunggu'
-          ? _NotificationTone.warning
-          : _NotificationTone.info;
-      final title = booking.isPaid
-          ? 'Tiket aktif untuk ${booking.rute}'
-          : 'Menunggu pembayaran ${booking.kodeBooking}';
-      final message = booking.isPaid
-          ? 'QR tiket sudah tersedia. Tunjukkan saat keberangkatan.'
-          : 'Selesaikan pembayaran sebelum ${_formatDateTime(booking.batasPembayaran)}.';
-      items.add(
-        _NotificationEntry(
-          title: title,
-          message: message,
-          timeLabel: _formatShortDate(booking.waktuBerangkat),
-          category: booking.isPaid ? 'Tiket' : 'Pembayaran',
-          tone: tone,
-          isUnread: booking.payment.status == 'menunggu',
-        ),
-      );
-    }
+    return notifications.map((notification) {
+      final tone = switch (notification.jenis) {
+        'pembayaran' => _NotificationTone.success,
+        'pemesanan' || 'perjalanan' => _NotificationTone.warning,
+        _ => _NotificationTone.info,
+      };
 
-    items.add(
-      const _NotificationEntry(
-        title: 'Promo perjalanan akhir pekan',
-        message:
-            'Cek rute populer dan jadwal terdekat langsung dari menu beranda.',
-        timeLabel: 'Sekarang',
-        category: 'Promo',
-        tone: _NotificationTone.info,
-        isUnread: false,
-      ),
-    );
-    return items;
-  }
-
-  List<_NotificationEntry> _buildDriverNotifications(
-    List<_DriverJourneyRecord> records,
-  ) {
-    if (records.isEmpty) {
-      return const [
-        _NotificationEntry(
-          title: 'Belum ada perjalanan aktif',
-          message:
-              'Saat admin menetapkan jadwal ke akun pengemudi, notifikasi akan muncul di sini.',
-          timeLabel: 'Sekarang',
-          category: 'Operasional',
-          tone: _NotificationTone.info,
-          isUnread: false,
-        ),
-      ];
-    }
-
-    return records.take(4).map((record) {
       return _NotificationEntry(
-        title: 'Manifest ${record.route}',
-        message:
-            '${record.passengerCount} penumpang, kendaraan ${record.vehicle}, keberangkatan ${_formatShortDate(record.departureAt)}.',
-        timeLabel: _formatShortDate(record.departureAt),
-        category: record.statusLabel,
-        tone: record.status == 'selesai'
-            ? _NotificationTone.success
-            : _NotificationTone.info,
-        isUnread: record.status != 'selesai',
+        title: notification.judul,
+        message: notification.pesan,
+        timeLabel: notification.createdAt == null
+            ? '-'
+            : DateFormat(
+                'dd MMM yyyy HH:mm',
+              ).format(notification.createdAt!.toLocal()),
+        category: _notificationCategoryLabel(notification.jenis),
+        tone: tone,
+        isUnread: !notification.sudahDibaca,
       );
     }).toList();
   }
 
-  int _passengerNotificationCount(_HomeBundle bundle) {
-    final bookings = bundle.passengerBookings ?? const [];
-    return bookings
-        .where(
-          (booking) =>
-              booking.payment.status == 'menunggu' ||
-              booking.status == 'menunggu_pembayaran',
-        )
-        .length;
+  String _notificationCategoryLabel(String type) {
+    return switch (type) {
+      'pembayaran' => 'Pembayaran',
+      'pemesanan' => 'Pemesanan',
+      'perjalanan' => 'Perjalanan',
+      _ => 'Sistem',
+    };
   }
 
   Widget _notificationButton(_HomeBundle bundle) {
     return _NotificationBadgeButton(
-      count: _passengerNotificationCount(bundle),
+      count: bundle.notifications.unreadCount,
       onTap: () => _openNotifications(bundle),
     );
   }
@@ -727,6 +772,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
         const SizedBox(height: 16),
         _PassengerDashboardHero(
           name: _displayName,
+          logoUrl: bundle.appSettings.appLogoUrl,
           stats: [
             _HeroStat(
               label: 'Pemesanan aktif',
@@ -1221,9 +1267,10 @@ class _TravSHomePageState extends State<TravSHomePage> {
         ),
         const SizedBox(height: 16),
         _HomeHeroCard(
-          title: 'Mode tamu RuslyTravel',
+          title: 'Mode tamu ${bundle.appSettings.appName}',
           subtitle:
               'Cek rute, jadwal, harga, kursi, dan kendaraan sebelum login.',
+          logoUrl: bundle.appSettings.appLogoUrl,
           stats: [
             _HeroStat(
               label: 'Jadwal',
@@ -1826,15 +1873,19 @@ class _TravSBottomNavItem extends StatelessWidget {
 class _HomeBundle {
   const _HomeBundle({
     required this.payload,
+    required this.appSettings,
     this.passengerDashboard,
     this.passengerBookings,
     this.driverDashboard,
+    this.notifications = TravSNotificationFeed.empty,
   });
 
   final TravSHomePayload payload;
+  final AppSettings appSettings;
   final TravSPassengerDashboard? passengerDashboard;
   final List<TravSBookingResult>? passengerBookings;
   final TravSDriverDashboard? driverDashboard;
+  final TravSNotificationFeed notifications;
 }
 
 class _PageTopBar extends StatelessWidget {
@@ -1985,11 +2036,13 @@ class _HomeHeroCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.stats,
+    required this.logoUrl,
   });
 
   final String title;
   final String subtitle;
   final List<_HeroStat> stats;
+  final String logoUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -2026,11 +2079,11 @@ class _HomeHeroCard extends StatelessWidget {
               gradient: TravSTheme.headerGradient,
               borderRadius: BorderRadius.circular(24),
             ),
-            child: const Center(
-              child: Icon(
-                Icons.directions_bus_filled_rounded,
-                color: Colors.white,
-                size: 44,
+            child: Center(
+              child: TravSBrandLogo(
+                imageUrl: logoUrl,
+                size: 76,
+                borderRadius: 22,
               ),
             ),
           ),
@@ -2050,10 +2103,15 @@ class _HomeHeroCard extends StatelessWidget {
 }
 
 class _PassengerDashboardHero extends StatelessWidget {
-  const _PassengerDashboardHero({required this.name, required this.stats});
+  const _PassengerDashboardHero({
+    required this.name,
+    required this.stats,
+    required this.logoUrl,
+  });
 
   final String name;
   final List<_HeroStat> stats;
+  final String logoUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -2077,19 +2135,7 @@ class _PassengerDashboardHero extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.receipt_long_rounded,
-                  color: TravSTheme.navy,
-                  size: 18,
-                ),
-              ),
+              TravSBrandLogo(imageUrl: logoUrl, size: 32, borderRadius: 10),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -2951,6 +2997,7 @@ class _NotificationPage extends StatefulWidget {
     required this.entries,
     required this.notificationsEnabled,
     required this.onToggleNotifications,
+    required this.onClearHistory,
   });
 
   final String title;
@@ -2958,6 +3005,7 @@ class _NotificationPage extends StatefulWidget {
   final List<_NotificationEntry> entries;
   final bool notificationsEnabled;
   final Future<bool> Function(bool enabled) onToggleNotifications;
+  final Future<List<_NotificationEntry>> Function(String period) onClearHistory;
 
   @override
   State<_NotificationPage> createState() => _NotificationPageState();
@@ -2965,12 +3013,74 @@ class _NotificationPage extends StatefulWidget {
 
 class _NotificationPageState extends State<_NotificationPage> {
   late bool _notificationsEnabled;
+  late List<_NotificationEntry> _entries;
   bool _isUpdatingPermission = false;
+  bool _isClearingHistory = false;
 
   @override
   void initState() {
     super.initState();
     _notificationsEnabled = widget.notificationsEnabled;
+    _entries = List<_NotificationEntry>.from(widget.entries);
+  }
+
+  Future<void> _showClearHistoryDialog() async {
+    final period = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Bersihkan Notifikasi Lama'),
+        content: const Text(
+          'Pilih riwayat yang ingin dihapus. Notifikasi yang belum dibaca tetap aman.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Batal'),
+          ),
+          PopupMenuButton<String>(
+            tooltip: 'Pilih periode riwayat',
+            onSelected: (value) => Navigator.pop(dialogContext, value),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: '7_days', child: Text('Lebih dari 7 hari')),
+              PopupMenuItem(
+                value: '30_days',
+                child: Text('Lebih dari 30 hari'),
+              ),
+              PopupMenuItem(
+                value: '90_days',
+                child: Text('Lebih dari 90 hari'),
+              ),
+              PopupMenuItem(
+                value: 'all_read',
+                child: Text('Semua yang sudah dibaca'),
+              ),
+            ],
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Text('Pilih dan Hapus'),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (period == null || !mounted) {
+      return;
+    }
+
+    setState(() => _isClearingHistory = true);
+    try {
+      final refreshedEntries = await widget.onClearHistory(period);
+      if (mounted) {
+        setState(() => _entries = refreshedEntries);
+      }
+    } catch (_) {
+      // Pesan kegagalan ditampilkan halaman induk, daftar lama tetap dipertahankan.
+    } finally {
+      if (mounted) {
+        setState(() => _isClearingHistory = false);
+      }
+    }
   }
 
   Future<void> _toggleNotifications(bool value) async {
@@ -3007,7 +3117,27 @@ class _NotificationPageState extends State<_NotificationPage> {
               onChanged: _toggleNotifications,
             ),
             const SizedBox(height: 16),
-            ...widget.entries.map(
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                onPressed: _isClearingHistory ? null : _showClearHistoryDialog,
+                icon: _isClearingHistory
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.delete_sweep_outlined),
+                label: const Text('Hapus Riwayat'),
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (_entries.isEmpty)
+              const _EmptyStateCard(
+                title: 'Belum ada notifikasi',
+                subtitle: 'Informasi terbaru akan muncul di halaman ini.',
+              ),
+            ..._entries.map(
               (entry) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _NotificationTile(entry: entry),

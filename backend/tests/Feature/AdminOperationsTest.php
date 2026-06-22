@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Pengemudi;
 use App\Models\Pemesanan;
+use App\Models\Pengemudi;
 use App\Models\TiketElektronik;
 use App\Models\User;
 use Database\Seeders\SystemSettingSeeder;
@@ -41,6 +41,15 @@ class AdminOperationsTest extends TestCase
         $response->assertOk();
         $response->assertSee('Total Armada');
         $response->assertSee('Ringkasan Pendapatan 7 Hari');
+        $response->assertSee('data-dashboard-tab="ringkasan"', false);
+        $response->assertSee('data-dashboard-tab="keuangan"', false);
+        $response->assertSee('data-dashboard-tab="aktivitas"', false);
+        $response->assertSee(route('admin.kendaraan.index'), false);
+        $response->assertSee(route('admin.rute.index', ['status' => 'aktif']), false);
+        $response->assertSee(
+            route('admin.pemesanan.index', ['status' => 'menunggu_pembayaran']),
+            false,
+        );
     }
 
     public function test_admin_can_update_own_email_from_settings_page(): void

@@ -10,6 +10,7 @@ use App\Models\Notifikasi;
 use App\Models\Pengemudi;
 use App\Models\Rute;
 use App\Services\DriverAvailabilityService;
+use App\Services\NotificationTemplateService;
 use App\Services\ScheduleLifecycleService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
@@ -25,8 +26,8 @@ class JadwalController extends Controller
     public function __construct(
         private readonly DriverAvailabilityService $driverAvailabilityService,
         private readonly ScheduleLifecycleService $scheduleLifecycleService,
-    ) {
-    }
+        private readonly NotificationTemplateService $notificationTemplate,
+    ) {}
 
     public function index(Request $request): View
     {
@@ -292,21 +293,36 @@ class JadwalController extends Controller
 
     private function notifyPassengersScheduleChanged(Jadwal $jadwal): void
     {
+        if (! $this->notificationTemplate->enabled('notif_schedule_changed', true)) {
+            return;
+        }
+
         foreach ($jadwal->pemesanan as $booking) {
             if (! in_array($booking->status_pemesanan, ['menunggu_pembayaran', 'terbayar'], true)) {
                 continue;
             }
 
+            $message = $this->notificationTemplate->renderFromSetting(
+                'notif_schedule_changed_template',
+                'Jadwal {rute} berubah menjadi {tanggal_baru} pukul {jam_baru}.',
+                [
+                    'nama' => $booking->pengguna?->nama ?? 'Penumpang',
+                    'rute' => $this->routeLabel($jadwal),
+                    'tanggal_baru' => $jadwal->waktu_berangkat?->translatedFormat('d F Y') ?? '-',
+                    'jam_baru' => $jadwal->waktu_berangkat?->format('H.i') ?? '-',
+                    'kode_booking' => $booking->kode_booking,
+                ],
+            );
+
             Notifikasi::query()->create([
                 'pengguna_id' => $booking->pengguna_id,
                 'judul' => 'Jadwal perjalanan diperbarui',
-                'pesan' => 'Jadwal '.$this->routeLabel($jadwal).' untuk booking '.$booking->kode_booking.' diperbarui. Silakan cek detail pemesanan Anda.',
+                'pesan' => $message,
                 'jenis' => 'perjalanan',
                 'referensi_id' => $booking->id,
             ]);
         }
     }
-
 
     private function routeLabel(Jadwal $jadwal): string
     {
@@ -316,5 +332,4 @@ class JadwalController extends Controller
             ? $jadwal->rute->kota_asal.' - '.$jadwal->rute->kota_tujuan
             : 'perjalanan';
     }
-
 }

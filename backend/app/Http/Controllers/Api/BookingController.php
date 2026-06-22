@@ -5,13 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Jadwal;
 use App\Models\Pemesanan;
-use App\Models\PengaturanSistem;
-use App\Models\Notifikasi;
-use App\Models\User;
 use App\Services\BookingCalculator;
 use App\Services\BookingService;
 use App\Services\PakasirService;
 use App\Services\ScheduleLifecycleService;
+use App\Services\SettingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -22,8 +20,8 @@ class BookingController extends Controller
         private readonly BookingCalculator $bookingCalculator,
         private readonly PakasirService $pakasirService,
         private readonly ScheduleLifecycleService $scheduleLifecycleService,
-    ) {
-    }
+        private readonly SettingService $settingService,
+    ) {}
 
     public function scheduleDetail(Jadwal $jadwal): JsonResponse
     {
@@ -58,30 +56,29 @@ class BookingController extends Controller
                     ])
                     ->all(),
                 'booking_rules' => [
-                    'max_seat_per_booking' => (int) PengaturanSistem::nilai('max_seat_per_booking', 4),
-                    'seat_lock_form_minutes' => (int) PengaturanSistem::nilai('seat_lock_form_minutes', 30),
-                    'seat_lock_payment_minutes' => (int) PengaturanSistem::nilai('seat_lock_payment_minutes', 5),
-                    'admin_fee' => 0,
+                    'max_seat_per_booking' => (int) $this->settingService->get('max_seat_per_booking', 4),
+                    'seat_lock_form_minutes' => (int) $this->settingService->get('seat_lock_form_minutes', 30),
+                    'seat_lock_payment_minutes' => (int) $this->settingService->get('seat_lock_payment_minutes', 5),
                 ],
                 'payment_methods' => [
-                    'transfer' => (bool) PengaturanSistem::nilai('payment_transfer_enabled', false),
-                    'qris' => (bool) PengaturanSistem::nilai('payment_qris_enabled', false),
-                    'cash' => (bool) PengaturanSistem::nilai('payment_cash_enabled', false),
+                    'transfer' => (bool) $this->settingService->get('payment_transfer_enabled', false),
+                    'qris' => (bool) $this->settingService->get('payment_qris_enabled', false),
+                    'cash' => (bool) $this->settingService->get('payment_cash_enabled', false),
                 ],
                 'bagasi' => [
-                    'weight_enabled' => (bool) PengaturanSistem::nilai('baggage_weight_enabled', false),
-                    'free_weight_kg' => (int) PengaturanSistem::nilai('baggage_free_weight_kg', 0),
-                    'max_weight_per_person_kg' => (int) PengaturanSistem::nilai('baggage_max_weight_per_person_kg', 0),
-                    'extra_fee_per_kg' => (float) PengaturanSistem::nilai('baggage_extra_fee_per_kg', 0),
-                    'size_enabled' => (bool) PengaturanSistem::nilai('baggage_size_enabled', false),
-                    'free_size_cm' => (int) PengaturanSistem::nilai('baggage_free_size_cm', 0),
-                    'max_size_per_person_cm' => (int) PengaturanSistem::nilai('baggage_max_size_per_person_cm', 0),
-                    'extra_fee_per_cm' => (float) PengaturanSistem::nilai('baggage_extra_fee_per_cm', 0),
-                    'item_enabled' => (bool) PengaturanSistem::nilai('baggage_item_enabled', false),
-                    'free_item_count' => (int) PengaturanSistem::nilai('baggage_free_item_count', 0),
-                    'max_item_per_person' => (int) PengaturanSistem::nilai('baggage_max_item_per_person', 0),
-                    'extra_fee_per_item' => (float) PengaturanSistem::nilai('baggage_extra_fee_per_item', 0),
-                    'photo_required' => (bool) PengaturanSistem::nilai('baggage_photo_required', false),
+                    'weight_enabled' => (bool) $this->settingService->get('baggage_weight_enabled', false),
+                    'free_weight_kg' => (int) $this->settingService->get('baggage_free_weight_kg', 0),
+                    'max_weight_per_person_kg' => (int) $this->settingService->get('baggage_max_weight_per_person_kg', 0),
+                    'extra_fee_per_kg' => (float) $this->settingService->get('baggage_extra_fee_per_kg', 0),
+                    'size_enabled' => (bool) $this->settingService->get('baggage_size_enabled', false),
+                    'free_size_cm' => (int) $this->settingService->get('baggage_free_size_cm', 0),
+                    'max_size_per_person_cm' => (int) $this->settingService->get('baggage_max_size_per_person_cm', 0),
+                    'extra_fee_per_cm' => (float) $this->settingService->get('baggage_extra_fee_per_cm', 0),
+                    'item_enabled' => (bool) $this->settingService->get('baggage_item_enabled', false),
+                    'free_item_count' => (int) $this->settingService->get('baggage_free_item_count', 0),
+                    'max_item_per_person' => (int) $this->settingService->get('baggage_max_item_per_person', 0),
+                    'extra_fee_per_item' => (float) $this->settingService->get('baggage_extra_fee_per_item', 0),
+                    'photo_required' => (bool) $this->settingService->get('baggage_photo_required', false),
                 ],
             ],
         ]);
@@ -323,7 +320,6 @@ class BookingController extends Controller
             'batas_pembayaran' => $booking->batas_pembayaran?->toIso8601String(),
             'subtotal_tiket' => (float) $booking->subtotal_tiket,
             'biaya_bagasi' => (float) $booking->biaya_bagasi,
-            'biaya_admin' => (float) $booking->biaya_admin,
             'diskon' => (float) $booking->diskon,
             'total_harga' => (float) $booking->total_harga,
             'pemesan' => [

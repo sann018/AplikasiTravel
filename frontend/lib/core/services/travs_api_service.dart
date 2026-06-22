@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 import '../models/travs_booking_contract.dart';
+import '../models/app_settings.dart';
+import '../models/travs_notification.dart';
 import '../models/travs_user_session.dart';
 
 class TravSApiException implements Exception {
@@ -108,12 +110,46 @@ class TravSApiService {
     );
   }
 
+  static Future<http.Response> deleteWithFallback(
+    String path, {
+    Map<String, String>? headers,
+    Object? body,
+  }) {
+    return _sendWithFallback(
+      (baseUrl) =>
+          http.delete(Uri.parse('$baseUrl$path'), headers: headers, body: body),
+    );
+  }
+
   static Map<String, String> jsonHeaders({String? token}) {
     return {
       'Accept': 'application/json',
       'Content-Type': 'application/json',
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
+  }
+
+  /// Mobile membaca aturan dari backend agar perubahan admin tidak perlu build ulang aplikasi.
+  /// Nilai ini tetap hanya membantu UI; backend selalu melakukan validasi terakhir.
+  Future<AppSettings> loadMobileSettings() async {
+    final response = await getWithFallback(
+      '/api/settings/mobile',
+      headers: jsonHeaders(),
+    );
+
+    if (response.statusCode != 200) {
+      throw TravSApiException(
+        _extractErrorMessage(_tryDecodeMap(response.body)),
+      );
+    }
+
+    final decoded = _decodeBody(response.body) as Map<String, dynamic>;
+    final data = decoded['data'] as Map<String, dynamic>?;
+    if (data == null) {
+      throw const TravSApiException('Pengaturan aplikasi belum tersedia.');
+    }
+
+    return AppSettings.fromJson(data);
   }
 
   /// Memuat data awal beranda dan daftar jadwal dari backend.
@@ -229,6 +265,42 @@ class TravSApiService {
         decoded['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
 
     return TravSDriverDashboard.fromJson(data);
+  }
+
+  /// Mengambil notifikasi milik akun yang sedang login.
+  /// Status baca hanya dikirim saat halaman notifikasi benar-benar dibuka.
+  Future<TravSNotificationFeed> loadNotifications({
+    required String token,
+    bool markAsRead = false,
+  }) async {
+    final suffix = markAsRead ? '?mark_as_read=1' : '';
+    final response = await getWithFallback(
+      '/api/notifications$suffix',
+      headers: jsonHeaders(token: token),
+    );
+
+    return _decodeDataObject(
+      response,
+      (data) => TravSNotificationFeed.fromJson(data),
+    );
+  }
+
+  /// Menghapus riwayat terbaca sesuai periode yang sudah divalidasi backend.
+  Future<int> clearNotificationHistory({
+    required String token,
+    required String period,
+  }) async {
+    final response = await deleteWithFallback(
+      '/api/notifications/history',
+      headers: jsonHeaders(token: token),
+      body: jsonEncode({'period': period}),
+    );
+
+    final data = _decodeDataObject<Map<String, dynamic>>(
+      response,
+      (value) => value,
+    );
+    return (data['deleted_count'] as num?)?.toInt() ?? 0;
   }
 
   Future<TravSDriverTripItem> loadDriverTripManifest({
@@ -969,13 +1041,11 @@ class TravSBookingRules {
     required this.maxSeatPerBooking,
     required this.seatLockFormMinutes,
     required this.seatLockPaymentMinutes,
-    required this.adminFee,
   });
 
   final int maxSeatPerBooking;
   final int seatLockFormMinutes;
   final int seatLockPaymentMinutes;
-  final double adminFee;
 
   factory TravSBookingRules.fromJson(Map<String, dynamic> json) {
     return TravSBookingRules(
@@ -988,7 +1058,6 @@ class TravSBookingRules {
         json['seat_lock_payment_minutes'],
         fallback: 5,
       ),
-      adminFee: _readDouble(json['admin_fee']),
     );
   }
 }

@@ -794,6 +794,72 @@ svg {
     align-items: start;
 }
 
+.travs-dashboard-simple,
+.travs-dashboard-panes,
+.travs-dashboard-pane {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+}
+
+.travs-dashboard-pane[hidden] {
+    display: none;
+}
+
+.travs-dashboard-panel-full {
+    width: 100%;
+    min-width: 0;
+}
+
+.travs-summary-link,
+.travs-dashboard-focus-item,
+.travs-dashboard-list-item:is(a) {
+    color: inherit;
+    text-decoration: none;
+}
+
+.travs-summary-link {
+    position: relative;
+    transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.travs-dashboard-simple .travs-summary-grid-dashboard .travs-summary-card:last-child {
+    grid-column: span 2;
+}
+
+.travs-summary-link::after {
+    content: "Buka";
+    justify-self: end;
+    margin-top: auto;
+    color: #435ebe;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.travs-summary-link:hover,
+.travs-summary-link:focus-visible {
+    border-color: #9eace0;
+    box-shadow: 0 8px 20px rgba(37, 57, 111, 0.1);
+    transform: translateY(-2px);
+}
+
+.travs-dashboard-focus-compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.travs-dashboard-focus-compact .travs-dashboard-focus-item {
+    align-content: start;
+    transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.travs-dashboard-focus-compact .travs-dashboard-focus-item:hover,
+.travs-dashboard-focus-compact .travs-dashboard-focus-item:focus-visible,
+.travs-dashboard-list-item:is(a):hover,
+.travs-dashboard-list-item:is(a):focus-visible {
+    border-color: #9eace0;
+    background: #ffffff;
+}
+
 .travs-dashboard-panel {
     padding: 22px;
     background: var(--travs-white);
@@ -1036,6 +1102,87 @@ svg {
     color: var(--travs-text-soft);
     font-size: 0.86rem;
     line-height: 1.6;
+}
+
+/* Section bisa diringkas tanpa memuat ulang halaman atau meminta data baru ke server. */
+.collapsible-section__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.collapsible-section__header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.collapsible-section__toggle {
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    padding: 0;
+    color: var(--travs-primary);
+    background: var(--travs-surface);
+    border: 1px solid var(--travs-border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.collapsible-section__toggle:hover,
+.collapsible-section__toggle:focus-visible {
+    background: var(--travs-white);
+    border-color: var(--travs-primary);
+    outline: none;
+}
+
+.collapsible-section__icon {
+    display: inline-grid;
+    place-items: center;
+}
+
+.collapsible-section__icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.collapsible-section__icon-closed,
+.collapsible-section.is-collapsed .collapsible-section__icon-open {
+    display: none;
+}
+
+.collapsible-section.is-collapsed .collapsible-section__icon-closed {
+    display: inline-grid;
+}
+
+.collapsible-section__body[hidden] {
+    display: none !important;
+}
+
+.collapsible-section.is-collapsed .collapsible-section__header {
+    margin-bottom: 0;
+}
+
+.travs-cost-workspace {
+    display: grid;
+    grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.15fr);
+    align-items: start;
+    gap: 18px;
+}
+
+.travs-cost-workspace > .travs-form-card {
+    grid-row: span 2;
+}
+
+.travs-rekap-panel-grid {
+    align-items: start;
 }
 
 .travs-chart-card {
@@ -1417,6 +1564,176 @@ svg {
     color: var(--travs-text-soft);
     font-size: 0.82rem;
     line-height: 1.55;
+}
+
+/* Semua aturan di bawah dibatasi untuk halaman pengaturan agar halaman admin lain tidak ikut berubah. */
+.travs-settings-page .travs-settings-group {
+    width: 100%;
+    padding: 24px;
+}
+
+.travs-settings-page .form-label {
+    margin-bottom: 7px;
+    color: var(--travs-primary);
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.travs-settings-page .form-control,
+.travs-settings-page .input-group-text {
+    min-height: 46px;
+    border-color: var(--travs-border);
+}
+
+.travs-settings-page textarea.form-control {
+    min-height: 98px;
+    resize: vertical;
+}
+
+.travs-settings-page .form-control:focus,
+.travs-settings-page .form-check-input:focus {
+    border-color: var(--travs-primary-soft);
+    box-shadow: 0 0 0 0.2rem rgba(24, 54, 95, 0.12);
+}
+
+.travs-settings-page .form-check-input:checked {
+    background-color: var(--travs-primary);
+    border-color: var(--travs-primary);
+}
+
+.travs-settings-page .form-switch .form-check-input {
+    width: 2.75rem;
+    height: 1.4rem;
+}
+
+.travs-settings-page .form-text {
+    color: var(--travs-text-soft);
+    line-height: 1.5;
+}
+
+.travs-settings-page .travs-settings-subsection {
+    margin-top: 18px;
+    padding: 18px;
+    border: 1px solid var(--travs-border);
+    border-radius: 14px;
+    background: #f8fafc;
+    transition: opacity 160ms ease;
+}
+
+.travs-settings-page .travs-settings-subsection.is-disabled {
+    opacity: 0.55;
+}
+
+.travs-settings-page .travs-settings-subsection-head {
+    margin-bottom: 14px;
+}
+
+.travs-settings-page .travs-settings-subsection-head h4 {
+    margin: 0 0 5px;
+    color: var(--travs-primary);
+    font-size: 1rem;
+}
+
+.travs-settings-page .travs-settings-subsection-head p {
+    margin: 0;
+    color: var(--travs-text-soft);
+    font-size: 0.86rem;
+    line-height: 1.55;
+}
+
+.travs-settings-page .travs-settings-switch-row,
+.travs-settings-page .travs-settings-switch-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    min-height: 82px;
+    padding: 15px 16px;
+    border: 1px solid var(--travs-border);
+    border-radius: 14px;
+    background: var(--travs-white);
+}
+
+.travs-settings-page .travs-settings-switch-row strong,
+.travs-settings-page .travs-settings-switch-card strong {
+    display: block;
+    color: var(--travs-primary);
+    font-size: 0.9rem;
+}
+
+.travs-settings-page .travs-settings-switch-row p,
+.travs-settings-page .travs-settings-switch-card span {
+    display: block;
+    margin: 5px 0 0;
+    color: var(--travs-text-soft);
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.travs-settings-page .travs-settings-logo-preview {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--travs-border);
+    border-radius: 12px;
+    background: #f8fafc;
+    color: var(--travs-text-soft);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.travs-settings-page .travs-settings-logo-preview img {
+    width: 72px;
+    height: 48px;
+    object-fit: contain;
+}
+
+.travs-settings-page .travs-baggage-simulator {
+    background: var(--travs-white);
+}
+
+.travs-settings-page .travs-simulation-result {
+    display: grid;
+    gap: 5px;
+    min-height: 74px;
+    padding: 13px 15px;
+    border-radius: 12px;
+    background: var(--travs-primary);
+    color: var(--travs-white);
+}
+
+.travs-settings-page .travs-simulation-result span {
+    font-size: 0.76rem;
+    opacity: 0.78;
+}
+
+.travs-settings-page .travs-simulation-result strong {
+    font-size: 1.1rem;
+}
+
+@media (max-width: 767.98px) {
+    .travs-settings-page .travs-settings-group {
+        padding: 18px;
+    }
+
+    .travs-settings-page .travs-settings-tab-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .travs-settings-page .travs-settings-tab {
+        width: 100%;
+    }
+
+    .travs-settings-page .travs-settings-switch-row,
+    .travs-settings-page .travs-settings-switch-card {
+        align-items: flex-start;
+    }
+
+    .travs-settings-page .travs-form-actions .travs-button {
+        width: 100%;
+    }
 }
 
 .travs-form-actions {
@@ -2042,7 +2359,12 @@ svg {
         grid-template-columns: 1fr;
     }
 
+    .travs-dashboard-focus-compact {
+        grid-template-columns: 1fr;
+    }
+
     .travs-split-grid,
+    .travs-cost-workspace,
     .travs-detail-grid,
     .travs-description-list,
     .travs-operational-summary,
@@ -2052,6 +2374,10 @@ svg {
     .travs-filter-grid,
     .travs-filter-grid-wide {
         grid-template-columns: 1fr;
+    }
+
+    .travs-cost-workspace > .travs-form-card {
+        grid-row: auto;
     }
 
     .travs-admin-account-card {
@@ -2081,6 +2407,20 @@ svg {
 }
 
 @media (max-width: 760px) {
+    .collapsible-section__header {
+        align-items: flex-start;
+    }
+
+    .collapsible-section__header-actions {
+        max-width: 100%;
+    }
+
+    .collapsible-section__toggle {
+        width: 38px;
+        height: 38px;
+        flex-basis: 38px;
+    }
+
     .travs-login-card,
     .travs-page-frame,
     .travs-panel,
@@ -2101,6 +2441,10 @@ svg {
 
     .travs-summary-grid-dashboard {
         grid-template-columns: 1fr;
+    }
+
+    .travs-dashboard-simple .travs-summary-grid-dashboard .travs-summary-card:last-child {
+        grid-column: auto;
     }
 
     .travs-topbar {
@@ -2344,6 +2688,22 @@ svg {
     height: 14px;
     border-radius: 50%;
     background: #ffffff;
+}
+
+.travs-brand-mark.travs-brand-logo {
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #d9e0ef;
+}
+
+.travs-brand-mark.travs-brand-logo > img {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    display: block;
+    position: static !important;
+    object-fit: contain !important;
 }
 
 .travs-sidebar-backdrop[hidden] {

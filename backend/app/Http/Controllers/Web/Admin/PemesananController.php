@@ -5,16 +5,19 @@ namespace App\Http\Controllers\Web\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Pemesanan;
 use App\Models\TiketElektronik;
+use App\Services\SettingService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class PemesananController extends Controller
 {
+    public function __construct(private readonly SettingService $settingService) {}
+
     public function index(Request $request): View
     {
         $filters = $request->validate([
@@ -130,7 +133,9 @@ class PemesananController extends Controller
             $lockedPemesanan->update(['status_pemesanan' => $newStatus]);
 
             if ($newStatus === 'menunggu_pembayaran') {
-                $deadline = $lockedPemesanan->batas_pembayaran ?? now()->addMinutes(5);
+                $deadline = $lockedPemesanan->batas_pembayaran ?? now()->addMinutes(
+                    (int) $this->settingService->get('seat_lock_payment_minutes', 5),
+                );
 
                 foreach ($lockedPemesanan->detailPemesanan as $detail) {
                     $detail->kursiJadwal?->update([
@@ -219,6 +224,6 @@ class PemesananController extends Controller
 
     private function escapeLikeValue(string $value): string
     {
-        return addcslashes($value, "\\%_");
+        return addcslashes($value, '\\%_');
     }
 }

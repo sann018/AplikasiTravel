@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Notifikasi;
+use App\Services\NotificationHistoryService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 /**
  * Menyediakan data notifikasi untuk aplikasi mobile.
@@ -15,6 +17,10 @@ use Illuminate\Http\Request;
  */
 class NotificationController extends Controller
 {
+    public function __construct(private readonly NotificationHistoryService $notificationHistoryService)
+    {
+    }
+
     /**
      * Mengambil notifikasi milik pengguna yang sedang login.
      * `since_id` mencegah data lama dikirim ulang, sedangkan `limit` membatasi
@@ -27,6 +33,7 @@ class NotificationController extends Controller
         $validated = $request->validate([
             'since_id' => ['nullable', 'integer', 'min:0'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'mark_as_read' => ['nullable', 'boolean'],
         ]);
 
         $sinceId = (int) ($validated['since_id'] ?? 0);
@@ -48,6 +55,13 @@ class NotificationController extends Controller
         }
 
         $notifikasi = $query->limit($limit)->get();
+
+        // Status baca hanya berubah saat halaman notifikasi benar-benar dibuka.
+        // Permintaan polling tanpa parameter ini tetap aman dan tidak mengurangi badge.
+        if ((bool) ($validated['mark_as_read'] ?? false)) {
+            $this->notificationHistoryService->markDisplayedAsRead($user->id, $notifikasi);
+            $notifikasi->each->forceFill(['sudah_dibaca' => true]);
+        }
 
         return response()->json([
             'success' => true,
@@ -124,6 +138,36 @@ class NotificationController extends Controller
             'message' => 'Semua notifikasi ditandai sudah dibaca.',
             'data' => [
                 'affected' => $affected,
+            ],
+        ]);
+    }
+
+    /**
+     * Menghapus riwayat terbaca milik pengguna tanpa menyentuh notifikasi baru.
+     */
+    public function clearHistory(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'period' => ['required', Rule::in(['7_days', '30_days', '90_days', 'all_read'])],
+        ]);
+
+        $userId = $request->user()->id;
+        $deletedCount = $this->notificationHistoryService->deleteReadHistory(
+            $validated['period'],
+            $userId,
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => $deletedCount > 0
+                ? 'Riwayat notifikasi berhasil dibersihkan.'
+                : 'Tidak ada riwayat notifikasi yang perlu dibersihkan.',
+            'data' => [
+                'deleted_count' => $deletedCount,
+                'unread_count' => Notifikasi::query()
+                    ->where('pengguna_id', $userId)
+                    ->where('sudah_dibaca', false)
+                    ->count(),
             ],
         ]);
     }

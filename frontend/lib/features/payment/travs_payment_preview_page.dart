@@ -7,6 +7,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/models/app_role_preview.dart';
+import '../../core/models/app_settings.dart';
 import '../../core/models/travs_booking_contract.dart';
 import '../../core/models/travs_user_session.dart';
 import '../../core/services/travs_api_service.dart';
@@ -24,7 +25,6 @@ class TravSCheckoutDraft {
     required this.baggageWidth,
     required this.baggageItems,
     required this.ticketSubtotal,
-    required this.adminFee,
     required this.weightFee,
     required this.sizeFee,
     required this.itemFee,
@@ -38,17 +38,17 @@ class TravSCheckoutDraft {
   final int baggageWidth;
   final int baggageItems;
   final double ticketSubtotal;
-  final double adminFee;
   final double weightFee;
   final double sizeFee;
   final double itemFee;
 
-  double get total => ticketSubtotal + adminFee + weightFee + sizeFee + itemFee;
+  double get total => ticketSubtotal + weightFee + sizeFee + itemFee;
 }
 
 class TravSPaymentPreviewPage extends StatefulWidget {
   const TravSPaymentPreviewPage({
     required this.detail,
+    required this.appSettings,
     required this.checkoutDraft,
     required this.selectedRole,
     required this.session,
@@ -64,6 +64,7 @@ class TravSPaymentPreviewPage extends StatefulWidget {
   });
 
   final TravSScheduleDetail detail;
+  final AppSettings appSettings;
   final TravSCheckoutDraft checkoutDraft;
   final AppRolePreview selectedRole;
   final TravSUserSession session;
@@ -120,7 +121,10 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _paymentOptions = _resolvePaymentOptions(widget.detail.paymentMethods);
+    _paymentOptions = _resolvePaymentOptions(
+      widget.detail.paymentMethods,
+      cashEnabled: widget.appSettings.paymentCashEnabled,
+    );
     _selectedMethod = _paymentOptions.isNotEmpty
         ? _paymentOptions.first.key
         : null;
@@ -425,7 +429,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
 
     final selectedPhoto = _selectedBaggagePhoto;
     if (selectedPhoto == null) {
-      if (widget.detail.baggageRules.photoRequired) {
+      if (widget.appSettings.baggagePhotoRequired) {
         setState(() {
           _errorMessage =
               'Foto barang bawaan wajib diunggah sebelum pemesanan.';
@@ -503,7 +507,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
         return;
       }
       if (_hasBaggageData &&
-          widget.detail.baggageRules.photoRequired &&
+          widget.appSettings.baggagePhotoRequired &&
           baggagePhotoUrl == null) {
         return;
       }
@@ -698,8 +702,9 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
   }
 
   List<_PaymentMethodOption> _resolvePaymentOptions(
-    TravSPaymentMethods methods,
-  ) {
+    TravSPaymentMethods methods, {
+    required bool cashEnabled,
+  }) {
     final options = <_PaymentMethodOption>[];
     if (methods.qrisEnabled) {
       options.add(
@@ -722,12 +727,12 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
         ),
       );
     }
-    if (methods.cashEnabled) {
+    if (methods.cashEnabled && cashEnabled) {
       options.add(
-        const _PaymentMethodOption(
+        _PaymentMethodOption(
           key: 'cash',
           label: 'Bayar Tunai',
-          helper: 'Pembayaran tunai tetap dicatat dan harus dilunasi ke admin.',
+          helper: widget.appSettings.paymentCashNote,
           icon: Icons.payments_rounded,
         ),
       );
@@ -880,7 +885,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
               ),
               _HeaderPill(
                 label:
-                    'Kunci form ${widget.detail.bookingRules.seatLockFormMinutes} menit',
+                    'Kunci form ${widget.appSettings.seatLockFormMinutes} menit',
                 color: TravSTheme.orange,
               ),
             ],
@@ -1385,7 +1390,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.detail.baggageRules.photoRequired
+                          widget.appSettings.baggagePhotoRequired
                               ? 'Foto barang bawaan wajib'
                               : 'Foto barang bawaan',
                           style: theme.textTheme.titleSmall?.copyWith(
@@ -1455,18 +1460,13 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     return _SectionCard(
       title: 'Ringkasan Pembayaran',
       subtitle:
-          'Nominal di bawah ini mengikuti hasil estimasi kursi, bagasi, dan biaya admin saat ini.',
+          'Nominal di bawah ini mengikuti hasil estimasi tiket dan barang bawaan.',
       child: Column(
         children: [
           _SummaryRow(
             label: 'Subtotal tiket',
             value: 'Rp${_formatCurrency(widget.checkoutDraft.ticketSubtotal)}',
           ),
-          if (widget.checkoutDraft.adminFee > 0)
-            _SummaryRow(
-              label: 'Biaya admin',
-              value: 'Rp${_formatCurrency(widget.checkoutDraft.adminFee)}',
-            ),
           if (widget.checkoutDraft.weightFee > 0)
             _SummaryRow(
               label:
@@ -1574,7 +1574,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
           _SectionCard(
             title: 'Waktu Pembayaran',
             subtitle:
-                'Batas pembayaran mengikuti aturan ${widget.detail.bookingRules.seatLockPaymentMinutes} menit setelah pemesanan dibuat.',
+                'Batas pembayaran mengikuti aturan ${widget.appSettings.seatLockPaymentMinutes} menit setelah pemesanan dibuat.',
             child: _CountdownPanel(
               title: 'Sisa waktu pembayaran',
               deadlineIso: payment.expiredAt,

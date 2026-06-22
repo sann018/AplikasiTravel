@@ -5,9 +5,10 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\GuestController;
-use App\Http\Controllers\Api\PaymentGatewayController;
-use App\Http\Controllers\Api\PassengerController;
+use App\Http\Controllers\Api\MobileSettingsController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\PassengerController;
+use App\Http\Controllers\Api\PaymentGatewayController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/ping', function () {
@@ -20,6 +21,7 @@ Route::get('/ping', function () {
 });
 
 Route::middleware('throttle:travs-read')->group(function () {
+    Route::get('/settings/mobile', MobileSettingsController::class);
     Route::get('/mobile/bootstrap', [AppBootstrapController::class, 'index']);
     Route::get('/guest/jadwal', [GuestController::class, 'schedules']);
     Route::get('/guest/jadwal/{jadwal}', [BookingController::class, 'scheduleDetail']);
@@ -64,6 +66,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::post('/notifications/{notifikasi}/read', [NotificationController::class, 'markAsRead'])->middleware('throttle:travs-action');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->middleware('throttle:travs-action');
+    Route::delete('/notifications/history', [NotificationController::class, 'clearHistory'])->middleware('throttle:travs-action');
 });
 
 Route::middleware(['auth:sanctum', 'role:pengemudi'])->group(function () {

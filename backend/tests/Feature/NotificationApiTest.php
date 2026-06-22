@@ -45,6 +45,55 @@ class NotificationApiTest extends TestCase
             ->assertJsonPath('data.items.0.judul', 'Pembayaran Berhasil');
     }
 
+    public function test_opening_notification_list_marks_returned_items_as_read(): void
+    {
+        $user = User::factory()->create(['peran' => 'pengemudi']);
+
+        $notification = Notifikasi::query()->create([
+            'pengguna_id' => $user->id,
+            'judul' => 'Jadwal Baru',
+            'pesan' => 'Ada jadwal yang perlu diperiksa.',
+            'jenis' => 'perjalanan',
+            'sudah_dibaca' => false,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/notifications?mark_as_read=1')
+            ->assertOk()
+            ->assertJsonPath('data.items.0.sudah_dibaca', true)
+            ->assertJsonPath('data.unread_count', 0);
+
+        $this->assertDatabaseHas('notifikasi', [
+            'id' => $notification->id,
+            'sudah_dibaca' => true,
+        ]);
+    }
+
+    public function test_background_list_request_does_not_mark_notifications_as_read(): void
+    {
+        $user = User::factory()->create(['peran' => 'penumpang']);
+
+        $notification = Notifikasi::query()->create([
+            'pengguna_id' => $user->id,
+            'judul' => 'Pengingat',
+            'pesan' => 'Notifikasi ini belum dibuka.',
+            'jenis' => 'sistem',
+            'sudah_dibaca' => false,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/notifications')
+            ->assertOk()
+            ->assertJsonPath('data.unread_count', 1);
+
+        $this->assertDatabaseHas('notifikasi', [
+            'id' => $notification->id,
+            'sudah_dibaca' => false,
+        ]);
+    }
+
     public function test_user_cannot_see_other_users_notifications(): void
     {
         $userA = User::query()->where('peran', 'penumpang')->firstOrFail();
@@ -214,11 +263,80 @@ class NotificationApiTest extends TestCase
         ]);
     }
 
+    public function test_user_can_delete_only_own_read_notifications_older_than_selected_period(): void
+    {
+        $user = User::factory()->create(['peran' => 'penumpang']);
+        $otherUser = User::factory()->create(['peran' => 'pengemudi']);
+
+        $oldRead = $this->createNotification($user, true, now()->subDays(31), 'Terbaca lama');
+        $recentRead = $this->createNotification($user, true, now()->subDays(5), 'Terbaca baru');
+        $oldUnread = $this->createNotification($user, false, now()->subDays(31), 'Belum terbaca');
+        $otherOldRead = $this->createNotification($otherUser, true, now()->subDays(31), 'Milik akun lain');
+
+        Sanctum::actingAs($user);
+
+        $this->deleteJson('/api/notifications/history', ['period' => '30_days'])
+            ->assertOk()
+            ->assertJsonPath('data.deleted_count', 1)
+            ->assertJsonPath('data.unread_count', 1);
+
+        $this->assertDatabaseMissing('notifikasi', ['id' => $oldRead->id]);
+        $this->assertDatabaseHas('notifikasi', ['id' => $recentRead->id]);
+        $this->assertDatabaseHas('notifikasi', ['id' => $oldUnread->id]);
+        $this->assertDatabaseHas('notifikasi', ['id' => $otherOldRead->id]);
+    }
+
+    public function test_all_read_cleanup_keeps_unread_notifications_safe(): void
+    {
+        $user = User::factory()->create(['peran' => 'penumpang']);
+        $read = $this->createNotification($user, true, now(), 'Sudah dibaca');
+        $unread = $this->createNotification($user, false, now()->subDays(100), 'Belum dibaca');
+
+        Sanctum::actingAs($user);
+
+        $this->deleteJson('/api/notifications/history', ['period' => 'all_read'])
+            ->assertOk()
+            ->assertJsonPath('data.deleted_count', 1)
+            ->assertJsonPath('data.unread_count', 1);
+
+        $this->assertDatabaseMissing('notifikasi', ['id' => $read->id]);
+        $this->assertDatabaseHas('notifikasi', ['id' => $unread->id]);
+    }
+
+    public function test_cleanup_rejects_unknown_period(): void
+    {
+        $user = User::factory()->create(['peran' => 'penumpang']);
+        Sanctum::actingAs($user);
+
+        $this->deleteJson('/api/notifications/history', ['period' => '1_day'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('period');
+    }
+
     public function test_guest_cannot_access_notification_endpoints(): void
     {
         $this->getJson('/api/notifications')->assertUnauthorized();
         $this->getJson('/api/notifications/unread-count')->assertUnauthorized();
         $this->postJson('/api/notifications/1/read')->assertUnauthorized();
         $this->postJson('/api/notifications/read-all')->assertUnauthorized();
+        $this->deleteJson('/api/notifications/history', ['period' => '30_days'])->assertUnauthorized();
+    }
+
+    private function createNotification(User $user, bool $isRead, \DateTimeInterface $createdAt, string $title): Notifikasi
+    {
+        $notification = Notifikasi::query()->create([
+            'pengguna_id' => $user->id,
+            'judul' => $title,
+            'pesan' => 'Isi pengujian notifikasi.',
+            'jenis' => 'sistem',
+            'sudah_dibaca' => $isRead,
+        ]);
+
+        $notification->forceFill([
+            'created_at' => $createdAt,
+            'updated_at' => $createdAt,
+        ])->save();
+
+        return $notification;
     }
 }

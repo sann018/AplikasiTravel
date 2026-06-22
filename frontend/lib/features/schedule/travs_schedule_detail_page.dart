@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/models/app_role_preview.dart';
+import '../../core/models/app_settings.dart';
 import '../../core/models/travs_user_session.dart';
 import '../../core/services/travs_api_service.dart';
 import '../../core/theme/travs_theme.dart';
@@ -14,12 +15,14 @@ class TravSScheduleDetailPage extends StatefulWidget {
   const TravSScheduleDetailPage({
     required this.schedule,
     required this.selectedRole,
+    required this.appSettings,
     this.session,
     super.key,
   });
 
   final TravSSchedule schedule;
   final AppRolePreview selectedRole;
+  final AppSettings appSettings;
   final TravSUserSession? session;
 
   @override
@@ -98,7 +101,7 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
   int _maxSeatCount(TravSScheduleDetail detail) {
     final available = math.min(
       detail.schedule.sisaKursi,
-      detail.bookingRules.maxSeatPerBooking,
+      widget.appSettings.maxSeatPerBooking,
     );
     return math.max(0, available);
   }
@@ -389,6 +392,7 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
                               MaterialPageRoute<bool>(
                                 builder: (_) => TravSPaymentPreviewPage(
                                   detail: detail,
+                                  appSettings: widget.appSettings,
                                   checkoutDraft: estimate,
                                   selectedRole: widget.selectedRole,
                                   session: widget.session!,
@@ -436,7 +440,6 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
   TravSCheckoutDraft _estimate(TravSScheduleDetail detail) {
     final baggageRules = detail.baggageRules;
     final ticketSubtotal = detail.schedule.hargaTiket * _seatCount;
-    const adminFee = 0.0;
 
     final freeWeight = baggageRules.freeWeightKg * _seatCount;
     final freeSize = baggageRules.freeSizeCm * _seatCount;
@@ -461,7 +464,6 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
       baggageWidth: _baggageWidth,
       baggageItems: _baggageItems,
       ticketSubtotal: ticketSubtotal,
-      adminFee: adminFee,
       weightFee: weightFee.toDouble(),
       sizeFee: sizeFee.toDouble(),
       itemFee: itemFee.toDouble(),
@@ -936,11 +938,6 @@ class _CheckoutPreviewCard extends StatelessWidget {
                     label: 'Subtotal tiket',
                     value: 'Rp${_formatCurrency(estimate.ticketSubtotal)}',
                   ),
-                  if (estimate.adminFee > 0)
-                    _PriceRow(
-                      label: 'Biaya admin',
-                      value: 'Rp${_formatCurrency(estimate.adminFee)}',
-                    ),
                   if (estimate.weightFee > 0)
                     _PriceRow(
                       label:

@@ -1,7 +1,7 @@
 # PRD Final, Audit Teknis, dan Spesifikasi Produk
 
 Status: Revisi scope final tanpa titipan dan carter
-Tanggal pembaruan: 1 Mei 2026
+Tanggal pembaruan status implementasi: 22 Juni 2026
 Proyek: Rancang Bangun Aplikasi Pemesanan Jasa Transportasi Umum Lintas Kota pada Rusly Travel Berbasis Mobile
 
 > ⚠️ DOKUMEN HISTORIS
@@ -10,6 +10,31 @@ Proyek: Rancang Bangun Aplikasi Pemesanan Jasa Transportasi Umum Lintas Kota pad
 > Dokumen ini adalah rancangan dan snapshot audit awal. Status implementasi terbaru sudah dirangkum di `STATUS_FITUR_PROJECT.md`, `task.md`, `RANGKUMAN_BELAJAR_SIDANG.md`, dan `AUDIT_DOKUMENTASI_FITUR.md`. Jika ada bagian PRD yang terlihat berbeda dengan status terbaru, gunakan dokumen status/audit terbaru sebagai acuan.
 >
 > Khusus pembayaran Pakasir, target demo saat ini adalah mode simulasi lokal. Transaksi nyata, callback publik production, dan webhook signature verification belum menjadi target tugas akhir.
+
+## Addendum Implementasi - 22 Juni 2026
+
+Addendum ini menjadi acuan terbaru untuk bagian yang sudah berubah dari rancangan awal:
+
+- Admin fee internal Rusly Travel sudah dihapus karena biaya channel pembayaran mengikuti Pakasir.
+- Pengaturan logo memakai upload gambar dan menghasilkan WEBP maksimal 512x512 px. Logo dipakai bersama oleh web admin dan mobile.
+- Dashboard admin sudah disederhanakan, card statistik dapat dibuka menuju modul terkait, dan seluruh filter admin memakai tombol `Terapkan Filter`.
+- Notifikasi Admin, Pengemudi, dan Penumpang memiliki status read/unread dari backend.
+- Membuka daftar mobile menandai item yang tampil sebagai terbaca; polling latar tidak mengubah status baca.
+- Admin hanya otomatis membaca notifikasi milik akun admin meskipun halaman log tetap menampilkan data lintas role.
+- Riwayat terbaca dapat dihapus berdasarkan 7, 30, 90 hari, atau semua terbaca. Notifikasi belum dibaca tidak ikut terhapus.
+- Notifikasi operasional adalah fungsi wajib dan tidak dapat dimatikan atau diubah admin dari Pengaturan Sistem.
+- Admin menerima event pemesanan baru, tunai menunggu konfirmasi, status pembayaran, keberangkatan dekat, dan kapasitas hampir penuh.
+- Tidak ada perubahan tabel untuk fitur ini karena tabel `notifikasi` sudah mendukung pemilik, status baca, dan umur data.
+- Endpoint tambahan: `DELETE /api/notifications/history` dan `DELETE /admin/notifikasi/history`.
+
+Backlog setelah addendum ini:
+
+- Rekap Biaya sebagai laporan dan export Excel/CSV.
+- Menu Audit Sistem.
+- Hapus data lama Pemesanan, Pembayaran, dan Biaya Operasional.
+- FCM untuk push notification saat aplikasi tertutup.
+
+Hasil verifikasi snapshot ini: 131 backend test lulus (648 assertion), 15 Flutter test lulus, dan `flutter analyze` tanpa issue.
 
 Dokumen ini menggantikan versi sebelumnya. Revisi ini menetapkan bahwa scope akhir difokuskan pada layanan travel penumpang lintas kota saja. Fitur tambahan seperti titipan barang, paket, dokumen, hewan, kendaraan, dan carter kendaraan dikeluarkan dari batas proyek.
 
@@ -513,6 +538,10 @@ Journey admin:
 
 - penumpang dapat melihat riwayat booking
 - penumpang mendapat notifikasi event penting
+- semua role melihat status notifikasi sudah/belum dibaca
+- daftar yang dibuka otomatis menandai notifikasi sebagai terbaca
+- badge unread mengikuti hitungan backend
+- pengguna dapat membersihkan riwayat terbaca tanpa menghapus notifikasi baru
 
 #### FR-09 Driver operations
 
@@ -610,6 +639,15 @@ Event minimal:
 - jadwal berubah
 - tiket aktif
 - status perjalanan diperbarui
+
+Aturan status dan pembersihan:
+
+1. polling hanya mengambil data dan jumlah unread
+2. status read berubah saat daftar atau detail benar-benar dibuka
+3. mobile hanya boleh membaca dan menghapus notifikasi milik akun sendiri
+4. admin boleh memantau log global, tetapi auto-read hanya berlaku untuk notifikasi milik admin
+5. pembersihan riwayat hanya memilih baris yang sudah dibaca
+6. pilihan umur yang didukung adalah 7, 30, 90 hari, dan semua terbaca
 
 ### 3.15 Reporting requirements
 

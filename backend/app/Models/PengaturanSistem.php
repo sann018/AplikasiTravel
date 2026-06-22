@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\SettingService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -64,13 +65,8 @@ class PengaturanSistem extends Model
 
     public static function nilai(string $kunci, mixed $default = null): mixed
     {
-        $setting = static::query()->find($kunci);
-
-        if (! $setting) {
-            return $default;
-        }
-
-        return $setting->castNilai();
+        // Jembatan ini menjaga kode lama tetap bekerja sambil memakai pusat pengaturan baru.
+        return app(SettingService::class)->get($kunci, $default);
     }
 
     public function castNilai(): mixed

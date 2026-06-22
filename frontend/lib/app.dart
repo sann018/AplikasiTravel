@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'core/models/travs_user_session.dart';
+import 'core/models/app_settings.dart';
+import 'core/services/settings_api_service.dart';
 import 'core/services/travs_auth_service.dart';
 import 'core/theme/travs_theme.dart';
 import 'features/auth/travs_auth_page.dart';
@@ -16,10 +18,12 @@ class TravSApp extends StatefulWidget {
 
 class _TravSAppState extends State<TravSApp> {
   final TravSAuthService _authService = TravSAuthService();
+  final SettingsApiService _settingsService = SettingsApiService();
 
   bool _isBooting = true;
   bool _isGuestMode = false;
   TravSUserSession? _session;
+  AppSettings _appSettings = AppSettings.defaults;
 
   @override
   void initState() {
@@ -28,13 +32,18 @@ class _TravSAppState extends State<TravSApp> {
   }
 
   Future<void> _restoreSession() async {
-    final session = await _authService.restoreSession();
+    final sessionFuture = _authService.restoreSession();
+    // Saat aplikasi dibuka, identitas seperti nama dan logo harus memakai versi terbaru dari admin.
+    final settingsFuture = _settingsService.load(forceRefresh: true);
+    final session = await sessionFuture;
+    final settings = await settingsFuture;
     if (!mounted) {
       return;
     }
 
     setState(() {
       _session = session;
+      _appSettings = settings;
       _isBooting = false;
       _isGuestMode = false;
     });
@@ -81,7 +90,7 @@ class _TravSAppState extends State<TravSApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'RuslyTravel',
+      title: _appSettings.appName,
       debugShowCheckedModeBanner: false,
       theme: TravSTheme.light(),
       home: AnimatedSwitcher(
@@ -93,7 +102,7 @@ class _TravSAppState extends State<TravSApp> {
 
   Widget _buildHome() {
     if (_isBooting) {
-      return const TravSSplashPage();
+      return TravSSplashPage(appSettings: _appSettings);
     }
 
     if (_session != null || _isGuestMode) {
@@ -106,6 +115,7 @@ class _TravSAppState extends State<TravSApp> {
     }
 
     return TravSAuthPage(
+      appSettings: _appSettings,
       authService: _authService,
       onAuthenticated: _handleAuthenticated,
       onContinueAsGuest: _continueAsGuest,

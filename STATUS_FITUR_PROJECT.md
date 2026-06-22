@@ -1,5 +1,64 @@
 # Status Fitur Project AplikasiTravel
 
+Tanggal status terbaru: 22 Juni 2026
+
+## Snapshot Terbaru - 22 Juni 2026
+
+### Fitur selesai dan baru ditambahkan
+
+- Notifikasi Admin, Pengemudi, dan Penumpang sudah memakai data tabel `notifikasi` sebagai sumber status baca.
+- Saat daftar notifikasi mobile benar-benar dibuka, item yang tampil otomatis menjadi terbaca dan badge diambil ulang dari backend.
+- Polling latar tidak menandai notifikasi sebagai terbaca, sehingga badge tidak hilang sebelum pengguna membuka daftar.
+- Web admin otomatis menandai notifikasi milik akun admin sebagai terbaca tanpa mengubah status notifikasi milik role lain.
+- Riwayat notifikasi terbaca dapat dibersihkan berdasarkan 7, 30, 90 hari, atau seluruh notifikasi terbaca.
+- Pembersihan dilindungi konfirmasi, validasi backend, rate limit API, pemeriksaan pemilik pada mobile, dan middleware role admin pada web.
+- Notifikasi yang belum dibaca tidak ikut terhapus.
+- Notifikasi operasional sekarang wajib aktif dan tidak lagi dapat dimatikan atau diedit dari Pengaturan Sistem.
+- Tab, switch, placeholder, preview, dan editor template notifikasi sudah dihapus dari halaman Pengaturan.
+- Admin menerima notifikasi untuk pemesanan baru, pembayaran tunai menunggu konfirmasi, pembayaran berhasil/gagal/kedaluwarsa, jadwal mendekati keberangkatan, serta kapasitas kursi atau bagasi hampir penuh.
+- Peringatan kapasitas menggunakan batas 80% atau sisa maksimal 2 kursi dan mencegah notifikasi jadwal yang sama dibuat berulang kali.
+- Admin fee Rusly Travel sudah dihapus. Total internal hanya berisi tiket dan biaya bagasi; biaya channel mengikuti Pakasir.
+- Logo aplikasi menggunakan upload gambar, disimpan sebagai WEBP maksimal 512x512 px, lalu tampil di sidebar/navbar/login web admin dan aplikasi mobile.
+- Dashboard admin dibuat lebih minimalis mengikuti pola halaman Pengaturan Sistem.
+- Card statistik dashboard dapat diklik menuju halaman yang berkaitan.
+- Filter halaman admin tetap memakai tombol `Terapkan Filter` agar request tidak dikirim pada setiap ketikan.
+
+### Perubahan database dan API
+
+- Fitur notifikasi terbaru tidak membutuhkan migration baru karena tabel `notifikasi` sudah memiliki `pengguna_id`, `sudah_dibaca`, dan timestamp.
+- Migration pengaturan sebelumnya menambahkan `system_settings`; migration lanjutan menghapus key `admin_fee` dari pengaturan sistem.
+- `GET /api/notifications?mark_as_read=1` menandai hanya item yang ditampilkan kepada pemiliknya.
+- `DELETE /api/notifications/history` membersihkan riwayat terbaca milik akun sesuai periode.
+- `DELETE /admin/notifikasi/history` membersihkan log terbaca melalui hak akses admin.
+
+### Perubahan tampilan
+
+- Web admin memiliki bagian `Bersihkan Notifikasi Lama`, pilihan periode, dan konfirmasi sebelum menghapus.
+- Status sudah/belum dibaca tetap terlihat pada setiap log admin.
+- Mobile menampilkan notifikasi backend untuk Penumpang dan Pengemudi, badge unread dari backend, empty state, tombol hapus riwayat, pilihan periode, dan konfirmasi.
+
+### Hasil pengujian
+
+- Backend: `php artisan test` lulus, 131 test dan 648 assertion.
+- Flutter: `flutter test` lulus, 15 test.
+- Flutter: `flutter analyze` lulus tanpa issue.
+- PHP lint controller dan service notifikasi lulus tanpa syntax error.
+- Render Blade admin diverifikasi melalui feature test. Pemeriksaan visual browser lokal masih perlu dilakukan manual karena konektor browser sesi pengembangan tidak dapat dimulai.
+
+### Sedang diperbaiki dan backlog
+
+- Push notification produksi dengan FCM masih backlog; versi saat ini memakai data notifikasi backend dan refresh/polling aplikasi.
+- Rekap Biaya akan dikembangkan menjadi laporan dengan export Excel/CSV.
+- Menu Audit Sistem belum dibuat.
+- Fitur hapus data lama untuk Pemesanan, Pembayaran, dan Biaya Operasional belum dibuat.
+- Pengujian visual mobile pada beberapa ukuran HP dan pengujian browser admin tetap perlu dilakukan sebelum demo.
+
+### Risiko dan catatan pengecekan
+
+- Pilihan `Semua yang sudah dibaca` benar-benar menghapus seluruh riwayat terbaca; dialog konfirmasi wajib diperhatikan admin/user.
+- Web admin adalah log global, sehingga role admin boleh membersihkan notifikasi terbaca lintas role. Notifikasi belum dibaca tetap dilindungi.
+- Badge mobile diperbarui saat bundle beranda dimuat ulang; push real-time saat aplikasi benar-benar tertutup membutuhkan FCM.
+
 Tanggal pembaruan: 16 Juni 2026
 
 File ini merangkum kondisi fitur berdasarkan kode yang ada saat ini. Tujuannya supaya progres project mudah dibaca ulang dan mudah dijelaskan saat sidang.

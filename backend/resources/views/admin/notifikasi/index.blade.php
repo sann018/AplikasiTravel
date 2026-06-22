@@ -5,36 +5,57 @@
 @section('page-description', 'Pantau notifikasi untuk penumpang, pengemudi, dan admin.')
 
 @section('content')
-    <section class="travs-summary-grid">
-        <article class="travs-summary-card">
+    @if (session('success'))
+        <div class="travs-alert travs-alert-success" role="status">{{ session('success') }}</div>
+    @endif
+
+    @if ($errors->has('period'))
+        <div class="travs-alert travs-alert-danger" role="alert">{{ $errors->first('period') }}</div>
+    @endif
+
+    <section class="collapsible-section" data-collapsible-section>
+        <div class="collapsible-section__header" data-collapse-header>
+            <div class="travs-panel-title">
+                <h3>Ringkasan Notifikasi</h3>
+                <p>Ikhtisar notifikasi yang tersimpan di sistem.</p>
+            </div>
+            @include('admin.partials.collapsible-toggle', ['targetId' => 'notification-summary-body'])
+        </div>
+
+        <div id="notification-summary-body" class="travs-summary-grid collapsible-section__body" data-collapse-body>
+            <article class="travs-summary-card">
             <small>Total Notifikasi</small>
             <strong>{{ number_format($stats['total']) }}</strong>
             <span>Semua notifikasi</span>
         </article>
-        <article class="travs-summary-card">
+            <article class="travs-summary-card">
             <small>Belum Dibaca</small>
             <strong>{{ number_format($stats['belum_dibaca']) }}</strong>
             <span>Menunggu dibuka user</span>
         </article>
-        <article class="travs-summary-card">
+            <article class="travs-summary-card">
             <small>Notifikasi Pembayaran</small>
             <strong>{{ number_format($stats['pembayaran']) }}</strong>
             <span>Terkait transaksi</span>
         </article>
-        <article class="travs-summary-card">
+            <article class="travs-summary-card">
             <small>Booking Baru</small>
             <strong>{{ number_format($stats['pemesanan']) }}</strong>
             <span>Masuk ke admin</span>
-        </article>
+            </article>
+        </div>
     </section>
 
-    <article class="travs-section-card">
-        <div class="travs-panel-title">
-            <h3>Filter Notifikasi</h3>
-            <p>Cari notifikasi berdasarkan judul, pesan, jenis, atau status baca.</p>
+    <article class="travs-section-card collapsible-section" data-collapsible-section>
+        <div class="collapsible-section__header" data-collapse-header>
+            <div class="travs-panel-title">
+                <h3>Filter Notifikasi</h3>
+                <p>Cari notifikasi berdasarkan judul, pesan, jenis, atau status baca.</p>
+            </div>
+            @include('admin.partials.collapsible-toggle', ['targetId' => 'notification-filter-body'])
         </div>
 
-        <form method="GET" class="travs-filter-grid">
+        <form id="notification-filter-body" method="GET" class="travs-filter-grid collapsible-section__body" data-collapse-body>
             <div class="travs-field">
                 <label for="search">Cari</label>
                 <input id="search" name="search" class="travs-input" value="{{ $filters['search'] ?? '' }}" placeholder="Judul, pesan, atau nama pengguna">
@@ -63,10 +84,50 @@
         </form>
     </article>
 
-    <section class="travs-content" style="padding: 0; gap: 18px; margin-top: 18px;">
+    <article class="travs-section-card collapsible-section" data-collapsible-section style="margin-top: 18px;">
+        <div class="travs-panel-header collapsible-section__header" data-collapse-header>
+            <div class="travs-panel-title">
+                <h3>Bersihkan Notifikasi Lama</h3>
+                <p>Hanya notifikasi yang sudah dibaca yang akan dihapus. Notifikasi belum dibaca tetap disimpan.</p>
+            </div>
+            @include('admin.partials.collapsible-toggle', ['targetId' => 'notification-cleanup-body'])
+        </div>
+
+        <div id="notification-cleanup-body" class="collapsible-section__body" data-collapse-body>
+            <form method="POST" action="{{ route('admin.notifikasi.history.clear') }}"
+                onsubmit="return confirm('Hapus riwayat notifikasi yang sudah dibaca sesuai pilihan ini?');"
+                style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap;">
+                @csrf
+                @method('DELETE')
+                <div class="travs-field" style="min-width: 220px;">
+                    <label for="cleanup-period">Periode</label>
+                    <select id="cleanup-period" name="period" class="travs-select" required>
+                        <option value="7_days">Lebih lama dari 7 hari</option>
+                        <option value="30_days" selected>Lebih lama dari 30 hari</option>
+                        <option value="90_days">Lebih lama dari 90 hari</option>
+                        <option value="all_read">Semua yang sudah dibaca</option>
+                    </select>
+                </div>
+                <button type="submit" class="travs-button-secondary">Hapus Riwayat</button>
+            </form>
+        </div>
+    </article>
+
+    <article class="travs-section-card collapsible-section" data-collapsible-section style="margin-top: 18px;">
+        <div class="collapsible-section__header" data-collapse-header>
+            <div class="travs-panel-title">
+                <h3>Daftar Notifikasi</h3>
+                <p>Notifikasi terbaru dari seluruh aktivitas sistem.</p>
+            </div>
+            @include('admin.partials.collapsible-toggle', ['targetId' => 'notification-list-body'])
+        </div>
+
+        <div id="notification-list-body" class="collapsible-section__body" data-collapse-body>
+        <section class="travs-content" style="padding: 0; gap: 18px;">
         @forelse ($notifikasi as $item)
             @php
-                $booking = $item->jenis === 'pemesanan' ? $item->referensiBooking : null;
+                $isBookingNotification = $item->judul === 'Pemesanan baru masuk';
+                $booking = $isBookingNotification ? $item->referensiBooking : null;
                 $routeLabel = $booking?->jadwal?->rute
                     ? $booking->jadwal->rute->kota_asal.' - '.$booking->jadwal->rute->kota_tujuan
                     : null;
@@ -74,17 +135,9 @@
                     ? $booking->jadwal->kendaraan->merk_kendaraan.' ('.$booking->jadwal->kendaraan->nomor_plat.')'
                     : null;
                 $scheduleLabel = $booking?->jadwal?->waktu_berangkat?->translatedFormat('d M Y H:i');
-                $isBookingNotification = $item->jenis === 'pemesanan';
             @endphp
 
-            <article class="travs-section-card {{ $isBookingNotification ? 'is-booking-notification' : '' }}">
-                @if ($isBookingNotification)
-                    <div class="travs-booking-notification-head">
-                        <span class="travs-booking-notification-dot"></span>
-                        <strong style="color: var(--travs-accent-deep);">Booking Baru Masuk</strong>
-                    </div>
-                @endif
-
+            <article class="travs-section-card {{ $isBookingNotification ? 'is-booking-notification' : '' }} {{ $item->sudah_dibaca ? '' : 'is-unread-notification' }}">
                 <div class="travs-panel-header">
                     <div class="travs-panel-title">
                         <h3 style="margin-bottom: 4px;">{{ $item->judul }}</h3>
@@ -99,6 +152,13 @@
                         </span>
                     </div>
                 </div>
+
+                @if ($isBookingNotification)
+                    <div class="travs-booking-notification-head">
+                        <span class="travs-booking-notification-dot"></span>
+                        <strong style="color: var(--travs-accent-deep);">Booking Baru Masuk</strong>
+                    </div>
+                @endif
 
                 <div class="travs-admin-booking-alert">
                     <strong>Isi notifikasi</strong>
@@ -141,5 +201,11 @@
         @endforelse
 
         {{ $notifikasi->links() }}
-    </section>
+        </section>
+        </div>
+    </article>
 @endsection
+
+@push('scripts')
+    @include('admin.partials.collapsible-section-script')
+@endpush

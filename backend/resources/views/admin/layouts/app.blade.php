@@ -38,13 +38,16 @@
             [
                 'label' => 'Sistem',
                 'items' => [
-                    ['label' => 'Pengaturan', 'route' => 'admin.pengaturan.index', 'active' => 'admin.pengaturan.*', 'icon' => 'settings'],
+                    ['label' => 'Pengaturan', 'route' => 'admin.settings.index', 'active' => 'admin.settings.*|admin.pengaturan.*', 'icon' => 'settings'],
                     ['label' => 'Notifikasi', 'route' => 'admin.notifikasi.index', 'active' => 'admin.notifikasi.*', 'icon' => 'bell'],
                 ],
             ],
         ];
         $pageTitle = trim($__env->yieldContent('page-title', 'Dasbor'));
         $pageDescription = trim($__env->yieldContent('page-description', 'Kelola operasional travel secara terpusat dan nyaman dipakai setiap hari.'));
+        $settingService = app(\App\Services\SettingService::class);
+        $adminAppName = (string) $settingService->get('app_name', config('app.name'));
+        $adminLogoUrl = $settingService->publicAssetPath('app_logo', 'travs-logo.svg');
         $unreadAdminNotifications = \App\Models\Notifikasi::query()
             ->where('pengguna_id', auth()->id())
             ->where('sudah_dibaca', false)
@@ -56,12 +59,12 @@
                 <div class="travs-sidebar-head">
                     <div class="d-flex justify-content-between align-items-start gap-3">
                         <div class="travs-brand-copy">
-                            <div class="travs-brand-mark">
-                                <span></span>
+                            <div class="travs-brand-mark travs-brand-logo">
+                                <img src="{{ $adminLogoUrl }}" alt="Logo {{ $adminAppName }}" width="42" height="42" style="width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;position:static;">
                             </div>
                             <div>
-                                <h5 class="mb-0">{{ config('app.name') }}</h5>
-                                <small>RuslyTravel Admin</small>
+                                <h5 class="mb-0">{{ $adminAppName }}</h5>
+                                <small>{{ $adminAppName }} Admin</small>
                             </div>
                         </div>
 

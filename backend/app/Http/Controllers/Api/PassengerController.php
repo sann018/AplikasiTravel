@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Pemesanan;
-use App\Models\PengaturanSistem;
 use App\Services\BookingService;
+use App\Services\SettingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,8 +13,8 @@ class PassengerController extends Controller
 {
     public function __construct(
         private readonly BookingService $bookingService,
-    ) {
-    }
+        private readonly SettingService $settingService,
+    ) {}
 
     public function dashboard(Request $request): JsonResponse
     {
@@ -46,7 +46,7 @@ class PassengerController extends Controller
                         ->where('pengguna_id', $user->id)
                         ->where('status_pemesanan', 'terbayar')
                         ->count(),
-                    'max_seat_per_booking' => PengaturanSistem::nilai('max_seat_per_booking', 4),
+                    'max_seat_per_booking' => $this->settingService->get('max_seat_per_booking', 4),
                 ],
                 'recent_bookings' => $bookings->map(fn (Pemesanan $booking) => [
                     'id' => $booking->id,

@@ -12,6 +12,7 @@ use App\Http\Controllers\Web\Admin\PemesananController;
 use App\Http\Controllers\Web\Admin\PengemudiController;
 use App\Http\Controllers\Web\Admin\PengaturanController;
 use App\Http\Controllers\Web\Admin\RuteController;
+use App\Http\Controllers\Web\Admin\SettingsController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
@@ -81,8 +82,17 @@ Route::prefix('admin')->group(function () {
         Route::get('/laporan/transaksi/export', [LaporanController::class, 'exportTransaksi'])->name('admin.laporan.transaksi.export');
 
         Route::get('/notifikasi', [NotifikasiController::class, 'index'])->name('admin.notifikasi.index');
+        Route::delete('/notifikasi/history', [NotifikasiController::class, 'clearHistory'])->name('admin.notifikasi.history.clear');
 
-        Route::get('/pengaturan', [PengaturanController::class, 'index'])->name('admin.pengaturan.index');
+        Route::get('/settings', [SettingsController::class, 'index'])->name('admin.settings.index');
+        Route::post('/settings/general', [SettingsController::class, 'updateGeneral'])->name('admin.settings.general.update');
+        Route::post('/settings/booking', [SettingsController::class, 'updateBooking'])->name('admin.settings.booking.update');
+        Route::post('/settings/payment', [SettingsController::class, 'updatePayment'])->name('admin.settings.payment.update');
+        Route::post('/settings/baggage', [SettingsController::class, 'updateBaggage'])->name('admin.settings.baggage.update');
+        Route::post('/settings/notification', [SettingsController::class, 'updateNotification'])->name('admin.settings.notification.update');
+
+        // Alamat lama tetap tersedia agar bookmark dan tautan lama tidak rusak.
+        Route::get('/pengaturan', [SettingsController::class, 'index'])->name('admin.pengaturan.index');
         Route::put('/pengaturan', [PengaturanController::class, 'update'])->name('admin.pengaturan.update');
         Route::put('/pengaturan/akun', [PengaturanController::class, 'updateAccount'])->name('admin.pengaturan.account.update');
         Route::post('/logout', [AuthController::class, 'logout'])->name('admin.logout');

@@ -7,17 +7,22 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="travs-admin-auth">
+    @php
+        $settingService = app(\App\Services\SettingService::class);
+        $adminAppName = (string) $settingService->get('app_name', config('app.name'));
+        $adminLogoUrl = $settingService->publicAssetPath('app_logo', 'travs-logo.svg');
+    @endphp
     <div class="travs-auth-wrapper">
         <div class="min-vh-100 d-flex align-items-center justify-content-center p-4">
             <div class="card shadow-lg border-0 travs-auth-card">
                 <div class="card-body p-4 p-lg-5">
                     <div class="text-center mb-4">
                         <div class="travs-brand-copy justify-content-center mb-3">
-                            <div class="travs-brand-mark">
-                                <span></span>
+                            <div class="travs-brand-mark travs-brand-logo">
+                                <img src="{{ $adminLogoUrl }}" alt="Logo {{ $adminAppName }}" width="42" height="42" style="width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;position:static;">
                             </div>
                             <div>
-                                <h3 class="mb-0">{{ config('app.name') }}</h3>
+                                <h3 class="mb-0">{{ $adminAppName }}</h3>
                                 <small class="text-muted">Admin</small>
                             </div>
                         </div>
