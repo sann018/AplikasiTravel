@@ -6,6 +6,7 @@ import '../../core/models/travs_booking_contract.dart';
 import '../../core/models/travs_user_session.dart';
 import '../../core/services/travs_api_service.dart';
 import '../../core/theme/travs_theme.dart';
+import '../ticket/travs_ticket_detail_page.dart';
 
 class TravSBookingDetailPage extends StatefulWidget {
   const TravSBookingDetailPage({
@@ -25,7 +26,6 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
   final TravSApiService _apiService = TravSApiService();
 
   late Future<TravSBookingResult> _future;
-  bool _isSimulatingPayment = false;
   bool _shouldRefreshParent = false;
 
   @override
@@ -49,54 +49,6 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
     await future;
   }
 
-  Future<void> _simulatePayment(TravSBookingResult booking) async {
-    setState(() {
-      _isSimulatingPayment = true;
-    });
-
-    try {
-      final result = await _apiService.simulatePayment(
-        token: widget.session.token,
-        bookingId: booking.id,
-      );
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _future = Future<TravSBookingResult>.value(result);
-        _shouldRefreshParent = true;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Pembayaran simulasi berhasil. Tiket sudah diterbitkan.',
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } on TravSApiException catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSimulatingPayment = false;
-        });
-      }
-    }
-  }
-
   Future<void> _openMaps(TravSBookingPickupInfo pickup) async {
     final uri = Uri.parse(
       'https://www.google.com/maps/search/?api=1&query=${pickup.latitude},${pickup.longitude}',
@@ -113,6 +65,22 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+    }
+  }
+
+  Future<void> _openTicketPage(TravSBookingResult booking) async {
+    final shouldRefresh = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => TravSTicketDetailPage(
+          session: widget.session,
+          bookingId: booking.id,
+        ),
+      ),
+    );
+
+    if (shouldRefresh == true && mounted) {
+      _shouldRefreshParent = true;
+      await _refresh();
     }
   }
 
@@ -135,7 +103,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
             onPressed: _closePage,
             icon: const Icon(Icons.arrow_back_rounded),
           ),
-          title: const Text('Detail Booking'),
+          title: const Text('Detail Pemesanan'),
         ),
         body: Container(
           decoration: const BoxDecoration(gradient: TravSTheme.shellGradient),
@@ -153,10 +121,6 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                 }
 
                 final booking = snapshot.data!;
-                final canSimulate =
-                    booking.payment.canSimulate &&
-                    booking.payment.status == 'menunggu';
-
                 return RefreshIndicator(
                   color: TravSTheme.orange,
                   onRefresh: _refresh,
@@ -165,14 +129,18 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                     children: [
                       _BookingHeaderCard(booking: booking),
                       const SizedBox(height: 16),
+                      if (booking.pemesan != null) ...[
+                        _RequesterCard(requester: booking.pemesan!),
+                        const SizedBox(height: 16),
+                      ],
                       _DetailSectionCard(
                         title: 'Ringkasan Pembayaran',
                         subtitle:
-                            'Status booking, metode bayar, dan total tagihan disinkronkan langsung dari backend.',
+                            'Status pemesanan, metode bayar, dan total tagihan selalu diperbarui.',
                         child: Column(
                           children: [
                             _DetailRow(
-                              label: 'Status booking',
+                              label: 'Status pemesanan',
                               value: _humanizeStatus(booking.status),
                             ),
                             _DetailRow(
@@ -197,6 +165,35 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
+                      _DetailSectionCard(
+                        title: 'Tiket Pemesanan',
+                        subtitle:
+                            'Gunakan tombol ini untuk langsung membuka halaman tiket dan QR perjalanan.',
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _DetailRow(
+                              label: booking.status == 'selesai'
+                                  ? 'Tiket selesai'
+                                  : 'Tiket aktif',
+                              value: '${booking.activeTicketCount}',
+                            ),
+                            const SizedBox(height: 14),
+                            ElevatedButton.icon(
+                              onPressed: () => _openTicketPage(booking),
+                              icon: const Icon(
+                                Icons.confirmation_number_rounded,
+                              ),
+                              label: Text(
+                                booking.activeTicketCount > 0
+                                    ? 'Buka Tiket'
+                                    : 'Lihat Status Tiket',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       if (booking.pickup != null)
                         _DetailSectionCard(
                           title: 'Titik Jemput',
@@ -216,6 +213,15 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(color: TravSTheme.navy),
                               ),
+                              if ((booking.pickup!.note ?? '')
+                                  .trim()
+                                  .isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                _DetailRow(
+                                  label: 'Patokan jemput',
+                                  value: booking.pickup!.note!.trim(),
+                                ),
+                              ],
                               const SizedBox(height: 14),
                               OutlinedButton.icon(
                                 onPressed: () => _openMaps(booking.pickup!),
@@ -226,6 +232,44 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                           ),
                         ),
                       if (booking.pickup != null) const SizedBox(height: 16),
+                      if (booking.dropoff != null)
+                        _DetailSectionCard(
+                          title: 'Titik Tujuan / Turun',
+                          subtitle:
+                              'Lokasi ini membantu pengemudi mengantar penumpang ke tujuan yang sudah disepakati.',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _DetailRow(
+                                label: 'Koordinat',
+                                value:
+                                    '${booking.dropoff!.latitude.toStringAsFixed(6)}, ${booking.dropoff!.longitude.toStringAsFixed(6)}',
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                booking.dropoff!.address,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: TravSTheme.navy),
+                              ),
+                              if ((booking.dropoff!.note ?? '')
+                                  .trim()
+                                  .isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                _DetailRow(
+                                  label: 'Patokan turun',
+                                  value: booking.dropoff!.note!.trim(),
+                                ),
+                              ],
+                              const SizedBox(height: 14),
+                              OutlinedButton.icon(
+                                onPressed: () => _openMaps(booking.dropoff!),
+                                icon: const Icon(Icons.map_outlined),
+                                label: const Text('Buka di Google Maps'),
+                              ),
+                            ],
+                          ),
+                        ),
+                      if (booking.dropoff != null) const SizedBox(height: 16),
                       _DetailSectionCard(
                         title: 'Penumpang & Kursi',
                         subtitle:
@@ -254,8 +298,9 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                       const SizedBox(height: 16),
                       _DetailSectionCard(
                         title: 'Bagasi',
+                        initiallyExpanded: false,
                         subtitle:
-                            'Bagasi tambahan yang dimasukkan saat checkout akan tercatat di booking ini.',
+                            'Bagasi tambahan yang dimasukkan saat checkout akan tercatat di pemesanan ini.',
                         child: Column(
                           children: booking.baggageItems.isEmpty
                               ? const [
@@ -276,28 +321,111 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                         ),
                       ),
                       const SizedBox(height: 18),
-                      if (canSimulate)
-                        ElevatedButton.icon(
-                          onPressed: _isSimulatingPayment
-                              ? null
-                              : () => _simulatePayment(booking),
-                          icon: Icon(
-                            _isSimulatingPayment
-                                ? Icons.sync_rounded
-                                : Icons.bolt_rounded,
-                          ),
-                          label: Text(
-                            _isSimulatingPayment
-                                ? 'Memproses Simulasi...'
-                                : 'Simulasikan Pembayaran',
-                          ),
-                        ),
                     ],
                   ),
                 );
               },
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RequesterCard extends StatelessWidget {
+  const _RequesterCard({required this.requester});
+
+  final TravSBookingRequesterInfo requester;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = TravSApiService.resolveMediaUrl(requester.fotoUrl);
+
+    return _DetailSectionCard(
+      title: 'Pemesan',
+      subtitle: 'Akun penumpang yang membuat pemesanan ini.',
+      child: Row(
+        children: [
+          _RequesterAvatar(name: requester.nama, imageUrl: imageUrl),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  requester.nama,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: TravSTheme.navy,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  requester.email,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: TravSTheme.navyMuted),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  requester.noHp,
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: TravSTheme.navyMuted),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RequesterAvatar extends StatelessWidget {
+  const _RequesterAvatar({required this.name, this.imageUrl});
+
+  final String name;
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = name.trim().isEmpty
+        ? 'P'
+        : name.trim().substring(0, 1).toUpperCase();
+
+    return ClipOval(
+      child: Container(
+        width: 54,
+        height: 54,
+        color: TravSTheme.navy,
+        child: imageUrl == null
+            ? _RequesterInitial(initial: initial)
+            : Image.network(
+                imageUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    _RequesterInitial(initial: initial),
+              ),
+      ),
+    );
+  }
+}
+
+class _RequesterInitial extends StatelessWidget {
+  const _RequesterInitial({required this.initial});
+
+  final String initial;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        initial,
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w900,
         ),
       ),
     );
@@ -360,16 +488,31 @@ class _BookingHeaderCard extends StatelessWidget {
   }
 }
 
-class _DetailSectionCard extends StatelessWidget {
+class _DetailSectionCard extends StatefulWidget {
   const _DetailSectionCard({
     required this.title,
     required this.subtitle,
     required this.child,
+    this.initiallyExpanded = true,
   });
 
   final String title;
   final String subtitle;
   final Widget child;
+  final bool initiallyExpanded;
+
+  @override
+  State<_DetailSectionCard> createState() => _DetailSectionCardState();
+}
+
+class _DetailSectionCardState extends State<_DetailSectionCard> {
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initiallyExpanded;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -381,22 +524,47 @@ class _DetailSectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: TravSTheme.navy,
-                fontWeight: FontWeight.w800,
+            InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: TravSTheme.navy,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: TravSTheme.navy,
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              subtitle,
+              widget.subtitle,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: TravSTheme.navyMuted,
               ),
             ),
-            const SizedBox(height: 18),
-            child,
+            AnimatedCrossFade(
+              duration: const Duration(milliseconds: 180),
+              crossFadeState: _expanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              firstChild: const SizedBox.shrink(),
+              secondChild: Padding(
+                padding: const EdgeInsets.only(top: 18),
+                child: widget.child,
+              ),
+            ),
           ],
         ),
       ),
@@ -432,11 +600,15 @@ class _DetailRow extends StatelessWidget {
               ),
             ),
           ),
-          Text(
-            value,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: TravSTheme.navy,
-              fontWeight: emphasize ? FontWeight.w800 : FontWeight.w700,
+          const SizedBox(width: 14),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: TravSTheme.navy,
+                fontWeight: emphasize ? FontWeight.w800 : FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -511,6 +683,11 @@ class _BaggageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final baggagePhotoUrls = item.fotoUrls
+        .map(TravSApiService.resolveMediaUrl)
+        .whereType<String>()
+        .take(3)
+        .toList();
 
     return Container(
       width: double.infinity,
@@ -541,6 +718,50 @@ class _BaggageCard extends StatelessWidget {
                 _MiniBadge(label: '${item.ukuranCm} cm'),
             ],
           ),
+          if (baggagePhotoUrls.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            GridView.builder(
+              itemCount: baggagePhotoUrls.length,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemBuilder: (context, index) {
+                final photoUrl = baggagePhotoUrls[index];
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Image.network(
+                    photoUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: Colors.white,
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Foto tidak tersedia',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: TravSTheme.navyMuted,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ] else ...[
+            const SizedBox(height: 14),
+            Text(
+              'Foto barang belum tersedia.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: TravSTheme.navyMuted,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -645,7 +866,7 @@ class _BookingErrorState extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'Detail booking belum bisa dimuat.',
+                  'Detail pemesanan belum bisa dimuat.',
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: TravSTheme.navy,
                     fontWeight: FontWeight.w800,
@@ -654,7 +875,7 @@ class _BookingErrorState extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Coba refresh lagi. Jika backend masih menolak, kemungkinan sesi login perlu diperbarui.',
+                  'Coba refresh lagi. Jika masih gagal, silakan login ulang.',
                   style: Theme.of(
                     context,
                   ).textTheme.bodyMedium?.copyWith(color: TravSTheme.navyMuted),

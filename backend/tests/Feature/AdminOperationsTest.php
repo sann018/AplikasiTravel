@@ -2,13 +2,16 @@
 
 namespace Tests\Feature;
 
-use App\Models\Pengemudi;
 use App\Models\Pemesanan;
+use App\Models\Pengemudi;
 use App\Models\TiketElektronik;
 use App\Models\User;
 use Database\Seeders\SystemSettingSeeder;
 use Database\Seeders\TravSDemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class AdminOperationsTest extends TestCase
@@ -36,8 +39,108 @@ class AdminOperationsTest extends TestCase
             ->get(route('admin.dashboard'));
 
         $response->assertOk();
-        $response->assertSee('TravS Operational Center');
+        $response->assertSee('Total Armada');
         $response->assertSee('Ringkasan Pendapatan 7 Hari');
+        $response->assertSee('data-dashboard-tab="ringkasan"', false);
+        $response->assertSee('data-dashboard-tab="keuangan"', false);
+        $response->assertSee('data-dashboard-tab="aktivitas"', false);
+        $response->assertSee(route('admin.kendaraan.index'), false);
+        $response->assertSee(route('admin.rute.index', ['status' => 'aktif']), false);
+        $response->assertSee(
+            route('admin.pemesanan.index', ['status' => 'menunggu_pembayaran']),
+            false,
+        );
+    }
+
+    public function test_admin_can_update_own_email_from_settings_page(): void
+    {
+        $admin = User::factory()->create([
+            'email' => 'adminlama@travs.com',
+            'peran' => 'admin',
+            'status_aktif' => true,
+            'password' => Hash::make('admin12345'),
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->from(route('admin.pengaturan.index'))
+            ->put(route('admin.pengaturan.account.update'), [
+                'email' => 'adminbaru@travs.com',
+                'current_password' => 'admin12345',
+            ]);
+
+        $response->assertRedirect(route('admin.pengaturan.index'));
+        $response->assertSessionHasNoErrors();
+
+        $this->assertSame('adminbaru@travs.com', $admin->fresh()->email);
+    }
+
+    public function test_admin_can_open_settings_page_with_account_form(): void
+    {
+        $this->seed(SystemSettingSeeder::class);
+
+        $admin = User::factory()->create([
+            'email' => 'adminpengaturan@travs.com',
+            'peran' => 'admin',
+            'status_aktif' => true,
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->get(route('admin.pengaturan.index'));
+
+        $response->assertOk();
+        $response->assertSee('Akun Admin');
+        $response->assertSee('Simpan Perubahan Akun');
+        $response->assertSee('Control Center');
+    }
+
+    public function test_admin_account_update_requires_correct_current_password(): void
+    {
+        $admin = User::factory()->create([
+            'email' => 'adminaman@travs.com',
+            'peran' => 'admin',
+            'status_aktif' => true,
+            'password' => Hash::make('admin12345'),
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->from(route('admin.pengaturan.index'))
+            ->put(route('admin.pengaturan.account.update'), [
+                'email' => 'adminrusak@travs.com',
+                'current_password' => 'password-salah',
+            ]);
+
+        $response->assertRedirect(route('admin.pengaturan.index'));
+        $response->assertSessionHasErrors('current_password');
+
+        $this->assertSame('adminaman@travs.com', $admin->fresh()->email);
+    }
+
+    public function test_admin_can_update_own_password_from_settings_page(): void
+    {
+        $admin = User::factory()->create([
+            'email' => 'adminpassword@travs.com',
+            'peran' => 'admin',
+            'status_aktif' => true,
+            'password' => Hash::make('admin12345'),
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->from(route('admin.pengaturan.index'))
+            ->put(route('admin.pengaturan.account.update'), [
+                'email' => 'adminpassword@travs.com',
+                'current_password' => 'admin12345',
+                'password' => 'passwordbaru123',
+                'password_confirmation' => 'passwordbaru123',
+            ]);
+
+        $response->assertRedirect(route('admin.pengaturan.index'));
+        $response->assertSessionHasNoErrors();
+
+        $this->assertTrue(Hash::check('passwordbaru123', $admin->fresh()->password));
     }
 
     public function test_admin_can_export_booking_report_as_csv(): void
@@ -76,7 +179,7 @@ class AdminOperationsTest extends TestCase
                 'nama' => 'Driver Uji',
                 'email' => 'driveruji@travs.com',
                 'no_hp' => '081111111111',
-                'nomor_sim' => 'SIM-UJI-001',
+                'nomor_sim' => '6102233435410001',
                 'status' => 'aktif',
                 'status_verifikasi' => 'menunggu',
                 'catatan_verifikasi' => 'Masih review.',
@@ -87,12 +190,76 @@ class AdminOperationsTest extends TestCase
 
         $pengemudi = Pengemudi::query()
             ->with('pengguna')
-            ->where('nomor_sim', 'SIM-UJI-001')
+            ->where('nomor_sim', '6102233435410001')
             ->firstOrFail();
 
         $this->assertSame('nonaktif', $pengemudi->status);
         $this->assertSame('menunggu', $pengemudi->status_verifikasi);
         $this->assertFalse($pengemudi->pengguna->status_aktif);
+    }
+
+    public function test_admin_can_upload_driver_profile_photo_from_driver_form(): void
+    {
+        Storage::fake('public');
+
+        $admin = User::factory()->create([
+            'peran' => 'admin',
+            'status_aktif' => true,
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->post(route('admin.pengemudi.store'), [
+                'nama' => 'Driver Foto',
+                'email' => 'driverfoto@travs.com',
+                'no_hp' => '081111111112',
+                'nomor_sim' => '6102233435420002',
+                'status' => 'aktif',
+                'status_verifikasi' => 'terverifikasi',
+                'catatan_verifikasi' => 'Foto profil lengkap.',
+                'password' => 'driver12345',
+                'foto_profil' => UploadedFile::fake()->image('driver.jpg', 640, 640),
+                'foto_sim' => UploadedFile::fake()->image('sim.jpg', 900, 560),
+            ]);
+
+        $response->assertRedirect(route('admin.pengemudi.index'));
+
+        $pengemudi = Pengemudi::query()
+            ->with('pengguna')
+            ->where('nomor_sim', '6102233435420002')
+            ->firstOrFail();
+
+        $this->assertNotNull($pengemudi->pengguna->foto_profil);
+        $this->assertStringStartsWith('profiles/', $pengemudi->pengguna->foto_profil);
+        Storage::disk('public')->assertExists($pengemudi->pengguna->foto_profil);
+        $this->assertNotNull($pengemudi->foto_sim);
+        $this->assertStringStartsWith('driver-documents/', $pengemudi->foto_sim);
+        Storage::disk('public')->assertExists($pengemudi->foto_sim);
+    }
+
+    public function test_admin_driver_form_rejects_invalid_phone_sim_and_document_file(): void
+    {
+        Storage::fake('public');
+
+        $admin = User::factory()->create([
+            'peran' => 'admin',
+            'status_aktif' => true,
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->post(route('admin.pengemudi.store'), [
+                'nama' => 'Driver Validasi',
+                'email' => 'drivervalidasi@travs.com',
+                'no_hp' => '12345',
+                'nomor_sim' => 'SIM-SALAH',
+                'status' => 'aktif',
+                'status_verifikasi' => 'terverifikasi',
+                'password' => 'driver12345',
+                'foto_sim' => UploadedFile::fake()->create('sim.pdf', 120, 'application/pdf'),
+            ]);
+
+        $response->assertSessionHasErrors(['no_hp', 'nomor_sim', 'foto_sim']);
     }
 
     public function test_admin_cannot_jump_cancelled_booking_back_to_paid(): void
@@ -147,7 +314,7 @@ class AdminOperationsTest extends TestCase
             ]));
 
         $response->assertOk();
-        $response->assertSee('Dashboard Pembayaran');
+        $response->assertSee('Pembayaran');
         $response->assertSee('TRAVS-DEMO-002');
         $response->assertSee('Verifikasi Cash');
     }

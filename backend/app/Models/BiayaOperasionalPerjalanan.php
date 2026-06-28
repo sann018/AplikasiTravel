@@ -8,14 +8,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class BiayaOperasionalPerjalanan extends Model
 {
     /**
-     * The table associated with the model.
+     * Nama tabel database yang digunakan model ini.
      *
      * @var string
      */
     protected $table = 'biaya_operasional_perjalanan';
 
     /**
-     * The attributes that are mass assignable.
+     * Kolom yang boleh diisi sekaligus saat membuat atau memperbarui data.
      *
      * @var array<int, string>
      */
@@ -25,6 +25,11 @@ class BiayaOperasionalPerjalanan extends Model
         'nominal',
         'keterangan',
         'tanggal_biaya',
+        'bukti_url',
+        'status_verifikasi',
+        'diverifikasi_oleh',
+        'diverifikasi_pada',
+        'catatan_verifikasi',
         'created_by',
     ];
 
@@ -33,6 +38,7 @@ class BiayaOperasionalPerjalanan extends Model
         return [
             'nominal' => 'decimal:2',
             'tanggal_biaya' => 'datetime',
+            'diverifikasi_pada' => 'datetime',
         ];
     }
 
@@ -44,5 +50,10 @@ class BiayaOperasionalPerjalanan extends Model
     public function pencatat(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function verifikator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'diverifikasi_oleh');
     }
 }

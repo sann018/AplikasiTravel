@@ -1,0 +1,254 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Jadwal;
+use App\Models\KursiJadwal;
+use App\Models\Pemesanan;
+use App\Models\SystemSetting;
+use App\Models\User;
+use App\Services\BookingService;
+use App\Services\NotificationTemplateService;
+use App\Services\SettingService;
+use Database\Seeders\DatabaseSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
+
+class SystemSettingsRuntimeIntegrationTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(DatabaseSeeder::class);
+    }
+
+    public function test_mobile_settings_endpoint_only_returns_safe_configuration(): void
+    {
+        $response = $this->getJson('/api/settings/mobile');
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.max_seat_per_booking', 4)
+            ->assertJsonPath('data.payment_cash_enabled', true)
+            ->assertJsonStructure(['success', 'message', 'data' => [
+                'app_name',
+                'app_logo_url',
+                'service_whatsapp',
+                'seat_lock_form_minutes',
+                'seat_lock_payment_minutes',
+                'baggage_photo_required',
+            ]])
+            ->assertJsonMissingPath('data.admin_contact')
+            ->assertJsonMissingPath('data.bank_account_number')
+            ->assertJsonMissingPath('data.api_key');
+
+        $this->assertSame('/travs-logo.svg', $response->json('data.app_logo_url'));
+    }
+
+    public function test_maximum_seats_and_form_lock_follow_system_settings(): void
+    {
+        $this->setSettings([
+            'max_seat_per_booking' => 1,
+            'seat_lock_form_minutes' => 12,
+        ]);
+
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $schedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        $seats = $this->availableSeats($schedule, 2);
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/penumpang/bookings/lock-form', [
+            'jadwal_id' => $schedule->id,
+            'seat_numbers' => $seats,
+        ])->assertUnprocessable()
+            ->assertJsonPath('errors.seat_numbers.0', 'Jumlah kursi melebihi batas maksimal per booking.');
+
+        $this->postJson('/api/penumpang/bookings/lock-form', [
+            'jadwal_id' => $schedule->id,
+            'seat_numbers' => [$seats[0]],
+        ])->assertOk()
+            ->assertJsonPath('data.lock_minutes', 12);
+    }
+
+    public function test_total_only_contains_ticket_and_baggage_fee(): void
+    {
+        $this->setSettings([
+            'baggage_photo_required' => false,
+            'baggage_weight_enabled' => true,
+            'baggage_size_enabled' => false,
+            'baggage_item_enabled' => false,
+            'baggage_free_weight_kg' => 10,
+            'baggage_max_weight_per_person_kg' => 20,
+            'baggage_extra_fee_per_kg' => 3000,
+        ]);
+
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $schedule = Jadwal::query()->where('status', 'dibuka')->with('rute')->firstOrFail();
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/penumpang/bookings/estimate', [
+            'jadwal_id' => $schedule->id,
+            'seat_count' => 1,
+            'baggage_items' => [[
+                'deskripsi_item' => 'Koper uji',
+                'metode_hitung' => 'berat',
+                'berat_kg' => 12,
+                'jumlah_item' => 1,
+            ]],
+        ])->assertOk()
+            ->assertJsonMissingPath('data.biaya_admin')
+            ->assertJsonPath('data.biaya_bagasi', 6000)
+            ->assertJsonPath(
+                'data.total_harga',
+                (int) $schedule->rute->harga_tiket + 6000,
+            );
+
+        $this->assertDatabaseMissing('system_settings', ['key' => 'admin_fee']);
+    }
+
+    public function test_cash_booking_is_rejected_when_cash_setting_is_disabled(): void
+    {
+        $this->setSettings(['payment_cash_enabled' => false]);
+
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $schedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        $seat = $this->availableSeats($schedule, 1)[0];
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/penumpang/bookings', $this->bookingPayload($schedule, $seat, 'cash'))
+            ->assertUnprocessable()
+            ->assertJsonPath('errors.payment_method.0', 'Pembayaran tunai sedang tidak tersedia. Silakan pilih metode lain.');
+    }
+
+    public function test_expired_booking_is_not_cancelled_when_auto_cancel_is_disabled(): void
+    {
+        $this->setSettings(['auto_cancel_booking' => false]);
+
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $schedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        $booking = Pemesanan::query()->create([
+            'pengguna_id' => $user->id,
+            'jadwal_id' => $schedule->id,
+            'kode_booking' => 'RSLY-AUTO-CANCEL-OFF',
+            'jumlah_kursi' => 1,
+            'batas_kunci_kursi' => now()->subMinutes(10),
+            'batas_pembayaran' => now()->subMinutes(5),
+            'alamat_jemput' => 'Pontianak',
+            'subtotal_tiket' => 100000,
+            'biaya_bagasi' => 0,
+            'diskon' => 0,
+            'total_harga' => 100000,
+            'status_pemesanan' => 'menunggu_pembayaran',
+        ]);
+        $booking->pembayaran()->create([
+            'order_id_gateway' => 'AUTO-CANCEL-OFF',
+            'metode_bayar' => 'qris',
+            'jumlah_bayar' => 100000,
+            'status_bayar' => 'menunggu',
+            'expired_at' => now()->subMinutes(5),
+        ]);
+
+        app(BookingService::class)->releaseExpiredResources($schedule->id);
+
+        $this->assertSame('menunggu_pembayaran', $booking->fresh()->status_pemesanan);
+    }
+
+    public function test_notification_template_replaces_supported_placeholders(): void
+    {
+        $message = app(NotificationTemplateService::class)->render(
+            'Halo {nama}, booking {kode_booking} untuk {rute} berangkat {tanggal} pukul {jam}.',
+            [
+                'nama' => 'Budi',
+                'kode_booking' => 'RSLY-001',
+                'rute' => 'Pontianak - Sambas',
+                'tanggal' => '21 Juni 2026',
+                'jam' => '08.00',
+            ],
+        );
+
+        $this->assertSame(
+            'Halo Budi, booking RSLY-001 untuk Pontianak - Sambas berangkat 21 Juni 2026 pukul 08.00.',
+            $message,
+        );
+    }
+
+    public function test_payment_success_notification_remains_active_with_standard_template(): void
+    {
+        $this->setSettings([
+            'notif_payment_success' => false,
+            'notif_payment_success_template' => 'Halo {nama}, pembayaran {kode_booking} untuk {rute} sudah masuk.',
+            'baggage_photo_required' => false,
+        ]);
+
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $schedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        $seat = $this->availableSeats($schedule, 1)[0];
+        Sanctum::actingAs($user);
+
+        $bookingId = $this->postJson(
+            '/api/penumpang/bookings',
+            $this->bookingPayload($schedule, $seat, 'qris'),
+        )->assertCreated()->json('data.id');
+
+        $this->postJson("/api/penumpang/bookings/{$bookingId}/simulate-payment")
+            ->assertOk();
+
+        $this->assertDatabaseHas('notifikasi', [
+            'pengguna_id' => $user->id,
+            'jenis' => 'pembayaran',
+        ]);
+        $this->assertStringContainsString(
+            'Pembayaran Anda untuk rute',
+            (string) $user->notifikasi()
+                ->where('jenis', 'pembayaran')
+                ->where('referensi_id', $bookingId)
+                ->where('judul', 'Pembayaran berhasil dikonfirmasi')
+                ->value('pesan'),
+        );
+    }
+
+    private function setSettings(array $values): void
+    {
+        foreach ($values as $key => $value) {
+            $setting = SystemSetting::query()->where('key', $key)->firstOrFail();
+            $setting->update(['value' => is_bool($value) ? ($value ? 'true' : 'false') : (string) $value]);
+        }
+
+        app(SettingService::class)->clearCache();
+    }
+
+    /** @return array<int, int> */
+    private function availableSeats(Jadwal $schedule, int $count): array
+    {
+        return KursiJadwal::query()
+            ->where('jadwal_id', $schedule->id)
+            ->where('status_kursi', 'tersedia')
+            ->orderBy('nomor_kursi')
+            ->limit($count)
+            ->pluck('nomor_kursi')
+            ->map(fn ($seat) => (int) $seat)
+            ->all();
+    }
+
+    private function bookingPayload(Jadwal $schedule, int $seat, string $paymentMethod): array
+    {
+        return [
+            'jadwal_id' => $schedule->id,
+            'seat_numbers' => [$seat],
+            'pickup' => ['latitude' => -0.0225, 'longitude' => 109.3425, 'address' => 'Pontianak'],
+            'dropoff' => ['latitude' => 1.365, 'longitude' => 109.31, 'address' => 'Sambas'],
+            'payment_method' => $paymentMethod,
+            'passengers' => [[
+                'seat_number' => $seat,
+                'nama_penumpang' => 'Penumpang Uji',
+                'no_hp_penumpang' => '081234567890',
+            ]],
+            'baggage_items' => [],
+        ];
+    }
+}

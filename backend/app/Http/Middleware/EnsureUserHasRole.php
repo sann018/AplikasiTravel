@@ -9,7 +9,7 @@ use Symfony\Component\HttpFoundation\Response;
 class EnsureUserHasRole
 {
     /**
-     * Handle an incoming request.
+     * Memastikan pengguna memiliki salah satu role yang diizinkan untuk endpoint ini.
      *
      * @param  array<int, string>|string  ...$roles
      */

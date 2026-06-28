@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import 'bootstrap/dist/css/bootstrap.min.css';
 
 :root {
     --travs-white: #ffffff;
@@ -30,7 +30,7 @@ html {
 
 body {
     margin: 0;
-    font-family: 'Plus Jakarta Sans', 'Segoe UI', sans-serif;
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
     color: var(--travs-text);
     background: var(--travs-surface);
 }
@@ -69,9 +69,7 @@ svg {
     display: grid;
     place-items: center;
     padding: 32px 18px;
-    background:
-        radial-gradient(circle at top right, rgba(245, 138, 42, 0.12), transparent 18%),
-        linear-gradient(180deg, var(--travs-primary) 0%, var(--travs-primary-deep) 100%);
+    background: var(--travs-primary);
 }
 
 .travs-login-card {
@@ -179,6 +177,28 @@ svg {
     box-shadow: 0 0 0 4px rgba(245, 138, 42, 0.12);
 }
 
+.travs-input.is-invalid,
+.travs-select.is-invalid,
+.travs-textarea.is-invalid {
+    border-color: rgba(220, 53, 69, 0.75);
+    background: #fffafa;
+}
+
+.travs-input.is-invalid:focus,
+.travs-select.is-invalid:focus,
+.travs-textarea.is-invalid:focus {
+    border-color: rgba(220, 53, 69, 0.85);
+    box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.12);
+}
+
+.travs-field-error {
+    margin-top: 8px;
+    color: var(--travs-danger);
+    font-size: 0.84rem;
+    font-weight: 700;
+    line-height: 1.4;
+}
+
 .travs-textarea {
     min-height: 120px;
     resize: vertical;
@@ -218,7 +238,7 @@ svg {
 
 .travs-button {
     color: var(--travs-white);
-    background: linear-gradient(135deg, var(--travs-accent) 0%, var(--travs-accent-deep) 100%);
+    background: var(--travs-accent);
     box-shadow: 0 16px 28px rgba(245, 138, 42, 0.24);
 }
 
@@ -420,16 +440,69 @@ svg {
     padding: 16px;
 }
 
+#main-content {
+    padding: 18px;
+    min-height: calc(100vh - 70px);
+}
+
+.travs-sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+    background: var(--travs-white);
+    border-bottom: 1px solid var(--travs-border);
+    box-shadow: 0 2px 12px rgba(16, 35, 63, 0.06);
+}
+
 .travs-topbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 12px 16px;
+    padding: 14px 20px;
     background: var(--travs-white);
-    border: 1px solid var(--travs-border);
-    border-radius: 18px;
-    box-shadow: var(--travs-shadow);
+}
+
+.travs-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex: 1;
+    min-width: 0;
+}
+
+.travs-topbar-title {
+    display: grid;
+    gap: 2px;
+    min-width: 0;
+}
+
+.travs-topbar-title h3 {
+    margin: 0;
+    font-size: 1.15rem;
+    color: var(--travs-primary);
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.travs-topbar-title p {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--travs-text-soft);
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 500px;
+}
+
+.travs-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
 }
 
 .travs-topbar-search {
@@ -526,21 +599,32 @@ svg {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    padding: 6px 10px;
-    border-radius: 14px;
-    background: var(--travs-white);
-    border: 1px solid var(--travs-border);
+    padding: 4px 0;
+    border-radius: 0;
+    background: transparent;
+    border: none;
 }
 
 .travs-user-avatar {
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 12px;
+    width: 34px;
+    height: 34px;
+    overflow: hidden;
+    border-radius: 10px;
     color: var(--travs-white);
     font-weight: 800;
-    background: linear-gradient(135deg, #cfd5dd 0%, #aab4c2 100%);
+    font-size: 0.85rem;
+    background: var(--travs-primary);
+}
+
+.travs-user-avatar img {
+    width: 100%;
+    height: 100%;
+    max-width: 34px;
+    max-height: 34px;
+    display: block;
+    object-fit: cover;
 }
 
 .travs-user-copy {
@@ -606,9 +690,7 @@ svg {
     padding: 28px;
     border-radius: 28px;
     color: var(--travs-white);
-    background:
-        radial-gradient(circle at top right, rgba(255, 183, 125, 0.18), transparent 32%),
-        linear-gradient(135deg, #002653 0%, #1a3c6e 100%);
+    background: #25396f;
 }
 
 .travs-dashboard-hero-copy {
@@ -712,6 +794,72 @@ svg {
     align-items: start;
 }
 
+.travs-dashboard-simple,
+.travs-dashboard-panes,
+.travs-dashboard-pane {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+}
+
+.travs-dashboard-pane[hidden] {
+    display: none;
+}
+
+.travs-dashboard-panel-full {
+    width: 100%;
+    min-width: 0;
+}
+
+.travs-summary-link,
+.travs-dashboard-focus-item,
+.travs-dashboard-list-item:is(a) {
+    color: inherit;
+    text-decoration: none;
+}
+
+.travs-summary-link {
+    position: relative;
+    transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.travs-dashboard-simple .travs-summary-grid-dashboard .travs-summary-card:last-child {
+    grid-column: span 2;
+}
+
+.travs-summary-link::after {
+    content: "Buka";
+    justify-self: end;
+    margin-top: auto;
+    color: #435ebe;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.travs-summary-link:hover,
+.travs-summary-link:focus-visible {
+    border-color: #9eace0;
+    box-shadow: 0 8px 20px rgba(37, 57, 111, 0.1);
+    transform: translateY(-2px);
+}
+
+.travs-dashboard-focus-compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.travs-dashboard-focus-compact .travs-dashboard-focus-item {
+    align-content: start;
+    transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.travs-dashboard-focus-compact .travs-dashboard-focus-item:hover,
+.travs-dashboard-focus-compact .travs-dashboard-focus-item:focus-visible,
+.travs-dashboard-list-item:is(a):hover,
+.travs-dashboard-list-item:is(a):focus-visible {
+    border-color: #9eace0;
+    background: #ffffff;
+}
+
 .travs-dashboard-panel {
     padding: 22px;
     background: var(--travs-white);
@@ -728,8 +876,10 @@ svg {
     gap: 4px;
     padding: 12px 16px;
     border-radius: 18px;
-    background: linear-gradient(135deg, rgba(245, 138, 42, 0.12) 0%, rgba(245, 138, 42, 0.05) 100%);
+    background: #eef2f6;
+    border: 1px solid #d9e0ea;
     text-align: right;
+    min-width: 128px;
 }
 
 .travs-dashboard-panel-chip strong {
@@ -745,8 +895,7 @@ svg {
 .travs-dashboard-chart-shell {
     padding: 18px;
     border-radius: 22px;
-    background:
-        linear-gradient(180deg, rgba(16, 35, 63, 0.03) 0%, rgba(16, 35, 63, 0.01) 100%);
+    background: #f8fafc;
     border: 1px solid var(--travs-surface-muted);
 }
 
@@ -778,8 +927,7 @@ svg {
     height: 192px;
     padding: 10px;
     border-radius: 18px;
-    background:
-        linear-gradient(180deg, rgba(16, 35, 63, 0.02) 0%, rgba(16, 35, 63, 0.08) 100%);
+    background: #eef2f6;
 }
 
 .travs-dashboard-chart-bar {
@@ -787,7 +935,7 @@ svg {
     width: 100%;
     max-width: 32px;
     border-radius: 999px;
-    background: linear-gradient(180deg, #ffb77d 0%, #f58a2a 100%);
+    background: #435ebe;
     box-shadow: 0 14px 20px rgba(245, 138, 42, 0.18);
 }
 
@@ -956,6 +1104,123 @@ svg {
     line-height: 1.6;
 }
 
+/* Section bisa diringkas tanpa memuat ulang halaman atau meminta data baru ke server. */
+.collapsible-section__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.collapsible-section__header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.collapsible-section__toggle {
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    padding: 0;
+    color: var(--travs-primary);
+    background: var(--travs-surface);
+    border: 1px solid var(--travs-border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.collapsible-section__toggle:hover,
+.collapsible-section__toggle:focus-visible {
+    background: var(--travs-white);
+    border-color: var(--travs-primary);
+    outline: none;
+}
+
+.collapsible-section__icon {
+    display: inline-grid;
+    place-items: center;
+}
+
+.collapsible-section__icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.collapsible-section__icon-closed,
+.collapsible-section.is-collapsed .collapsible-section__icon-open {
+    display: none;
+}
+
+.collapsible-section.is-collapsed .collapsible-section__icon-closed {
+    display: inline-grid;
+}
+
+.collapsible-section__body[hidden] {
+    display: none !important;
+}
+
+.collapsible-section.is-collapsed .collapsible-section__header {
+    margin-bottom: 0;
+}
+
+.travs-cost-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 24px;
+}
+
+/* Form biaya disusun sebagai daftar vertikal, jadi tidak boleh menempel saat halaman digulir. */
+.travs-cost-workspace > .travs-cost-form-panel {
+    position: static;
+    top: auto;
+    width: 100%;
+}
+
+.travs-cost-workspace > .travs-cost-list-panel {
+    width: 100%;
+    margin-top: 0;
+    clear: both;
+}
+
+.travs-cost-form-panel,
+.travs-cost-list-panel,
+.travs-rekap-shelf-panel {
+    min-width: 0;
+}
+
+.travs-cost-filter-section {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: var(--travs-surface);
+    border: 1px solid var(--travs-border);
+    border-radius: 8px;
+}
+
+.travs-cost-filter-section .travs-filter-grid {
+    margin-bottom: 0;
+}
+
+.travs-cost-table-section {
+    margin-top: 0;
+}
+
+.travs-rekap-panel-grid {
+    align-items: start;
+}
+
+.travs-rekap-shelf-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+}
+
 .travs-chart-card {
     min-height: 260px;
     padding: 14px;
@@ -992,8 +1257,7 @@ svg {
     height: 170px;
     padding: 8px;
     border-radius: 12px;
-    background:
-        linear-gradient(180deg, rgba(16, 35, 63, 0.02) 0%, rgba(16, 35, 63, 0.08) 100%);
+    background: #eef2f6;
 }
 
 .travs-chart-bar {
@@ -1001,7 +1265,7 @@ svg {
     width: 100%;
     max-width: 24px;
     border-radius: 999px;
-    background: linear-gradient(180deg, var(--travs-primary-soft) 0%, var(--travs-primary) 100%);
+    background: var(--travs-primary);
 }
 
 .travs-chart-bar-item strong {
@@ -1086,6 +1350,31 @@ svg {
     color: var(--travs-text-soft);
 }
 
+.travs-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .02em;
+}
+
+.travs-badge-success {
+    background: #e8f7ee;
+    color: #0f7a3a;
+}
+
+.travs-badge-warning {
+    background: #fff4df;
+    color: #a65f00;
+}
+
+.travs-badge-danger {
+    background: #fdecec;
+    color: #b42318;
+}
+
 .travs-reminder-section {
     margin-top: 18px;
     padding: 18px;
@@ -1164,11 +1453,101 @@ svg {
     gap: 16px;
 }
 
+.travs-admin-account-card {
+    width: 100%;
+    max-width: none;
+    padding: 22px;
+}
+
+.travs-admin-account-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 18px;
+    align-items: start;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--travs-border);
+}
+
+.travs-admin-account-head h3 {
+    margin: 12px 0 8px;
+    color: var(--travs-primary);
+    font-size: 1.18rem;
+}
+
+.travs-admin-account-head p {
+    max-width: 620px;
+    margin: 0;
+    color: var(--travs-text-soft);
+    line-height: 1.65;
+}
+
+.travs-admin-account-badge {
+    display: grid;
+    gap: 4px;
+    min-width: 240px;
+    padding: 14px 16px;
+    border: 1px solid var(--travs-border);
+    border-radius: 16px;
+    background: var(--travs-surface);
+}
+
+.travs-admin-account-badge span {
+    color: var(--travs-text-soft);
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.travs-admin-account-badge strong {
+    color: var(--travs-primary);
+    font-size: 0.95rem;
+    overflow-wrap: anywhere;
+}
+
+.travs-admin-account-form {
+    display: grid;
+    gap: 18px;
+    margin-top: 18px;
+}
+
+.travs-admin-account-primary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(260px, 1fr));
+    gap: 16px;
+}
+
+.travs-admin-password-panel {
+    display: grid;
+    gap: 14px;
+    padding: 18px;
+    border: 1px solid var(--travs-border);
+    border-radius: 18px;
+    background: #f8fafc;
+}
+
+.travs-admin-password-copy h4 {
+    margin: 0 0 6px;
+    color: var(--travs-primary);
+    font-size: 1rem;
+}
+
+.travs-admin-password-copy p {
+    margin: 0;
+    color: var(--travs-text-soft);
+    line-height: 1.6;
+}
+
+.travs-admin-account-actions {
+    justify-content: flex-end;
+    margin-top: 0;
+}
+
 .travs-settings-tabs {
     display: grid;
     gap: 16px;
     padding: 20px;
-    background: linear-gradient(180deg, rgba(16, 35, 63, 0.04) 0%, rgba(16, 35, 63, 0.01) 100%);
+    background: #f8fafc;
     border: 1px solid var(--travs-border);
     border-radius: 18px;
 }
@@ -1248,6 +1627,176 @@ svg {
     line-height: 1.55;
 }
 
+/* Semua aturan di bawah dibatasi untuk halaman pengaturan agar halaman admin lain tidak ikut berubah. */
+.travs-settings-page .travs-settings-group {
+    width: 100%;
+    padding: 24px;
+}
+
+.travs-settings-page .form-label {
+    margin-bottom: 7px;
+    color: var(--travs-primary);
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.travs-settings-page .form-control,
+.travs-settings-page .input-group-text {
+    min-height: 46px;
+    border-color: var(--travs-border);
+}
+
+.travs-settings-page textarea.form-control {
+    min-height: 98px;
+    resize: vertical;
+}
+
+.travs-settings-page .form-control:focus,
+.travs-settings-page .form-check-input:focus {
+    border-color: var(--travs-primary-soft);
+    box-shadow: 0 0 0 0.2rem rgba(24, 54, 95, 0.12);
+}
+
+.travs-settings-page .form-check-input:checked {
+    background-color: var(--travs-primary);
+    border-color: var(--travs-primary);
+}
+
+.travs-settings-page .form-switch .form-check-input {
+    width: 2.75rem;
+    height: 1.4rem;
+}
+
+.travs-settings-page .form-text {
+    color: var(--travs-text-soft);
+    line-height: 1.5;
+}
+
+.travs-settings-page .travs-settings-subsection {
+    margin-top: 18px;
+    padding: 18px;
+    border: 1px solid var(--travs-border);
+    border-radius: 14px;
+    background: #f8fafc;
+    transition: opacity 160ms ease;
+}
+
+.travs-settings-page .travs-settings-subsection.is-disabled {
+    opacity: 0.55;
+}
+
+.travs-settings-page .travs-settings-subsection-head {
+    margin-bottom: 14px;
+}
+
+.travs-settings-page .travs-settings-subsection-head h4 {
+    margin: 0 0 5px;
+    color: var(--travs-primary);
+    font-size: 1rem;
+}
+
+.travs-settings-page .travs-settings-subsection-head p {
+    margin: 0;
+    color: var(--travs-text-soft);
+    font-size: 0.86rem;
+    line-height: 1.55;
+}
+
+.travs-settings-page .travs-settings-switch-row,
+.travs-settings-page .travs-settings-switch-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    min-height: 82px;
+    padding: 15px 16px;
+    border: 1px solid var(--travs-border);
+    border-radius: 14px;
+    background: var(--travs-white);
+}
+
+.travs-settings-page .travs-settings-switch-row strong,
+.travs-settings-page .travs-settings-switch-card strong {
+    display: block;
+    color: var(--travs-primary);
+    font-size: 0.9rem;
+}
+
+.travs-settings-page .travs-settings-switch-row p,
+.travs-settings-page .travs-settings-switch-card span {
+    display: block;
+    margin: 5px 0 0;
+    color: var(--travs-text-soft);
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.travs-settings-page .travs-settings-logo-preview {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--travs-border);
+    border-radius: 12px;
+    background: #f8fafc;
+    color: var(--travs-text-soft);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.travs-settings-page .travs-settings-logo-preview img {
+    width: 72px;
+    height: 48px;
+    object-fit: contain;
+}
+
+.travs-settings-page .travs-baggage-simulator {
+    background: var(--travs-white);
+}
+
+.travs-settings-page .travs-simulation-result {
+    display: grid;
+    gap: 5px;
+    min-height: 74px;
+    padding: 13px 15px;
+    border-radius: 12px;
+    background: var(--travs-primary);
+    color: var(--travs-white);
+}
+
+.travs-settings-page .travs-simulation-result span {
+    font-size: 0.76rem;
+    opacity: 0.78;
+}
+
+.travs-settings-page .travs-simulation-result strong {
+    font-size: 1.1rem;
+}
+
+@media (max-width: 767.98px) {
+    .travs-settings-page .travs-settings-group {
+        padding: 18px;
+    }
+
+    .travs-settings-page .travs-settings-tab-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .travs-settings-page .travs-settings-tab {
+        width: 100%;
+    }
+
+    .travs-settings-page .travs-settings-switch-row,
+    .travs-settings-page .travs-settings-switch-card {
+        align-items: flex-start;
+    }
+
+    .travs-settings-page .travs-form-actions .travs-button {
+        width: 100%;
+    }
+}
+
 .travs-form-actions {
     display: flex;
     justify-content: flex-end;
@@ -1266,6 +1815,14 @@ svg {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 14px;
     margin-bottom: 18px;
+}
+
+.travs-summary-grid-dashboard {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.travs-summary-grid-dashboard .travs-summary-card:last-child {
+    grid-column: span 1;
 }
 
 .travs-summary-card,
@@ -1357,6 +1914,135 @@ svg {
     line-height: 1.55;
 }
 
+.travs-person-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 180px;
+    max-width: 320px;
+    overflow: hidden;
+}
+
+.travs-person-cell > div:last-child {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.travs-person-cell strong,
+.travs-person-cell .travs-table-subcopy {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.travs-avatar {
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 50%;
+    background: var(--travs-primary);
+    color: #ffffff;
+    font-weight: 800;
+    box-shadow: 0 8px 18px rgba(8, 36, 71, 0.14);
+}
+
+.travs-avatar img {
+    width: 100%;
+    height: 100%;
+    max-width: 46px;
+    max-height: 46px;
+    display: block;
+    object-fit: cover;
+}
+
+.travs-table .travs-avatar,
+.travs-table .travs-person-cell .travs-avatar {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+    min-width: 42px;
+    max-width: 42px;
+    max-height: 42px;
+}
+
+.travs-table .travs-avatar img,
+.travs-table .travs-person-cell .travs-avatar img {
+    width: 42px;
+    height: 42px;
+    max-width: 42px;
+    max-height: 42px;
+    display: block;
+    object-fit: cover;
+}
+
+.travs-current-photo {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--travs-border);
+    border-radius: 18px;
+    background: var(--travs-soft);
+    color: var(--travs-text-soft);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.travs-current-photo img {
+    width: 54px;
+    height: 54px;
+    max-width: 54px;
+    max-height: 54px;
+    display: block;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.travs-current-document img {
+    width: 84px;
+    height: 54px;
+    max-width: 84px;
+    max-height: 54px;
+    border-radius: 12px;
+}
+
+.travs-current-vehicle-photo img {
+    width: 84px;
+    height: 54px;
+    max-width: 84px;
+    max-height: 54px;
+    border-radius: 12px;
+}
+
+.travs-photo-preview-trigger {
+    cursor: zoom-in;
+}
+
+.travs-vehicle-thumb {
+    width: 52px;
+    height: 52px;
+    max-width: 52px;
+    max-height: 52px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid var(--travs-border);
+    border-radius: 14px;
+    object-fit: cover;
+    background: var(--travs-soft);
+    color: var(--travs-primary);
+}
+
+.travs-vehicle-thumb-fallback {
+    font-size: 1.15rem;
+}
+
 .travs-table-actions {
     display: flex;
     align-items: center;
@@ -1391,6 +2077,47 @@ svg {
     align-items: flex-start;
     gap: 8px;
     flex-wrap: wrap;
+}
+
+.travs-detail-stack {
+    display: grid;
+    gap: 18px;
+    margin-top: 18px;
+}
+
+.travs-contact-link {
+    color: var(--travs-primary);
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.travs-contact-link:hover {
+    text-decoration: underline;
+}
+
+.travs-location-note {
+    margin-top: 4px;
+    color: var(--travs-text-soft);
+    font-size: 0.82rem;
+}
+
+.travs-bagasi-photo-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.travs-bagasi-thumb {
+    width: 100px;
+    height: 100px;
+    max-width: 100px;
+    max-height: 100px;
+    border: 1px solid var(--travs-border);
+    border-radius: 12px;
+    object-fit: cover;
+    background: var(--travs-soft);
 }
 
 .travs-status-pill {
@@ -1476,14 +2203,14 @@ svg {
     margin: 18px 0 0;
 }
 
-.travs-description-list div {
+.travs-description-list > div {
     padding: 14px 16px;
     border: 1px solid var(--travs-border);
     border-radius: 16px;
     background: var(--travs-surface);
 }
 
-.travs-description-list dt {
+.travs-description-list > div > dt {
     margin-bottom: 8px;
     color: var(--travs-text-soft);
     font-size: 0.78rem;
@@ -1492,7 +2219,7 @@ svg {
     text-transform: uppercase;
 }
 
-.travs-description-list dd {
+.travs-description-list > div > dd {
     margin: 0;
     color: var(--travs-primary);
     font-size: 0.94rem;
@@ -1530,6 +2257,41 @@ svg {
 
 .travs-detail-money .is-total strong {
     font-size: 1.08rem;
+}
+
+.travs-operational-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.travs-operational-summary div {
+    display: grid;
+    gap: 4px;
+    padding: 14px;
+    border: 1px solid var(--travs-border);
+    border-radius: 16px;
+    background: var(--travs-surface);
+}
+
+.travs-operational-summary small {
+    color: var(--travs-text-soft);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.travs-operational-summary strong {
+    color: var(--travs-primary);
+    font-size: 1.08rem;
+}
+
+.travs-operational-summary span {
+    color: var(--travs-text-soft);
+    font-size: 0.82rem;
+    font-weight: 700;
 }
 
 .travs-subsection {
@@ -1666,6 +2428,10 @@ svg {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
+    .travs-summary-grid-dashboard {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .travs-filter-grid-wide {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
@@ -1695,13 +2461,38 @@ svg {
         grid-template-columns: 1fr;
     }
 
+    .travs-dashboard-focus-compact {
+        grid-template-columns: 1fr;
+    }
+
     .travs-split-grid,
+    .travs-cost-workspace,
     .travs-detail-grid,
     .travs-description-list,
+    .travs-operational-summary,
+    .travs-admin-account-head,
+    .travs-admin-account-primary,
     .travs-form-grid-2,
     .travs-filter-grid,
     .travs-filter-grid-wide {
         grid-template-columns: 1fr;
+    }
+
+    .travs-admin-account-card {
+        padding: 18px;
+    }
+
+    .travs-admin-account-badge {
+        min-width: 0;
+    }
+
+    .travs-admin-account-actions {
+        justify-content: stretch;
+    }
+
+    .travs-admin-account-actions .travs-button {
+        width: 100%;
+        justify-content: center;
     }
 
     .travs-form-card {
@@ -1714,6 +2505,20 @@ svg {
 }
 
 @media (max-width: 760px) {
+    .collapsible-section__header {
+        align-items: flex-start;
+    }
+
+    .collapsible-section__header-actions {
+        max-width: 100%;
+    }
+
+    .collapsible-section__toggle {
+        width: 38px;
+        height: 38px;
+        flex-basis: 38px;
+    }
+
     .travs-login-card,
     .travs-page-frame,
     .travs-panel,
@@ -1732,14 +2537,29 @@ svg {
         grid-template-columns: 1fr;
     }
 
+    .travs-summary-grid-dashboard {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-dashboard-simple .travs-summary-grid-dashboard .travs-summary-card:last-child {
+        grid-column: auto;
+    }
+
     .travs-topbar {
         flex-direction: column;
         align-items: stretch;
     }
 
-    .travs-topbar-search,
-    .travs-topbar-actions {
-        width: 100%;
+    .travs-topbar-left {
+        flex-wrap: wrap;
+    }
+
+    .travs-topbar-title p {
+        max-width: 100%;
+    }
+
+    .travs-topbar-right {
+        justify-content: flex-end;
     }
 
     .travs-search-box {
@@ -1786,5 +2606,458 @@ svg {
 
     .travs-pagination-links {
         justify-content: flex-start;
+    }
+}
+
+.travs-rekap-filter-card {
+    margin-bottom: 22px;
+}
+
+.travs-rekap-panel-grid {
+    display: grid;
+    gap: 22px;
+}
+
+.travs-admin-booking-alert {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    border: 1px solid var(--travs-border);
+    border-radius: 16px;
+    background: var(--travs-white);
+}
+
+.travs-admin-booking-alert strong {
+    color: var(--travs-primary);
+}
+
+.travs-admin-booking-alert small {
+    color: var(--travs-text-soft);
+    line-height: 1.55;
+}
+
+.travs-sidebar-badge {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--travs-accent);
+    color: var(--travs-white);
+    font-size: 0.72rem;
+    font-weight: 800;
+    box-shadow: 0 8px 18px rgba(245, 138, 42, 0.18);
+}
+
+.travs-section-card.is-booking-notification {
+    border-color: rgba(245, 138, 42, 0.35);
+    box-shadow: 0 20px 34px rgba(245, 138, 42, 0.10);
+}
+
+.travs-booking-notification-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.travs-booking-notification-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: var(--travs-accent);
+    box-shadow: 0 0 0 6px rgba(245, 138, 42, 0.12);
+}
+
+/* Kerangka admin ini menggantikan layout template dan menjaga sidebar tetap sederhana. */
+.travs-admin-body {
+    min-width: 320px;
+    background: #f2f7ff;
+    color: #25396f;
+}
+
+.travs-admin-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+}
+
+.travs-admin-main {
+    min-width: 0;
+}
+
+.travs-sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 1040;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 20px 16px;
+    background: #ffffff;
+    border-right: 1px solid #dce7f5;
+}
+
+.travs-sidebar-head {
+    margin-bottom: 20px;
+    padding: 0 4px 18px;
+    border-bottom: 1px solid #edf2f7;
+}
+
+.travs-sidebar-menu,
+.travs-menu {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.travs-menu {
+    display: grid;
+    gap: 4px;
+}
+
+.travs-nav-group-title {
+    margin: 14px 0 4px;
+    padding: 0 12px;
+    color: #607080;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.travs-sidebar-item {
+    min-width: 0;
+}
+
+.travs-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    color: #25396f;
+}
+
+.travs-nav-link:hover {
+    color: #435ebe;
+    background: #f2f7ff;
+}
+
+.travs-nav-link.is-active {
+    color: #ffffff;
+    background: var(--travs-primary);
+}
+
+.travs-nav-link svg {
+    flex: 0 0 18px;
+}
+
+.travs-brand-copy {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.travs-brand-copy h3,
+.travs-brand-copy h5 {
+    margin: 0;
+    color: #25396f;
+    font-weight: 700;
+}
+
+.travs-brand-copy small {
+    color: #7c8db5;
+}
+
+.travs-brand-mark {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    flex: 0 0 42px;
+    place-items: center;
+    border-radius: 8px;
+    background: #435ebe;
+}
+
+.travs-brand-mark span {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ffffff;
+}
+
+.travs-brand-mark.travs-brand-logo {
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #d9e0ef;
+}
+
+.travs-brand-mark.travs-brand-logo > img {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    display: block;
+    position: static !important;
+    object-fit: contain !important;
+}
+
+.travs-sidebar-backdrop[hidden] {
+    display: none;
+}
+
+.travs-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1035;
+    border: 0;
+    background: rgba(37, 57, 111, 0.38);
+}
+
+.travs-topbar-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #607080;
+    font-size: 0.88rem;
+}
+
+.travs-topbar-notification {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    color: var(--travs-primary);
+    background: #ffffff;
+    border: 1px solid #dce7f5;
+    border-radius: 8px;
+}
+
+.travs-topbar-notification:hover,
+.travs-topbar-notification:focus-visible {
+    color: #ffffff;
+    background: var(--travs-primary);
+}
+
+.travs-topbar-notification-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
+    color: #ffffff;
+    background: #c83c3c;
+    border: 2px solid #ffffff;
+    border-radius: 999px;
+    font-size: 0.66rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.travs-topbar-chip svg,
+.travs-topbar-notification svg,
+.dropdown-item svg {
+    width: 16px;
+    height: 16px;
+}
+
+#main-content {
+    width: 100%;
+    max-width: none;
+    padding: 20px;
+}
+
+/* Komponen admin dibuat lebih tenang tanpa gradient atau bayangan berlebihan. */
+.travs-admin-body .travs-card,
+.travs-admin-body .travs-panel,
+.travs-admin-body .travs-section-card,
+.travs-admin-body .travs-page-frame,
+.travs-admin-body .travs-dashboard-panel,
+.travs-admin-body .travs-overview-card,
+.travs-admin-body .travs-summary-card,
+.travs-admin-body .travs-form-card,
+.travs-admin-body .travs-filter-card {
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(37, 57, 111, 0.08);
+}
+
+.travs-admin-body .travs-button,
+.travs-admin-body .travs-sidebar-badge,
+.travs-admin-body .travs-user-avatar,
+.travs-admin-body .travs-booking-notification-dot,
+.travs-admin-body .travs-dashboard-chart-bar {
+    background: #435ebe;
+    box-shadow: none;
+}
+
+.travs-admin-body .travs-input,
+.travs-admin-body .travs-select,
+.travs-admin-body .travs-textarea,
+.travs-admin-body .form-control,
+.travs-admin-body .form-select {
+    border-radius: 6px;
+    color: #25396f;
+    background-color: #ffffff;
+}
+
+.travs-admin-body .travs-input:focus,
+.travs-admin-body .travs-select:focus,
+.travs-admin-body .travs-textarea:focus,
+.travs-admin-body .form-control:focus,
+.travs-admin-body .form-select:focus {
+    border-color: #435ebe;
+    box-shadow: 0 0 0 3px rgba(67, 94, 190, 0.14);
+}
+
+/* Preview hanya menampilkan foto agar perhatian pengguna tidak pecah oleh card tambahan. */
+.travs-photo-preview-modal[hidden] {
+    display: none;
+}
+
+.travs-photo-preview-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: grid;
+    place-items: center;
+    padding: 28px;
+    background: rgba(15, 23, 42, 0.78);
+}
+
+.travs-photo-preview-modal > img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: min(500px, 90vw);
+    max-height: min(500px, 82vh);
+    object-fit: contain;
+}
+
+.travs-photo-preview-close {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 50%;
+    color: #25396f;
+    background: #ffffff;
+    font-size: 1.5rem;
+    line-height: 1;
+}
+
+body.travs-photo-preview-open,
+body.travs-sidebar-open {
+    overflow: hidden;
+}
+
+.travs-admin-auth {
+    min-width: 320px;
+    overflow-x: hidden;
+    background: #f2f7ff;
+    color: #25396f;
+}
+
+.travs-auth-wrapper {
+    min-height: 100vh;
+}
+
+.travs-auth-card {
+    width: 100%;
+    max-width: 460px;
+    min-width: 0;
+    border-radius: 8px;
+}
+
+.travs-auth-card .card-body,
+.travs-auth-card p {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.travs-auth-card .form-group.has-icon-left {
+    position: relative;
+}
+
+.travs-auth-card .form-control-xl {
+    min-height: 52px;
+    padding-left: 46px;
+}
+
+.travs-auth-card .form-control-icon {
+    position: absolute;
+    top: 50%;
+    left: 16px;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    color: #607080;
+    transform: translateY(-50%);
+}
+
+.travs-auth-card .btn-primary {
+    background: #435ebe;
+    border-color: #435ebe;
+}
+
+@media (max-width: 1199.98px) {
+    .travs-admin-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-sidebar {
+        position: fixed;
+        left: 0;
+        width: min(280px, 86vw);
+        transform: translateX(-105%);
+        transition: transform 0.2s ease;
+    }
+
+    .travs-sidebar.is-open {
+        transform: translateX(0);
+    }
+}
+
+@media (max-width: 767.98px) {
+    #main-content {
+        padding: 14px;
+    }
+
+    .travs-topbar {
+        padding: 12px 14px;
+    }
+
+    .travs-topbar-chip {
+        display: none;
+    }
+
+    .travs-user-copy {
+        display: none;
+    }
+
+    .travs-auth-card .card-body {
+        padding: 24px !important;
+    }
+
+    .travs-auth-card {
+        width: calc(100vw - 48px) !important;
+        max-width: calc(100vw - 48px) !important;
+    }
+
+    .travs-auth-card .text-muted {
+        white-space: normal;
+    }
+
+    .travs-auth-card .btn-primary {
+        width: 100%;
     }
 }

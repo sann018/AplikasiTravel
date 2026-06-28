@@ -101,7 +101,7 @@ class TravSDemoSeeder extends Seeder
         $pengemudi = Pengemudi::query()->updateOrCreate(
             ['pengguna_id' => $driverUser->id],
             [
-                'nomor_sim' => 'SIM-A-TRAVS-001',
+                'nomor_sim' => '6171010101010001',
                 'status' => 'aktif',
                 'status_verifikasi' => 'terverifikasi',
                 'catatan_verifikasi' => 'Dokumen lengkap dan siap dijadwalkan.',
@@ -113,7 +113,7 @@ class TravSDemoSeeder extends Seeder
         $pengemudi2 = Pengemudi::query()->updateOrCreate(
             ['pengguna_id' => $driverUser2->id],
             [
-                'nomor_sim' => 'SIM-A-TRAVS-002',
+                'nomor_sim' => '6171010101010002',
                 'status' => 'aktif',
                 'status_verifikasi' => 'terverifikasi',
                 'catatan_verifikasi' => 'SIM dan kontak sudah tervalidasi.',
@@ -125,7 +125,7 @@ class TravSDemoSeeder extends Seeder
         $pengemudi3 = Pengemudi::query()->updateOrCreate(
             ['pengguna_id' => $driverUser3->id],
             [
-                'nomor_sim' => 'SIM-A-TRAVS-003',
+                'nomor_sim' => '6171010101010003',
                 'status' => 'nonaktif',
                 'status_verifikasi' => 'menunggu',
                 'catatan_verifikasi' => 'Menunggu unggahan foto SIM yang lebih jelas.',
@@ -281,7 +281,6 @@ class TravSDemoSeeder extends Seeder
                 'alamat_jemput' => 'Jalan Ampera Raya, Pontianak',
                 'subtotal_tiket' => 450000,
                 'biaya_bagasi' => 10000,
-                'biaya_admin' => 5000,
                 'diskon' => 0,
                 'total_harga' => 465000,
                 'status_pemesanan' => 'terbayar',
@@ -358,7 +357,6 @@ class TravSDemoSeeder extends Seeder
                 'alamat_jemput' => 'Terminal Batu Layang, Pontianak',
                 'subtotal_tiket' => 175000,
                 'biaya_bagasi' => 15000,
-                'biaya_admin' => 5000,
                 'diskon' => 0,
                 'total_harga' => 195000,
                 'status_pemesanan' => 'menunggu_pembayaran',
@@ -414,7 +412,6 @@ class TravSDemoSeeder extends Seeder
                 'alamat_jemput' => 'Jalan Ahmad Yani, Pontianak',
                 'subtotal_tiket' => 240000,
                 'biaya_bagasi' => 0,
-                'biaya_admin' => 5000,
                 'diskon' => 10000,
                 'total_harga' => 235000,
                 'status_pemesanan' => 'selesai',

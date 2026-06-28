@@ -6,9 +6,16 @@ import '../../core/services/travs_location_service.dart';
 import '../../core/theme/travs_theme.dart';
 
 class TravSPickupMapPickerPage extends StatefulWidget {
-  const TravSPickupMapPickerPage({this.initialPickup, super.key});
+  const TravSPickupMapPickerPage({
+    this.initialPickup,
+    this.title = 'Pilih Titik Jemput',
+    this.locationLabel = 'titik jemput',
+    super.key,
+  });
 
   final TravSPickupPoint? initialPickup;
+  final String title;
+  final String locationLabel;
 
   @override
   State<TravSPickupMapPickerPage> createState() =>
@@ -22,13 +29,15 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
   final MapController _mapController = MapController();
 
   late LatLng _selectedPoint;
-  String _selectedAddress = 'Ketuk peta untuk memilih titik jemput.';
+  late String _selectedAddress;
   bool _isResolvingAddress = false;
   int _lookupToken = 0;
 
   @override
   void initState() {
     super.initState();
+    _selectedAddress =
+        'Ketuk peta untuk memilih ${widget.locationLabel.toLowerCase()}.';
     final initialPickup = widget.initialPickup;
     if (initialPickup != null) {
       _selectedPoint = LatLng(initialPickup.latitude, initialPickup.longitude);
@@ -70,7 +79,8 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
       }
 
       setState(() {
-        _selectedAddress = error.toString();
+        _selectedAddress =
+            'Gagal mengambil alamat. Coba geser pin atau ketik manual.';
       });
     } finally {
       if (mounted && currentLookup == _lookupToken) {
@@ -123,7 +133,7 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Pilih Titik Jemput')),
+      appBar: AppBar(title: Text(widget.title)),
       body: Column(
         children: [
           Container(
@@ -139,7 +149,7 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Tap pada peta untuk memilih titik jemput',
+                    'Tap pada peta untuk memilih ${widget.locationLabel}',
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -147,7 +157,7 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Alamat akan diisi otomatis dengan reverse geocoding. Kamu juga bisa langsung pakai lokasi perangkat saat ini.',
+                    'Alamat akan diisi otomatis berdasarkan titik yang dipilih. Kamu juga bisa langsung pakai lokasi perangkat saat ini.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: Colors.white.withValues(alpha: 0.88),
                     ),
@@ -173,7 +183,7 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
                     TileLayer(
                       urlTemplate:
                           'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.example.frontend',
+                      userAgentPackageName: 'com.ruslytravel.app',
                     ),
                     MarkerLayer(
                       markers: [

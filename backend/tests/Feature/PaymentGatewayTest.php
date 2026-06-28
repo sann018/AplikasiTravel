@@ -8,6 +8,7 @@ use App\Models\KursiJadwal;
 use App\Models\Pemesanan;
 use App\Models\TiketElektronik;
 use App\Models\User;
+use App\Services\BookingService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -63,6 +64,11 @@ class PaymentGatewayTest extends TestCase
                 'longitude' => 109.3425,
                 'address' => 'Jalan Ahmad Yani, Pontianak',
             ],
+            'dropoff' => [
+                'latitude' => 0.1285,
+                'longitude' => 111.4986,
+                'address' => 'Terminal tujuan',
+            ],
             'payment_method' => 'qris',
             'passengers' => [
                 [
@@ -76,7 +82,14 @@ class PaymentGatewayTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonPath('data.payment.uses_gateway', true)
-            ->assertJsonPath('data.payment.payment_number', 'QRIS-REAL-001');
+            ->assertJsonPath('data.payment.payment_number', 'QRIS-REAL-001')
+            ->assertJsonPath(
+                'data.payment.checkout_url',
+                fn (string $url) => str_starts_with($url, 'https://app.pakasir.com/pay/travs-test/')
+                    && str_contains($url, 'order_id=')
+                    && str_contains($url, 'qris_only=1')
+                    && ! str_contains($url, 'redirect='),
+            );
 
         $booking = Pemesanan::query()->latest('id')->firstOrFail();
         $payment = $booking->pembayaran()->firstOrFail();
@@ -90,6 +103,68 @@ class PaymentGatewayTest extends TestCase
             && $request['project'] === 'travs-test'
             && $request['order_id'] === $booking->kode_booking
             && $request['api_key'] === 'secret-test-key');
+    }
+
+    public function test_transfer_booking_uses_pakasir_checkout_without_qris_only_mode(): void
+    {
+        Http::fake();
+
+        $user = User::query()->where('email', 'fitri@travs.com')->firstOrFail();
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        $seat = KursiJadwal::query()
+            ->where('jadwal_id', $jadwal->id)
+            ->where('status_kursi', 'tersedia')
+            ->orderByDesc('nomor_kursi')
+            ->firstOrFail();
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/penumpang/bookings', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seat->nomor_kursi],
+            'pickup' => [
+                'latitude' => -0.0225,
+                'longitude' => 109.3425,
+                'address' => 'Jalan Ahmad Yani, Pontianak',
+            ],
+            'dropoff' => [
+                'latitude' => 0.1285,
+                'longitude' => 111.4986,
+                'address' => 'Terminal tujuan',
+            ],
+            'payment_method' => 'transfer',
+            'passengers' => [
+                [
+                    'seat_number' => $seat->nomor_kursi,
+                    'nama_penumpang' => 'Penumpang Transfer',
+                    'no_hp_penumpang' => '081200000077',
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.payment.uses_gateway', true)
+            ->assertJsonPath('data.payment.method', 'transfer')
+            ->assertJsonPath(
+                'data.payment.checkout_url',
+                fn (string $url) => str_starts_with($url, 'https://app.pakasir.com/pay/travs-test/')
+                    && str_contains($url, 'order_id=')
+                    && ! str_contains($url, 'redirect=')
+                    && ! str_contains($url, 'qris_only=1'),
+            );
+
+        $booking = Pemesanan::query()->latest('id')->firstOrFail();
+        $payment = $booking->pembayaran()->firstOrFail();
+        $gatewayResponse = json_decode((string) $payment->gateway_response, true);
+
+        $this->assertSame('transfer', $payment->metode_bayar);
+        $this->assertSame('transfer', $payment->paid_channel);
+        $this->assertSame($booking->kode_booking, $payment->order_id_gateway);
+        $this->assertSame('transfer', $gatewayResponse['checkout_method']);
+        $this->assertSame([], $gatewayResponse['create_payment']);
+
+        Http::assertNothingSent();
     }
 
     public function test_pakasir_webhook_success_reconciles_transaction_before_issuing_ticket(): void
@@ -166,6 +241,117 @@ class PaymentGatewayTest extends TestCase
         $detailIds = $booking->detailPemesanan()->pluck('id');
         $this->assertSame(1, TiketElektronik::query()->whereIn('detail_pemesanan_id', $detailIds)->count());
         $this->assertSame('terbayar', $booking->fresh()->status_pemesanan);
+    }
+
+    public function test_passenger_can_refresh_qris_payment_after_pakasir_simulation(): void
+    {
+        $booking = $this->makePendingGatewayBooking('qris');
+        $user = User::query()->findOrFail($booking->pengguna_id);
+
+        Http::fake([
+            'app.pakasir.test/api/transactiondetail*' => Http::response([
+                'transaction' => [
+                    'order_id' => $booking->kode_booking,
+                    'status' => 'completed',
+                    'payment_method' => 'qris',
+                    'amount' => 230000,
+                    'total_payment' => 231500,
+                    'completed_at' => now()->toIso8601String(),
+                ],
+            ]),
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson("/api/penumpang/bookings/{$booking->id}/refresh-payment-status");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.status', 'terbayar')
+            ->assertJsonPath('data.payment.status', 'berhasil');
+
+        $booking->refresh();
+        $payment = $booking->pembayaran()->firstOrFail();
+
+        $this->assertSame('terbayar', $booking->status_pemesanan);
+        $this->assertSame('berhasil', $payment->status_bayar);
+        $this->assertDatabaseHas('tiket_elektronik', [
+            'detail_pemesanan_id' => $booking->detailPemesanan()->firstOrFail()->id,
+        ]);
+    }
+
+    public function test_passenger_can_refresh_transfer_payment_after_pakasir_simulation(): void
+    {
+        $booking = $this->makePendingGatewayBooking('transfer');
+        $user = User::query()->findOrFail($booking->pengguna_id);
+
+        Http::fake([
+            'app.pakasir.test/api/transactiondetail*' => Http::response([
+                'transaction' => [
+                    'order_id' => $booking->kode_booking,
+                    'status' => 'completed',
+                    'payment_method' => 'transfer',
+                    'amount' => 230000,
+                    'total_payment' => 231500,
+                    'completed_at' => now()->toIso8601String(),
+                ],
+            ]),
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson("/api/penumpang/bookings/{$booking->id}/refresh-payment-status");
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('data.status', 'terbayar')
+            ->assertJsonPath('data.payment.status', 'berhasil');
+
+        $booking->refresh();
+        $payment = $booking->pembayaran()->firstOrFail();
+
+        $this->assertSame('terbayar', $booking->status_pemesanan);
+        $this->assertSame('berhasil', $payment->status_bayar);
+        $this->assertDatabaseHas('tiket_elektronik', [
+            'detail_pemesanan_id' => $booking->detailPemesanan()->firstOrFail()->id,
+        ]);
+    }
+
+    public function test_gateway_completed_payment_is_synced_before_expired_booking_cleanup(): void
+    {
+        $booking = $this->makePendingGatewayBooking('qris');
+        $detailId = $booking->detailPemesanan()->firstOrFail()->id;
+
+        $booking->update([
+            'batas_pembayaran' => now()->subMinutes(10),
+        ]);
+        $booking->pembayaran()->update([
+            'expired_at' => now()->subMinutes(10),
+        ]);
+
+        Http::fake([
+            'app.pakasir.test/api/transactiondetail*' => Http::response([
+                'transaction' => [
+                    'order_id' => $booking->kode_booking,
+                    'status' => 'completed',
+                    'payment_method' => 'qris',
+                    'amount' => 230000,
+                    'total_payment' => 231500,
+                    'completed_at' => now()->toIso8601String(),
+                ],
+            ]),
+        ]);
+
+        app(BookingService::class)->releaseExpiredResources($booking->jadwal_id);
+
+        $booking->refresh();
+        $payment = $booking->pembayaran()->firstOrFail();
+
+        $this->assertSame('terbayar', $booking->status_pemesanan);
+        $this->assertSame('berhasil', $payment->status_bayar);
+        $this->assertDatabaseHas('tiket_elektronik', [
+            'detail_pemesanan_id' => $detailId,
+        ]);
     }
 
     public function test_expired_pakasir_webhook_marks_payment_expired_without_issuing_ticket(): void
@@ -248,6 +434,11 @@ class PaymentGatewayTest extends TestCase
 
     private function makePendingQrisBooking(): Pemesanan
     {
+        return $this->makePendingGatewayBooking('qris');
+    }
+
+    private function makePendingGatewayBooking(string $paymentMethod): Pemesanan
+    {
         $user = User::query()->where('email', 'penumpang@travs.com')->firstOrFail();
         $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
         $seat = KursiJadwal::query()
@@ -268,7 +459,6 @@ class PaymentGatewayTest extends TestCase
             'alamat_jemput' => 'Jalan Ahmad Yani, Pontianak',
             'subtotal_tiket' => 225000,
             'biaya_bagasi' => 0,
-            'biaya_admin' => 5000,
             'diskon' => 0,
             'total_harga' => 230000,
             'status_pemesanan' => 'menunggu_pembayaran',
@@ -285,9 +475,9 @@ class PaymentGatewayTest extends TestCase
 
         $booking->pembayaran()->create([
             'order_id_gateway' => $booking->kode_booking,
-            'gateway_reference' => 'QRIS-PKS-001',
-            'metode_bayar' => 'qris',
-            'paid_channel' => 'qris',
+            'gateway_reference' => strtoupper($paymentMethod).'-PKS-001',
+            'metode_bayar' => $paymentMethod,
+            'paid_channel' => $paymentMethod,
             'jumlah_bayar' => 231500,
             'status_bayar' => 'menunggu',
             'expired_at' => now()->addMinutes(15),

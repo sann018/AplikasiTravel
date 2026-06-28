@@ -5,13 +5,13 @@
 @section('page-description', 'Lihat akumulasi biaya per rute dan detail pengeluaran untuk mendukung evaluasi operasional travel.')
 
 @section('content')
-    <article class="travs-section-card">
-        <div class="travs-panel-title">
+    <article class="travs-section-card travs-rekap-filter-card travs-rekap-filter-shelf" data-static-filter-section>
+        <div class="travs-panel-title mb-3">
             <h3>Filter Rekap</h3>
             <p>Pilih rentang tanggal agar rekap biaya lebih fokus sesuai periode evaluasi.</p>
         </div>
 
-        <form method="GET" class="travs-filter-grid">
+        <form id="cost-recap-filter-body" method="GET" class="travs-filter-grid">
             <div class="travs-field">
                 <label for="tanggal_mulai">Tanggal Mulai</label>
                 <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input" value="{{ $filters['tanggal_mulai'] ?? '' }}">
@@ -27,14 +27,17 @@
         </form>
     </article>
 
-    <section class="travs-panel-grid">
-        <article class="travs-section-card">
-            <div class="travs-panel-title">
-                <h3>Akumulasi per Rute</h3>
-                <p>Ringkasan biaya per rute berdasarkan data biaya operasional yang sudah dicatat.</p>
+    <section class="travs-panel-grid travs-rekap-panel-grid travs-rekap-shelf-grid">
+        <article class="travs-section-card travs-rekap-shelf-panel collapsible-section" data-collapsible-section>
+            <div class="collapsible-section__header" data-collapse-header>
+                <div class="travs-panel-title">
+                    <h3>Akumulasi per Rute</h3>
+                    <p>Ringkasan biaya per rute berdasarkan data biaya operasional yang sudah dicatat.</p>
+                </div>
+                @include('admin.partials.collapsible-toggle', ['targetId' => 'cost-recap-route-body'])
             </div>
 
-            <div class="travs-table-wrap">
+            <div id="cost-recap-route-body" class="travs-table-wrap collapsible-section__body" data-collapse-body>
                 <table class="travs-table">
                     <thead>
                         <tr>
@@ -62,13 +65,16 @@
             </div>
         </article>
 
-        <article class="travs-section-card">
-            <div class="travs-panel-title">
-                <h3>Detail Pencatatan</h3>
-                <p>Daftar biaya operasional terbaru yang masuk ke sistem.</p>
+        <article class="travs-section-card travs-rekap-shelf-panel collapsible-section" data-collapsible-section>
+            <div class="collapsible-section__header" data-collapse-header>
+                <div class="travs-panel-title">
+                    <h3>Detail Pencatatan</h3>
+                    <p>Daftar biaya operasional terbaru yang masuk ke sistem.</p>
+                </div>
+                @include('admin.partials.collapsible-toggle', ['targetId' => 'cost-recap-detail-body'])
             </div>
 
-            <div class="travs-table-wrap">
+            <div id="cost-recap-detail-body" class="travs-table-wrap collapsible-section__body" data-collapse-body>
                 <table class="travs-table">
                     <thead>
                         <tr>
@@ -97,3 +103,7 @@
         </article>
     </section>
 @endsection
+
+@push('scripts')
+    @include('admin.partials.collapsible-section-script')
+@endpush

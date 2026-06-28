@@ -33,7 +33,7 @@ class TravSAuthService {
         return null;
       }
 
-      return session;
+      return await _refreshStoredSession(session);
     } catch (_) {
       await clearSession();
       return null;
@@ -85,6 +85,11 @@ class TravSAuthService {
     await prefs.remove(_sessionKey);
   }
 
+  Future<void> saveSession(TravSUserSession session) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_sessionKey, jsonEncode(session.toJson()));
+  }
+
   Future<void> logout(String token) async {
     try {
       await TravSApiService.postWithFallback(
@@ -92,7 +97,8 @@ class TravSAuthService {
         headers: TravSApiService.jsonHeaders(token: token),
       );
     } catch (_) {
-      // Best effort only. Local session tetap dihapus.
+      // Walau logout di server gagal, sesi lokal tetap dibersihkan
+      // supaya akun tidak terlihat masih aktif di aplikasi.
     } finally {
       await clearSession();
     }
@@ -118,8 +124,38 @@ class TravSAuthService {
       );
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_sessionKey, jsonEncode(session.toJson()));
+    await saveSession(session);
+    return session;
+  }
+
+  Future<TravSUserSession?> _refreshStoredSession(
+    TravSUserSession session,
+  ) async {
+    try {
+      final response = await TravSApiService.getWithFallback(
+        '/api/auth/me',
+        headers: TravSApiService.jsonHeaders(token: session.token),
+      );
+      final decoded = _decodeBody(response.body);
+      if (response.statusCode == 401) {
+        await clearSession();
+        return null;
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final data =
+            decoded['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
+        final refreshedSession = session.copyWith(
+          user: TravSUserProfile.fromJson(data),
+        );
+        await saveSession(refreshedSession);
+        return refreshedSession;
+      }
+    } catch (_) {
+      // Kalau backend sedang belum bisa dihubungi, pakai sesi lama dulu
+      // agar pengguna tidak langsung terlempar keluar aplikasi.
+    }
+
     return session;
   }
 
@@ -130,7 +166,7 @@ class TravSAuthService {
         headers: TravSApiService.jsonHeaders(token: token),
       );
     } catch (_) {
-      // Tidak memblokir UX login mobile.
+      // Kegagalan logout admin tidak perlu menghentikan pesan utama ke pengguna.
     }
   }
 
@@ -141,7 +177,7 @@ class TravSAuthService {
         return decoded;
       }
     } catch (_) {
-      // Balikkan fallback di bawah.
+      // Kalau body bukan JSON valid, balikan map kosong agar alur tetap aman.
     }
 
     return <String, dynamic>{};
@@ -150,11 +186,13 @@ class TravSAuthService {
   String _extractErrorMessage(Map<String, dynamic> body) {
     final errors = body['errors'];
     if (errors is Map) {
-      for (final value in errors.values) {
+      for (final entry in errors.entries) {
+        final fieldName = entry.key.toString();
+        final value = entry.value;
         if (value is List && value.isNotEmpty) {
           final message = value.first?.toString();
           if (message != null && message.isNotEmpty) {
-            return message;
+            return _friendlyValidationMessage(fieldName, message);
           }
         }
       }
@@ -162,9 +200,38 @@ class TravSAuthService {
 
     final message = body['message']?.toString();
     if (message != null && message.isNotEmpty) {
-      return message;
+      return _friendlyValidationMessage('', message);
     }
 
     return 'Permintaan tidak dapat diproses. Silakan coba lagi.';
+  }
+
+  String _friendlyValidationMessage(String fieldName, String message) {
+    final normalizedMessage = message.toLowerCase();
+
+    if (normalizedMessage == 'validation.unique') {
+      if (fieldName == 'email') {
+        return 'Email sudah terdaftar. Silakan masuk atau gunakan email lain.';
+      }
+      if (fieldName == 'no_hp') {
+        return 'Nomor HP sudah terdaftar. Silakan masuk atau gunakan nomor lain.';
+      }
+
+      return 'Data tersebut sudah terdaftar. Silakan gunakan data lain.';
+    }
+
+    if (normalizedMessage == 'validation.confirmed') {
+      return 'Konfirmasi kata sandi belum sama.';
+    }
+
+    if (normalizedMessage == 'validation.email') {
+      return 'Format email belum valid.';
+    }
+
+    if (normalizedMessage == 'validation.required') {
+      return 'Data wajib masih ada yang belum diisi.';
+    }
+
+    return message;
   }
 }

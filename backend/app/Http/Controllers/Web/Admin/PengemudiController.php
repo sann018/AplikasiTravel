@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -50,7 +51,6 @@ class PengemudiController extends Controller
 
         return view('admin.pengemudi.index', [
             'pengemudi' => $pengemudi,
-            'editingPengemudi' => $editingPengemudi,
             'stats' => [
                 'total' => Pengemudi::query()->count(),
                 'aktif' => Pengemudi::query()->where('status', 'aktif')->count(),
@@ -62,19 +62,37 @@ class PengemudiController extends Controller
         ]);
     }
 
+    public function create(): View
+    {
+        return view('admin.pengemudi.create');
+    }
+
+    public function edit(Pengemudi $pengemudi): View
+    {
+        $pengemudi->load('pengguna');
+
+        return view('admin.pengemudi.edit', [
+            'pengemudi' => $pengemudi,
+        ]);
+    }
+
     public function store(Request $request): RedirectResponse
     {
         $payload = $this->validatedPayload($request);
         $normalizedStatus = $this->normalizeStatus($payload);
         $verificationAttributes = $this->verificationAttributes($payload, null, $request->user()->id);
 
-        DB::transaction(function () use ($payload, $normalizedStatus, $verificationAttributes) {
+        DB::transaction(function () use ($request, $payload, $normalizedStatus, $verificationAttributes) {
+            $profilePhotoPath = $this->storeUploadedImage($request, 'foto_profil', 'profiles');
+            $simPhotoPath = $this->storeUploadedImage($request, 'foto_sim', 'driver-documents');
+
             $user = User::query()->create([
                 'nama' => $payload['nama'],
                 'email' => $payload['email'],
                 'no_hp' => $payload['no_hp'],
                 'peran' => 'pengemudi',
                 'status_aktif' => $normalizedStatus['status_aktif'],
+                'foto_profil' => $profilePhotoPath,
                 'email_verified_at' => now(),
                 'password' => Hash::make($payload['password']),
             ]);
@@ -82,7 +100,7 @@ class PengemudiController extends Controller
             Pengemudi::query()->create([
                 'pengguna_id' => $user->id,
                 'nomor_sim' => $payload['nomor_sim'],
-                'foto_sim' => $payload['foto_sim'] ?? null,
+                'foto_sim' => $simPhotoPath,
                 'status' => $normalizedStatus['status'],
                 ...$verificationAttributes,
             ]);
@@ -101,12 +119,18 @@ class PengemudiController extends Controller
         $normalizedStatus = $this->normalizeStatus($payload);
         $verificationAttributes = $this->verificationAttributes($payload, $pengemudi, $request->user()->id);
 
-        DB::transaction(function () use ($pengemudi, $payload, $normalizedStatus, $verificationAttributes) {
+        DB::transaction(function () use ($request, $pengemudi, $payload, $normalizedStatus, $verificationAttributes) {
+            $oldProfilePhotoPath = $pengemudi->pengguna->foto_profil;
+            $oldSimPhotoPath = $pengemudi->foto_sim;
+            $profilePhotoPath = $this->storeUploadedImage($request, 'foto_profil', 'profiles');
+            $simPhotoPath = $this->storeUploadedImage($request, 'foto_sim', 'driver-documents');
+
             $pengemudi->pengguna->update([
                 'nama' => $payload['nama'],
                 'email' => $payload['email'],
                 'no_hp' => $payload['no_hp'],
                 'status_aktif' => $normalizedStatus['status_aktif'],
+                ...($profilePhotoPath ? ['foto_profil' => $profilePhotoPath] : []),
                 ...($payload['password']
                     ? ['password' => Hash::make($payload['password'])]
                     : []),
@@ -114,10 +138,18 @@ class PengemudiController extends Controller
 
             $pengemudi->update([
                 'nomor_sim' => $payload['nomor_sim'],
-                'foto_sim' => $payload['foto_sim'] ?? null,
+                ...($simPhotoPath ? ['foto_sim' => $simPhotoPath] : []),
                 'status' => $normalizedStatus['status'],
                 ...$verificationAttributes,
             ]);
+
+            if ($profilePhotoPath) {
+                $this->deletePublicFile($oldProfilePhotoPath);
+            }
+
+            if ($simPhotoPath) {
+                $this->deletePublicFile($oldSimPhotoPath);
+            }
         });
 
         return redirect()
@@ -153,21 +185,47 @@ class PengemudiController extends Controller
             'no_hp' => [
                 'required',
                 'string',
-                'max:20',
+                'min:10',
+                'max:16',
+                'regex:/^(?:\+62|62|0)8[1-9][0-9]{7,10}$/',
                 Rule::unique('pengguna', 'no_hp')->ignore($user?->id),
             ],
             'nomor_sim' => [
                 'required',
                 'string',
-                'max:50',
+                'size:16',
+                'regex:/^[0-9]{16}$/',
                 Rule::unique('pengemudi', 'nomor_sim')->ignore($pengemudi?->id),
             ],
-            'foto_sim' => ['nullable', 'string', 'max:255'],
+            'foto_sim' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'status' => ['required', Rule::in(['aktif', 'nonaktif'])],
             'status_verifikasi' => ['required', Rule::in(['menunggu', 'terverifikasi', 'ditolak'])],
             'catatan_verifikasi' => ['nullable', 'string', 'max:1000'],
             'password' => [$pengemudi ? 'nullable' : 'required', 'string', 'min:8', 'max:100'],
+            'foto_profil' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
+        ], [
+            'nomor_sim.size' => 'Nomor SIM harus menggunakan NIK KTP yang terdiri dari 16 digit.',
+            'nomor_sim.regex' => 'Nomor SIM hanya boleh berisi angka.',
+            'nomor_sim.unique' => 'NIK KTP tersebut sudah dipakai pengemudi lain.',
         ]);
+    }
+
+    private function storeUploadedImage(Request $request, string $fieldName, string $folder): ?string
+    {
+        if (! $request->hasFile($fieldName)) {
+            return null;
+        }
+
+        return $request->file($fieldName)->store($folder, 'public');
+    }
+
+    private function deletePublicFile(?string $path): void
+    {
+        if (! $path || str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return;
+        }
+
+        Storage::disk('public')->delete($path);
     }
 
     private function normalizeStatus(array $payload): array

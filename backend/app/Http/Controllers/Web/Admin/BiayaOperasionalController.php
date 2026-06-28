@@ -44,6 +44,23 @@ class BiayaOperasionalController extends Controller
             $query->whereDate('tanggal_biaya', '<=', $request->date('tanggal_selesai'));
         }
 
+        // Rekap final hanya memakai biaya yang sudah disetujui admin.
+        $rekapRecords = (clone $query)
+            ->where('status_verifikasi', 'disetujui')
+            ->orderByDesc('tanggal_biaya')
+            ->get();
+        $rekap = $rekapRecords
+            ->groupBy(fn (BiayaOperasionalPerjalanan $item) => optional($item->jadwal?->rute)->kota_asal.' - '.optional($item->jadwal?->rute)->kota_tujuan)
+            ->map(function (Collection $items, string $routeLabel) {
+                return [
+                    'route' => $routeLabel !== ' - ' ? $routeLabel : 'Tanpa rute',
+                    'total' => (float) $items->sum('nominal'),
+                    'count' => $items->count(),
+                    'latest_date' => optional($items->max('tanggal_biaya'))->format('Y-m-d H:i:s'),
+                ];
+            })
+            ->values();
+
         $biaya = $query->latest('tanggal_biaya')->paginate(12)->withQueryString();
         $editingBiaya = $request->filled('edit')
             ? BiayaOperasionalPerjalanan::query()->findOrFail($request->integer('edit'))
@@ -59,15 +76,20 @@ class BiayaOperasionalController extends Controller
                 ->get(),
             'stats' => [
                 'hari_ini' => (float) BiayaOperasionalPerjalanan::query()
+                    ->where('status_verifikasi', 'disetujui')
                     ->whereDate('tanggal_biaya', today())
                     ->sum('nominal'),
                 'bulan_ini' => (float) BiayaOperasionalPerjalanan::query()
+                    ->where('status_verifikasi', 'disetujui')
                     ->whereMonth('tanggal_biaya', today()->month)
                     ->whereYear('tanggal_biaya', today()->year)
                     ->sum('nominal'),
-                'total_item' => BiayaOperasionalPerjalanan::query()->count(),
+                'total_item' => BiayaOperasionalPerjalanan::query()
+                    ->where('status_verifikasi', 'disetujui')
+                    ->count(),
             ],
             'filters' => $request->only(['search', 'jadwal_id', 'tanggal_mulai', 'tanggal_selesai']),
+            'rekap' => $rekap,
         ]);
     }
 
@@ -75,6 +97,9 @@ class BiayaOperasionalController extends Controller
     {
         $payload = $this->validatedPayload($request);
         $payload['created_by'] = $request->user()->id;
+        $payload['status_verifikasi'] = 'disetujui';
+        $payload['diverifikasi_oleh'] = $request->user()->id;
+        $payload['diverifikasi_pada'] = now();
 
         BiayaOperasionalPerjalanan::query()->create($payload);
 
@@ -103,36 +128,34 @@ class BiayaOperasionalController extends Controller
         return back()->with('status', 'Biaya operasional berhasil dihapus.');
     }
 
-    public function rekap(Request $request): View
+    public function verify(Request $request, BiayaOperasionalPerjalanan $biayaOperasional): RedirectResponse
     {
-        $query = BiayaOperasionalPerjalanan::query()->with(['jadwal.rute']);
-
-        if ($request->filled('tanggal_mulai')) {
-            $query->whereDate('tanggal_biaya', '>=', $request->date('tanggal_mulai'));
-        }
-
-        if ($request->filled('tanggal_selesai')) {
-            $query->whereDate('tanggal_biaya', '<=', $request->date('tanggal_selesai'));
-        }
-
-        $records = $query->orderByDesc('tanggal_biaya')->get();
-        $rekap = $records
-            ->groupBy(fn (BiayaOperasionalPerjalanan $item) => optional($item->jadwal?->rute)->kota_asal.' - '.optional($item->jadwal?->rute)->kota_tujuan)
-            ->map(function (Collection $items, string $routeLabel) {
-                return [
-                    'route' => $routeLabel !== ' - ' ? $routeLabel : 'Tanpa rute',
-                    'total' => (float) $items->sum('nominal'),
-                    'count' => $items->count(),
-                    'latest_date' => optional($items->max('tanggal_biaya'))->format('Y-m-d H:i:s'),
-                ];
-            })
-            ->values();
-
-        return view('admin.biaya.rekap', [
-            'records' => $records,
-            'rekap' => $rekap,
-            'filters' => $request->only(['tanggal_mulai', 'tanggal_selesai']),
+        $validated = $request->validate([
+            'status_verifikasi' => ['required', 'in:disetujui,ditolak'],
+            'catatan_verifikasi' => ['nullable', 'string', 'max:1000'],
+        ], [
+            'status_verifikasi.required' => 'Status verifikasi wajib dipilih.',
+            'status_verifikasi.in' => 'Status verifikasi tidak valid.',
         ]);
+
+        $biayaOperasional->update([
+            'status_verifikasi' => $validated['status_verifikasi'],
+            'catatan_verifikasi' => $validated['catatan_verifikasi'] ?? null,
+            'diverifikasi_oleh' => $request->user()->id,
+            'diverifikasi_pada' => now(),
+        ]);
+
+        $message = $validated['status_verifikasi'] === 'disetujui'
+            ? 'Pengajuan biaya sudah disetujui dan masuk rekap.'
+            : 'Pengajuan biaya sudah ditolak.';
+
+        return back()->with('status', $message);
+    }
+
+    public function rekap(): RedirectResponse
+    {
+        // Alamat lama tetap diarahkan agar bookmark admin tidak berakhir di halaman 404.
+        return redirect()->route('admin.biaya.index');
     }
 
     private function validatedPayload(Request $request): array
@@ -143,6 +166,12 @@ class BiayaOperasionalController extends Controller
             'nominal' => ['required', 'numeric', 'min:0'],
             'keterangan' => ['nullable', 'string'],
             'tanggal_biaya' => ['required', 'date'],
+        ], [
+            'jadwal_id.required' => 'Jadwal terkait wajib dipilih.',
+            'jenis_biaya.required' => 'Jenis biaya wajib diisi.',
+            'nominal.required' => 'Nominal biaya wajib diisi.',
+            'nominal.min' => 'Nominal biaya tidak boleh negatif.',
+            'tanggal_biaya.required' => 'Tanggal biaya wajib diisi.',
         ]);
     }
 }

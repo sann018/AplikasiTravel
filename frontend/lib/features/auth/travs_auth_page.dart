@@ -1,19 +1,26 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/models/travs_user_session.dart';
+import '../../core/models/app_settings.dart';
 import '../../core/services/travs_api_service.dart';
 import '../../core/services/travs_auth_service.dart';
 import '../../core/theme/travs_theme.dart';
+import '../../core/widgets/travs_brand_logo.dart';
 
 class TravSAuthPage extends StatefulWidget {
   const TravSAuthPage({
     required this.authService,
+    required this.appSettings,
     required this.onAuthenticated,
     required this.onContinueAsGuest,
     super.key,
   });
 
   final TravSAuthService authService;
+  final AppSettings appSettings;
   final ValueChanged<TravSUserSession> onAuthenticated;
   final VoidCallback onContinueAsGuest;
 
@@ -23,6 +30,7 @@ class TravSAuthPage extends StatefulWidget {
 
 class _TravSAuthPageState extends State<TravSAuthPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  static const String _registerDraftKey = 'draft_register_penumpang';
 
   final TextEditingController _loginController = TextEditingController();
   final TextEditingController _loginPasswordController =
@@ -42,7 +50,17 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
   bool _loginPasswordHidden = true;
   bool _registerPasswordHidden = true;
   bool _registerConfirmPasswordHidden = true;
+  String _loginRole = 'penumpang';
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRegisterDraft();
+    _registerNameController.addListener(_saveRegisterDraft);
+    _registerEmailController.addListener(_saveRegisterDraft);
+    _registerPhoneController.addListener(_saveRegisterDraft);
+  }
 
   @override
   void dispose() {
@@ -54,6 +72,53 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
     _registerPasswordController.dispose();
     _registerConfirmPasswordController.dispose();
     super.dispose();
+  }
+
+  /// Draft daftar akun hanya menyimpan identitas dasar.
+  /// Password sengaja tidak ikut disimpan agar tetap aman.
+  Future<void> _loadRegisterDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawDraft = prefs.getString(_registerDraftKey);
+      if (rawDraft == null || rawDraft.isEmpty || !mounted) return;
+
+      final draft = jsonDecode(rawDraft);
+      if (draft is! Map<String, dynamic>) return;
+
+      _registerNameController.text =
+          draft['nama'] as String? ?? _registerNameController.text;
+      _registerEmailController.text =
+          draft['email'] as String? ?? _registerEmailController.text;
+      _registerPhoneController.text =
+          draft['no_hp'] as String? ?? _registerPhoneController.text;
+    } catch (_) {
+      // Draft rusak cukup diabaikan supaya halaman daftar tetap bisa dipakai.
+    }
+  }
+
+  Future<void> _saveRegisterDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _registerDraftKey,
+        jsonEncode({
+          'nama': _registerNameController.text,
+          'email': _registerEmailController.text,
+          'no_hp': _registerPhoneController.text,
+        }),
+      );
+    } catch (_) {
+      // Draft hanya bantuan lokal, jadi kegagalan simpan tidak menghambat user.
+    }
+  }
+
+  Future<void> _clearRegisterDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_registerDraftKey);
+    } catch (_) {
+      // Jika gagal dibersihkan, proses register tetap mengikuti hasil server.
+    }
   }
 
   Future<void> _submit() async {
@@ -85,6 +150,23 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         return;
       }
 
+      if (!_isRegisterMode && session.user.peran != _loginRole) {
+        await widget.authService.clearSession();
+        throw TravSAuthException(
+          _loginRole == 'pengemudi'
+              ? 'Akun ini bukan akun pengemudi. Pilih Penumpang jika ingin masuk sebagai penumpang.'
+              : 'Akun ini bukan akun penumpang. Pilih Pengemudi jika ingin masuk sebagai pengemudi.',
+        );
+      }
+
+      if (_isRegisterMode) {
+        await _clearRegisterDraft();
+      }
+
+      if (!mounted) {
+        return;
+      }
+
       widget.onAuthenticated(session);
     } on TravSAuthException catch (error) {
       if (!mounted) {
@@ -101,7 +183,7 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
 
       setState(() {
         _errorMessage =
-            'Proses autentikasi gagal. Pastikan backend berjalan di ${TravSApiService.backendTargetsLabel}. Untuk HP fisik gunakan USB + adb reverse atau API_BASE_URL ke IP laptop.';
+            'Proses masuk gagal. Aplikasi belum terhubung ke server. Pastikan server aktif, lalu coba lagi.';
       });
     } finally {
       if (mounted) {
@@ -138,7 +220,10 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const SizedBox(height: 24),
-                      _AuthHero(isRegisterMode: _isRegisterMode),
+                      _AuthHero(
+                        isRegisterMode: _isRegisterMode,
+                        appSettings: widget.appSettings,
+                      ),
                       const SizedBox(height: 24),
                       Container(
                         padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
@@ -158,39 +243,39 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      _isRegisterMode
-                                          ? 'Daftar Akun TravS'
-                                          : 'Masuk ke TravelKu',
-                                      style: theme.textTheme.titleLarge
-                                          ?.copyWith(
-                                            color: TravSTheme.navy,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed: _isSubmitting
-                                        ? null
-                                        : _toggleMode,
-                                    child: Text(
-                                      _isRegisterMode ? 'Masuk' : 'Daftar',
-                                    ),
-                                  ),
-                                ],
+                              Text(
+                                _isRegisterMode
+                                    ? 'Daftar Akun Penumpang'
+                                    : 'Masuk ke RuslyTravel',
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  color: TravSTheme.navy,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                               const SizedBox(height: 6),
                               Text(
                                 _isRegisterMode
-                                    ? 'Lengkapi data utama dulu. Flow detail profil dan verifikasi bisa kita lanjutkan terpisah.'
-                                    : 'Masuk dengan email atau nomor HP agar booking, tiket, dan status layanan tetap sinkron.',
+                                    ? 'Pendaftaran mandiri dipakai untuk penumpang. Akun pengemudi dibuat admin agar data SIM dan kendaraan tetap valid.'
+                                    : 'Pilih jenis akun terlebih dulu, lalu masuk sesuai peran yang terdaftar.',
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: TravSTheme.navyMuted,
                                 ),
                               ),
+                              const SizedBox(height: 14),
+                              if (_isRegisterMode)
+                                _RoleAccessSummary(
+                                  isRegisterMode: _isRegisterMode,
+                                )
+                              else
+                                _LoginRolePicker(
+                                  selectedRole: _loginRole,
+                                  onChanged: (value) {
+                                    setState(() {
+                                      _loginRole = value;
+                                      _errorMessage = null;
+                                    });
+                                  },
+                                ),
                               const SizedBox(height: 18),
                               if (_errorMessage != null) ...[
                                 _InlineMessage(
@@ -222,62 +307,40 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                                           ? 'Memproses...'
                                           : _isRegisterMode
                                           ? 'Daftar Sekarang'
-                                          : 'Masuk',
+                                          : _loginRole == 'pengemudi'
+                                          ? 'Masuk sebagai Pengemudi'
+                                          : 'Masuk sebagai Penumpang',
                                     ),
                                   ),
                                 ),
                               ),
                               const SizedBox(height: 10),
-                              OutlinedButton(
+                              OutlinedButton.icon(
                                 onPressed: _isSubmitting
                                     ? null
                                     : widget.onContinueAsGuest,
-                                child: const Text('Masuk Sebagai Tamu'),
+                                icon: const Icon(Icons.visibility_outlined),
+                                label: const Text('Lanjut Sebagai Tamu'),
                               ),
                               const SizedBox(height: 10),
                               Text(
                                 _isRegisterMode
-                                    ? 'Sudah punya akun? Gunakan tombol Masuk di kanan atas kartu ini.'
-                                    : 'Belum punya akun? Tekan Daftar untuk membuat akun penumpang baru.',
+                                    ? 'Sudah punya akun?'
+                                    : 'Belum punya akun?',
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: TravSTheme.navyMuted,
                                 ),
                               ),
+                              TextButton(
+                                onPressed: _isSubmitting ? null : _toggleMode,
+                                child: Text(
+                                  _isRegisterMode ? 'Masuk' : 'Daftar',
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Tema aktif:',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.white70,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(color: Colors.white24),
-                            ),
-                            child: Text(
-                              'Navy + putih + aksen oranye',
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
@@ -340,7 +403,39 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         },
         onFieldSubmitted: (_) => _isSubmitting ? null : _submit(),
       ),
+      const SizedBox(height: 8),
+      Align(
+        alignment: Alignment.centerRight,
+        child: TextButton(
+          onPressed: _isSubmitting ? null : _openForgotPassword,
+          child: const Text(
+            'Lupa Password?',
+            style: TextStyle(
+              color: TravSTheme.navy,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
     ];
+  }
+
+  /// Membuka halaman lupa password agar pengguna bisa mereset password.
+  Future<void> _openForgotPassword() async {
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(builder: (_) => const _ForgotPasswordPage()),
+    );
+
+    if (result == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Password berhasil direset. Silakan login dengan password baru.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   List<Widget> _buildRegisterFields() {
@@ -476,9 +571,10 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
 }
 
 class _AuthHero extends StatelessWidget {
-  const _AuthHero({required this.isRegisterMode});
+  const _AuthHero({required this.isRegisterMode, required this.appSettings});
 
   final bool isRegisterMode;
+  final AppSettings appSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -486,38 +582,14 @@ class _AuthHero extends StatelessWidget {
 
     return Column(
       children: [
-        Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
-          children: [
-            Container(
-              width: 92,
-              height: 92,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(30),
-                border: Border.all(color: Colors.white24),
-              ),
-              child: const Icon(
-                Icons.directions_bus_filled_rounded,
-                color: Colors.white,
-                size: 44,
-              ),
-            ),
-            const Positioned(
-              top: -2,
-              right: -2,
-              child: CircleAvatar(
-                radius: 12,
-                backgroundColor: TravSTheme.orange,
-                child: Icon(Icons.place_rounded, size: 15, color: Colors.white),
-              ),
-            ),
-          ],
+        TravSBrandLogo(
+          imageUrl: appSettings.appLogoUrl,
+          size: 92,
+          borderRadius: 30,
         ),
         const SizedBox(height: 18),
         Text(
-          'TravS',
+          appSettings.appName,
           style: theme.textTheme.headlineSmall?.copyWith(
             color: Colors.white,
             fontWeight: FontWeight.w800,
@@ -526,12 +598,210 @@ class _AuthHero extends StatelessWidget {
         const SizedBox(height: 8),
         Text(
           isRegisterMode
-              ? 'Daftar lebih cepat untuk mulai booking travel, memilih kursi, dan menerima tiket digital.'
-              : 'Masuk agar pemesanan, tiket QR, dan status layanan lebih tertata.',
+              ? 'Selamat Datang, Sobat Perjalanan.'
+              : 'Daftar lebih cepat untuk mulai pemesanan travel, memilih kursi, dan menerima tiket digital.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
         ),
       ],
+    );
+  }
+}
+
+class _RoleAccessSummary extends StatelessWidget {
+  const _RoleAccessSummary({required this.isRegisterMode});
+
+  final bool isRegisterMode;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: TravSTheme.surfaceSoft,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: TravSTheme.line),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Akses masuk',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: TravSTheme.navy,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _RoleAccessPill(
+                label: 'Penumpang',
+                icon: Icons.event_seat_outlined,
+                active: true,
+              ),
+              _RoleAccessPill(
+                label: 'Pengemudi',
+                icon: Icons.directions_car_filled_rounded,
+                active: !isRegisterMode,
+              ),
+              _RoleAccessPill(
+                label: 'Tamu',
+                icon: Icons.visibility_outlined,
+                active: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoginRolePicker extends StatelessWidget {
+  const _LoginRolePicker({required this.selectedRole, required this.onChanged});
+
+  final String selectedRole;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: TravSTheme.surfaceSoft,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: TravSTheme.line),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _LoginRoleButton(
+              label: 'Penumpang',
+              icon: Icons.event_seat_outlined,
+              selected: selectedRole == 'penumpang',
+              onTap: () => onChanged('penumpang'),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: _LoginRoleButton(
+              label: 'Pengemudi',
+              icon: Icons.directions_car_filled_rounded,
+              selected: selectedRole == 'pengemudi',
+              onTap: () => onChanged('pengemudi'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoginRoleButton extends StatelessWidget {
+  const _LoginRoleButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? TravSTheme.navy : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected ? TravSTheme.navy : TravSTheme.line,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 17,
+              color: selected ? Colors.white : TravSTheme.navyMuted,
+            ),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: selected ? Colors.white : TravSTheme.navy,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RoleAccessPill extends StatelessWidget {
+  const _RoleAccessPill({
+    required this.label,
+    required this.icon,
+    required this.active,
+  });
+
+  final String label;
+  final IconData icon;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: active ? Colors.white : TravSTheme.surfaceMuted,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: active
+              ? TravSTheme.orange.withValues(alpha: 0.36)
+              : TravSTheme.line,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: active ? TravSTheme.orange : TravSTheme.navyMuted,
+            size: 16,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: active ? TravSTheme.navy : TravSTheme.navyMuted,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -575,6 +845,368 @@ class _InlineMessage extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Halaman lupa password dibagi menjadi dua tahap agar alurnya mudah diikuti:
+/// pengguna meminta token lewat email, lalu memakai token itu untuk membuat
+/// password baru.
+class _ForgotPasswordPage extends StatefulWidget {
+  const _ForgotPasswordPage();
+
+  @override
+  State<_ForgotPasswordPage> createState() => _ForgotPasswordPageState();
+}
+
+class _ForgotPasswordPageState extends State<_ForgotPasswordPage> {
+  final TravSApiService _apiService = TravSApiService();
+  final _formKey = GlobalKey<FormState>();
+
+  // Pengendali ini menyimpan email yang dipakai untuk meminta token reset.
+  final _emailController = TextEditingController();
+
+  // Ketiga pengendali ini menyimpan token serta password baru dari form.
+  final _tokenController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+
+  bool _isStep2 = false;
+  bool _isSubmitting = false;
+  String? _errorMessage;
+  String? _successMessage;
+  bool _passwordHidden = true;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _tokenController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  /// Meminta token reset menggunakan email yang sudah terdaftar.
+  Future<void> _requestToken() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+      _successMessage = null;
+    });
+
+    try {
+      final token = await _apiService.forgotPassword(
+        email: _emailController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _isSubmitting = false;
+        _isStep2 = true;
+        _successMessage = 'Token reset telah dikirim ke email Anda.';
+        // Pada mode demo, token dari backend diisikan otomatis agar alur mudah diuji.
+        if (token != null && token.isNotEmpty) {
+          _tokenController.text = token;
+        }
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage = error is TravSApiException
+            ? error.message
+            : 'Gagal mengirim token reset. Periksa koneksi internet.';
+      });
+    }
+  }
+
+  /// Mengirim token dan password baru untuk memperbarui akses akun.
+  Future<void> _resetPassword() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      await _apiService.resetPassword(
+        email: _emailController.text.trim(),
+        token: _tokenController.text.trim(),
+        password: _newPasswordController.text,
+        passwordConfirmation: _confirmPasswordController.text,
+      );
+
+      if (!mounted) return;
+
+      // Nilai true memberi tahu halaman login bahwa reset password berhasil.
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage = error is TravSApiException
+            ? error.message
+            : 'Gagal mereset password. Silakan coba lagi.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(_isStep2 ? 'Reset Password' : 'Lupa Password'),
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFFF9FBFE), Color(0xFFF0F4FA)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Bagian atas menjelaskan tahap reset yang sedang dikerjakan.
+                  Icon(
+                    _isStep2 ? Icons.lock_reset_rounded : Icons.email_outlined,
+                    size: 56,
+                    color: TravSTheme.navy,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    _isStep2
+                        ? 'Masukkan Token dan Password Baru'
+                        : 'Masukkan Email Terdaftar',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: TravSTheme.navy,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _isStep2
+                        ? 'Masukkan token yang diterima dan buat password baru minimal 8 karakter.'
+                        : 'Kami akan mengirimkan token reset password ke email Anda.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: TravSTheme.navyMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Pesan hasil proses ditampilkan dekat form agar mudah terlihat.
+                  if (_errorMessage != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF1F1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: TravSTheme.danger,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: const TextStyle(
+                                color: TravSTheme.danger,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  if (_successMessage != null && !_isStep2) ...[
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEDF7ED),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.check_circle_outline,
+                            color: TravSTheme.success,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _successMessage!,
+                              style: const TextStyle(
+                                color: TravSTheme.success,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+
+                  // Isi form berubah sesuai tahap permintaan token atau reset password.
+                  if (!_isStep2) ...[
+                    // Tahap pertama hanya membutuhkan email akun.
+                    TextFormField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      textInputAction: TextInputAction.done,
+                      style: const TextStyle(color: TravSTheme.navy),
+                      decoration: const InputDecoration(
+                        labelText: 'Email',
+                        hintText: 'Masukkan email yang terdaftar',
+                        prefixIcon: Icon(Icons.mail_outline_rounded),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Email wajib diisi.';
+                        }
+                        if (!value.contains('@')) {
+                          return 'Format email tidak valid.';
+                        }
+                        return null;
+                      },
+                      onFieldSubmitted: (_) =>
+                          _isSubmitting ? null : _requestToken(),
+                    ),
+                  ] else ...[
+                    // Tahap kedua meminta token beserta password baru.
+                    TextFormField(
+                      controller: _tokenController,
+                      textInputAction: TextInputAction.next,
+                      style: const TextStyle(color: TravSTheme.navy),
+                      decoration: const InputDecoration(
+                        labelText: 'Token Reset',
+                        hintText: 'Masukkan token dari email',
+                        prefixIcon: Icon(Icons.vpn_key_outlined),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Token reset wajib diisi.';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _newPasswordController,
+                      obscureText: _passwordHidden,
+                      textInputAction: TextInputAction.next,
+                      style: const TextStyle(color: TravSTheme.navy),
+                      decoration: InputDecoration(
+                        labelText: 'Password Baru',
+                        hintText: 'Minimal 8 karakter',
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                        suffixIcon: IconButton(
+                          onPressed: () => setState(
+                            () => _passwordHidden = !_passwordHidden,
+                          ),
+                          icon: Icon(
+                            _passwordHidden
+                                ? Icons.visibility_off_outlined
+                                : Icons.visibility_outlined,
+                          ),
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Password baru wajib diisi.';
+                        }
+                        if (value.length < 8) {
+                          return 'Password minimal 8 karakter.';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _confirmPasswordController,
+                      obscureText: _passwordHidden,
+                      textInputAction: TextInputAction.done,
+                      style: const TextStyle(color: TravSTheme.navy),
+                      decoration: const InputDecoration(
+                        labelText: 'Konfirmasi Password',
+                        hintText: 'Ulangi password baru',
+                        prefixIcon: Icon(Icons.lock_outline_rounded),
+                      ),
+                      validator: (value) {
+                        if (value != _newPasswordController.text) {
+                          return 'Konfirmasi password tidak cocok.';
+                        }
+                        return null;
+                      },
+                      onFieldSubmitted: (_) =>
+                          _isSubmitting ? null : _resetPassword(),
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  // Tombol menjalankan proses sesuai tahap yang sedang aktif.
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _isSubmitting
+                          ? null
+                          : _isStep2
+                          ? _resetPassword
+                          : _requestToken,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: TravSTheme.navy,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text(
+                        _isSubmitting
+                            ? 'Memproses...'
+                            : _isStep2
+                            ? 'Reset Password'
+                            : 'Kirim Token Reset',
+                      ),
+                    ),
+                  ),
+
+                  if (_isStep2) ...[
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: _isSubmitting
+                          ? null
+                          : () => setState(() {
+                              _isStep2 = false;
+                              _errorMessage = null;
+                            }),
+                      child: const Text('Kembali ke langkah pertama'),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

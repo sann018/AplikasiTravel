@@ -25,6 +25,25 @@ class TravSUserProfile {
   bool get isDriver => peran == 'pengemudi';
   bool get isAdmin => peran == 'admin';
 
+  TravSUserProfile copyWith({
+    String? nama,
+    String? email,
+    String? noHp,
+    String? fotoProfil,
+    String? nomorSim,
+  }) {
+    return TravSUserProfile(
+      id: id,
+      nama: nama ?? this.nama,
+      email: email ?? this.email,
+      noHp: noHp ?? this.noHp,
+      peran: peran,
+      statusAktif: statusAktif,
+      fotoProfil: fotoProfil ?? this.fotoProfil,
+      nomorSim: nomorSim ?? this.nomorSim,
+    );
+  }
+
   AppRolePreview get rolePreview {
     switch (peran) {
       case 'pengemudi':
@@ -44,7 +63,8 @@ class TravSUserProfile {
       noHp: json['no_hp'] as String? ?? '-',
       peran: json['peran'] as String? ?? 'guest',
       statusAktif: json['status_aktif'] as bool? ?? false,
-      fotoProfil: json['foto_profil'] as String?,
+      fotoProfil:
+          json['foto_profil_url'] as String? ?? json['foto_profil'] as String?,
       nomorSim: json['nomor_sim'] as String?,
     );
   }
@@ -58,6 +78,7 @@ class TravSUserProfile {
       'peran': peran,
       'status_aktif': statusAktif,
       'foto_profil': fotoProfil,
+      'foto_profil_url': fotoProfil,
       'nomor_sim': nomorSim,
     };
   }
@@ -70,6 +91,10 @@ class TravSUserSession {
   final TravSUserProfile user;
 
   AppRolePreview get rolePreview => user.rolePreview;
+
+  TravSUserSession copyWith({TravSUserProfile? user}) {
+    return TravSUserSession(token: token, user: user ?? this.user);
+  }
 
   factory TravSUserSession.fromJson(Map<String, dynamic> json) {
     return TravSUserSession(

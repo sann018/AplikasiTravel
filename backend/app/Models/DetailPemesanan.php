@@ -9,14 +9,14 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class DetailPemesanan extends Model
 {
     /**
-     * The table associated with the model.
+     * Nama tabel database yang digunakan model ini.
      *
      * @var string
      */
     protected $table = 'detail_pemesanan';
 
     /**
-     * The attributes that are mass assignable.
+     * Kolom yang boleh diisi sekaligus saat membuat atau memperbarui data.
      *
      * @var array<int, string>
      */
@@ -27,7 +27,17 @@ class DetailPemesanan extends Model
         'nama_penumpang',
         'no_hp_penumpang',
         'status_kehadiran',
+        'dijemput_pada',
+        'diturunkan_pada',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'dijemput_pada' => 'datetime',
+            'diturunkan_pada' => 'datetime',
+        ];
+    }
 
     public function pemesanan(): BelongsTo
     {

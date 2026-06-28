@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Jadwal;
 use App\Services\BookingService;
+use App\Services\ScheduleLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -12,12 +13,14 @@ class GuestController extends Controller
 {
     public function __construct(
         private readonly BookingService $bookingService,
+        private readonly ScheduleLifecycleService $scheduleLifecycleService,
     ) {
     }
 
     public function schedules(Request $request): JsonResponse
     {
         $this->bookingService->releaseExpiredResources();
+        $this->scheduleLifecycleService->closeOpenSchedulesNearDeparture();
 
         $validated = $request->validate([
             'asal' => ['nullable', 'string', 'max:100'],
@@ -63,9 +66,11 @@ class GuestController extends Controller
                     'plat' => $item->kendaraan->nomor_plat,
                     'warna' => $item->kendaraan->warna,
                     'tipe' => $item->kendaraan->tipe_kendaraan,
+                    'foto_url' => $this->publicStorageUrl($item->kendaraan->foto_kendaraan),
                 ],
                 'pengemudi' => [
                     'nama' => $item->pengemudi->pengguna->nama,
+                    'foto_url' => $this->publicStorageUrl($item->pengemudi->pengguna->foto_profil),
                 ],
             ];
         })->values();
@@ -74,5 +79,14 @@ class GuestController extends Controller
             'success' => true,
             'data' => $jadwal,
         ]);
+    }
+
+    private function publicStorageUrl(?string $path): ?string
+    {
+        if (! is_string($path) || trim($path) === '') {
+            return null;
+        }
+
+        return '/storage/'.ltrim($path, '/');
     }
 }

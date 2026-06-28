@@ -10,14 +10,14 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Pemesanan extends Model
 {
     /**
-     * The table associated with the model.
+     * Nama tabel database yang digunakan model ini.
      *
      * @var string
      */
     protected $table = 'pemesanan';
 
     /**
-     * The attributes that are mass assignable.
+     * Kolom yang boleh diisi sekaligus saat membuat atau memperbarui data.
      *
      * @var array<int, string>
      */
@@ -31,9 +31,13 @@ class Pemesanan extends Model
         'lintang_jemput',
         'bujur_jemput',
         'alamat_jemput',
+        'catatan_jemput',
+        'lintang_turun',
+        'bujur_turun',
+        'alamat_turun',
+        'catatan_turun',
         'subtotal_tiket',
         'biaya_bagasi',
-        'biaya_admin',
         'diskon',
         'total_harga',
         'status_pemesanan',
@@ -46,7 +50,6 @@ class Pemesanan extends Model
             'batas_pembayaran' => 'datetime',
             'subtotal_tiket' => 'decimal:2',
             'biaya_bagasi' => 'decimal:2',
-            'biaya_admin' => 'decimal:2',
             'diskon' => 'decimal:2',
             'total_harga' => 'decimal:2',
         ];

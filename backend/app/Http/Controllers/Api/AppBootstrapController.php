@@ -4,20 +4,23 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Jadwal;
-use App\Models\PengaturanSistem;
 use App\Services\BookingService;
+use App\Services\ScheduleLifecycleService;
+use App\Services\SettingService;
 use Illuminate\Http\JsonResponse;
 
 class AppBootstrapController extends Controller
 {
     public function __construct(
         private readonly BookingService $bookingService,
-    ) {
-    }
+        private readonly ScheduleLifecycleService $scheduleLifecycleService,
+        private readonly SettingService $settingService,
+    ) {}
 
     public function index(): JsonResponse
     {
         $this->bookingService->releaseExpiredResources();
+        $this->scheduleLifecycleService->closeOpenSchedulesNearDeparture();
 
         $jadwal = Jadwal::query()
             ->with(['rute', 'kendaraan', 'pengemudi.pengguna', 'kursi'])
@@ -30,10 +33,11 @@ class AppBootstrapController extends Controller
             'success' => true,
             'data' => [
                 'branding' => [
-                    'app_name' => PengaturanSistem::nilai('app_name', 'TravS'),
-                    'logo' => PengaturanSistem::nilai('app_logo', 'travs-logo.svg'),
-                    'contact' => PengaturanSistem::nilai('admin_contact'),
-                    'service_whatsapp' => PengaturanSistem::nilai('service_whatsapp'),
+                    'app_name' => $this->settingService->get('app_name', 'RuslyTravel'),
+                    'logo' => $this->settingService->get('app_logo', 'travs-logo.svg'),
+                    'logo_url' => $this->settingService->publicAssetPath('app_logo', 'travs-logo.svg'),
+                    'contact' => $this->settingService->get('admin_contact'),
+                    'service_whatsapp' => $this->settingService->get('service_whatsapp'),
                 ],
                 'theme' => [
                     'surface' => '#FFFFFF',
@@ -42,9 +46,9 @@ class AppBootstrapController extends Controller
                     'muted' => '#EEF2F7',
                 ],
                 'payment_methods' => [
-                    'transfer' => PengaturanSistem::nilai('payment_transfer_enabled', true),
-                    'qris' => PengaturanSistem::nilai('payment_qris_enabled', true),
-                    'cash' => PengaturanSistem::nilai('payment_cash_enabled', true),
+                    'transfer' => $this->settingService->get('payment_transfer_enabled', true),
+                    'qris' => $this->settingService->get('payment_qris_enabled', true),
+                    'cash' => $this->settingService->get('payment_cash_enabled', false),
                 ],
                 'featured_schedules' => $jadwal->map(fn (Jadwal $item) => $this->formatSchedule($item))->all(),
             ],

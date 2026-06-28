@@ -8,14 +8,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Notifikasi extends Model
 {
     /**
-     * The table associated with the model.
+     * Nama tabel database yang digunakan model ini.
      *
      * @var string
      */
     protected $table = 'notifikasi';
 
     /**
-     * The attributes that are mass assignable.
+     * Kolom yang boleh diisi sekaligus saat membuat atau memperbarui data.
      *
      * @var array<int, string>
      */
@@ -38,5 +38,11 @@ class Notifikasi extends Model
     public function pengguna(): BelongsTo
     {
         return $this->belongsTo(User::class, 'pengguna_id');
+    }
+
+    /** Relasi ini dipakai hanya untuk notifikasi pemesanan pada dashboard admin. */
+    public function referensiBooking(): BelongsTo
+    {
+        return $this->belongsTo(Pemesanan::class, 'referensi_id');
     }
 }

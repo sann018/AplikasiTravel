@@ -9,28 +9,33 @@ use App\Models\KursiJadwal;
 use App\Models\Notifikasi;
 use App\Models\Pembayaran;
 use App\Models\Pemesanan;
-use App\Models\PengaturanSistem;
 use App\Models\TiketElektronik;
 use App\Models\User;
-use Illuminate\Support\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Throwable;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 class BookingService
 {
     public function __construct(
         private readonly BookingCalculator $calculator,
         private readonly PakasirService $pakasirService,
-    ) {
-    }
+        private readonly ScheduleLifecycleService $scheduleLifecycleService,
+        private readonly SettingService $settingService,
+        private readonly NotificationTemplateService $notificationTemplate,
+        private readonly AdminOperationalNotificationService $adminNotification,
+    ) {}
 
     /**
+     * Mengunci kursi sementara selama pengguna mengisi form pemesanan.
+     *
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
+     *
      * @throws ValidationException
      */
     public function lockSeatsForForm(User $user, array $payload): array
@@ -45,6 +50,7 @@ class BookingService
                 ->lockForUpdate()
                 ->findOrFail($scheduleId);
 
+            $this->scheduleLifecycleService->closeSingleIfPastBookingWindow($schedule);
             $this->ensureScheduleOpen($schedule);
 
             $selectedSeats = $this->loadSeatRowsForUpdate($schedule->id, $seatNumbers);
@@ -68,13 +74,16 @@ class BookingService
                 'jadwal_id' => $schedule->id,
                 'seat_numbers' => $seatNumbers->all(),
                 'lock_expires_at' => $formDeadline->toIso8601String(),
-                'lock_minutes' => (int) PengaturanSistem::nilai('seat_lock_form_minutes', 30),
+                'lock_minutes' => (int) $this->settingService->get('seat_lock_form_minutes', 30),
             ];
         });
     }
 
     /**
+     * Membuat pemesanan menunggu pembayaran beserta kursi, penumpang, dan bagasi.
+     *
      * @param  array<string, mixed>  $payload
+     *
      * @throws ValidationException
      */
     public function createDraft(User $user, array $payload): Pemesanan
@@ -97,6 +106,7 @@ class BookingService
                 ->lockForUpdate()
                 ->findOrFail($scheduleId);
 
+            $this->scheduleLifecycleService->closeSingleIfPastBookingWindow($schedule);
             $this->ensureScheduleOpen($schedule);
 
             $selectedSeats = $this->loadSeatRowsForUpdate($schedule->id, $seatNumbers);
@@ -127,9 +137,13 @@ class BookingService
                 'lintang_jemput' => data_get($payload, 'pickup.latitude'),
                 'bujur_jemput' => data_get($payload, 'pickup.longitude'),
                 'alamat_jemput' => data_get($payload, 'pickup.address'),
+                'catatan_jemput' => data_get($payload, 'pickup.note'),
+                'lintang_turun' => data_get($payload, 'dropoff.latitude'),
+                'bujur_turun' => data_get($payload, 'dropoff.longitude'),
+                'alamat_turun' => data_get($payload, 'dropoff.address'),
+                'catatan_turun' => data_get($payload, 'dropoff.note'),
                 'subtotal_tiket' => $totals['subtotal_tiket'],
                 'biaya_bagasi' => $totals['biaya_bagasi'],
-                'biaya_admin' => $totals['biaya_admin'],
                 'diskon' => $totals['diskon'],
                 'total_harga' => $totals['total_harga'],
                 'status_pemesanan' => 'menunggu_pembayaran',
@@ -163,6 +177,7 @@ class BookingService
                 if ($ukuranCm === null && ($panjangCm !== null || $lebarCm !== null)) {
                     $ukuranCm = (int) ($panjangCm ?? 0) + (int) ($lebarCm ?? 0);
                 }
+                $fotoUrls = $this->normalizeBaggagePhotoUrls($item);
 
                 ItemBagasi::query()->create([
                     'pemesanan_id' => $booking->id,
@@ -173,7 +188,8 @@ class BookingService
                     'panjang_cm' => $panjangCm,
                     'lebar_cm' => $lebarCm,
                     'jumlah_item' => max(1, (int) data_get($item, 'jumlah_item', 1)),
-                    'foto_url' => data_get($item, 'foto_url'),
+                    'foto_url' => $fotoUrls[0] ?? null,
+                    'foto_urls' => $fotoUrls,
                     'biaya_item' => 0,
                 ]);
             }
@@ -197,14 +213,17 @@ class BookingService
             ]);
         });
 
-        if ($paymentMethod === 'qris' && $this->pakasirService->isConfigured()) {
+        $this->adminNotification->bookingCreated($booking);
+        $this->adminNotification->capacityAlmostFull($booking->jadwal);
+
+        if ($this->pakasirService->handlesMethod($paymentMethod) && $this->pakasirService->isConfigured()) {
             try {
-                return $this->activatePakasirPayment($booking);
+                return $this->activatePakasirPayment($booking, $paymentMethod);
             } catch (PakasirException $exception) {
                 $this->cancelBookingBecauseGatewayFailed($booking, $exception->getMessage());
 
                 throw ValidationException::withMessages([
-                    'payment_method' => 'Gagal membuat pembayaran QRIS Pakasir. '.$exception->getMessage(),
+                    'payment_method' => 'Gagal membuat pembayaran Pakasir. '.$exception->getMessage(),
                 ]);
             }
         }
@@ -215,17 +234,25 @@ class BookingService
     public function releaseExpiredResources(?int $jadwalId = null): int
     {
         $now = now();
+        $paymentGraceDeadline = $now->copy()->subMinute();
         $released = 0;
 
-        $expiredBookingIds = Pemesanan::query()
-            ->when($jadwalId !== null, fn ($query) => $query->where('jadwal_id', $jadwalId))
-            ->where('status_pemesanan', 'menunggu_pembayaran')
-            ->whereNotNull('batas_pembayaran')
-            ->where('batas_pembayaran', '<=', $now)
-            ->pluck('id');
+        if ($this->settingService->get('auto_cancel_booking', true)) {
+            $expiredBookingIds = Pemesanan::query()
+                ->when($jadwalId !== null, fn ($query) => $query->where('jadwal_id', $jadwalId))
+                ->where('status_pemesanan', 'menunggu_pembayaran')
+                ->whereNotNull('batas_pembayaran')
+                ->where('batas_pembayaran', '<=', $paymentGraceDeadline)
+                ->pluck('id');
 
-        foreach ($expiredBookingIds as $bookingId) {
-            $released += $this->expirePendingBooking((int) $bookingId, $now);
+            foreach ($expiredBookingIds as $bookingId) {
+                $booking = $this->refreshGatewayBookingBeforeExpiry((int) $bookingId);
+                if (! $booking || $booking->status_pemesanan !== 'menunggu_pembayaran') {
+                    continue;
+                }
+
+                $released += $this->expirePendingBooking((int) $bookingId, $now);
+            }
         }
 
         $expiredFormLockIds = KursiJadwal::query()
@@ -254,6 +281,8 @@ class BookingService
     }
 
     /**
+     * Menandai pembayaran berhasil melalui fitur simulasi khusus lingkungan lokal.
+     *
      * @throws ValidationException
      */
     public function simulatePaymentSuccess(Pemesanan $booking, User $user): Pemesanan
@@ -278,7 +307,7 @@ class BookingService
 
         if (
             $booking->pembayaran &&
-            $booking->pembayaran->metode_bayar === 'qris' &&
+            $this->pakasirService->handlesMethod($booking->pembayaran->metode_bayar) &&
             $this->pakasirService->usesRemoteSimulation()
         ) {
             $this->pakasirService->simulatePayment(
@@ -317,6 +346,8 @@ class BookingService
     }
 
     /**
+     * Menyimpan hasil pembayaran tunai yang sudah dikonfirmasi admin.
+     *
      * @throws ValidationException
      */
     public function confirmCashPayment(Pemesanan $booking, User $admin): Pemesanan
@@ -327,19 +358,52 @@ class BookingService
             ]);
         }
 
-        return DB::transaction(function () use ($booking, $admin) {
+        return $this->confirmCashPaymentForActor($booking, $admin, 'admin_cash_confirm');
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    public function confirmCashPaymentByDriver(Pemesanan $booking, User $driver): Pemesanan
+    {
+        if (! $driver->isPengemudi()) {
+            throw ValidationException::withMessages([
+                'payment' => 'Hanya pengemudi yang dapat mengonfirmasi pembayaran tunai di manifest.',
+            ]);
+        }
+
+        return $this->confirmCashPaymentForActor($booking, $driver, 'driver_cash_confirm');
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function confirmCashPaymentForActor(Pemesanan $booking, User $actor, string $source): Pemesanan
+    {
+        return DB::transaction(function () use ($booking, $actor, $source) {
             $lockedBooking = Pemesanan::query()
                 ->lockForUpdate()
                 ->with([
                     'pengguna',
                     'detailPemesanan.tiketElektronik',
                     'detailPemesanan.kursiJadwal',
+                    'jadwal.pengemudi',
                     'jadwal.rute',
                     'jadwal.kendaraan',
                     'itemBagasi',
                     'pembayaran',
                 ])
                 ->findOrFail($booking->id);
+
+            if ($source === 'driver_cash_confirm') {
+                $driverProfile = $actor->pengemudiProfile()->first();
+
+                if (! $driverProfile || (int) $lockedBooking->jadwal?->pengemudi_id !== (int) $driverProfile->id) {
+                    throw ValidationException::withMessages([
+                        'payment' => 'Pembayaran tunai ini bukan bagian dari jadwal pengemudi aktif.',
+                    ]);
+                }
+            }
 
             $payment = $lockedBooking->pembayaran;
             if (! $payment) {
@@ -382,9 +446,10 @@ class BookingService
                     $payment->gateway_response,
                     [
                         'cash_confirmation' => [
-                            'source' => 'admin_cash_confirm',
-                            'confirmed_by_id' => $admin->id,
-                            'confirmed_by_name' => $admin->nama,
+                            'source' => $source,
+                            'confirmed_by_id' => $actor->id,
+                            'confirmed_by_name' => $actor->nama,
+                            'confirmed_by_role' => $actor->peran,
                             'confirmed_at' => $now->toIso8601String(),
                             'previous_booking_status' => $lockedBooking->status_pemesanan,
                             'previous_payment_status' => $payment->status_bayar,
@@ -408,6 +473,8 @@ class BookingService
     }
 
     /**
+     * Memeriksa ulang status transaksi Pakasir lalu menyinkronkannya ke pemesanan.
+     *
      * @throws ValidationException
      */
     public function refreshGatewayPaymentStatus(
@@ -421,45 +488,21 @@ class BookingService
             ]);
         }
 
-        $booking = $this->freshBookingWithRelations($booking->id);
-        $payment = $booking->pembayaran;
+        return $this->refreshGatewayPaymentStatusForBooking($booking, $strictPendingState);
+    }
 
-        if (! $payment || $payment->metode_bayar !== 'qris' || ! $this->pakasirService->isConfigured()) {
-            return $booking;
-        }
-
-        $transaction = $this->pakasirService->transactionDetail(
-            $booking->kode_booking,
-            $booking->total_harga,
-        );
-
-        if ($this->pakasirService->isCompletedStatus((string) data_get($transaction, 'status'))) {
-            return $this->syncPakasirPayment($booking, $transaction);
-        }
-
-        if ($this->pakasirService->isExpiredStatus((string) data_get($transaction, 'status'))) {
-            return $this->markGatewayPaymentUnsuccessful($booking, $transaction, null, 'kedaluwarsa');
-        }
-
-        if ($this->pakasirService->isFailedStatus((string) data_get($transaction, 'status'))) {
-            return $this->markGatewayPaymentUnsuccessful($booking, $transaction, null, 'gagal');
-        }
-
-        $this->recordGatewaySnapshot($payment, [
-            'transaction_detail' => $transaction,
-        ]);
-
-        if ($strictPendingState) {
-            throw ValidationException::withMessages([
-                'booking' => 'Simulasi pembayaran belum menghasilkan status completed dari Pakasir.',
-            ]);
-        }
-
-        return $this->freshBookingWithRelations($booking->id);
+    public function refreshGatewayPaymentStatusFromSystem(
+        Pemesanan $booking,
+        bool $strictPendingState = false,
+    ): Pemesanan {
+        return $this->refreshGatewayPaymentStatusForBooking($booking, $strictPendingState);
     }
 
     /**
+     * Memproses notifikasi Pakasir dan mencari pemesanan yang sesuai.
+     *
      * @param  array<string, mixed>  $payload
+     *
      * @throws ValidationException
      */
     public function handlePakasirWebhook(array $payload): ?Pemesanan
@@ -519,15 +562,26 @@ class BookingService
         return $this->freshBookingWithRelations($booking->id);
     }
 
-    private function activatePakasirPayment(Pemesanan $booking): Pemesanan
+    private function activatePakasirPayment(Pemesanan $booking, string $paymentMethod): Pemesanan
     {
-        $paymentPayload = $this->pakasirService->createTransaction(
-            'qris',
+        $qrisOnly = $paymentMethod === 'qris';
+        $checkoutUrl = $this->pakasirService->checkoutUrl(
             $booking->kode_booking,
             $booking->total_harga,
+            $qrisOnly,
+            $this->pakasirService->merchantReturnUrl(),
         );
 
-        return DB::transaction(function () use ($booking, $paymentPayload) {
+        $paymentPayload = [];
+        if ($qrisOnly) {
+            $paymentPayload = $this->pakasirService->createTransaction(
+                'qris',
+                $booking->kode_booking,
+                $booking->total_harga,
+            );
+        }
+
+        return DB::transaction(function () use ($booking, $paymentPayload, $checkoutUrl, $paymentMethod) {
             $lockedBooking = Pemesanan::query()
                 ->lockForUpdate()
                 ->with([
@@ -544,18 +598,20 @@ class BookingService
                 throw new PakasirException('Data pembayaran lokal tidak ditemukan.');
             }
 
-            $expiredAt = $this->resolveGatewayExpiredAt((string) data_get($paymentPayload, 'expired_at'))
-                ?? $lockedBooking->batas_pembayaran
-                ?? now()->addMinutes(5);
+            // Batas lokal dari pengaturan tetap menjadi acuan agar timer mobile dan backend sama.
+            $expiredAt = $lockedBooking->batas_pembayaran
+                ?? $this->resolvePaymentLockDeadline(now(), $lockedBooking->jadwal, $paymentMethod);
 
             $payment->update([
                 'order_id_gateway' => (string) data_get($paymentPayload, 'order_id', $lockedBooking->kode_booking),
                 'gateway_reference' => (string) data_get($paymentPayload, 'payment_number', ''),
-                'paid_channel' => (string) data_get($paymentPayload, 'payment_method', 'qris'),
+                'paid_channel' => (string) data_get($paymentPayload, 'payment_method', $paymentMethod),
                 'jumlah_bayar' => (float) data_get($paymentPayload, 'total_payment', $lockedBooking->total_harga),
                 'status_bayar' => 'menunggu',
                 'gateway_response' => $this->pakasirService->encodeGatewayResponse([
                     'provider' => 'pakasir',
+                    'checkout_url' => $checkoutUrl,
+                    'checkout_method' => $paymentMethod,
                     'create_payment' => $paymentPayload,
                 ]),
                 'expired_at' => $expiredAt,
@@ -577,6 +633,8 @@ class BookingService
     }
 
     /**
+     * Mengubah status pemesanan ketika pembayaran gagal atau kedaluwarsa.
+     *
      * @param  array<string, mixed>  $transaction
      * @param  array<string, mixed>|null  $webhookPayload
      */
@@ -640,11 +698,15 @@ class BookingService
                 'status_pemesanan' => 'dibatalkan',
             ]);
 
+            $this->adminNotification->paymentStatusChanged($lockedBooking, $paymentStatus);
+
             return $this->freshBookingWithRelations($lockedBooking->id);
         });
     }
 
     /**
+     * Menyimpan pembayaran berhasil, mengaktifkan tiket, dan mengunci kursi permanen.
+     *
      * @param  array<string, mixed>  $transaction
      * @param  array<string, mixed>|null  $webhookPayload
      */
@@ -730,6 +792,8 @@ class BookingService
                     ),
                 ]);
             }
+
+            $this->adminNotification->paymentStatusChanged($lockedBooking, 'gagal');
         });
     }
 
@@ -755,29 +819,25 @@ class BookingService
         }
 
         $this->createPaymentSuccessNotification($booking);
+        $this->adminNotification->paymentStatusChanged($booking, 'berhasil');
     }
 
     private function createPaymentSuccessNotification(Pemesanan $booking): void
     {
-        if (! (bool) PengaturanSistem::nilai('notif_payment_success', true)) {
-            return;
-        }
-
         $booking->loadMissing(['jadwal.rute']);
 
         $routeName = $booking->jadwal?->rute
             ? $booking->jadwal->rute->kota_asal.' - '.$booking->jadwal->rute->kota_tujuan
             : 'perjalanan Anda';
 
-        $template = (string) PengaturanSistem::nilai(
-            'notif_payment_success_template',
+        $message = $this->notificationTemplate->render(
             'Pembayaran Anda untuk rute {rute} telah berhasil dikonfirmasi.',
+            [
+                'nama' => $booking->pengguna?->nama ?? 'Penumpang',
+                'rute' => $routeName,
+                'kode_booking' => $booking->kode_booking,
+            ],
         );
-
-        $message = strtr($template, [
-            '{rute}' => $routeName,
-            '{kode_booking}' => $booking->kode_booking,
-        ]);
 
         Notifikasi::query()->updateOrCreate(
             [
@@ -803,11 +863,76 @@ class BookingService
         ]);
     }
 
+    private function refreshGatewayPaymentStatusForBooking(
+        Pemesanan $booking,
+        bool $strictPendingState = false,
+    ): Pemesanan {
+        $booking = $this->freshBookingWithRelations($booking->id);
+        $payment = $booking->pembayaran;
+
+        if (! $payment || ! $this->pakasirService->handlesMethod($payment->metode_bayar) || ! $this->pakasirService->isConfigured()) {
+            return $booking;
+        }
+
+        $transaction = $this->pakasirService->transactionDetail(
+            $booking->kode_booking,
+            $booking->total_harga,
+        );
+
+        if ($this->pakasirService->isCompletedStatus((string) data_get($transaction, 'status'))) {
+            return $this->syncPakasirPayment($booking, $transaction);
+        }
+
+        if ($this->pakasirService->isExpiredStatus((string) data_get($transaction, 'status'))) {
+            return $this->markGatewayPaymentUnsuccessful($booking, $transaction, null, 'kedaluwarsa');
+        }
+
+        if ($this->pakasirService->isFailedStatus((string) data_get($transaction, 'status'))) {
+            return $this->markGatewayPaymentUnsuccessful($booking, $transaction, null, 'gagal');
+        }
+
+        $this->recordGatewaySnapshot($payment, [
+            'transaction_detail' => $transaction,
+        ]);
+
+        if ($strictPendingState) {
+            throw ValidationException::withMessages([
+                'booking' => 'Simulasi pembayaran belum menghasilkan status completed dari Pakasir.',
+            ]);
+        }
+
+        return $this->freshBookingWithRelations($booking->id);
+    }
+
+    private function refreshGatewayBookingBeforeExpiry(int $bookingId): ?Pemesanan
+    {
+        $booking = $this->freshBookingWithRelations($bookingId);
+        $payment = $booking->pembayaran;
+
+        if ($booking->status_pemesanan !== 'menunggu_pembayaran') {
+            return $booking;
+        }
+
+        if (! $payment || ! $this->pakasirService->handlesMethod($payment->metode_bayar) || ! $this->pakasirService->isConfigured()) {
+            return $booking;
+        }
+
+        try {
+            // Gateway dicek lebih dulu supaya transaksi yang sudah dibayar
+            // tidak keliru dibatalkan hanya karena webhook/return terlambat.
+            return $this->refreshGatewayPaymentStatusFromSystem($booking);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
     private function freshBookingWithRelations(int $bookingId): Pemesanan
     {
         return Pemesanan::query()->with([
+            'pengguna',
             'jadwal.rute',
             'jadwal.kendaraan',
+            'jadwal.pengemudi.pengguna',
             'detailPemesanan.tiketElektronik',
             'detailPemesanan.kursiJadwal',
             'itemBagasi',
@@ -877,13 +1002,18 @@ class BookingService
                 ]);
             }
 
+            $this->adminNotification->paymentStatusChanged($booking, 'kedaluwarsa');
+
             return $seatIds->count();
         });
     }
 
     /**
+     * Memastikan data setiap penumpang cocok dengan kursi yang dipilih.
+     *
      * @param  Collection<int, array<string, mixed>>  $passengers
      * @param  Collection<int, int>  $seatNumbers
+     *
      * @throws ValidationException
      */
     private function ensurePassengersMatchSeats(Collection $passengers, Collection $seatNumbers): void
@@ -908,26 +1038,33 @@ class BookingService
     }
 
     /**
+     * Memastikan metode pembayaran yang dipilih sedang diaktifkan oleh admin.
+     *
      * @throws ValidationException
      */
     private function ensurePaymentMethodEnabled(string $paymentMethod): void
     {
         $isEnabled = match ($paymentMethod) {
-            'transfer' => PengaturanSistem::nilai('payment_transfer_enabled', false),
-            'qris' => PengaturanSistem::nilai('payment_qris_enabled', false),
-            'cash' => PengaturanSistem::nilai('payment_cash_enabled', false),
+            'transfer' => $this->settingService->get('payment_transfer_enabled', false),
+            'qris' => $this->settingService->get('payment_qris_enabled', false),
+            'cash' => $this->settingService->get('payment_cash_enabled', false),
             default => false,
         };
 
         if (! $isEnabled) {
             throw ValidationException::withMessages([
-                'payment_method' => 'Metode pembayaran yang dipilih sedang tidak aktif.',
+                'payment_method' => $paymentMethod === 'cash'
+                    ? 'Pembayaran tunai sedang tidak tersedia. Silakan pilih metode lain.'
+                    : 'Metode pembayaran yang dipilih sedang tidak aktif.',
             ]);
         }
     }
 
     /**
+     * Memastikan jumlah dan nomor kursi yang dipilih memenuhi aturan pemesanan.
+     *
      * @param  Collection<int, int>  $seatNumbers
+     *
      * @throws ValidationException
      */
     private function ensureSeatSelectionValid(Collection $seatNumbers): void
@@ -944,17 +1081,20 @@ class BookingService
             ]);
         }
 
-        $maxSeatPerBooking = (int) PengaturanSistem::nilai('max_seat_per_booking', 4);
+        $maxSeatPerBooking = (int) $this->settingService->get('max_seat_per_booking', 4);
         if ($seatNumbers->count() > $maxSeatPerBooking) {
             throw ValidationException::withMessages([
-                'seat_numbers' => "Maksimal kursi per transaksi adalah {$maxSeatPerBooking}.",
+                'seat_numbers' => 'Jumlah kursi melebihi batas maksimal per booking.',
             ]);
         }
     }
 
     /**
+     * Memastikan semua kursi yang diminta benar-benar ada pada jadwal tersebut.
+     *
      * @param  Collection<int, KursiJadwal>  $selectedSeats
      * @param  Collection<int, int>  $seatNumbers
+     *
      * @throws ValidationException
      */
     private function ensureSeatRowsMatchSelection(Collection $selectedSeats, Collection $seatNumbers): void
@@ -967,7 +1107,10 @@ class BookingService
     }
 
     /**
+     * Memastikan kursi belum dipesan atau dikunci oleh pengguna lain.
+     *
      * @param  Collection<int, KursiJadwal>  $selectedSeats
+     *
      * @throws ValidationException
      */
     private function ensureSeatsCanBeUsedByUser(Collection $selectedSeats, int $userId): void
@@ -984,28 +1127,43 @@ class BookingService
                     'seat_numbers' => "Kursi {$seat->nomor_kursi} sedang dikunci pengguna lain.",
                 ]);
             }
+
+            $hasBooking = DetailPemesanan::query()
+                ->where('kursi_jadwal_id', $seat->id)
+                ->exists();
+
+            if ($hasBooking) {
+                throw ValidationException::withMessages([
+                    'seat_numbers' => "Kursi {$seat->nomor_kursi} sudah dipesan dalam booking lain.",
+                ]);
+            }
         }
     }
 
     /**
+     * Memastikan jadwal masih dibuka sebelum proses pemesanan dilanjutkan.
+     *
      * @throws ValidationException
      */
     private function ensureScheduleOpen(Jadwal $schedule): void
     {
         if ($schedule->status !== 'dibuka') {
             throw ValidationException::withMessages([
-                'jadwal_id' => 'Jadwal yang dipilih belum dibuka untuk pemesanan.',
+                'jadwal_id' => 'Jadwal yang dipilih sudah ditutup atau belum dibuka untuk pemesanan.',
             ]);
         }
     }
 
     /**
+     * Mengambil baris kursi sekaligus menguncinya selama transaksi database berjalan.
+     *
      * @param  Collection<int, int>  $seatNumbers
      * @return Collection<int, KursiJadwal>
      */
     private function loadSeatRowsForUpdate(int $scheduleId, Collection $seatNumbers): Collection
     {
         return KursiJadwal::query()
+            ->with('detailPemesanan')
             ->where('jadwal_id', $scheduleId)
             ->whereIn('nomor_kursi', $seatNumbers)
             ->lockForUpdate()
@@ -1015,6 +1173,8 @@ class BookingService
     }
 
     /**
+     * Membersihkan dan mengubah daftar nomor kursi menjadi kumpulan angka positif.
+     *
      * @param  array<int, mixed>  $seatNumbers
      * @return Collection<int, int>
      */
@@ -1026,21 +1186,40 @@ class BookingService
             ->values();
     }
 
+    /**
+     * Data lama hanya menyimpan satu foto. Data baru menyimpan daftar foto,
+     * tetapi tetap dibatasi tiga agar bukti jelas tanpa memberatkan storage.
+     */
+    private function normalizeBaggagePhotoUrls(array $item): array
+    {
+        $urls = collect(data_get($item, 'foto_urls', []))
+            ->filter(fn ($url) => is_string($url) && trim($url) !== '')
+            ->map(fn ($url) => trim($url))
+            ->values();
+
+        $singleUrl = data_get($item, 'foto_url');
+        if ($urls->isEmpty() && is_string($singleUrl) && trim($singleUrl) !== '') {
+            $urls->push(trim($singleUrl));
+        }
+
+        return $urls->take(3)->values()->all();
+    }
+
     private function resolveFormLockDeadline($now)
     {
         return $now->copy()->addMinutes(
-            (int) PengaturanSistem::nilai('seat_lock_form_minutes', 30),
+            (int) $this->settingService->get('seat_lock_form_minutes', 30),
         );
     }
 
     private function resolvePaymentLockDeadline($now, ?Jadwal $schedule = null, ?string $paymentMethod = null)
     {
-        if ($paymentMethod === 'cash' && $schedule?->waktu_berangkat?->isFuture()) {
-            return $schedule->waktu_berangkat->copy();
+        if ($paymentMethod === 'cash') {
+            return null;
         }
 
         return $now->copy()->addMinutes(
-            (int) PengaturanSistem::nilai('seat_lock_payment_minutes', 5),
+            (int) $this->settingService->get('seat_lock_payment_minutes', 5),
         );
     }
 

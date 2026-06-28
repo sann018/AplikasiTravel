@@ -91,8 +91,19 @@
                                 <div class="travs-table-subcopy">{{ $booking->created_at->translatedFormat('d M Y H:i') }}</div>
                             </td>
                             <td>
-                                {{ $booking->pengguna->nama }}
-                                <div class="travs-table-subcopy">{{ $booking->detail_pemesanan_count }} kursi</div>
+                                <div class="travs-person-cell">
+                                    <div class="travs-avatar">
+                                        @if ($booking->pengguna->foto_profil)
+                                            <img class="travs-avatar-image travs-photo-preview-trigger" src="/storage/{{ ltrim($booking->pengguna->foto_profil, '/') }}" alt="Foto {{ $booking->pengguna->nama }}">
+                                        @else
+                                            <span>{{ strtoupper(mb_substr($booking->pengguna->nama, 0, 1)) }}</span>
+                                        @endif
+                                    </div>
+                                    <div>
+                                        <strong>{{ $booking->pengguna->nama }}</strong>
+                                        <div class="travs-table-subcopy">{{ $booking->detail_pemesanan_count }} kursi</div>
+                                    </div>
+                                </div>
                             </td>
                             <td>{{ $booking->jadwal->rute->kota_asal }} - {{ $booking->jadwal->rute->kota_tujuan }}</td>
                             <td>
@@ -102,6 +113,15 @@
                                     </span>
                                     <span class="travs-status-pill travs-status-{{ $booking->pembayaran?->status_bayar ?? 'draft' }}">
                                         {{ ucwords(str_replace('_', ' ', $booking->pembayaran?->status_bayar ?? 'draft')) }}
+                                    </span>
+                                    <span class="travs-status-pill travs-status-{{ $booking->penumpang_hadir_count >= $booking->detail_pemesanan_count && $booking->detail_pemesanan_count > 0 ? 'hadir' : 'menunggu' }}">
+                                        Hadir {{ $booking->penumpang_hadir_count }}/{{ $booking->detail_pemesanan_count }}
+                                    </span>
+                                    <span class="travs-status-pill travs-status-{{ $booking->penumpang_turun_count >= $booking->detail_pemesanan_count && $booking->detail_pemesanan_count > 0 ? 'selesai' : 'menunggu' }}">
+                                        Turun {{ $booking->penumpang_turun_count }}/{{ $booking->detail_pemesanan_count }}
+                                    </span>
+                                    <span class="travs-status-pill travs-status-{{ $booking->item_bagasi_count > 0 ? 'qris' : 'draft' }}">
+                                        Bagasi {{ $booking->item_bagasi_count }} item
                                     </span>
                                 </div>
                             </td>

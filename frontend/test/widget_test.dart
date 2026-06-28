@@ -19,8 +19,8 @@ void main() {
     await tester.pumpWidget(const TravSApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('TravS'), findsOneWidget);
-    expect(find.text('Masuk ke TravelKu'), findsOneWidget);
-    expect(find.text('Masuk Sebagai Tamu'), findsOneWidget);
+    expect(find.text('RuslyTravel'), findsOneWidget);
+    expect(find.text('Masuk ke RuslyTravel'), findsOneWidget);
+    expect(find.text('Lanjut Sebagai Tamu'), findsOneWidget);
   });
 }

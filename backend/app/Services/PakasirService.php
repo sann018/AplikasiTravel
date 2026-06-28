@@ -26,7 +26,7 @@ class PakasirService
 
     public function handlesMethod(string $paymentMethod): bool
     {
-        return $paymentMethod === 'qris';
+        return in_array($paymentMethod, ['qris', 'transfer'], true);
     }
 
     public function validateProject(string $project): bool
@@ -34,7 +34,47 @@ class PakasirService
         return $project === $this->project();
     }
 
+    public function merchantReturnUrl(): ?string
+    {
+        $configuredUrl = trim((string) config('services.pakasir.return_url', ''));
+        if (in_array(strtolower($configuredUrl), ['disabled', 'false', 'off', 'none'], true)) {
+            return null;
+        }
+
+        if ($configuredUrl !== '') {
+            return $configuredUrl;
+        }
+
+        return null;
+    }
+
+    public function checkoutUrl(
+        string $orderId,
+        int|float|string $amount,
+        bool $qrisOnly = true,
+        ?string $redirectUrl = null,
+    ): string {
+        $query = [
+            'order_id' => $orderId,
+        ];
+
+        if ($qrisOnly) {
+            $query['qris_only'] = '1';
+        }
+
+        if (is_string($redirectUrl) && trim($redirectUrl) !== '') {
+            $query['redirect'] = $redirectUrl;
+        }
+
+        return 'https://app.pakasir.com/pay/'
+            .rawurlencode($this->project())
+            .'/'.$this->normalizeAmount($amount)
+            .'?'.http_build_query($query);
+    }
+
     /**
+     * Membuat transaksi baru di Pakasir dan mengembalikan data pembayarannya.
+     *
      * @return array<string, mixed>
      */
     public function createTransaction(string $method, string $orderId, int|float|string $amount): array
@@ -55,6 +95,8 @@ class PakasirService
     }
 
     /**
+     * Menjalankan simulasi pembayaran untuk kebutuhan pengujian lokal.
+     *
      * @return array<string, mixed>
      */
     public function simulatePayment(string $orderId, int|float|string $amount): array
@@ -68,6 +110,8 @@ class PakasirService
     }
 
     /**
+     * Membatalkan transaksi Pakasir berdasarkan kode pesanan dan nominalnya.
+     *
      * @return array<string, mixed>
      */
     public function cancelTransaction(string $orderId, int|float|string $amount): array
@@ -81,6 +125,8 @@ class PakasirService
     }
 
     /**
+     * Mengambil status terbaru transaksi langsung dari Pakasir.
+     *
      * @return array<string, mixed>
      */
     public function transactionDetail(string $orderId, int|float|string $amount): array
@@ -116,6 +162,8 @@ class PakasirService
     }
 
     /**
+     * Mengubah data gateway yang tersimpan sebagai JSON menjadi array PHP.
+     *
      * @return array<string, mixed>
      */
     public function decodeGatewayResponse(?string $gatewayResponse): array
@@ -148,6 +196,8 @@ class PakasirService
     }
 
     /**
+     * Mengirim permintaan POST ke Pakasir dengan batas waktu yang sudah diatur.
+     *
      * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
@@ -163,6 +213,8 @@ class PakasirService
     }
 
     /**
+     * Mengambil data dari Pakasir melalui permintaan GET.
+     *
      * @param  array<string, mixed>  $query
      * @return array<string, mixed>
      */
@@ -177,6 +229,8 @@ class PakasirService
     }
 
     /**
+     * Membaca balasan Pakasir dan mengubah pesan gagal menjadi pengecualian.
+     *
      * @return array<string, mixed>
      */
     private function decodeResponse(int $statusCode, string $body): array

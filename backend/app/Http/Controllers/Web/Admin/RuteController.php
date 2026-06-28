@@ -7,6 +7,7 @@ use App\Models\Rute;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class RuteController extends Controller
@@ -36,13 +37,24 @@ class RuteController extends Controller
 
         return view('admin.rute.index', [
             'rute' => $rute,
-            'editingRute' => $editingRute,
             'stats' => [
                 'total' => Rute::query()->count(),
                 'aktif' => Rute::query()->where('status_aktif', true)->count(),
                 'nonaktif' => Rute::query()->where('status_aktif', false)->count(),
             ],
             'filters' => $request->only(['search', 'status']),
+        ]);
+    }
+
+    public function create(): View
+    {
+        return view('admin.rute.create');
+    }
+
+    public function edit(Rute $rute): View
+    {
+        return view('admin.rute.edit', [
+            'rute' => $rute,
         ]);
     }
 
@@ -84,10 +96,11 @@ class RuteController extends Controller
             'jarak_km' => ['nullable', 'numeric', 'min:0'],
             'estimasi_durasi_menit' => ['nullable', 'integer', 'min:1'],
             'harga_tiket' => ['required', 'numeric', 'min:0'],
-            'status_aktif' => ['nullable', 'boolean'],
+            'status' => ['required', Rule::in(['aktif', 'nonaktif'])],
         ]);
 
-        $payload['status_aktif'] = (bool) ($payload['status_aktif'] ?? false);
+        $payload['status_aktif'] = $payload['status'] === 'aktif';
+        unset($payload['status']);
 
         return $payload;
     }

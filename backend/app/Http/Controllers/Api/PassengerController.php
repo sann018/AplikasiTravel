@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Pemesanan;
-use App\Models\PengaturanSistem;
 use App\Services\BookingService;
+use App\Services\SettingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,8 +13,8 @@ class PassengerController extends Controller
 {
     public function __construct(
         private readonly BookingService $bookingService,
-    ) {
-    }
+        private readonly SettingService $settingService,
+    ) {}
 
     public function dashboard(Request $request): JsonResponse
     {
@@ -25,9 +25,13 @@ class PassengerController extends Controller
         $bookings = Pemesanan::query()
             ->with(['jadwal.rute', 'detailPemesanan.tiketElektronik', 'pembayaran'])
             ->where('pengguna_id', $user->id)
-            ->latest()
-            ->limit(3)
-            ->get();
+            ->where('status_pemesanan', 'terbayar')
+            ->whereHas('pembayaran', fn ($query) => $query->where('status_bayar', 'berhasil'))
+            ->whereHas('jadwal', fn ($query) => $query->where('waktu_berangkat', '>=', now()))
+            ->get()
+            ->sortBy(fn (Pemesanan $booking) => $booking->jadwal?->waktu_berangkat?->timestamp ?? PHP_INT_MAX)
+            ->take(3)
+            ->values();
 
         return response()->json([
             'success' => true,
@@ -42,7 +46,7 @@ class PassengerController extends Controller
                         ->where('pengguna_id', $user->id)
                         ->where('status_pemesanan', 'terbayar')
                         ->count(),
-                    'max_seat_per_booking' => PengaturanSistem::nilai('max_seat_per_booking', 4),
+                    'max_seat_per_booking' => $this->settingService->get('max_seat_per_booking', 4),
                 ],
                 'recent_bookings' => $bookings->map(fn (Pemesanan $booking) => [
                     'id' => $booking->id,

@@ -53,6 +53,7 @@ class TravSBaggagePayload {
     this.lebarCm,
     this.jumlahItem = 1,
     this.fotoUrl,
+    this.fotoUrls = const <String>[],
   });
 
   final String deskripsiItem;
@@ -63,6 +64,7 @@ class TravSBaggagePayload {
   final int? lebarCm;
   final int jumlahItem;
   final String? fotoUrl;
+  final List<String> fotoUrls;
 
   Map<String, dynamic> toJson() {
     return {
@@ -74,6 +76,7 @@ class TravSBaggagePayload {
       'lebar_cm': lebarCm,
       'jumlah_item': jumlahItem,
       'foto_url': fotoUrl,
+      if (fotoUrls.isNotEmpty) 'foto_urls': fotoUrls,
     };
   }
 }
@@ -85,6 +88,11 @@ class TravSCreateBookingPayload {
     required this.pickupLatitude,
     required this.pickupLongitude,
     required this.pickupAddress,
+    this.pickupNote,
+    required this.dropoffLatitude,
+    required this.dropoffLongitude,
+    required this.dropoffAddress,
+    this.dropoffNote,
     required this.paymentMethod,
     required this.passengers,
     required this.baggageItems,
@@ -95,6 +103,11 @@ class TravSCreateBookingPayload {
   final double pickupLatitude;
   final double pickupLongitude;
   final String pickupAddress;
+  final String? pickupNote;
+  final double dropoffLatitude;
+  final double dropoffLongitude;
+  final String dropoffAddress;
+  final String? dropoffNote;
   final String paymentMethod;
   final List<TravSPassengerPayload> passengers;
   final List<TravSBaggagePayload> baggageItems;
@@ -107,6 +120,13 @@ class TravSCreateBookingPayload {
         'latitude': pickupLatitude,
         'longitude': pickupLongitude,
         'address': pickupAddress,
+        'note': pickupNote,
+      },
+      'dropoff': {
+        'latitude': dropoffLatitude,
+        'longitude': dropoffLongitude,
+        'address': dropoffAddress,
+        'note': dropoffNote,
       },
       'payment_method': paymentMethod,
       'passengers': passengers.map((item) => item.toJson()).toList(),
@@ -128,6 +148,7 @@ class TravSBookingPaymentInfo {
     required this.fee,
     required this.totalPayment,
     required this.paymentNumber,
+    required this.checkoutUrl,
     required this.gatewayStatus,
   });
 
@@ -142,9 +163,16 @@ class TravSBookingPaymentInfo {
   final double fee;
   final double totalPayment;
   final String paymentNumber;
+
+  /// Tautan halaman Pakasir yang dibuka penumpang untuk menyelesaikan pembayaran.
+  final String checkoutUrl;
+
   final String gatewayStatus;
 
   bool get hasPaymentNumber => paymentNumber.trim().isNotEmpty;
+
+  /// Menandai apakah tautan pembayaran dari Pakasir tersedia dan bisa dibuka.
+  bool get hasCheckoutUrl => checkoutUrl.trim().isNotEmpty;
 
   factory TravSBookingPaymentInfo.fromJson(Map<String, dynamic> json) {
     return TravSBookingPaymentInfo(
@@ -159,6 +187,7 @@ class TravSBookingPaymentInfo {
       fee: _readDouble(json['fee']),
       totalPayment: _readDouble(json['total_payment']),
       paymentNumber: json['payment_number'] as String? ?? '',
+      checkoutUrl: json['checkout_url'] as String? ?? '',
       gatewayStatus: json['gateway_status'] as String? ?? '',
     );
   }
@@ -169,17 +198,20 @@ class TravSBookingPickupInfo {
     required this.latitude,
     required this.longitude,
     required this.address,
+    this.note,
   });
 
   final double latitude;
   final double longitude;
   final String address;
+  final String? note;
 
   factory TravSBookingPickupInfo.fromJson(Map<String, dynamic> json) {
     return TravSBookingPickupInfo(
       latitude: _readDouble(json['latitude']),
       longitude: _readDouble(json['longitude']),
       address: json['address'] as String? ?? '-',
+      note: json['note'] as String?,
     );
   }
 }
@@ -189,17 +221,58 @@ class TravSBookingVehicleInfo {
     required this.merk,
     required this.plat,
     required this.warna,
+    required this.tipe,
+    required this.kapasitas,
+    required this.fasilitas,
+    this.fotoUrl,
   });
 
   final String merk;
   final String plat;
   final String warna;
+  final String tipe;
+  final int kapasitas;
+  final String fasilitas;
+  final String? fotoUrl;
 
   factory TravSBookingVehicleInfo.fromJson(Map<String, dynamic> json) {
     return TravSBookingVehicleInfo(
       merk: json['merk'] as String? ?? '-',
       plat: json['plat'] as String? ?? '-',
       warna: json['warna'] as String? ?? '-',
+      tipe: json['tipe'] as String? ?? '-',
+      kapasitas: _readInt(json['kapasitas']),
+      fasilitas: json['fasilitas'] as String? ?? '-',
+      fotoUrl: json['foto_url'] as String?,
+    );
+  }
+}
+
+class TravSBookingDriverInfo {
+  const TravSBookingDriverInfo({
+    required this.nama,
+    required this.email,
+    required this.noHp,
+    required this.nomorSim,
+    required this.status,
+    this.fotoUrl,
+  });
+
+  final String nama;
+  final String email;
+  final String noHp;
+  final String nomorSim;
+  final String status;
+  final String? fotoUrl;
+
+  factory TravSBookingDriverInfo.fromJson(Map<String, dynamic> json) {
+    return TravSBookingDriverInfo(
+      nama: json['nama'] as String? ?? '-',
+      email: json['email'] as String? ?? '-',
+      noHp: json['no_hp'] as String? ?? '-',
+      nomorSim: json['nomor_sim'] as String? ?? '-',
+      status: json['status'] as String? ?? '-',
+      fotoUrl: json['foto_url'] as String?,
     );
   }
 }
@@ -266,6 +339,7 @@ class TravSBookingBaggageInfo {
     required this.lebarCm,
     required this.jumlahItem,
     required this.fotoUrl,
+    required this.fotoUrls,
   });
 
   final String deskripsiItem;
@@ -276,8 +350,21 @@ class TravSBookingBaggageInfo {
   final int? lebarCm;
   final int jumlahItem;
   final String? fotoUrl;
+  final List<String> fotoUrls;
 
   factory TravSBookingBaggageInfo.fromJson(Map<String, dynamic> json) {
+    final rawPhotoUrls = json['foto_urls'] as List<dynamic>? ?? <dynamic>[];
+    final fotoUrls = rawPhotoUrls
+        .whereType<String>()
+        .where((url) => url.trim().isNotEmpty)
+        .toList();
+    final legacyPhotoUrl = json['foto_url'] as String?;
+    if (legacyPhotoUrl != null &&
+        legacyPhotoUrl.trim().isNotEmpty &&
+        !fotoUrls.contains(legacyPhotoUrl)) {
+      fotoUrls.insert(0, legacyPhotoUrl);
+    }
+
     return TravSBookingBaggageInfo(
       deskripsiItem: json['deskripsi_item'] as String? ?? '-',
       metodeHitung: json['metode_hitung'] as String?,
@@ -288,6 +375,30 @@ class TravSBookingBaggageInfo {
           : _readInt(json['panjang_cm']),
       lebarCm: json['lebar_cm'] == null ? null : _readInt(json['lebar_cm']),
       jumlahItem: _readInt(json['jumlah_item'], fallback: 1),
+      fotoUrl: fotoUrls.isNotEmpty ? fotoUrls.first : legacyPhotoUrl,
+      fotoUrls: fotoUrls.take(3).toList(),
+    );
+  }
+}
+
+class TravSBookingRequesterInfo {
+  const TravSBookingRequesterInfo({
+    required this.nama,
+    required this.email,
+    required this.noHp,
+    this.fotoUrl,
+  });
+
+  final String nama;
+  final String email;
+  final String noHp;
+  final String? fotoUrl;
+
+  factory TravSBookingRequesterInfo.fromJson(Map<String, dynamic> json) {
+    return TravSBookingRequesterInfo(
+      nama: json['nama'] as String? ?? '-',
+      email: json['email'] as String? ?? '-',
+      noHp: json['no_hp'] as String? ?? '-',
       fotoUrl: json['foto_url'] as String?,
     );
   }
@@ -308,8 +419,11 @@ class TravSBookingResult {
     required this.rute,
     required this.waktuBerangkat,
     required this.payment,
+    this.pemesan,
     this.pickup,
+    this.dropoff,
     this.kendaraan,
+    this.pengemudi,
     this.passengers = const <TravSBookingPassengerInfo>[],
     this.baggageItems = const <TravSBookingBaggageInfo>[],
   });
@@ -327,8 +441,11 @@ class TravSBookingResult {
   final String rute;
   final String waktuBerangkat;
   final TravSBookingPaymentInfo payment;
+  final TravSBookingRequesterInfo? pemesan;
   final TravSBookingPickupInfo? pickup;
+  final TravSBookingPickupInfo? dropoff;
   final TravSBookingVehicleInfo? kendaraan;
+  final TravSBookingDriverInfo? pengemudi;
   final List<TravSBookingPassengerInfo> passengers;
   final List<TravSBookingBaggageInfo> baggageItems;
 
@@ -338,7 +455,10 @@ class TravSBookingResult {
 
   factory TravSBookingResult.fromJson(Map<String, dynamic> json) {
     final pickupJson = _asMapOrNull(json['pickup']);
+    final dropoffJson = _asMapOrNull(json['dropoff']);
     final vehicleJson = _asMapOrNull(json['kendaraan']);
+    final driverJson = _asMapOrNull(json['pengemudi']);
+    final requesterJson = _asMapOrNull(json['pemesan']);
 
     return TravSBookingResult(
       id: _readInt(json['id']),
@@ -354,12 +474,21 @@ class TravSBookingResult {
       rute: json['rute'] as String? ?? '-',
       waktuBerangkat: json['waktu_berangkat'] as String? ?? '',
       payment: TravSBookingPaymentInfo.fromJson(_asMap(json['payment'])),
+      pemesan: requesterJson == null
+          ? null
+          : TravSBookingRequesterInfo.fromJson(requesterJson),
       pickup: pickupJson == null
           ? null
           : TravSBookingPickupInfo.fromJson(pickupJson),
+      dropoff: dropoffJson == null
+          ? null
+          : TravSBookingPickupInfo.fromJson(dropoffJson),
       kendaraan: vehicleJson == null
           ? null
           : TravSBookingVehicleInfo.fromJson(vehicleJson),
+      pengemudi: driverJson == null
+          ? null
+          : TravSBookingDriverInfo.fromJson(driverJson),
       passengers: (json['passengers'] as List<dynamic>? ?? <dynamic>[])
           .map(
             (item) => TravSBookingPassengerInfo.fromJson(
@@ -374,68 +503,6 @@ class TravSBookingResult {
           )
           .toList(),
     );
-  }
-
-  static List<TravSBookingResult> mockList() {
-    return const [
-      TravSBookingResult(
-        id: 21,
-        kodeBooking: 'TRV-240425-001',
-        status: 'terbayar',
-        jumlahKursi: 2,
-        batasPembayaran: '2026-04-25T06:30:00',
-        subtotalTiket: 450000,
-        biayaBagasi: 0,
-        biayaAdmin: 5000,
-        diskon: 0,
-        totalHarga: 455000,
-        rute: 'Pontianak - Sintang',
-        waktuBerangkat: '2026-04-25T07:30:00',
-        payment: TravSBookingPaymentInfo(
-          status: 'berhasil',
-          method: 'qris',
-          expiredAt: '2026-04-25T06:30:00',
-          canSimulate: true,
-          usesGateway: true,
-          provider: 'pakasir',
-          project: 'travs',
-          amount: 455000,
-          fee: 1000,
-          totalPayment: 456000,
-          paymentNumber: '00020101021226610016ID.CO.QRIS.WWW0215TRAVSDEMO...',
-          gatewayStatus: 'completed',
-        ),
-      ),
-      TravSBookingResult(
-        id: 19,
-        kodeBooking: 'TRV-240424-007',
-        status: 'menunggu_pembayaran',
-        jumlahKursi: 1,
-        batasPembayaran: '2026-04-24T08:50:00',
-        subtotalTiket: 175000,
-        biayaBagasi: 0,
-        biayaAdmin: 5000,
-        diskon: 0,
-        totalHarga: 180000,
-        rute: 'Pontianak - Sanggau',
-        waktuBerangkat: '2026-04-24T09:30:00',
-        payment: TravSBookingPaymentInfo(
-          status: 'menunggu',
-          method: 'qris',
-          expiredAt: '2026-04-24T08:50:00',
-          canSimulate: true,
-          usesGateway: true,
-          provider: 'pakasir',
-          project: 'travs',
-          amount: 180000,
-          fee: 900,
-          totalPayment: 180900,
-          paymentNumber:
-              '00020101021226610016ID.CO.QRIS.WWW0215TRAVSPENDING...',
-          gatewayStatus: 'pending',
-        ),
-      ),
-    ];
   }
 }
 
