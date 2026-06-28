@@ -53,6 +53,7 @@ class TravSBaggagePayload {
     this.lebarCm,
     this.jumlahItem = 1,
     this.fotoUrl,
+    this.fotoUrls = const <String>[],
   });
 
   final String deskripsiItem;
@@ -63,6 +64,7 @@ class TravSBaggagePayload {
   final int? lebarCm;
   final int jumlahItem;
   final String? fotoUrl;
+  final List<String> fotoUrls;
 
   Map<String, dynamic> toJson() {
     return {
@@ -74,6 +76,7 @@ class TravSBaggagePayload {
       'lebar_cm': lebarCm,
       'jumlah_item': jumlahItem,
       'foto_url': fotoUrl,
+      if (fotoUrls.isNotEmpty) 'foto_urls': fotoUrls,
     };
   }
 }
@@ -85,9 +88,11 @@ class TravSCreateBookingPayload {
     required this.pickupLatitude,
     required this.pickupLongitude,
     required this.pickupAddress,
+    this.pickupNote,
     required this.dropoffLatitude,
     required this.dropoffLongitude,
     required this.dropoffAddress,
+    this.dropoffNote,
     required this.paymentMethod,
     required this.passengers,
     required this.baggageItems,
@@ -98,9 +103,11 @@ class TravSCreateBookingPayload {
   final double pickupLatitude;
   final double pickupLongitude;
   final String pickupAddress;
+  final String? pickupNote;
   final double dropoffLatitude;
   final double dropoffLongitude;
   final String dropoffAddress;
+  final String? dropoffNote;
   final String paymentMethod;
   final List<TravSPassengerPayload> passengers;
   final List<TravSBaggagePayload> baggageItems;
@@ -113,11 +120,13 @@ class TravSCreateBookingPayload {
         'latitude': pickupLatitude,
         'longitude': pickupLongitude,
         'address': pickupAddress,
+        'note': pickupNote,
       },
       'dropoff': {
         'latitude': dropoffLatitude,
         'longitude': dropoffLongitude,
         'address': dropoffAddress,
+        'note': dropoffNote,
       },
       'payment_method': paymentMethod,
       'passengers': passengers.map((item) => item.toJson()).toList(),
@@ -189,17 +198,20 @@ class TravSBookingPickupInfo {
     required this.latitude,
     required this.longitude,
     required this.address,
+    this.note,
   });
 
   final double latitude;
   final double longitude;
   final String address;
+  final String? note;
 
   factory TravSBookingPickupInfo.fromJson(Map<String, dynamic> json) {
     return TravSBookingPickupInfo(
       latitude: _readDouble(json['latitude']),
       longitude: _readDouble(json['longitude']),
       address: json['address'] as String? ?? '-',
+      note: json['note'] as String?,
     );
   }
 }
@@ -327,6 +339,7 @@ class TravSBookingBaggageInfo {
     required this.lebarCm,
     required this.jumlahItem,
     required this.fotoUrl,
+    required this.fotoUrls,
   });
 
   final String deskripsiItem;
@@ -337,8 +350,21 @@ class TravSBookingBaggageInfo {
   final int? lebarCm;
   final int jumlahItem;
   final String? fotoUrl;
+  final List<String> fotoUrls;
 
   factory TravSBookingBaggageInfo.fromJson(Map<String, dynamic> json) {
+    final rawPhotoUrls = json['foto_urls'] as List<dynamic>? ?? <dynamic>[];
+    final fotoUrls = rawPhotoUrls
+        .whereType<String>()
+        .where((url) => url.trim().isNotEmpty)
+        .toList();
+    final legacyPhotoUrl = json['foto_url'] as String?;
+    if (legacyPhotoUrl != null &&
+        legacyPhotoUrl.trim().isNotEmpty &&
+        !fotoUrls.contains(legacyPhotoUrl)) {
+      fotoUrls.insert(0, legacyPhotoUrl);
+    }
+
     return TravSBookingBaggageInfo(
       deskripsiItem: json['deskripsi_item'] as String? ?? '-',
       metodeHitung: json['metode_hitung'] as String?,
@@ -349,7 +375,8 @@ class TravSBookingBaggageInfo {
           : _readInt(json['panjang_cm']),
       lebarCm: json['lebar_cm'] == null ? null : _readInt(json['lebar_cm']),
       jumlahItem: _readInt(json['jumlah_item'], fallback: 1),
-      fotoUrl: json['foto_url'] as String?,
+      fotoUrl: fotoUrls.isNotEmpty ? fotoUrls.first : legacyPhotoUrl,
+      fotoUrls: fotoUrls.take(3).toList(),
     );
   }
 }

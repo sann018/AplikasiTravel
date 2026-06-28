@@ -207,9 +207,41 @@ class JadwalController extends Controller
             'rute_id' => ['required', 'exists:rute,id'],
             'pengemudi_id' => ['required', 'exists:pengemudi,id'],
             'waktu_berangkat' => ['required', 'date'],
-            'estimasi_tiba' => ['nullable', 'date', 'after:waktu_berangkat'],
             'status' => ['required', Rule::in(['draft', 'dibuka', 'ditutup', 'berangkat', 'selesai', 'dibatalkan'])],
+        ], [
+            'kendaraan_id.required' => 'Kendaraan wajib dipilih.',
+            'kendaraan_id.exists' => 'Kendaraan yang dipilih tidak ditemukan.',
+            'rute_id.required' => 'Rute perjalanan wajib dipilih.',
+            'rute_id.exists' => 'Rute perjalanan yang dipilih tidak ditemukan.',
+            'pengemudi_id.required' => 'Pengemudi wajib dipilih.',
+            'pengemudi_id.exists' => 'Pengemudi yang dipilih tidak ditemukan.',
+            'waktu_berangkat.required' => 'Waktu berangkat wajib diisi.',
+            'waktu_berangkat.date' => 'Format waktu berangkat tidak valid.',
+            'status.required' => 'Status jadwal wajib dipilih.',
+            'status.in' => 'Status jadwal yang dipilih tidak valid.',
         ]);
+
+        $rute = Rute::query()->findOrFail($validated['rute_id']);
+        $durasiRuteMenit = (int) $rute->estimasi_durasi_menit;
+
+        if ($durasiRuteMenit <= 0) {
+            throw ValidationException::withMessages([
+                'rute_id' => 'Durasi perjalanan pada rute ini belum diisi. Silakan lengkapi durasi rute terlebih dahulu.',
+            ]);
+        }
+
+        $departureTime = Carbon::parse($validated['waktu_berangkat']);
+
+        // Estimasi tiba dihitung ulang di backend agar admin tidak perlu
+        // mengisi manual dan tanggal otomatis maju jika perjalanan lewat tengah malam.
+        $validated['estimasi_tiba'] = $departureTime->copy()->addMinutes($durasiRuteMenit);
+
+        $kendaraan = Kendaraan::query()->findOrFail($validated['kendaraan_id']);
+        if ($kendaraan->status_kendaraan !== 'aktif') {
+            throw ValidationException::withMessages([
+                'kendaraan_id' => 'Kendaraan harus berstatus aktif sebelum dimasukkan ke jadwal.',
+            ]);
+        }
 
         $pengemudi = Pengemudi::query()->findOrFail($validated['pengemudi_id']);
 
@@ -221,7 +253,7 @@ class JadwalController extends Controller
 
         $conflictingSchedule = $this->driverAvailabilityService->conflictingSchedule(
             (int) $validated['pengemudi_id'],
-            Carbon::parse($validated['waktu_berangkat']),
+            $departureTime,
             $currentJadwal,
         );
 
@@ -231,7 +263,45 @@ class JadwalController extends Controller
             ]);
         }
 
+        $conflictingVehicleSchedule = $this->conflictingVehicleSchedule(
+            (int) $validated['kendaraan_id'],
+            $departureTime,
+            $currentJadwal,
+        );
+
+        if ($conflictingVehicleSchedule) {
+            throw ValidationException::withMessages([
+                'kendaraan_id' => $this->vehicleConflictMessage($conflictingVehicleSchedule),
+            ]);
+        }
+
         return $validated;
+    }
+
+    private function conflictingVehicleSchedule(
+        int $vehicleId,
+        Carbon $departureTime,
+        ?Jadwal $currentJadwal = null,
+    ): ?Jadwal {
+        // Kendaraan dipasangkan di jadwal, bukan di profil pengemudi.
+        // Validasi ini mencegah admin memakai armada yang sama untuk dua tugas aktif pada hari yang sama.
+        return Jadwal::query()
+            ->with('rute')
+            ->where('kendaraan_id', $vehicleId)
+            ->whereIn('status', $this->driverAvailabilityService->activeScheduleStatuses())
+            ->whereDate('waktu_berangkat', $departureTime->toDateString())
+            ->when($currentJadwal, fn ($query) => $query->whereKeyNot($currentJadwal->id))
+            ->orderBy('waktu_berangkat')
+            ->first();
+    }
+
+    private function vehicleConflictMessage(Jadwal $schedule): string
+    {
+        $departure = $schedule->waktu_berangkat?->format('d M Y H:i') ?? 'tanggal yang sama';
+        $route = $this->routeLabel($schedule);
+        $status = ucfirst((string) $schedule->status);
+
+        return "Kendaraan ini sudah digunakan pada jadwal aktif {$departure} ({$route}, status {$status}). Selesaikan atau batalkan jadwal itu dulu sebelum memakai kendaraan yang sama.";
     }
 
     private function parseAvailabilityDeparture(?string $value): ?Carbon

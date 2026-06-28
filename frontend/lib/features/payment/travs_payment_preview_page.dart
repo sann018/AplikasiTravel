@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/models/app_role_preview.dart';
@@ -94,12 +96,14 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
       TextEditingController();
   final TextEditingController _pickupAddressController =
       TextEditingController();
+  final TextEditingController _pickupNoteController = TextEditingController();
   final TextEditingController _dropoffLatitudeController =
       TextEditingController();
   final TextEditingController _dropoffLongitudeController =
       TextEditingController();
   final TextEditingController _dropoffAddressController =
       TextEditingController();
+  final TextEditingController _dropoffNoteController = TextEditingController();
 
   late final List<_PassengerFormController> _passengerForms;
   late final List<_PaymentMethodOption> _paymentOptions;
@@ -114,8 +118,10 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
   bool _hasOpenedGatewayCheckout = false;
   String? _errorMessage;
   TravSBookingResult? _createdBooking;
-  XFile? _selectedBaggagePhoto;
+  final List<XFile> _selectedBaggagePhotos = <XFile>[];
   TravSUploadedBaggagePhoto? _uploadedBaggagePhoto;
+  List<TravSUploadedBaggagePhoto> _uploadedBaggagePhotos =
+      <TravSUploadedBaggagePhoto>[];
 
   @override
   void initState() {
@@ -141,6 +147,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
         );
       },
     );
+    _loadFormDraft();
+    _registerDraftListeners();
   }
 
   @override
@@ -149,13 +157,142 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     _pickupLatitudeController.dispose();
     _pickupLongitudeController.dispose();
     _pickupAddressController.dispose();
+    _pickupNoteController.dispose();
     _dropoffLatitudeController.dispose();
     _dropoffLongitudeController.dispose();
     _dropoffAddressController.dispose();
+    _dropoffNoteController.dispose();
     for (final passenger in _passengerForms) {
       passenger.dispose();
     }
     super.dispose();
+  }
+
+  String get _draftKey =>
+      'draft_booking_${widget.session.user.id}_${widget.detail.schedule.id}';
+
+  /// Draft dipakai supaya isian panjang tidak hilang saat aplikasi tertutup
+  /// sementara. Data password tidak ikut disimpan demi keamanan akun.
+  Future<void> _loadFormDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawDraft = prefs.getString(_draftKey);
+      if (rawDraft == null || rawDraft.isEmpty) return;
+
+      final draft = jsonDecode(rawDraft);
+      if (draft is! Map<String, dynamic> || !mounted) return;
+
+      setState(() {
+        _pickupLatitudeController.text =
+            draft['pickup_latitude'] as String? ??
+            _pickupLatitudeController.text;
+        _pickupLongitudeController.text =
+            draft['pickup_longitude'] as String? ??
+            _pickupLongitudeController.text;
+        _pickupAddressController.text =
+            draft['pickup_address'] as String? ?? _pickupAddressController.text;
+        _pickupNoteController.text =
+            draft['pickup_note'] as String? ?? _pickupNoteController.text;
+        _dropoffLatitudeController.text =
+            draft['dropoff_latitude'] as String? ??
+            _dropoffLatitudeController.text;
+        _dropoffLongitudeController.text =
+            draft['dropoff_longitude'] as String? ??
+            _dropoffLongitudeController.text;
+        _dropoffAddressController.text =
+            draft['dropoff_address'] as String? ??
+            _dropoffAddressController.text;
+        _dropoffNoteController.text =
+            draft['dropoff_note'] as String? ?? _dropoffNoteController.text;
+        _selectedMethod = draft['payment_method'] as String? ?? _selectedMethod;
+
+        final passengers = draft['passengers'];
+        if (passengers is List) {
+          for (
+            var index = 0;
+            index < passengers.length && index < _passengerForms.length;
+            index++
+          ) {
+            final passenger = passengers[index];
+            if (passenger is Map<String, dynamic>) {
+              _passengerForms[index].nameController.text =
+                  passenger['name'] as String? ??
+                  _passengerForms[index].nameController.text;
+              _passengerForms[index].phoneController.text =
+                  passenger['phone'] as String? ??
+                  _passengerForms[index].phoneController.text;
+            }
+          }
+        }
+      });
+    } catch (_) {
+      // Kalau draft rusak, form tetap bisa dipakai normal tanpa crash.
+    }
+  }
+
+  void _registerDraftListeners() {
+    final controllers = <TextEditingController>[
+      _pickupLatitudeController,
+      _pickupLongitudeController,
+      _pickupAddressController,
+      _pickupNoteController,
+      _dropoffLatitudeController,
+      _dropoffLongitudeController,
+      _dropoffAddressController,
+      _dropoffNoteController,
+      for (final passenger in _passengerForms) ...[
+        passenger.nameController,
+        passenger.phoneController,
+      ],
+    ];
+
+    for (final controller in controllers) {
+      controller.addListener(() {
+        _saveFormDraft();
+      });
+    }
+  }
+
+  Future<void> _saveFormDraft() async {
+    if (_createdBooking != null) return;
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _draftKey,
+        jsonEncode({
+          'pickup_latitude': _pickupLatitudeController.text,
+          'pickup_longitude': _pickupLongitudeController.text,
+          'pickup_address': _pickupAddressController.text,
+          'pickup_note': _pickupNoteController.text,
+          'dropoff_latitude': _dropoffLatitudeController.text,
+          'dropoff_longitude': _dropoffLongitudeController.text,
+          'dropoff_address': _dropoffAddressController.text,
+          'dropoff_note': _dropoffNoteController.text,
+          'payment_method': _selectedMethod,
+          'passengers': _passengerForms
+              .map(
+                (passenger) => {
+                  'name': passenger.nameController.text,
+                  'phone': passenger.phoneController.text,
+                },
+              )
+              .toList(),
+        }),
+      );
+    } catch (_) {
+      // Draft hanya bantuan lokal, jadi gagal menyimpan tidak boleh
+      // menghalangi penumpang menyelesaikan pemesanan.
+    }
+  }
+
+  Future<void> _clearFormDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_draftKey);
+    } catch (_) {
+      // Draft yang gagal dihapus tidak memengaruhi data booking di server.
+    }
   }
 
   @override
@@ -191,11 +328,6 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
       widget.baggageWeight > 0 ||
       widget.baggageSize > 0 ||
       widget.baggageItems > 0;
-
-  bool get _hasPickupDraft =>
-      _pickupLatitudeController.text.trim().isNotEmpty &&
-      _pickupLongitudeController.text.trim().isNotEmpty &&
-      _pickupAddressController.text.trim().isNotEmpty;
 
   TravSPickupPoint? get _draftPickupPoint {
     final latitude = double.tryParse(_pickupLatitudeController.text.trim());
@@ -385,6 +517,13 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
   }
 
   Future<void> _selectBaggagePhoto(ImageSource source) async {
+    if (_selectedBaggagePhotos.length >= 3) {
+      setState(() {
+        _errorMessage = 'Maksimal 3 foto barang bawaan yang bisa dipilih.';
+      });
+      return;
+    }
+
     _isPickingBaggagePhoto = true;
     try {
       final photo = await _imagePicker.pickImage(
@@ -399,8 +538,9 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
       }
 
       setState(() {
-        _selectedBaggagePhoto = photo;
+        _selectedBaggagePhotos.add(photo);
         _uploadedBaggagePhoto = null;
+        _uploadedBaggagePhotos = <TravSUploadedBaggagePhoto>[];
         _errorMessage = null;
       });
     } catch (_) {
@@ -417,25 +557,37 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     }
   }
 
-  Future<String?> _resolveBaggagePhotoUrl() async {
+  void _removeBaggagePhoto(int index) {
+    if (index < 0 || index >= _selectedBaggagePhotos.length) return;
+
+    setState(() {
+      _selectedBaggagePhotos.removeAt(index);
+      _uploadedBaggagePhoto = null;
+      _uploadedBaggagePhotos = <TravSUploadedBaggagePhoto>[];
+    });
+  }
+
+  Future<List<String>> _resolveBaggagePhotoUrls() async {
     if (!_hasBaggageData) {
-      return null;
+      return const <String>[];
     }
 
-    final uploaded = _uploadedBaggagePhoto;
-    if (uploaded != null && uploaded.path.isNotEmpty) {
-      return uploaded.path;
+    if (_uploadedBaggagePhotos.isNotEmpty) {
+      return _uploadedBaggagePhotos
+          .map((photo) => photo.path)
+          .where((path) => path.isNotEmpty)
+          .take(3)
+          .toList();
     }
 
-    final selectedPhoto = _selectedBaggagePhoto;
-    if (selectedPhoto == null) {
+    if (_selectedBaggagePhotos.isEmpty) {
       if (widget.appSettings.baggagePhotoRequired) {
         setState(() {
           _errorMessage =
               'Foto barang bawaan wajib diunggah sebelum pemesanan.';
         });
       }
-      return null;
+      return const <String>[];
     }
 
     setState(() {
@@ -443,20 +595,31 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     });
 
     try {
-      final uploadedPhoto = await _apiService.uploadBaggagePhoto(
-        token: widget.session.token,
-        photo: selectedPhoto,
-      );
+      final uploadedPhotos = <TravSUploadedBaggagePhoto>[];
+      for (final photo in _selectedBaggagePhotos.take(3)) {
+        final uploadedPhoto = await _apiService.uploadBaggagePhoto(
+          token: widget.session.token,
+          photo: photo,
+        );
+        uploadedPhotos.add(uploadedPhoto);
+      }
 
       if (!mounted) {
-        return null;
+        return const <String>[];
       }
 
       setState(() {
-        _uploadedBaggagePhoto = uploadedPhoto;
+        _uploadedBaggagePhotos = uploadedPhotos;
+        _uploadedBaggagePhoto = uploadedPhotos.isNotEmpty
+            ? uploadedPhotos.first
+            : null;
       });
 
-      return uploadedPhoto.path;
+      return uploadedPhotos
+          .map((photo) => photo.path)
+          .where((path) => path.isNotEmpty)
+          .take(3)
+          .toList();
     } on TravSApiException catch (error) {
       if (mounted) {
         setState(() {
@@ -478,7 +641,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
       }
     }
 
-    return null;
+    return const <String>[];
   }
 
   Future<void> _submitBooking() async {
@@ -502,13 +665,13 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     });
 
     try {
-      final baggagePhotoUrl = await _resolveBaggagePhotoUrl();
+      final baggagePhotoUrls = await _resolveBaggagePhotoUrls();
       if (!mounted) {
         return;
       }
       if (_hasBaggageData &&
           widget.appSettings.baggagePhotoRequired &&
-          baggagePhotoUrl == null) {
+          baggagePhotoUrls.isEmpty) {
         return;
       }
 
@@ -520,11 +683,17 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
           pickupLatitude: double.parse(_pickupLatitudeController.text.trim()),
           pickupLongitude: double.parse(_pickupLongitudeController.text.trim()),
           pickupAddress: _pickupAddressController.text.trim(),
+          pickupNote: _pickupNoteController.text.trim().isEmpty
+              ? null
+              : _pickupNoteController.text.trim(),
           dropoffLatitude: double.parse(_dropoffLatitudeController.text.trim()),
           dropoffLongitude: double.parse(
             _dropoffLongitudeController.text.trim(),
           ),
           dropoffAddress: _dropoffAddressController.text.trim(),
+          dropoffNote: _dropoffNoteController.text.trim().isEmpty
+              ? null
+              : _dropoffNoteController.text.trim(),
           paymentMethod: _selectedMethod!,
           passengers: _passengerForms
               .map(
@@ -535,7 +704,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                 ),
               )
               .toList(),
-          baggageItems: _buildBaggagePayload(baggagePhotoUrl),
+          baggageItems: _buildBaggagePayload(baggagePhotoUrls),
         ),
       );
 
@@ -546,6 +715,10 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
       setState(() {
         _createdBooking = booking;
       });
+      await _clearFormDraft();
+      if (!mounted) {
+        return;
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -668,7 +841,9 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     }
   }
 
-  List<TravSBaggagePayload> _buildBaggagePayload(String? baggagePhotoUrl) {
+  List<TravSBaggagePayload> _buildBaggagePayload(
+    List<String> baggagePhotoUrls,
+  ) {
     if (!_hasBaggageData) {
       return const <TravSBaggagePayload>[];
     }
@@ -696,7 +871,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
             ? widget.baggageWidth
             : null,
         jumlahItem: widget.baggageItems > 0 ? widget.baggageItems : 1,
-        fotoUrl: baggagePhotoUrl,
+        fotoUrl: baggagePhotoUrls.isNotEmpty ? baggagePhotoUrls.first : null,
+        fotoUrls: baggagePhotoUrls.take(3).toList(),
       ),
     ];
   }
@@ -770,6 +946,74 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     return null;
   }
 
+  Future<void> _handleFormSessionExpired() async {
+    if (_createdBooking != null || !mounted) return;
+
+    await _clearFormDraft();
+    if (!mounted) return;
+
+    final shouldLeave = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Sesi Pemesanan Berakhir'),
+        content: const Text(
+          'Waktu pengisian telah habis sehingga kursi dilepas kembali. Silakan pilih jadwal dan kursi dari awal.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Oke'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLeave == true && mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pemesanan dibatalkan karena sesi pengisian berakhir.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _handlePaymentSessionExpired() async {
+    if (_createdBooking == null || !mounted) return;
+
+    await _refreshCreatedBookingStatus();
+    if (!mounted || (_createdBooking?.isPaid ?? false)) return;
+
+    final shouldLeave = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Waktu Pembayaran Berakhir'),
+        content: const Text(
+          'Pemesanan dibatalkan karena pembayaran melewati batas waktu. Status akhir tetap mengikuti pengecekan dari server.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Oke'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLeave == true && mounted) {
+      Navigator.of(context).popUntil((route) => route.isFirst);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pemesanan dibatalkan karena waktu pembayaran habis.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   Future<void> _confirmLeaveFlow() async {
     final isPaymentStep = _createdBooking != null;
     final title = isPaymentStep
@@ -789,16 +1033,31 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text(title),
-          content: Text(content),
+          backgroundColor: Colors.white,
+          title: Text(
+            title,
+            style: const TextStyle(
+              color: TravSTheme.navy,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          content: Text(
+            content,
+            style: const TextStyle(color: TravSTheme.navyMuted),
+          ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text(continueLabel),
+            OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: TravSTheme.danger,
+                side: const BorderSide(color: TravSTheme.danger),
+              ),
+              child: Text(cancelLabel),
             ),
             FilledButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text(cancelLabel),
+              onPressed: () => Navigator.of(context).pop(false),
+              style: FilledButton.styleFrom(backgroundColor: TravSTheme.navy),
+              child: Text(continueLabel),
             ),
           ],
         );
@@ -927,6 +1186,9 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
             deadlineIso: widget.lockExpiresAt,
             icon: Icons.timer_outlined,
             onDark: true,
+            onExpired: () {
+              _handleFormSessionExpired();
+            },
           ),
         ],
       ),
@@ -966,7 +1228,10 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                 child: _PaymentMethodTile(
                   option: option,
                   isSelected: _selectedMethod == option.key,
-                  onTap: () => setState(() => _selectedMethod = option.key),
+                  onTap: () {
+                    setState(() => _selectedMethod = option.key);
+                    _saveFormDraft();
+                  },
                 ),
               ),
             ),
@@ -976,8 +1241,6 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
   }
 
   Widget _buildPickupCard(BuildContext context) {
-    final theme = Theme.of(context);
-
     return _SectionCard(
       title: 'Titik Jemput',
       subtitle:
@@ -1007,44 +1270,6 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
               ),
             ],
           ),
-          if (_hasPickupDraft) ...[
-            const SizedBox(height: 14),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: TravSTheme.surfaceSoft,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Titik Jemput Anda',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: TravSTheme.navy,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _pickupAddressController.text.trim(),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: TravSTheme.navy,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Koordinat: ${_pickupLatitudeController.text.trim()}, ${_pickupLongitudeController.text.trim()}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: TravSTheme.navyMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
           const SizedBox(height: 14),
           Row(
             children: [
@@ -1099,13 +1324,24 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
             minLines: 2,
             maxLines: 3,
             decoration: InputDecoration(
-              labelText: 'Alamat Jemput',
+              labelText: 'Titik Jemput Anda',
               hintText: 'Terisi otomatis dari koordinat GPS atau peta.',
               helperText: _isResolvingPickup
                   ? 'Mengambil nama alamat dari koordinat...'
                   : null,
             ),
             validator: (value) => _validateRequiredText(value, 'Alamat jemput'),
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _pickupNoteController,
+            minLines: 2,
+            maxLines: 3,
+            maxLength: 500,
+            decoration: const InputDecoration(
+              labelText: 'Catatan / Patokan Jemput',
+              hintText: 'Contoh: depan toko atau rumah pagar hijau',
+            ),
           ),
         ],
       ),
@@ -1126,6 +1362,23 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
             onPressed: _isResolvingDropoff ? null : _pickDropoffFromMap,
             icon: const Icon(Icons.map_outlined),
             label: const Text('Pilih Titik Turun di Peta'),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: TravSTheme.orangeSoft,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Text(
+              'Tips: pilih titik turun lewat peta aplikasi. Jika ingin memakai Google Maps, salin latitude dan longitude tujuan, lalu isi patokan seperti nama toko, simpang, gerbang, atau ciri bangunan terdekat.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: TravSTheme.navy,
+                height: 1.45,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
           if (_hasDropoffDraft) ...[
             const SizedBox(height: 14),
@@ -1224,6 +1477,17 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                   : null,
             ),
             validator: (value) => _validateRequiredText(value, 'Alamat tujuan'),
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _dropoffNoteController,
+            minLines: 2,
+            maxLines: 3,
+            maxLength: 500,
+            decoration: const InputDecoration(
+              labelText: 'Catatan / Patokan Turun',
+              hintText: 'Contoh: depan minimarket atau gerbang kampus',
+            ),
           ),
         ],
       ),
@@ -1402,8 +1666,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                         Text(
                           _uploadedBaggagePhoto != null
                               ? 'Foto sudah terunggah dan akan disimpan bersama pemesanan.'
-                              : _selectedBaggagePhoto != null
-                              ? 'Dipilih: ${_selectedBaggagePhoto!.name}'
+                              : _selectedBaggagePhotos.isNotEmpty
+                              ? '${_selectedBaggagePhotos.length}/3 foto dipilih.'
                               : 'Ambil foto dari kamera atau pilih dari galeri sebelum submit.',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: TravSTheme.navyMuted,
@@ -1421,14 +1685,18 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
               runSpacing: 10,
               children: [
                 OutlinedButton.icon(
-                  onPressed: _isUploadingBaggagePhoto
+                  onPressed:
+                      _isUploadingBaggagePhoto ||
+                          _selectedBaggagePhotos.length >= 3
                       ? null
                       : () => _selectBaggagePhoto(ImageSource.camera),
                   icon: const Icon(Icons.photo_camera_outlined),
                   label: const Text('Kamera'),
                 ),
                 OutlinedButton.icon(
-                  onPressed: _isUploadingBaggagePhoto
+                  onPressed:
+                      _isUploadingBaggagePhoto ||
+                          _selectedBaggagePhotos.length >= 3
                       ? null
                       : () => _selectBaggagePhoto(ImageSource.gallery),
                   icon: const Icon(Icons.photo_library_outlined),
@@ -1436,6 +1704,66 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                 ),
               ],
             ),
+            if (_selectedBaggagePhotos.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: List<Widget>.generate(_selectedBaggagePhotos.length, (
+                  index,
+                ) {
+                  final photo = _selectedBaggagePhotos[index];
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: FutureBuilder(
+                          future: photo.readAsBytes(),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasData) {
+                              return Image.memory(
+                                snapshot.data!,
+                                width: 76,
+                                height: 76,
+                                fit: BoxFit.cover,
+                              );
+                            }
+
+                            return Container(
+                              width: 76,
+                              height: 76,
+                              color: TravSTheme.surfaceMuted,
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.image_outlined,
+                                color: TravSTheme.navyMuted,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      Positioned(
+                        top: -8,
+                        right: -8,
+                        child: IconButton.filled(
+                          visualDensity: VisualDensity.compact,
+                          iconSize: 16,
+                          style: IconButton.styleFrom(
+                            backgroundColor: TravSTheme.navy,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(28, 28),
+                          ),
+                          onPressed: () => _removeBaggagePhoto(index),
+                          icon: const Icon(Icons.close_rounded),
+                          tooltip: 'Hapus foto ${index + 1}',
+                        ),
+                      ),
+                    ],
+                  );
+                }),
+              ),
+            ],
             if (_isUploadingBaggagePhoto) ...[
               const SizedBox(height: 12),
               LinearProgressIndicator(
@@ -1579,6 +1907,9 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
               title: 'Sisa waktu pembayaran',
               deadlineIso: payment.expiredAt,
               icon: Icons.payments_outlined,
+              onExpired: () {
+                _handlePaymentSessionExpired();
+              },
             ),
           ),
         ],
@@ -2382,12 +2713,14 @@ class _CountdownPanel extends StatefulWidget {
     required this.deadlineIso,
     required this.icon,
     this.onDark = false,
+    this.onExpired,
   });
 
   final String title;
   final String deadlineIso;
   final IconData icon;
   final bool onDark;
+  final VoidCallback? onExpired;
 
   @override
   State<_CountdownPanel> createState() => _CountdownPanelState();
@@ -2396,16 +2729,19 @@ class _CountdownPanel extends StatefulWidget {
 class _CountdownPanelState extends State<_CountdownPanel> {
   Timer? _timer;
   late Duration _remaining;
+  bool _expiredCallbackSent = false;
 
   @override
   void initState() {
     super.initState();
     _remaining = _calculateRemaining();
+    _notifyExpiredIfNeeded();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) {
         setState(() {
           _remaining = _calculateRemaining();
         });
+        _notifyExpiredIfNeeded();
       }
     });
   }
@@ -2414,7 +2750,9 @@ class _CountdownPanelState extends State<_CountdownPanel> {
   void didUpdateWidget(covariant _CountdownPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.deadlineIso != widget.deadlineIso) {
+      _expiredCallbackSent = false;
       _remaining = _calculateRemaining();
+      _notifyExpiredIfNeeded();
     }
   }
 
@@ -2432,6 +2770,19 @@ class _CountdownPanelState extends State<_CountdownPanel> {
 
     final difference = deadline.difference(DateTime.now());
     return difference.isNegative ? Duration.zero : difference;
+  }
+
+  void _notifyExpiredIfNeeded() {
+    if (_expiredCallbackSent || _remaining != Duration.zero) {
+      return;
+    }
+
+    _expiredCallbackSent = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        widget.onExpired?.call();
+      }
+    });
   }
 
   @override

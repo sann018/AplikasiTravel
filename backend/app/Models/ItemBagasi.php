@@ -29,6 +29,7 @@ class ItemBagasi extends Model
         'lebar_cm',
         'jumlah_item',
         'foto_url',
+        'foto_urls',
         'biaya_item',
     ];
 
@@ -40,6 +41,7 @@ class ItemBagasi extends Model
             'panjang_cm' => 'integer',
             'lebar_cm' => 'integer',
             'biaya_item' => 'decimal:2',
+            'foto_urls' => 'array',
         ];
     }
 

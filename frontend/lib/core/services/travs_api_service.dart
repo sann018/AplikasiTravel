@@ -158,9 +158,11 @@ class TravSApiService {
     final responses = await Future.wait([
       getWithFallback('/api/mobile/bootstrap', headers: jsonHeaders()),
       getWithFallback('/api/guest/jadwal', headers: jsonHeaders()),
+      getWithFallback('/api/home-banners', headers: jsonHeaders()),
     ]);
     final bootstrapResponse = responses[0];
     final scheduleResponse = responses[1];
+    final bannerResponse = responses[2];
 
     if (bootstrapResponse.statusCode != 200) {
       throw TravSApiException(
@@ -178,12 +180,16 @@ class TravSApiService {
         _decodeBody(bootstrapResponse.body) as Map<String, dynamic>;
     final scheduleJson =
         _decodeBody(scheduleResponse.body) as Map<String, dynamic>;
+    final bannerJson = bannerResponse.statusCode == 200
+        ? _decodeBody(bannerResponse.body) as Map<String, dynamic>
+        : <String, dynamic>{};
 
     final bootstrapData =
         bootstrapJson['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
     final scheduleItems = scheduleJson['data'] as List<dynamic>? ?? <dynamic>[];
     final featuredItems =
         bootstrapData['featured_schedules'] as List<dynamic>? ?? <dynamic>[];
+    final bannerItems = bannerJson['data'] as List<dynamic>? ?? <dynamic>[];
 
     final schedulesById = <int, TravSSchedule>{};
     for (final item in [...featuredItems, ...scheduleItems]) {
@@ -201,6 +207,9 @@ class TravSApiService {
       sourceLabel: 'Data tersedia',
       serviceWhatsapp: branding['service_whatsapp'] as String?,
       adminContact: branding['contact'] as String?,
+      banners: bannerItems
+          .map((item) => TravSHomeBanner.fromJson(item as Map<String, dynamic>))
+          .toList(),
     );
   }
 
@@ -265,6 +274,18 @@ class TravSApiService {
         decoded['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
 
     return TravSDriverDashboard.fromJson(data);
+  }
+
+  Future<List<TravSDriverTripItem>> loadDriverTrips(String token) async {
+    final response = await getWithFallback(
+      '/api/pengemudi/trips',
+      headers: jsonHeaders(token: token),
+    );
+
+    return _decodeDataList(
+      response,
+      (item) => TravSDriverTripItem.fromJson(item),
+    );
   }
 
   /// Mengambil notifikasi milik akun yang sedang login.
@@ -538,6 +559,49 @@ class TravSApiService {
     throw const TravSApiException('Foto profil gagal diunggah.');
   }
 
+  Future<TravSUploadedVehiclePhoto> uploadAssignedVehiclePhoto({
+    required String token,
+    required XFile photo,
+  }) async {
+    final bytes = await photo.readAsBytes();
+    Object? lastError;
+
+    for (final candidate in _orderedBaseUrls()) {
+      try {
+        final request = http.MultipartRequest(
+          'POST',
+          Uri.parse('$candidate/api/pengemudi/vehicle/photo'),
+        );
+        request.headers.addAll({
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        });
+        request.files.add(
+          http.MultipartFile.fromBytes('foto', bytes, filename: photo.name),
+        );
+
+        final streamed = await request.send().timeout(
+          const Duration(seconds: 20),
+        );
+        final response = await http.Response.fromStream(streamed);
+        _lastSuccessfulBaseUrl = candidate;
+
+        return _decodeDataObject(
+          response,
+          (data) => TravSUploadedVehiclePhoto.fromJson(data),
+        );
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (lastError != null) {
+      throw lastError;
+    }
+
+    throw const TravSApiException('Foto kendaraan gagal diunggah.');
+  }
+
   Future<TravSBookingResult> simulatePayment({
     required String token,
     required int bookingId,
@@ -614,6 +678,65 @@ class TravSApiService {
       response,
       (data) => TravSDriverManifestPassenger.fromJson(data),
     );
+  }
+
+  Future<Map<String, dynamic>> submitDriverOperationalExpense({
+    required String token,
+    required int tripId,
+    required String jenisBiaya,
+    required num nominal,
+    required DateTime tanggal,
+    String? keterangan,
+    XFile? fotoBuktiNota,
+  }) async {
+    Object? lastError;
+
+    for (final candidate in _orderedBaseUrls()) {
+      try {
+        final request = http.MultipartRequest(
+          'POST',
+          Uri.parse('$candidate/api/pengemudi/trips/$tripId/expenses'),
+        );
+        request.headers.addAll({
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $token',
+        });
+        request.fields.addAll({
+          'jenis_biaya': jenisBiaya.trim(),
+          'nominal': nominal.toString(),
+          'tanggal': tanggal.toIso8601String(),
+          if (keterangan != null && keterangan.trim().isNotEmpty)
+            'keterangan': keterangan.trim(),
+        });
+
+        if (fotoBuktiNota != null) {
+          final bytes = await fotoBuktiNota.readAsBytes();
+          request.files.add(
+            http.MultipartFile.fromBytes(
+              'foto_bukti_nota',
+              bytes,
+              filename: fotoBuktiNota.name,
+            ),
+          );
+        }
+
+        final streamed = await request.send().timeout(
+          const Duration(seconds: 20),
+        );
+        final response = await http.Response.fromStream(streamed);
+        _lastSuccessfulBaseUrl = candidate;
+
+        return _decodeDataObject(response, (data) => data);
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (lastError != null) {
+      throw lastError;
+    }
+
+    throw const TravSApiException('Pengajuan biaya operasional gagal dikirim.');
   }
 
   /// Meminta token reset password ke backend.
@@ -842,6 +965,20 @@ class TravSUploadedProfilePhoto {
   }
 }
 
+class TravSUploadedVehiclePhoto {
+  const TravSUploadedVehiclePhoto({required this.path, required this.url});
+
+  final String path;
+  final String url;
+
+  factory TravSUploadedVehiclePhoto.fromJson(Map<String, dynamic> json) {
+    return TravSUploadedVehiclePhoto(
+      path: json['foto_path'] as String? ?? '',
+      url: json['foto_url'] as String? ?? '',
+    );
+  }
+}
+
 class TravSHomePayload {
   const TravSHomePayload({
     required this.appName,
@@ -849,6 +986,7 @@ class TravSHomePayload {
     required this.sourceLabel,
     this.serviceWhatsapp,
     this.adminContact,
+    this.banners = const <TravSHomeBanner>[],
   });
 
   final String appName;
@@ -856,6 +994,30 @@ class TravSHomePayload {
   final String sourceLabel;
   final String? serviceWhatsapp;
   final String? adminContact;
+  final List<TravSHomeBanner> banners;
+}
+
+class TravSHomeBanner {
+  const TravSHomeBanner({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.imageUrl,
+  });
+
+  final int id;
+  final String title;
+  final String subtitle;
+  final String imageUrl;
+
+  factory TravSHomeBanner.fromJson(Map<String, dynamic> json) {
+    return TravSHomeBanner(
+      id: _readInt(json['id']),
+      title: json['judul'] as String? ?? '',
+      subtitle: json['subjudul'] as String? ?? '',
+      imageUrl: json['gambar_url'] as String? ?? '',
+    );
+  }
 }
 
 class TravSSchedule {
@@ -1219,14 +1381,21 @@ class TravSDriverDashboard {
     required this.jadwalAktif,
     required this.penumpangTerdaftar,
     required this.upcomingTrips,
+    this.assignedVehicle,
+    this.assignedVehicleMessage,
   });
 
   final int jadwalAktif;
   final int penumpangTerdaftar;
   final List<TravSDriverTripItem> upcomingTrips;
+  final TravSDriverAssignedVehicle? assignedVehicle;
+  final String? assignedVehicleMessage;
 
   factory TravSDriverDashboard.fromJson(Map<String, dynamic> json) {
     final summary = _asMap(json['summary']);
+    final assignedVehicleJson = _asMap(
+      json['kendaraan_ditugaskan'] ?? json['assigned_vehicle'],
+    );
     return TravSDriverDashboard(
       jadwalAktif: _readInt(summary['jadwal_aktif']),
       penumpangTerdaftar: _readInt(summary['penumpang_terdaftar']),
@@ -1236,6 +1405,69 @@ class TravSDriverDashboard {
                 TravSDriverTripItem.fromJson(item as Map<String, dynamic>),
           )
           .toList(),
+      assignedVehicle: assignedVehicleJson.isEmpty
+          ? null
+          : TravSDriverAssignedVehicle.fromJson(assignedVehicleJson),
+      assignedVehicleMessage: json['kendaraan_ditugaskan_message'] as String?,
+    );
+  }
+}
+
+class TravSDriverAssignedVehicle {
+  const TravSDriverAssignedVehicle({
+    required this.scheduleId,
+    required this.route,
+    required this.departureAt,
+    required this.estimatedArrivalAt,
+    required this.plateNumber,
+    required this.brand,
+    required this.type,
+    required this.color,
+    required this.capacity,
+    required this.photoUrl,
+    required this.vehicleStatus,
+    required this.scheduleStatus,
+  });
+
+  final int scheduleId;
+  final String route;
+  final String departureAt;
+  final String estimatedArrivalAt;
+  final String plateNumber;
+  final String brand;
+  final String type;
+  final String color;
+  final int capacity;
+  final String? photoUrl;
+  final String vehicleStatus;
+  final String scheduleStatus;
+
+  String get displayName {
+    final parts = [
+      brand,
+      type,
+      plateNumber,
+    ].where((value) => value.trim().isNotEmpty && value != '-').toList();
+    return parts.isEmpty ? 'Armada belum ditugaskan' : parts.join(' ');
+  }
+
+  factory TravSDriverAssignedVehicle.fromJson(Map<String, dynamic> json) {
+    // Kendaraan dibaca dari object khusus jadwal, bukan dari profil pengemudi.
+    return TravSDriverAssignedVehicle(
+      scheduleId: _readInt(json['id_jadwal']),
+      route: json['rute'] as String? ?? '-',
+      departureAt: json['waktu_berangkat'] as String? ?? '',
+      estimatedArrivalAt: json['estimasi_tiba'] as String? ?? '',
+      plateNumber: json['nomor_plat'] as String? ?? '-',
+      brand:
+          json['merek'] as String? ?? json['merk_kendaraan'] as String? ?? '-',
+      type: json['tipe'] as String? ?? json['tipe_kendaraan'] as String? ?? '-',
+      color: json['warna'] as String? ?? '-',
+      capacity: _readInt(json['kapasitas'] ?? json['kapasitas_kursi']),
+      photoUrl:
+          json['foto_url'] as String? ?? json['foto_kendaraan_url'] as String?,
+      vehicleStatus: json['status_kendaraan'] as String? ?? '-',
+      scheduleStatus: json['status_jadwal'] as String? ?? '-',
     );
   }
 }
@@ -1247,6 +1479,8 @@ class TravSDriverTripItem {
     required this.rute,
     required this.waktuBerangkat,
     required this.kendaraan,
+    required this.kendaraanNama,
+    required this.nomorPlat,
     required this.kendaraanFotoUrl,
     required this.status,
     this.passengerCount = 0,
@@ -1259,6 +1493,8 @@ class TravSDriverTripItem {
   final String rute;
   final String waktuBerangkat;
   final String kendaraan;
+  final String kendaraanNama;
+  final String nomorPlat;
   final String? kendaraanFotoUrl;
   final String status;
   final int passengerCount;
@@ -1272,6 +1508,11 @@ class TravSDriverTripItem {
       rute: json['rute'] as String? ?? '-',
       waktuBerangkat: json['waktu_berangkat'] as String? ?? '',
       kendaraan: json['kendaraan'] as String? ?? '-',
+      kendaraanNama:
+          json['kendaraan_nama'] as String? ??
+          json['kendaraan'] as String? ??
+          '-',
+      nomorPlat: json['nomor_plat'] as String? ?? '-',
       kendaraanFotoUrl: json['kendaraan_foto_url'] as String?,
       status: json['status'] as String? ?? '-',
       passengerCount: _readInt(json['passenger_count']),
@@ -1306,6 +1547,7 @@ class TravSDriverManifestPassenger {
     required this.dropoffLongitude,
     required this.baggageLabel,
     required this.baggagePhotoUrl,
+    required this.baggagePhotoUrls,
     required this.fareLabel,
     required this.attendanceStatus,
     required this.bookingStatus,
@@ -1335,6 +1577,7 @@ class TravSDriverManifestPassenger {
   final double? dropoffLongitude;
   final String baggageLabel;
   final String? baggagePhotoUrl;
+  final List<String> baggagePhotoUrls;
   final String fareLabel;
   final String attendanceStatus;
   final String bookingStatus;
@@ -1346,6 +1589,16 @@ class TravSDriverManifestPassenger {
   final bool ticketScanned;
   final bool isDroppedOff;
 
+  String get pickupLandmark => _friendlyLandmark(pickupAddress);
+  String get dropoffLandmark => _friendlyLandmark(dropoffAddress);
+
+  static String _friendlyLandmark(String value) {
+    final landmark = value.trim();
+    return landmark.isEmpty || landmark == '-'
+        ? 'Belum diisi penumpang'
+        : landmark;
+  }
+
   factory TravSDriverManifestPassenger.fromJson(Map<String, dynamic> json) {
     final pickup = _asMap(json['pickup']);
     final baggage = _asMap(json['baggage']);
@@ -1354,6 +1607,17 @@ class TravSDriverManifestPassenger {
     final ticket = _asMap(json['ticket']);
     final account = _asMap(json['akun_pemesan']);
     final dropoff = _asMap(json['dropoff']);
+    final baggagePhotoUrls =
+        (baggage['foto_urls'] as List<dynamic>? ?? <dynamic>[])
+            .whereType<String>()
+            .where((url) => url.trim().isNotEmpty)
+            .toList();
+    final legacyBaggagePhoto = baggage['foto_url'] as String?;
+    if (legacyBaggagePhoto != null &&
+        legacyBaggagePhoto.trim().isNotEmpty &&
+        !baggagePhotoUrls.contains(legacyBaggagePhoto)) {
+      baggagePhotoUrls.insert(0, legacyBaggagePhoto);
+    }
 
     return TravSDriverManifestPassenger(
       bookingId: _readInt(json['booking_id']),
@@ -1365,14 +1629,17 @@ class TravSDriverManifestPassenger {
       profilePhotoUrl: account['foto_url'] as String?,
       seatNumber: _readInt(json['nomor_kursi']),
       phone: json['no_hp_penumpang'] as String? ?? '-',
-      pickupAddress: pickup['address'] as String? ?? '-',
+      pickupAddress: pickup['address'] as String? ?? '',
       pickupLatitude: _readNullableDouble(pickup['latitude']),
       pickupLongitude: _readNullableDouble(pickup['longitude']),
-      dropoffAddress: dropoff['address'] as String? ?? '-',
+      dropoffAddress: dropoff['address'] as String? ?? '',
       dropoffLatitude: _readNullableDouble(dropoff['latitude']),
       dropoffLongitude: _readNullableDouble(dropoff['longitude']),
       baggageLabel: baggage['label'] as String? ?? '-',
-      baggagePhotoUrl: baggage['foto_url'] as String?,
+      baggagePhotoUrl: baggagePhotoUrls.isNotEmpty
+          ? baggagePhotoUrls.first
+          : legacyBaggagePhoto,
+      baggagePhotoUrls: baggagePhotoUrls.take(3).toList(),
       fareLabel: fare['label'] as String? ?? '-',
       attendanceStatus: json['status_kehadiran'] as String? ?? 'menunggu',
       bookingStatus: json['status_pemesanan'] as String? ?? '-',

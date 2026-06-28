@@ -1172,17 +1172,53 @@ svg {
 
 .travs-cost-workspace {
     display: grid;
-    grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.15fr);
+    grid-template-columns: minmax(0, 1fr);
     align-items: start;
-    gap: 18px;
+    gap: 24px;
 }
 
-.travs-cost-workspace > .travs-form-card {
-    grid-row: span 2;
+/* Form biaya disusun sebagai daftar vertikal, jadi tidak boleh menempel saat halaman digulir. */
+.travs-cost-workspace > .travs-cost-form-panel {
+    position: static;
+    top: auto;
+    width: 100%;
+}
+
+.travs-cost-workspace > .travs-cost-list-panel {
+    width: 100%;
+    margin-top: 0;
+    clear: both;
+}
+
+.travs-cost-form-panel,
+.travs-cost-list-panel,
+.travs-rekap-shelf-panel {
+    min-width: 0;
+}
+
+.travs-cost-filter-section {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: var(--travs-surface);
+    border: 1px solid var(--travs-border);
+    border-radius: 8px;
+}
+
+.travs-cost-filter-section .travs-filter-grid {
+    margin-bottom: 0;
+}
+
+.travs-cost-table-section {
+    margin-top: 0;
 }
 
 .travs-rekap-panel-grid {
     align-items: start;
+}
+
+.travs-rekap-shelf-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
 }
 
 .travs-chart-card {
@@ -1312,6 +1348,31 @@ svg {
 
 .travs-table-empty {
     color: var(--travs-text-soft);
+}
+
+.travs-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .02em;
+}
+
+.travs-badge-success {
+    background: #e8f7ee;
+    color: #0f7a3a;
+}
+
+.travs-badge-warning {
+    background: #fff4df;
+    color: #a65f00;
+}
+
+.travs-badge-danger {
+    background: #fdecec;
+    color: #b42318;
 }
 
 .travs-reminder-section {
@@ -2018,6 +2079,47 @@ svg {
     flex-wrap: wrap;
 }
 
+.travs-detail-stack {
+    display: grid;
+    gap: 18px;
+    margin-top: 18px;
+}
+
+.travs-contact-link {
+    color: var(--travs-primary);
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.travs-contact-link:hover {
+    text-decoration: underline;
+}
+
+.travs-location-note {
+    margin-top: 4px;
+    color: var(--travs-text-soft);
+    font-size: 0.82rem;
+}
+
+.travs-bagasi-photo-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.travs-bagasi-thumb {
+    width: 100px;
+    height: 100px;
+    max-width: 100px;
+    max-height: 100px;
+    border: 1px solid var(--travs-border);
+    border-radius: 12px;
+    object-fit: cover;
+    background: var(--travs-soft);
+}
+
 .travs-status-pill {
     display: inline-flex;
     align-items: center;
@@ -2376,10 +2478,6 @@ svg {
         grid-template-columns: 1fr;
     }
 
-    .travs-cost-workspace > .travs-form-card {
-        grid-row: auto;
-    }
-
     .travs-admin-account-card {
         padding: 18px;
     }
@@ -2649,7 +2747,7 @@ svg {
 
 .travs-nav-link.is-active {
     color: #ffffff;
-    background: #435ebe;
+    background: var(--travs-primary);
 }
 
 .travs-nav-link svg {
@@ -2726,7 +2824,46 @@ svg {
     font-size: 0.88rem;
 }
 
+.travs-topbar-notification {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    color: var(--travs-primary);
+    background: #ffffff;
+    border: 1px solid #dce7f5;
+    border-radius: 8px;
+}
+
+.travs-topbar-notification:hover,
+.travs-topbar-notification:focus-visible {
+    color: #ffffff;
+    background: var(--travs-primary);
+}
+
+.travs-topbar-notification-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
+    color: #ffffff;
+    background: #c83c3c;
+    border: 2px solid #ffffff;
+    border-radius: 999px;
+    font-size: 0.66rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
 .travs-topbar-chip svg,
+.travs-topbar-notification svg,
 .dropdown-item svg {
     width: 16px;
     height: 16px;

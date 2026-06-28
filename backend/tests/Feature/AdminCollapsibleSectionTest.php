@@ -17,13 +17,22 @@ class AdminCollapsibleSectionTest extends TestCase
         $this->seed(DatabaseSeeder::class);
     }
 
+    public function test_active_admin_menu_uses_the_main_navy_color(): void
+    {
+        $css = file_get_contents(resource_path('css/app.css'));
+
+        $this->assertIsString($css);
+        $this->assertMatchesRegularExpression(
+            '/\.travs-nav-link\.is-active\s*\{[^}]*background:\s*var\(--travs-primary\);/s',
+            $css,
+        );
+    }
+
     public function test_targeted_admin_pages_render_local_collapsible_sections(): void
     {
         $admin = User::query()->where('peran', 'admin')->firstOrFail();
         $routes = [
             route('admin.dashboard'),
-            route('admin.biaya.index'),
-            route('admin.biaya.rekap'),
             route('admin.notifikasi.index'),
         ];
 
@@ -42,7 +51,6 @@ class AdminCollapsibleSectionTest extends TestCase
         $admin = User::query()->where('peran', 'admin')->firstOrFail();
         $routes = [
             route('admin.biaya.index'),
-            route('admin.biaya.rekap'),
             route('admin.notifikasi.index'),
         ];
 
@@ -76,11 +84,10 @@ class AdminCollapsibleSectionTest extends TestCase
             ->assertSee('cost-list-body', false);
 
         $this->actingAs($admin)
-            ->get(route('admin.biaya.rekap'))
+            ->get(route('admin.biaya.index'))
             ->assertOk()
-            ->assertSee('cost-recap-filter-body', false)
             ->assertSee('cost-recap-route-body', false)
-            ->assertSee('cost-recap-detail-body', false);
+            ->assertSee('cost-list-body', false);
 
         $this->actingAs($admin)
             ->get(route('admin.notifikasi.index'))
@@ -89,5 +96,62 @@ class AdminCollapsibleSectionTest extends TestCase
             ->assertSee('notification-filter-body', false)
             ->assertSee('notification-cleanup-body', false)
             ->assertSee('notification-list-body', false);
+    }
+
+    public function test_cost_pages_use_the_requested_shelf_layout(): void
+    {
+        $admin = User::query()->where('peran', 'admin')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->get(route('admin.biaya.index'))
+            ->assertOk()
+            ->assertSee('travs-cost-form-panel', false)
+            ->assertSee('travs-cost-list-panel', false)
+            ->assertSee('travs-cost-filter-section', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.biaya.index'))
+            ->assertOk()
+            ->assertSee('travs-cost-accumulation-panel', false);
+    }
+
+    public function test_old_recap_page_redirects_to_operational_cost_page(): void
+    {
+        $admin = User::query()->where('peran', 'admin')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->get(route('admin.biaya.rekap'))
+            ->assertRedirect(route('admin.biaya.index'));
+    }
+
+    public function test_operational_cost_uses_static_summary_and_collapsible_vertical_sections(): void
+    {
+        $admin = User::query()->where('peran', 'admin')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->get(route('admin.biaya.index'))
+            ->assertOk()
+            ->assertSee('data-static-cost-summary', false)
+            ->assertSee('aria-controls="cost-form-body"', false)
+            ->assertSee('aria-controls="cost-list-body"', false)
+            ->assertDontSee('data-cost-summary-toggle', false)
+            ->assertDontSee('data-cost-filter-toggle', false)
+            ->assertSeeInOrder([
+                'Ringkasan Biaya',
+                'Catat Biaya Operasional',
+                'Daftar Biaya',
+                'Akumulasi per Rute',
+            ]);
+    }
+
+    public function test_sidebar_no_longer_shows_separate_recap_menu(): void
+    {
+        $admin = User::query()->where('peran', 'admin')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->get(route('admin.biaya.index'))
+            ->assertOk()
+            ->assertDontSee('>Rekap Biaya<', false)
+            ->assertDontSee('Lihat Rekap');
     }
 }

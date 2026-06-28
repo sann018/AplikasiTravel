@@ -7,6 +7,7 @@ use App\Models\Jadwal;
 use App\Models\KursiJadwal;
 use App\Models\Notifikasi;
 use App\Models\Pemesanan;
+use App\Models\Pengemudi;
 use App\Models\TiketElektronik;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
@@ -237,6 +238,34 @@ class SecurityAndTDTest extends TestCase
 
         $response->assertRedirect(route('admin.jadwal.create'));
         $response->assertSessionHasErrors('pengemudi_id');
+        $this->assertSame($scheduleCount, Jadwal::query()->count());
+    }
+
+    public function test_admin_cannot_assign_vehicle_to_active_schedule_on_same_day(): void
+    {
+        $admin = User::query()->where('email', 'admin@travs.com')->firstOrFail();
+        $existingSchedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        $availableDriver = Pengemudi::query()
+            ->whereKeyNot($existingSchedule->pengemudi_id)
+            ->where('status', 'aktif')
+            ->where('status_verifikasi', 'terverifikasi')
+            ->firstOrFail();
+        $scheduleCount = Jadwal::query()->count();
+
+        $response = $this
+            ->actingAs($admin)
+            ->from(route('admin.jadwal.create'))
+            ->post(route('admin.jadwal.store'), [
+                'kendaraan_id' => $existingSchedule->kendaraan_id,
+                'rute_id' => $existingSchedule->rute_id,
+                'pengemudi_id' => $availableDriver->id,
+                'waktu_berangkat' => $existingSchedule->waktu_berangkat?->copy()->addHours(2)->format('Y-m-d H:i'),
+                'estimasi_tiba' => $existingSchedule->waktu_berangkat?->copy()->addHours(7)->format('Y-m-d H:i'),
+                'status' => 'dibuka',
+            ]);
+
+        $response->assertRedirect(route('admin.jadwal.create'));
+        $response->assertSessionHasErrors('kendaraan_id');
         $this->assertSame($scheduleCount, Jadwal::query()->count());
     }
 

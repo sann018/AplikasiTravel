@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\GuestController;
+use App\Http\Controllers\Api\HomeBannerController;
 use App\Http\Controllers\Api\MobileSettingsController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PassengerController;
@@ -23,10 +24,11 @@ Route::get('/ping', function () {
 Route::middleware('throttle:travs-read')->group(function () {
     Route::get('/settings/mobile', MobileSettingsController::class);
     Route::get('/mobile/bootstrap', [AppBootstrapController::class, 'index']);
+    Route::get('/home-banners', [HomeBannerController::class, 'index']);
     Route::get('/guest/jadwal', [GuestController::class, 'schedules']);
     Route::get('/guest/jadwal/{jadwal}', [BookingController::class, 'scheduleDetail']);
 });
-Route::post('/payments/pakasir/webhook', [PaymentGatewayController::class, 'pakasirWebhook']);
+Route::post('/payments/pakasir/webhook', [PaymentGatewayController::class, 'pakasirWebhook'])->middleware('throttle:travs-webhook');
 
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:travs-auth');
@@ -80,6 +82,8 @@ Route::middleware(['auth:sanctum', 'role:pengemudi'])->group(function () {
     Route::post('/pengemudi/trips/{jadwal}/passengers/{detail}/confirm-cash', [DriverController::class, 'confirmPassengerCash'])->middleware('throttle:travs-action');
     Route::post('/pengemudi/trips/{jadwal}/passengers/{detail}/dropoff', [DriverController::class, 'markPassengerDropoff'])->middleware('throttle:travs-action');
     Route::post('/pengemudi/trips/{jadwal}/status', [DriverController::class, 'updateTripStatus'])->middleware('throttle:travs-action');
+    Route::post('/pengemudi/trips/{jadwal}/expenses', [DriverController::class, 'storeOperationalExpense'])->middleware('throttle:travs-upload');
     Route::post('/pengemudi/tickets/scan', [DriverController::class, 'scanTicket'])->middleware('throttle:travs-action');
     Route::post('/pengemudi/upload-photo', [DriverController::class, 'uploadDriverPhoto'])->middleware('throttle:travs-upload');
+    Route::post('/pengemudi/vehicle/photo', [DriverController::class, 'uploadAssignedVehiclePhoto'])->middleware('throttle:travs-upload');
 });

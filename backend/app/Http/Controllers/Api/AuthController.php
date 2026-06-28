@@ -120,6 +120,25 @@ class AuthController extends Controller
         $user = $request->user()->load('pengemudiProfile');
         $photoField = $this->profilePhotoField($request);
         $driverProfile = $user->pengemudiProfile;
+        $blockedVehicleFields = [
+            'foto_kendaraan',
+            'nomor_polisi',
+            'nopol',
+            'merek_kendaraan',
+            'merk_kendaraan',
+            'tipe_kendaraan',
+            'kapasitas_kursi',
+            'warna',
+            'status_kendaraan',
+        ];
+
+        foreach ($blockedVehicleFields as $field) {
+            if ($request->exists($field) || $request->hasFile($field)) {
+                throw ValidationException::withMessages([
+                    $field => ['Data kendaraan hanya dapat diubah oleh admin melalui menu Armada Kendaraan.'],
+                ]);
+            }
+        }
 
         $validated = $request->validate([
             'nama' => ['sometimes', 'string', 'max:100'],

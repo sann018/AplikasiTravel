@@ -35,7 +35,11 @@
                     <select id="rute_id" name="rute_id" class="travs-select @error('rute_id') is-invalid @enderror" required>
                         <option value="">Pilih rute</option>
                         @foreach ($ruteOptions as $rute)
-                            <option value="{{ $rute->id }}" @selected(old('rute_id', $jadwal->rute_id) == $rute->id)>
+                            <option
+                                value="{{ $rute->id }}"
+                                data-duration="{{ (int) $rute->estimasi_durasi_menit }}"
+                                @selected(old('rute_id', $jadwal->rute_id) == $rute->id)
+                            >
                                 {{ $rute->kota_asal }} - {{ $rute->kota_tujuan }} (Rp{{ number_format($rute->harga_tiket, 0, ',', '.') }})
                             </option>
                         @endforeach
@@ -86,12 +90,19 @@
                 </div>
                 <div class="travs-field">
                     <label for="waktu_berangkat">Waktu Berangkat</label>
-                    <input id="waktu_berangkat" name="waktu_berangkat" type="datetime-local" class="travs-input @error('waktu_berangkat') is-invalid @enderror" value="{{ old('waktu_berangkat', $jadwal->waktu_berangkat?->format('Y-m-d\TH:i')) }}" required>
+                    <input id="waktu_berangkat" name="waktu_berangkat" type="hidden" value="{{ old('waktu_berangkat', $jadwal->waktu_berangkat?->format('Y-m-d H:i')) }}">
+                    <div class="travs-form-grid-2" style="gap: 12px;">
+                        <input id="tanggal_berangkat_display" type="date" class="travs-input @error('waktu_berangkat') is-invalid @enderror" required>
+                        <input id="jam_berangkat_display" type="text" class="travs-input @error('waktu_berangkat') is-invalid @enderror" inputmode="numeric" maxlength="5" placeholder="17:00" required>
+                    </div>
+                    <small style="color:#64748b;">Gunakan format jam 24 jam, contoh 17:00 atau 01:30.</small>
                     @include('admin.partials.field-error', ['name' => 'waktu_berangkat'])
                 </div>
                 <div class="travs-field">
                     <label for="estimasi_tiba">Estimasi Tiba</label>
-                    <input id="estimasi_tiba" name="estimasi_tiba" type="datetime-local" class="travs-input @error('estimasi_tiba') is-invalid @enderror" value="{{ old('estimasi_tiba', $jadwal->estimasi_tiba?->format('Y-m-d\TH:i')) }}">
+                    <input id="estimasi_tiba" name="estimasi_tiba" type="hidden" value="{{ old('estimasi_tiba', $jadwal->estimasi_tiba?->format('Y-m-d H:i')) }}">
+                    <input id="estimasi_tiba_display" type="text" class="travs-input @error('estimasi_tiba') is-invalid @enderror" value="" readonly placeholder="Akan dihitung otomatis">
+                    <small style="color:#64748b;">Estimasi dihitung otomatis dari waktu berangkat dan durasi rute. Backend tetap menghitung ulang saat disimpan.</small>
                     @include('admin.partials.field-error', ['name' => 'estimasi_tiba'])
                 </div>
             </div>
@@ -103,3 +114,131 @@
         </form>
     </div>
 @endsection
+
+@push('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const routeSelect = document.getElementById('rute_id');
+            const departureInput = document.getElementById('waktu_berangkat');
+            const departureDateInput = document.getElementById('tanggal_berangkat_display');
+            const departureTimeInput = document.getElementById('jam_berangkat_display');
+            const arrivalInput = document.getElementById('estimasi_tiba');
+            const arrivalDisplayInput = document.getElementById('estimasi_tiba_display');
+
+            if (!routeSelect || !departureInput || !departureDateInput || !departureTimeInput || !arrivalInput || !arrivalDisplayInput) {
+                return;
+            }
+
+            const pad = (value) => String(value).padStart(2, '0');
+
+            const toDateTimeValue = (date) => {
+                return [
+                    date.getFullYear(),
+                    pad(date.getMonth() + 1),
+                    pad(date.getDate()),
+                ].join('-') + ' ' + [pad(date.getHours()), pad(date.getMinutes())].join(':');
+            };
+
+            const toDateTimeDisplay = (date) => {
+                return [
+                    date.getFullYear(),
+                    pad(date.getMonth() + 1),
+                    pad(date.getDate()),
+                ].join('-') + ' ' + [pad(date.getHours()), pad(date.getMinutes())].join(':');
+            };
+
+            const parseDateTimeValue = (value) => {
+                if (!value) {
+                    return null;
+                }
+
+                const normalized = value.replace('T', ' ');
+                const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+                if (!match) {
+                    return null;
+                }
+
+                return new Date(
+                    Number(match[1]),
+                    Number(match[2]) - 1,
+                    Number(match[3]),
+                    Number(match[4]),
+                    Number(match[5]),
+                );
+            };
+
+            const splitInitialDeparture = () => {
+                const initialDate = parseDateTimeValue(departureInput.value);
+                if (!initialDate) {
+                    return;
+                }
+
+                departureDateInput.value = [
+                    initialDate.getFullYear(),
+                    pad(initialDate.getMonth() + 1),
+                    pad(initialDate.getDate()),
+                ].join('-');
+                departureTimeInput.value = [pad(initialDate.getHours()), pad(initialDate.getMinutes())].join(':');
+            };
+
+            const normalizeTimeInput = () => {
+                const value = departureTimeInput.value.trim();
+                const match = value.match(/^(\d{1,2})[:.](\d{2})$/);
+                if (!match) {
+                    return false;
+                }
+
+                const hour = Number(match[1]);
+                const minute = Number(match[2]);
+                if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+                    return false;
+                }
+
+                departureTimeInput.value = [pad(hour), pad(minute)].join(':');
+
+                return true;
+            };
+
+            const syncDepartureValue = () => {
+                if (!departureDateInput.value || !normalizeTimeInput()) {
+                    departureInput.value = '';
+                    return false;
+                }
+
+                departureInput.value = `${departureDateInput.value} ${departureTimeInput.value}`;
+
+                return true;
+            };
+
+            const clearArrival = () => {
+                arrivalInput.value = '';
+                arrivalDisplayInput.value = '';
+            };
+
+            const refreshArrivalEstimate = () => {
+                syncDepartureValue();
+                const selectedOption = routeSelect.options[routeSelect.selectedIndex];
+                const duration = Number(selectedOption?.dataset?.duration || 0);
+                const departureDate = parseDateTimeValue(departureInput.value);
+
+                if (!duration || !departureDate) {
+                    clearArrival();
+                    return;
+                }
+
+                // Preview ini membantu admin melihat waktu tiba, tetapi backend tetap jadi penentu final.
+                departureDate.setMinutes(departureDate.getMinutes() + duration);
+                arrivalInput.value = toDateTimeValue(departureDate);
+                arrivalDisplayInput.value = toDateTimeDisplay(departureDate);
+            };
+
+            splitInitialDeparture();
+
+            routeSelect.addEventListener('change', refreshArrivalEstimate);
+            departureDateInput.addEventListener('input', refreshArrivalEstimate);
+            departureTimeInput.addEventListener('input', refreshArrivalEstimate);
+            departureTimeInput.addEventListener('blur', refreshArrivalEstimate);
+            refreshArrivalEstimate();
+        });
+    </script>
+@endpush

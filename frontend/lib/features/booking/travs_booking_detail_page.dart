@@ -173,7 +173,9 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             _DetailRow(
-                              label: 'Tiket aktif',
+                              label: booking.status == 'selesai'
+                                  ? 'Tiket selesai'
+                                  : 'Tiket aktif',
                               value: '${booking.activeTicketCount}',
                             ),
                             const SizedBox(height: 14),
@@ -211,6 +213,15 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(color: TravSTheme.navy),
                               ),
+                              if ((booking.pickup!.note ?? '')
+                                  .trim()
+                                  .isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                _DetailRow(
+                                  label: 'Patokan jemput',
+                                  value: booking.pickup!.note!.trim(),
+                                ),
+                              ],
                               const SizedBox(height: 14),
                               OutlinedButton.icon(
                                 onPressed: () => _openMaps(booking.pickup!),
@@ -240,6 +251,15 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                                 style: Theme.of(context).textTheme.bodyMedium
                                     ?.copyWith(color: TravSTheme.navy),
                               ),
+                              if ((booking.dropoff!.note ?? '')
+                                  .trim()
+                                  .isNotEmpty) ...[
+                                const SizedBox(height: 10),
+                                _DetailRow(
+                                  label: 'Patokan turun',
+                                  value: booking.dropoff!.note!.trim(),
+                                ),
+                              ],
                               const SizedBox(height: 14),
                               OutlinedButton.icon(
                                 onPressed: () => _openMaps(booking.dropoff!),
@@ -278,6 +298,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                       const SizedBox(height: 16),
                       _DetailSectionCard(
                         title: 'Bagasi',
+                        initiallyExpanded: false,
                         subtitle:
                             'Bagasi tambahan yang dimasukkan saat checkout akan tercatat di pemesanan ini.',
                         child: Column(
@@ -467,16 +488,31 @@ class _BookingHeaderCard extends StatelessWidget {
   }
 }
 
-class _DetailSectionCard extends StatelessWidget {
+class _DetailSectionCard extends StatefulWidget {
   const _DetailSectionCard({
     required this.title,
     required this.subtitle,
     required this.child,
+    this.initiallyExpanded = true,
   });
 
   final String title;
   final String subtitle;
   final Widget child;
+  final bool initiallyExpanded;
+
+  @override
+  State<_DetailSectionCard> createState() => _DetailSectionCardState();
+}
+
+class _DetailSectionCardState extends State<_DetailSectionCard> {
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initiallyExpanded;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -488,22 +524,47 @@ class _DetailSectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: theme.textTheme.titleLarge?.copyWith(
-                color: TravSTheme.navy,
-                fontWeight: FontWeight.w800,
+            InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () => setState(() => _expanded = !_expanded),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.title,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: TravSTheme.navy,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _expanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: TravSTheme.navy,
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              subtitle,
+              widget.subtitle,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: TravSTheme.navyMuted,
               ),
             ),
-            const SizedBox(height: 18),
-            child,
+            AnimatedCrossFade(
+              duration: const Duration(milliseconds: 180),
+              crossFadeState: _expanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              firstChild: const SizedBox.shrink(),
+              secondChild: Padding(
+                padding: const EdgeInsets.only(top: 18),
+                child: widget.child,
+              ),
+            ),
           ],
         ),
       ),
@@ -539,11 +600,15 @@ class _DetailRow extends StatelessWidget {
               ),
             ),
           ),
-          Text(
-            value,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: TravSTheme.navy,
-              fontWeight: emphasize ? FontWeight.w800 : FontWeight.w700,
+          const SizedBox(width: 14),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.end,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: TravSTheme.navy,
+                fontWeight: emphasize ? FontWeight.w800 : FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -618,7 +683,11 @@ class _BaggageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final baggagePhotoUrl = TravSApiService.resolveMediaUrl(item.fotoUrl);
+    final baggagePhotoUrls = item.fotoUrls
+        .map(TravSApiService.resolveMediaUrl)
+        .whereType<String>()
+        .take(3)
+        .toList();
 
     return Container(
       width: double.infinity,
@@ -649,29 +718,47 @@ class _BaggageCard extends StatelessWidget {
                 _MiniBadge(label: '${item.ukuranCm} cm'),
             ],
           ),
-          if (baggagePhotoUrl != null) ...[
+          if (baggagePhotoUrls.isNotEmpty) ...[
             const SizedBox(height: 14),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(18),
-              child: AspectRatio(
-                aspectRatio: 16 / 10,
-                child: Image.network(
-                  baggagePhotoUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      color: Colors.white,
-                      alignment: Alignment.center,
-                      child: Text(
-                        'Foto barang bawaan belum dapat ditampilkan.',
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: TravSTheme.navyMuted,
+            GridView.builder(
+              itemCount: baggagePhotoUrls.length,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemBuilder: (context, index) {
+                final photoUrl = baggagePhotoUrls[index];
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Image.network(
+                    photoUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Container(
+                        color: Colors.white,
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Foto tidak tersedia',
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: TravSTheme.navyMuted,
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                ),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ] else ...[
+            const SizedBox(height: 14),
+            Text(
+              'Foto barang belum tersedia.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: TravSTheme.navyMuted,
               ),
             ),
           ],

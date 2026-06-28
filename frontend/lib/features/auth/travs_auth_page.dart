@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/models/travs_user_session.dart';
 import '../../core/models/app_settings.dart';
@@ -27,6 +30,7 @@ class TravSAuthPage extends StatefulWidget {
 
 class _TravSAuthPageState extends State<TravSAuthPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  static const String _registerDraftKey = 'draft_register_penumpang';
 
   final TextEditingController _loginController = TextEditingController();
   final TextEditingController _loginPasswordController =
@@ -50,6 +54,15 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
   String? _errorMessage;
 
   @override
+  void initState() {
+    super.initState();
+    _loadRegisterDraft();
+    _registerNameController.addListener(_saveRegisterDraft);
+    _registerEmailController.addListener(_saveRegisterDraft);
+    _registerPhoneController.addListener(_saveRegisterDraft);
+  }
+
+  @override
   void dispose() {
     _loginController.dispose();
     _loginPasswordController.dispose();
@@ -59,6 +72,53 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
     _registerPasswordController.dispose();
     _registerConfirmPasswordController.dispose();
     super.dispose();
+  }
+
+  /// Draft daftar akun hanya menyimpan identitas dasar.
+  /// Password sengaja tidak ikut disimpan agar tetap aman.
+  Future<void> _loadRegisterDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final rawDraft = prefs.getString(_registerDraftKey);
+      if (rawDraft == null || rawDraft.isEmpty || !mounted) return;
+
+      final draft = jsonDecode(rawDraft);
+      if (draft is! Map<String, dynamic>) return;
+
+      _registerNameController.text =
+          draft['nama'] as String? ?? _registerNameController.text;
+      _registerEmailController.text =
+          draft['email'] as String? ?? _registerEmailController.text;
+      _registerPhoneController.text =
+          draft['no_hp'] as String? ?? _registerPhoneController.text;
+    } catch (_) {
+      // Draft rusak cukup diabaikan supaya halaman daftar tetap bisa dipakai.
+    }
+  }
+
+  Future<void> _saveRegisterDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _registerDraftKey,
+        jsonEncode({
+          'nama': _registerNameController.text,
+          'email': _registerEmailController.text,
+          'no_hp': _registerPhoneController.text,
+        }),
+      );
+    } catch (_) {
+      // Draft hanya bantuan lokal, jadi kegagalan simpan tidak menghambat user.
+    }
+  }
+
+  Future<void> _clearRegisterDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_registerDraftKey);
+    } catch (_) {
+      // Jika gagal dibersihkan, proses register tetap mengikuti hasil server.
+    }
   }
 
   Future<void> _submit() async {
@@ -97,6 +157,14 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
               ? 'Akun ini bukan akun pengemudi. Pilih Penumpang jika ingin masuk sebagai penumpang.'
               : 'Akun ini bukan akun penumpang. Pilih Pengemudi jika ingin masuk sebagai pengemudi.',
         );
+      }
+
+      if (_isRegisterMode) {
+        await _clearRegisterDraft();
+      }
+
+      if (!mounted) {
+        return;
       }
 
       widget.onAuthenticated(session);
@@ -175,29 +243,14 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      _isRegisterMode
-                                          ? 'Daftar Akun Penumpang'
-                                          : 'Masuk ke RuslyTravel',
-                                      style: theme.textTheme.titleLarge
-                                          ?.copyWith(
-                                            color: TravSTheme.navy,
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                    ),
-                                  ),
-                                  TextButton(
-                                    onPressed: _isSubmitting
-                                        ? null
-                                        : _toggleMode,
-                                    child: Text(
-                                      _isRegisterMode ? 'Masuk' : 'Daftar',
-                                    ),
-                                  ),
-                                ],
+                              Text(
+                                _isRegisterMode
+                                    ? 'Daftar Akun Penumpang'
+                                    : 'Masuk ke RuslyTravel',
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  color: TravSTheme.navy,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                               const SizedBox(height: 6),
                               Text(
@@ -272,11 +325,17 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                               const SizedBox(height: 10),
                               Text(
                                 _isRegisterMode
-                                    ? 'Sudah punya akun? Gunakan tombol Masuk di kanan atas kartu ini.'
-                                    : 'Belum punya akun? Tekan Daftar untuk membuat akun penumpang baru.',
+                                    ? 'Sudah punya akun?'
+                                    : 'Belum punya akun?',
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                   color: TravSTheme.navyMuted,
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: _isSubmitting ? null : _toggleMode,
+                                child: Text(
+                                  _isRegisterMode ? 'Masuk' : 'Daftar',
                                 ),
                               ),
                             ],

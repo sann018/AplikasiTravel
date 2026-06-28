@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Jadwal;
+use App\Models\BiayaOperasionalPerjalanan;
 use App\Models\DetailPemesanan;
 use App\Models\KursiJadwal;
 use App\Models\Pembayaran;
@@ -11,6 +12,8 @@ use App\Models\TiketElektronik;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -88,6 +91,94 @@ class DriverOperationsTest extends TestCase
                 'status_pemesanan' => 'menunggu_pembayaran',
                 'can_confirm_cash' => true,
             ]);
+    }
+
+    public function test_driver_trip_response_includes_separate_vehicle_identity(): void
+    {
+        $driver = User::query()->where('email', 'pengemudi@travs.com')->firstOrFail();
+        $jadwal = Jadwal::query()
+            ->whereHas('pengemudi.pengguna', fn ($query) => $query->whereKey($driver->id))
+            ->firstOrFail();
+
+        Sanctum::actingAs($driver);
+
+        $this->getJson('/api/pengemudi/trips')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $jadwal->id,
+                'kendaraan_nama' => $jadwal->kendaraan->merk_kendaraan,
+                'nomor_plat' => $jadwal->kendaraan->nomor_plat,
+            ]);
+    }
+
+    public function test_driver_cannot_update_photo_of_assigned_vehicle(): void
+    {
+        Storage::fake('public');
+        $driver = User::query()->where('email', 'pengemudi@travs.com')->firstOrFail();
+        $jadwal = Jadwal::query()
+            ->whereHas('pengemudi.pengguna', fn ($query) => $query->whereKey($driver->id))
+            ->whereIn('status', ['dibuka', 'ditutup', 'berangkat'])
+            ->firstOrFail();
+
+        Sanctum::actingAs($driver);
+
+        $response = $this->postJson('/api/pengemudi/vehicle/photo', [
+            'foto' => UploadedFile::fake()->image('armada.jpg', 900, 600),
+        ]);
+
+        $response
+            ->assertForbidden()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Data kendaraan hanya dapat diubah oleh admin melalui menu Armada Kendaraan.');
+
+        $this->assertSame($jadwal->kendaraan->foto_kendaraan, $jadwal->kendaraan->fresh()->foto_kendaraan);
+    }
+
+    public function test_passenger_cannot_update_driver_vehicle_photo(): void
+    {
+        Storage::fake('public');
+        $passenger = User::query()->where('email', 'penumpang@travs.com')->firstOrFail();
+
+        Sanctum::actingAs($passenger);
+
+        $this->postJson('/api/pengemudi/vehicle/photo', [
+            'foto' => UploadedFile::fake()->image('armada.jpg', 900, 600),
+        ])->assertForbidden();
+    }
+
+    public function test_driver_can_submit_operational_expense_waiting_for_admin_verification(): void
+    {
+        $driver = User::query()->where('email', 'pengemudi@travs.com')->firstOrFail();
+        $jadwal = Jadwal::query()
+            ->whereHas('pengemudi.pengguna', fn ($query) => $query->whereKey($driver->id))
+            ->firstOrFail();
+
+        Sanctum::actingAs($driver);
+
+        $response = $this->postJson("/api/pengemudi/trips/{$jadwal->id}/expenses", [
+            'jenis_biaya' => 'BBM perjalanan',
+            'nominal' => 125000,
+            'tanggal' => now()->toDateString(),
+            'keterangan' => 'Pengisian BBM sebelum keberangkatan.',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status_verifikasi', 'menunggu_verifikasi');
+
+        $this->assertDatabaseHas('biaya_operasional_perjalanan', [
+            'jadwal_id' => $jadwal->id,
+            'jenis_biaya' => 'BBM perjalanan',
+            'nominal' => 125000,
+            'status_verifikasi' => 'menunggu_verifikasi',
+            'created_by' => $driver->id,
+        ]);
+
+        $this->assertSame(0.0, (float) BiayaOperasionalPerjalanan::query()
+            ->where('status_verifikasi', 'disetujui')
+            ->where('jadwal_id', $jadwal->id)
+            ->sum('nominal'));
     }
 
     public function test_driver_can_confirm_cash_payment_and_issue_ticket(): void

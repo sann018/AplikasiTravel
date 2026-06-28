@@ -30,7 +30,6 @@
                 'items' => [
                     ['label' => 'Pembayaran', 'route' => 'admin.pembayaran.index', 'active' => 'admin.pembayaran.*', 'icon' => 'dollar-sign'],
                     ['label' => 'Biaya Operasional', 'route' => 'admin.biaya.index', 'active' => 'admin.biaya.index|admin.biaya.store|admin.biaya.update|admin.biaya.destroy', 'icon' => 'credit-card'],
-                    ['label' => 'Rekap Biaya', 'route' => 'admin.biaya.rekap', 'active' => 'admin.biaya.rekap', 'icon' => 'bar-chart-2'],
                     ['label' => 'Laporan Pemesanan', 'route' => 'admin.laporan.pemesanan', 'active' => 'admin.laporan.pemesanan*', 'icon' => 'clipboard'],
                     ['label' => 'Laporan Transaksi', 'route' => 'admin.laporan.transaksi', 'active' => 'admin.laporan.transaksi*', 'icon' => 'file-text'],
                 ],
@@ -39,7 +38,9 @@
                 'label' => 'Sistem',
                 'items' => [
                     ['label' => 'Pengaturan', 'route' => 'admin.settings.index', 'active' => 'admin.settings.*|admin.pengaturan.*', 'icon' => 'settings'],
-                    ['label' => 'Notifikasi', 'route' => 'admin.notifikasi.index', 'active' => 'admin.notifikasi.*', 'icon' => 'bell'],
+                    ['label' => 'Banner Beranda', 'route' => 'admin.banner.index', 'active' => 'admin.banner.*', 'icon' => 'image'],
+                    ['label' => 'Notifikasi Admin', 'route' => 'admin.notifikasi.admin', 'active' => 'admin.notifikasi.admin*', 'icon' => 'bell'],
+                    ['label' => 'Log Notifikasi User', 'route' => 'admin.notifikasi.user', 'active' => 'admin.notifikasi.user*', 'icon' => 'message-square'],
                 ],
             ],
         ];
@@ -91,7 +92,7 @@
                                     <a href="{{ route($item['route']) }}" class="travs-nav-link {{ $isActive ? 'is-active' : '' }}">
                                         <i data-feather="{{ $item['icon'] }}"></i>
                                         <span>{{ $item['label'] }}</span>
-                                        @if ($item['route'] === 'admin.notifikasi.index' && $unreadAdminNotifications > 0)
+                                        @if ($item['route'] === 'admin.notifikasi.admin' && $unreadAdminNotifications > 0)
                                             <span class="travs-sidebar-badge">{{ number_format($unreadAdminNotifications) }}</span>
                                         @endif
                                     </a>
@@ -117,6 +118,19 @@
                     </div>
 
                     <div class="travs-topbar-right">
+                        <a
+                            href="{{ route('admin.notifikasi.admin') }}"
+                            class="travs-topbar-notification"
+                            data-admin-notification-link
+                            aria-label="Buka notifikasi, {{ number_format($unreadAdminNotifications) }} belum dibaca"
+                            title="Notifikasi admin"
+                        >
+                            <i data-feather="bell"></i>
+                            @if ($unreadAdminNotifications > 0)
+                                <span class="travs-topbar-notification-badge">{{ $unreadAdminNotifications > 99 ? '99+' : number_format($unreadAdminNotifications) }}</span>
+                            @endif
+                        </a>
+
                         <div class="travs-topbar-chip">
                             <i data-feather="calendar"></i>
                             <span>{{ now()->translatedFormat('d F Y') }}</span>

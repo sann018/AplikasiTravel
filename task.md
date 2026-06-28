@@ -262,6 +262,7 @@ Keputusan umum:
 - [x] Isi data bagasi dasar.
 - [x] Pilihan hitung bagasi berat + item atau ukuran + item dengan input angka.
 - [x] Upload foto barang bawaan dari kamera/galeri sebelum submit booking.
+- [x] Upload foto barang bawaan mendukung maksimal 3 foto dan tetap kompatibel dengan data foto lama.
 - [x] Rincian tambahan biaya bagasi tampil pada ringkasan checkout.
 - [x] Isi pickup point.
 - [x] Submit booking live dari payment screen.
@@ -485,11 +486,13 @@ Keputusan umum:
 - [x] Laporan transaksi.
 - [x] Export laporan pemesanan CSV.
 - [x] Pengaturan sistem grouped.
+- [x] Pengajuan biaya operasional dari pengemudi dengan status awal menunggu verifikasi.
+- [x] Verifikasi admin untuk menyetujui atau menolak biaya operasional pengemudi.
 - [x] Backend feature test dasar.
 - [x] Flutter widget test dasar.
 - [x] Flutter analyze hijau.
 - [ ] Laporan okupansi.
-- [ ] Laporan biaya operasional final.
+- [x] Laporan biaya operasional final hanya menghitung biaya yang sudah disetujui.
 - [ ] Audit trail payment/cash/admin action.
 - [ ] Black box checklist final.
 - [ ] Regression suite high-risk flow.
@@ -632,6 +635,8 @@ Tujuan bagian ini adalah membuat pengembangan berikutnya mengikuti pola TDD (Tes
 - [x] Driver scan QR valid menandai tiket sudah dipindai dan penumpang hadir.
 - [x] Driver tidak bisa scan tiket yang sama dua kali.
 - [x] Driver tidak bisa scan tiket dari trip pengemudi lain.
+- [x] Driver dapat mengajukan biaya operasional per jadwal dan status awalnya menunggu verifikasi admin.
+- [x] Biaya operasional dari pengemudi tidak masuk rekap final sebelum admin menyetujui.
 - [x] Admin tidak bisa mengubah booking dibatalkan kembali ke terbayar.
 - [x] Admin payment dashboard bisa memfilter exception verifikasi cash.
 - [x] Admin confirm cash menerbitkan tiket dan notifikasi pembayaran.

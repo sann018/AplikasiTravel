@@ -130,6 +130,19 @@ class PemesananController extends Controller
                 ]);
             }
 
+            if (
+                $newStatus === 'terbayar'
+                && $lockedPemesanan->pembayaran
+                && $lockedPemesanan->pembayaran->status_bayar !== 'berhasil'
+                && $lockedPemesanan->pembayaran->metode_bayar !== 'cash'
+            ) {
+                // Pembayaran digital harus mengikuti gateway supaya laporan,
+                // kursi, dan tiket tidak berbeda dengan status transaksi asli.
+                throw ValidationException::withMessages([
+                    'status_pemesanan' => 'Status pembayaran digital tidak dapat diubah manual. Silakan sinkronkan status pembayaran.',
+                ]);
+            }
+
             $lockedPemesanan->update(['status_pemesanan' => $newStatus]);
 
             if ($newStatus === 'menunggu_pembayaran') {

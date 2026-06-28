@@ -10,6 +10,7 @@ class TravSTheme {
   static const Color navy = Color(0xFF10233F);
   static const Color navySoft = Color(0xFF18365F);
   static const Color navyMuted = Color(0xFF5D7090);
+  static const Color slate = navyMuted;
   static const Color orange = Color(0xFFF58A2A);
   static const Color orangeSoft = Color(0xFFFFF1E4);
   static const Color success = Color(0xFF1F9D67);

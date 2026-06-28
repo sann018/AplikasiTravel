@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\BiayaOperasionalPerjalanan;
 use App\Models\DetailPemesanan;
 use App\Models\Jadwal;
 use App\Models\Pengemudi;
@@ -30,13 +31,38 @@ class DriverController extends Controller
         $this->scheduleLifecycleService->closeOpenSchedulesNearDeparture();
         $pengemudi = $this->activeDriverFor($request);
 
+        // Jadwal yang ditutup tetap jadi arsip, tapi tidak tampil sebagai tugas aktif
+        // supaya pengemudi hanya fokus ke perjalanan yang masih bisa dijalankan.
         $jadwalAktif = $this->driverTripsQuery($pengemudi)
-            ->whereIn('status', ['dibuka', 'ditutup', 'berangkat'])
+            ->whereIn('status', ['dibuka', 'berangkat'])
             ->get();
+        $assignedVehicleTrip = $this->assignedVehicleTrip($pengemudi);
 
         return response()->json([
             'success' => true,
             'data' => [
+                'akun' => [
+                    'nama' => $request->user()->nama,
+                    'email' => $request->user()->email,
+                    'no_hp' => $request->user()->no_hp,
+                    'role' => $request->user()->peran,
+                    'foto_profil_url' => $this->publicStorageUrl($request->user()->foto_profil),
+                ],
+                'identitas_pengemudi' => [
+                    'nomor_sim' => $pengemudi->nomor_sim,
+                    'foto_sim_url' => $this->publicStorageUrl($pengemudi->foto_sim),
+                    'status' => $pengemudi->status,
+                    'status_verifikasi' => $pengemudi->status_verifikasi,
+                ],
+                'kendaraan_ditugaskan' => $assignedVehicleTrip
+                    ? $this->formatAssignedVehicle($assignedVehicleTrip)
+                    : null,
+                'assigned_vehicle' => $assignedVehicleTrip
+                    ? $this->formatAssignedVehicle($assignedVehicleTrip)
+                    : null,
+                'kendaraan_ditugaskan_message' => $assignedVehicleTrip
+                    ? null
+                    : 'Belum ada kendaraan yang ditugaskan. Kendaraan akan tampil setelah admin membuat jadwal perjalanan.',
                 'summary' => [
                     'jadwal_aktif' => $jadwalAktif->count(),
                     'penumpang_terdaftar' => $jadwalAktif->sum(
@@ -399,6 +425,17 @@ class DriverController extends Controller
             ->orderBy('waktu_berangkat');
     }
 
+    private function assignedVehicleTrip(Pengemudi $pengemudi): ?Jadwal
+    {
+        // Kendaraan bukan bagian permanen dari profil pengemudi.
+        // Armada ditentukan lewat jadwal agar admin fleksibel memakai kendaraan perusahaan, pribadi, atau mitra.
+        return $this->driverTripsQuery($pengemudi)
+            ->whereIn('status', ['draft', 'dibuka', 'ditutup', 'berangkat'])
+            ->orderByRaw('CASE WHEN waktu_berangkat >= ? THEN 0 ELSE 1 END', [now()->toDateTimeString()])
+            ->orderBy('waktu_berangkat')
+            ->first();
+    }
+
     /**
      * @return array<int, string>
      */
@@ -448,10 +485,42 @@ class DriverController extends Controller
             'waktu_berangkat' => $jadwal->waktu_berangkat?->toIso8601String(),
             'estimasi_tiba' => $jadwal->estimasi_tiba?->toIso8601String(),
             'kendaraan' => $jadwal->kendaraan->merk_kendaraan.' '.$jadwal->kendaraan->nomor_plat,
+            'kendaraan_nama' => $jadwal->kendaraan->merk_kendaraan,
+            'nomor_plat' => $jadwal->kendaraan->nomor_plat,
+            'kendaraan_tipe' => $jadwal->kendaraan->tipe_kendaraan,
+            'kendaraan_warna' => $jadwal->kendaraan->warna,
+            'kapasitas_kursi' => (int) $jadwal->kendaraan->kapasitas_kursi,
             'kendaraan_foto_url' => $this->publicStorageUrl($jadwal->kendaraan?->foto_kendaraan),
             'status' => $jadwal->status,
             'passenger_count' => $this->manifestPassengers($jadwal)->count(),
             'revenue' => $jadwal->pemesanan->sum(fn (Pemesanan $booking) => (float) $booking->total_harga),
+        ];
+    }
+
+    private function formatAssignedVehicle(Jadwal $jadwal): array
+    {
+        $jadwal->loadMissing(['rute', 'kendaraan']);
+        $kendaraan = $jadwal->kendaraan;
+
+        return [
+            'id_jadwal' => $jadwal->id,
+            'rute' => $jadwal->rute
+                ? $jadwal->rute->kota_asal.' - '.$jadwal->rute->kota_tujuan
+                : '-',
+            'waktu_berangkat' => $jadwal->waktu_berangkat?->toIso8601String(),
+            'estimasi_tiba' => $jadwal->estimasi_tiba?->toIso8601String(),
+            'nomor_plat' => $kendaraan?->nomor_plat,
+            'merek' => $kendaraan?->merk_kendaraan,
+            'merk_kendaraan' => $kendaraan?->merk_kendaraan,
+            'tipe' => $kendaraan?->tipe_kendaraan,
+            'tipe_kendaraan' => $kendaraan?->tipe_kendaraan,
+            'warna' => $kendaraan?->warna,
+            'kapasitas' => (int) ($kendaraan?->kapasitas_kursi ?? 0),
+            'kapasitas_kursi' => (int) ($kendaraan?->kapasitas_kursi ?? 0),
+            'foto_url' => $this->publicStorageUrl($kendaraan?->foto_kendaraan),
+            'foto_kendaraan_url' => $this->publicStorageUrl($kendaraan?->foto_kendaraan),
+            'status_kendaraan' => $kendaraan?->status_kendaraan,
+            'status_jadwal' => $jadwal->status,
         ];
     }
 
@@ -472,6 +541,7 @@ class DriverController extends Controller
     {
         $baggageItems = $booking->itemBagasi->sum('jumlah_item');
         $baggageWeight = $booking->itemBagasi->sum(fn ($item) => (float) $item->berat_kg);
+        $baggagePhotoUrls = $this->baggagePhotoUrls($booking);
         $ticket = $detail->tiketElektronik;
         $paymentStatus = $booking->pembayaran?->status_bayar;
         $paymentMethod = $booking->pembayaran?->metode_bayar;
@@ -486,10 +556,12 @@ class DriverController extends Controller
             'detail_id' => $detail->id,
             'nama_penumpang' => $detail->nama_penumpang,
             'no_hp_penumpang' => $detail->no_hp_penumpang,
+            'whatsapp_url_penumpang' => $this->whatsappUrl($detail->no_hp_penumpang),
             'akun_pemesan' => [
                 'nama' => $booking->pengguna?->nama,
                 'email' => $booking->pengguna?->email,
                 'no_hp' => $booking->pengguna?->no_hp,
+                'whatsapp_url' => $this->whatsappUrl($booking->pengguna?->no_hp),
                 'foto_url' => $this->publicStorageUrl($booking->pengguna?->foto_profil),
             ],
             'nomor_kursi' => (int) $detail->nomor_kursi,
@@ -514,7 +586,8 @@ class DriverController extends Controller
                 'label' => $baggageItems > 0
                     ? "{$baggageItems} item / {$baggageWeight} kg"
                     : 'Tidak ada bagasi tercatat',
-                'foto_url' => $this->publicStorageUrl($booking->itemBagasi->firstWhere('foto_url', '!=', null)?->foto_url),
+                'foto_url' => $baggagePhotoUrls[0] ?? null,
+                'foto_urls' => $baggagePhotoUrls,
             ],
             'fare' => [
                 'total' => (float) $booking->total_harga,
@@ -536,6 +609,44 @@ class DriverController extends Controller
                 'dipindai_pada' => $ticket->dipindai_pada?->toIso8601String(),
             ] : null,
         ];
+    }
+
+    private function baggagePhotoUrls(Pemesanan $booking): array
+    {
+        return $booking->itemBagasi
+            ->flatMap(function ($item) {
+                $photos = is_array($item->foto_urls) ? $item->foto_urls : [];
+
+                if ($item->foto_url && ! in_array($item->foto_url, $photos, true)) {
+                    $photos[] = $item->foto_url;
+                }
+
+                return collect($photos)
+                    ->filter(fn ($path) => is_string($path) && trim($path) !== '')
+                    ->map(fn ($path) => $this->publicStorageUrl($path));
+            })
+            ->filter()
+            ->unique()
+            ->take(3)
+            ->values()
+            ->all();
+    }
+
+    private function whatsappUrl(?string $phone): ?string
+    {
+        $digits = preg_replace('/\D+/', '', (string) $phone);
+
+        if ($digits === '') {
+            return null;
+        }
+
+        if (str_starts_with($digits, '0')) {
+            $digits = '62'.substr($digits, 1);
+        } elseif (str_starts_with($digits, '8')) {
+            $digits = '62'.$digits;
+        }
+
+        return strlen($digits) >= 10 ? 'https://wa.me/'.$digits : null;
     }
 
     public function uploadDriverPhoto(Request $request): JsonResponse
@@ -562,6 +673,68 @@ class DriverController extends Controller
                 'foto_profil_url' => $this->publicStorageUrl($path),
             ],
         ]);
+    }
+
+    public function uploadAssignedVehiclePhoto(Request $request): JsonResponse
+    {
+        return response()->json([
+            'success' => false,
+            'message' => 'Data kendaraan hanya dapat diubah oleh admin melalui menu Armada Kendaraan.',
+        ], 403);
+    }
+
+    public function storeOperationalExpense(Request $request, Jadwal $jadwal): JsonResponse
+    {
+        $pengemudi = $this->activeDriverFor($request);
+
+        if ((int) $jadwal->pengemudi_id !== (int) $pengemudi->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Jadwal ini bukan tugas pengemudi yang sedang login.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'jenis_biaya' => ['required', 'string', 'max:100'],
+            'nominal' => ['required', 'numeric', 'min:0'],
+            'tanggal' => ['required', 'date'],
+            'keterangan' => ['nullable', 'string', 'max:1000'],
+            'foto_bukti_nota' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:3072'],
+        ], [
+            'jenis_biaya.required' => 'Jenis biaya wajib diisi.',
+            'nominal.required' => 'Nominal biaya wajib diisi.',
+            'nominal.min' => 'Nominal biaya tidak boleh negatif.',
+            'tanggal.required' => 'Tanggal biaya wajib diisi.',
+            'foto_bukti_nota.image' => 'Bukti nota harus berupa gambar.',
+            'foto_bukti_nota.mimes' => 'Bukti nota harus JPG, PNG, atau WEBP.',
+            'foto_bukti_nota.max' => 'Ukuran bukti nota maksimal 3 MB.',
+        ]);
+
+        $buktiPath = $request->file('foto_bukti_nota')
+            ? $request->file('foto_bukti_nota')->store('driver-expenses', 'public')
+            : null;
+
+        // Biaya dari pengemudi masuk antrean verifikasi dulu agar rekap admin tetap bersih.
+        $expense = BiayaOperasionalPerjalanan::query()->create([
+            'jadwal_id' => $jadwal->id,
+            'jenis_biaya' => $validated['jenis_biaya'],
+            'nominal' => $validated['nominal'],
+            'tanggal_biaya' => $validated['tanggal'],
+            'keterangan' => $validated['keterangan'] ?? null,
+            'bukti_url' => $buktiPath,
+            'created_by' => $request->user()->id,
+            'status_verifikasi' => 'menunggu_verifikasi',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Pengajuan biaya berhasil dikirim dan menunggu verifikasi admin.',
+            'data' => [
+                'id' => $expense->id,
+                'status_verifikasi' => $expense->status_verifikasi,
+                'bukti_url' => $this->publicStorageUrl($expense->bukti_url),
+            ],
+        ], 201);
     }
 
     private function publicStorageUrl(?string $path): ?string

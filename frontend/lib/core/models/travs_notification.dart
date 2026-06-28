@@ -67,10 +67,7 @@ class TravSNotification {
 /// daftar notifikasi pada `items` dan jumlah belum dibaca pada `unread_count`.
 /// Kelas ini menyatukan keduanya agar halaman tidak perlu membaca JSON manual.
 class TravSNotificationFeed {
-  const TravSNotificationFeed({
-    required this.items,
-    required this.unreadCount,
-  });
+  const TravSNotificationFeed({required this.items, required this.unreadCount});
 
   /// Daftar notifikasi terbaru (sudah diurutkan dari yang paling baru oleh backend).
   final List<TravSNotification> items;

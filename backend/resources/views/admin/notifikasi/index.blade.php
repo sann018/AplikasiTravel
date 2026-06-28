@@ -1,8 +1,8 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Log Notifikasi')
-@section('page-title', 'Log Notifikasi')
-@section('page-description', 'Pantau notifikasi untuk penumpang, pengemudi, dan admin.')
+@section('title', $pageTitle ?? 'Log Notifikasi')
+@section('page-title', $pageTitle ?? 'Log Notifikasi')
+@section('page-description', $pageDescription ?? 'Pantau notifikasi untuk penumpang, pengemudi, dan admin.')
 
 @section('content')
     @if (session('success'))
@@ -17,7 +17,7 @@
         <div class="collapsible-section__header" data-collapse-header>
             <div class="travs-panel-title">
                 <h3>Ringkasan Notifikasi</h3>
-                <p>Ikhtisar notifikasi yang tersimpan di sistem.</p>
+                <p>{{ $summaryDescription ?? 'Ikhtisar notifikasi yang tersimpan di sistem.' }}</p>
             </div>
             @include('admin.partials.collapsible-toggle', ['targetId' => 'notification-summary-body'])
         </div>
@@ -26,7 +26,7 @@
             <article class="travs-summary-card">
             <small>Total Notifikasi</small>
             <strong>{{ number_format($stats['total']) }}</strong>
-            <span>Semua notifikasi</span>
+            <span>{{ ($isAdminInbox ?? false) ? 'Khusus admin' : 'Semua notifikasi' }}</span>
         </article>
             <article class="travs-summary-card">
             <small>Belum Dibaca</small>
@@ -79,7 +79,7 @@
             </div>
             <div class="travs-filter-actions">
                 <button type="submit" class="travs-button-secondary">Terapkan Filter</button>
-                <a href="{{ route('admin.notifikasi.index') }}" class="travs-button-secondary">Reset</a>
+                <a href="{{ route($resetRoute ?? 'admin.notifikasi.index') }}" class="travs-button-secondary">Reset</a>
             </div>
         </form>
     </article>
@@ -94,7 +94,7 @@
         </div>
 
         <div id="notification-cleanup-body" class="collapsible-section__body" data-collapse-body>
-            <form method="POST" action="{{ route('admin.notifikasi.history.clear') }}"
+            <form method="POST" action="{{ route($clearRoute ?? 'admin.notifikasi.history.clear') }}"
                 onsubmit="return confirm('Hapus riwayat notifikasi yang sudah dibaca sesuai pilihan ini?');"
                 style="display: flex; gap: 10px; align-items: end; flex-wrap: wrap;">
                 @csrf
@@ -117,7 +117,7 @@
         <div class="collapsible-section__header" data-collapse-header>
             <div class="travs-panel-title">
                 <h3>Daftar Notifikasi</h3>
-                <p>Notifikasi terbaru dari seluruh aktivitas sistem.</p>
+                <p>{{ $listDescription ?? 'Notifikasi terbaru dari seluruh aktivitas sistem.' }}</p>
             </div>
             @include('admin.partials.collapsible-toggle', ['targetId' => 'notification-list-body'])
         </div>

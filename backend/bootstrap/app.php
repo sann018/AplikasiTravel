@@ -37,6 +37,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // Tidak menampilkan stack trace atau detail teknis ke pengguna (rules #26).
         // Selalu memakai format konsisten: success, message, errors (rules #28).
         $exceptions->render(function (Throwable $e, Request $request) {
+            if ($e instanceof TooManyRequestsHttpException && ! $request->expectsJson()) {
+                return redirect()
+                    ->back()
+                    ->with('error', 'Terlalu banyak aksi dalam waktu singkat. Tunggu sebentar, lalu coba lagi.');
+            }
+
             if (! $request->expectsJson()) {
                 return null;
             }

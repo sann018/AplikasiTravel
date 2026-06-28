@@ -1,6 +1,6 @@
 # Audit Dokumentasi Fitur AplikasiTravel
 
-Tanggal audit: 16 Juni 2026
+Tanggal audit: 27 Juni 2026
 
 Dokumen ini dibuat untuk menjawab apakah fitur, perbaikan, dan peningkatan dari proses pengerjaan sudah tercatat di dokumentasi project. Sumber audit adalah kode yang ada di repository saat ini, file dokumentasi yang tersedia, dan ringkasan kebutuhan dari riwayat diskusi pengerjaan.
 
@@ -44,6 +44,7 @@ Dokumen `PRD.md` masih berisi banyak catatan historis dari awal proyek, sehingga
 | Tiket QR satu kali pakai | Sudah ada | Tercatat | QR untuk scan pengemudi; token mentah tidak perlu ditampilkan ke penumpang. |
 | Informasi tiket penumpang | Sudah ditingkatkan | Tercatat | Tiket menampilkan informasi pendukung seperti pengemudi dan kendaraan, bukan token rahasia. |
 | Manifest pengemudi | Sudah live dari backend | Tercatat | Menampilkan penumpang resmi termasuk cash pending yang perlu dikonfirmasi. |
+| Foto bagasi multi foto | Sudah ada | Tercatat | Maksimal 3 foto per data bagasi, tetap mendukung data lama yang hanya satu foto. |
 | Scan tiket pengemudi | Sudah ada | Tercatat | Scan mengubah status hadir/boarding dan diarahkan ke detail penumpang. |
 | Status turun penumpang | Sudah ada | Tercatat | Pengemudi dapat menandai penumpang sudah turun dan barang aman. |
 | Riwayat pengemudi | Sudah ada | Tercatat | Menampilkan perjalanan yang sedang/selesai sesuai data backend. |
@@ -54,6 +55,8 @@ Dokumen `PRD.md` masih berisi banyak catatan historis dari awal proyek, sehingga
 | Bentrok jadwal pengemudi | Sudah dicegah | Tercatat | Satu pengemudi tidak boleh mendapat jadwal pada tanggal dan jam yang sama. |
 | Rate limit | Sudah ada | Tercatat | Melindungi API dan web admin dari spam klik/request. |
 | Dashboard admin | Sudah dibuat dan disederhanakan teksnya | Tercatat | Teks teknis yang tidak berguna untuk user dikurangi. |
+| Pengajuan biaya pengemudi | Sudah ada | Tercatat | Pengemudi mengajukan biaya per jadwal; status awal menunggu verifikasi admin. |
+| Verifikasi biaya operasional | Sudah ada | Tercatat | Rekap final hanya menghitung biaya yang sudah disetujui. |
 | Backup database | Sudah ada command dan scheduler | Tercatat | Produksi masih perlu cron server. |
 
 ## Dokumen yang Sudah Diperbarui

@@ -317,11 +317,15 @@ Konfirmasi tunai akan memperbarui pembayaran, pemesanan, kursi, tiket, dan notif
 
 Admin mencatat biaya yang berhubungan dengan perjalanan, misalnya BBM, tol, parkir, servis, atau konsumsi pengemudi. Data mencakup jadwal, jenis biaya, nominal, tanggal, keterangan, pembuat data, dan bukti jika tersedia.
 
-Data dapat ditambah, diperbarui, atau dihapus sesuai kebutuhan laporan.
+Pengemudi juga dapat mengajukan biaya operasional dari jadwal yang ditugaskan kepadanya. Pengajuan dari pengemudi tidak langsung masuk rekap final, tetapi disimpan dengan status **menunggu verifikasi**. Admin kemudian memeriksa bukti dan dapat menyetujui atau menolak pengajuan tersebut.
+
+Data yang dicatat langsung oleh admin otomatis dianggap disetujui, sedangkan data dari pengemudi baru masuk perhitungan final setelah admin menyetujui. Pola ini menjaga laporan biaya tetap rapi karena biaya lapangan tidak langsung memengaruhi rekap sebelum dicek.
 
 ### 7.9 Menu Rekap Biaya
 
 Rekap Biaya mengelompokkan biaya operasional agar admin dapat melihat total pengeluaran pada periode tertentu. Menu ini membantu membandingkan pendapatan perjalanan dengan pengeluaran operasional.
+
+Rekap final hanya menghitung biaya yang sudah berstatus **disetujui**. Biaya yang masih menunggu verifikasi tetap tampil sebagai data pengajuan, tetapi belum dihitung sebagai biaya resmi.
 
 ### 7.10 Menu Laporan Pemesanan
 

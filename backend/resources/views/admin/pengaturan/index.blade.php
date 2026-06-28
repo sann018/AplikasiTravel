@@ -29,20 +29,24 @@
 
 @section('content')
     <div class="travs-settings-page">
-        <section id="akun-admin" class="travs-card travs-admin-account-card mb-4">
-            <div class="travs-admin-account-head">
-                <div>
-                    <span class="travs-eyebrow">Akun Admin</span>
-                    <h3>Email dan Password</h3>
-                    <p>Perbarui email login atau ganti password dashboard admin.</p>
+        <section id="akun-admin" class="travs-card travs-admin-account-card collapsible-section mb-4" data-collapsible-section>
+            <div class="collapsible-section__header" data-collapse-header>
+                <div class="travs-admin-account-head flex-grow-1">
+                    <div>
+                        <span class="travs-eyebrow">Akun Admin</span>
+                        <h3>Email dan Password</h3>
+                        <p>Perbarui email login atau ganti password dashboard admin.</p>
+                    </div>
+                    <div class="travs-admin-account-badge">
+                        <span>Akun aktif</span>
+                        <strong>{{ $adminUser->email }}</strong>
+                    </div>
                 </div>
-                <div class="travs-admin-account-badge">
-                    <span>Akun aktif</span>
-                    <strong>{{ $adminUser->email }}</strong>
-                </div>
+                @include('admin.partials.collapsible-toggle', ['targetId' => 'settings-admin-account-body'])
             </div>
 
-            <form method="POST" action="{{ route('admin.pengaturan.account.update') }}" class="travs-admin-account-form">
+            <div id="settings-admin-account-body" class="collapsible-section__body" data-collapse-body>
+                <form method="POST" action="{{ route('admin.pengaturan.account.update') }}" class="travs-admin-account-form">
                 @csrf
                 @method('PUT')
                 <div class="travs-admin-account-primary">
@@ -77,7 +81,8 @@
                 <div class="travs-form-actions travs-admin-account-actions">
                     <button type="submit" class="travs-button">Simpan Perubahan Akun</button>
                 </div>
-            </form>
+                </form>
+            </div>
         </section>
 
         @if ($errors->any())
@@ -87,32 +92,41 @@
             </div>
         @endif
 
-        <section class="travs-settings-tabs mb-3">
-            <div class="travs-settings-tabs-copy">
-                <span class="travs-eyebrow">Control Center</span>
-                <h3>Pilih bagian yang ingin diatur</h3>
-                <p>Setiap tab disimpan secara terpisah agar perubahan tidak mengenai bagian lain.</p>
+        <section class="travs-settings-tabs collapsible-section mb-3" data-collapsible-section>
+            <div class="collapsible-section__header" data-collapse-header>
+                <div class="travs-settings-tabs-copy">
+                    <span class="travs-eyebrow">Control Center</span>
+                    <h3>Pilih bagian yang ingin diatur</h3>
+                    <p>Setiap tab disimpan secara terpisah agar perubahan tidak mengenai bagian lain.</p>
+                </div>
+                @include('admin.partials.collapsible-toggle', ['targetId' => 'settings-control-center-body'])
             </div>
 
-            {{-- Tombol simpan dipisah per tab supaya admin tidak mengubah semua konfigurasi tanpa sengaja. --}}
-            <div class="travs-settings-tab-list" role="tablist" aria-label="Tab pengaturan sistem">
-                @foreach ($tabLabels as $tabKey => $tabLabel)
-                    <button type="button" class="travs-settings-tab {{ $activeTab === $tabKey ? 'is-active' : '' }}" data-settings-tab="{{ $tabKey }}" role="tab" aria-controls="settings-{{ $tabKey }}" aria-selected="{{ $activeTab === $tabKey ? 'true' : 'false' }}">
-                        {{ $tabLabel }}
-                    </button>
-                @endforeach
+            <div id="settings-control-center-body" class="collapsible-section__body" data-collapse-body>
+                {{-- Tombol simpan dipisah per tab supaya admin tidak mengubah semua konfigurasi tanpa sengaja. --}}
+                <div class="travs-settings-tab-list" role="tablist" aria-label="Tab pengaturan sistem">
+                    @foreach ($tabLabels as $tabKey => $tabLabel)
+                        <button type="button" class="travs-settings-tab {{ $activeTab === $tabKey ? 'is-active' : '' }}" data-settings-tab="{{ $tabKey }}" role="tab" aria-controls="settings-{{ $tabKey }}" aria-selected="{{ $activeTab === $tabKey ? 'true' : 'false' }}">
+                            {{ $tabLabel }}
+                        </button>
+                    @endforeach
+                </div>
             </div>
         </section>
 
         <div class="travs-settings-grid">
-            <form id="settings-general" method="POST" action="{{ route('admin.settings.general.update') }}" enctype="multipart/form-data" class="travs-card travs-settings-group travs-settings-pane" data-settings-pane="general" @if ($activeTab !== 'general') hidden @endif>
+            <form id="settings-general" method="POST" action="{{ route('admin.settings.general.update') }}" enctype="multipart/form-data" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="general" data-collapsible-section @if ($activeTab !== 'general') hidden @endif>
                 @csrf
-                <div class="travs-settings-group-header">
-                    <span class="travs-eyebrow">Umum</span>
-                    <h3>Identitas dan Kontak Aplikasi</h3>
-                    <p>Informasi utama yang digunakan pada web admin dan aplikasi mobile.</p>
+                <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
+                    <div>
+                        <span class="travs-eyebrow">Umum</span>
+                        <h3>Identitas dan Kontak Aplikasi</h3>
+                        <p>Informasi utama yang digunakan pada web admin dan aplikasi mobile.</p>
+                    </div>
+                    @include('admin.partials.collapsible-toggle', ['targetId' => 'settings-general-body'])
                 </div>
 
+                <div id="settings-general-body" class="collapsible-section__body" data-collapse-body>
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label" for="app_name">Nama Aplikasi</label>
@@ -155,16 +169,21 @@
                 <div class="travs-form-actions mt-4">
                     <button type="submit" class="travs-button">Simpan Pengaturan Umum</button>
                 </div>
+                </div>
             </form>
 
-            <form id="settings-booking" method="POST" action="{{ route('admin.settings.booking.update') }}" class="travs-card travs-settings-group travs-settings-pane" data-settings-pane="booking" @if ($activeTab !== 'booking') hidden @endif>
+            <form id="settings-booking" method="POST" action="{{ route('admin.settings.booking.update') }}" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="booking" data-collapsible-section @if ($activeTab !== 'booking') hidden @endif>
                 @csrf
-                <div class="travs-settings-group-header">
-                    <span class="travs-eyebrow">Pemesanan</span>
-                    <h3>Aturan Kursi dan Waktu Pemesanan</h3>
-                    <p>Atur jumlah kursi dan lama penguncian selama proses pemesanan.</p>
+                <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
+                    <div>
+                        <span class="travs-eyebrow">Pemesanan</span>
+                        <h3>Aturan Kursi dan Waktu Pemesanan</h3>
+                        <p>Atur jumlah kursi dan lama penguncian selama proses pemesanan.</p>
+                    </div>
+                    @include('admin.partials.collapsible-toggle', ['targetId' => 'settings-booking-body'])
                 </div>
 
+                <div id="settings-booking-body" class="collapsible-section__body" data-collapse-body>
                 <div class="row g-3">
                     <div class="col-12">
                         {{-- Switch dipakai karena pengaturan ini hanya memiliki kondisi aktif atau nonaktif. --}}
@@ -214,18 +233,23 @@
                 <div class="travs-form-actions mt-4">
                     <button type="submit" class="travs-button">Simpan Pengaturan Pemesanan</button>
                 </div>
+                </div>
             </form>
 
-            <form id="settings-payment" method="POST" action="{{ route('admin.settings.payment.update') }}" class="travs-card travs-settings-group travs-settings-pane" data-settings-pane="payment" @if ($activeTab !== 'payment') hidden @endif>
+            <form id="settings-payment" method="POST" action="{{ route('admin.settings.payment.update') }}" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="payment" data-collapsible-section @if ($activeTab !== 'payment') hidden @endif>
                 @csrf
                 <input type="hidden" name="payment_transfer_enabled" value="{{ $settingEnabled('payment_transfer_enabled', true) ? '1' : '0' }}">
                 <input type="hidden" name="payment_qris_enabled" value="{{ $settingEnabled('payment_qris_enabled', true) ? '1' : '0' }}">
-                <div class="travs-settings-group-header">
-                    <span class="travs-eyebrow">Pembayaran</span>
-                    <h3>Metode dan Informasi Pembayaran</h3>
-                    <p>Kelola rekening transfer dan pilihan pembayaran tunai. Biaya kanal mengikuti Pakasir.</p>
+                <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
+                    <div>
+                        <span class="travs-eyebrow">Pembayaran</span>
+                        <h3>Metode dan Informasi Pembayaran</h3>
+                        <p>Kelola rekening transfer dan pilihan pembayaran tunai. Biaya kanal mengikuti Pakasir.</p>
+                    </div>
+                    @include('admin.partials.collapsible-toggle', ['targetId' => 'settings-payment-body'])
                 </div>
 
+                <div id="settings-payment-body" class="collapsible-section__body" data-collapse-body>
                 <div class="row g-3">
                     <div class="col-12">
                         <div class="travs-settings-switch-row h-100">
@@ -275,16 +299,21 @@
                 <div class="travs-form-actions mt-4">
                     <button type="submit" class="travs-button">Simpan Pengaturan Pembayaran</button>
                 </div>
+                </div>
             </form>
 
-            <form id="settings-baggage" method="POST" action="{{ route('admin.settings.baggage.update') }}" class="travs-card travs-settings-group travs-settings-pane" data-settings-pane="baggage" @if ($activeTab !== 'baggage') hidden @endif>
+            <form id="settings-baggage" method="POST" action="{{ route('admin.settings.baggage.update') }}" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="baggage" data-collapsible-section @if ($activeTab !== 'baggage') hidden @endif>
                 @csrf
-                <div class="travs-settings-group-header">
-                    <span class="travs-eyebrow">Bagasi</span>
-                    <h3>Aturan Barang Bawaan</h3>
-                    <p>Atur metode hitung, batas gratis, biaya tambahan, dan kapasitas kendaraan.</p>
+                <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
+                    <div>
+                        <span class="travs-eyebrow">Bagasi</span>
+                        <h3>Aturan Barang Bawaan</h3>
+                        <p>Atur metode hitung, batas gratis, biaya tambahan, dan kapasitas kendaraan.</p>
+                    </div>
+                    @include('admin.partials.collapsible-toggle', ['targetId' => 'settings-baggage-body'])
                 </div>
 
+                <div id="settings-baggage-body" class="collapsible-section__body" data-collapse-body>
                 <section class="travs-settings-subsection">
                     <div class="travs-settings-subsection-head">
                         <h4>Status Perhitungan Bagasi</h4>
@@ -419,6 +448,7 @@
                 <div class="travs-form-actions mt-4">
                     <button type="submit" class="travs-button">Simpan Pengaturan Bagasi</button>
                 </div>
+                </div>
             </form>
 
         </div>
@@ -426,6 +456,7 @@
 @endsection
 
 @push('scripts')
+    @include('admin.partials.collapsible-section-script')
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const tabButtons = document.querySelectorAll('[data-settings-tab]');

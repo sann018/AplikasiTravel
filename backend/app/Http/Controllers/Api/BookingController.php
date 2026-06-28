@@ -98,6 +98,8 @@ class BookingController extends Controller
             'baggage_items.*.lebar_cm' => ['nullable', 'integer', 'min:0'],
             'baggage_items.*.jumlah_item' => ['nullable', 'integer', 'min:1'],
             'baggage_items.*.foto_url' => ['nullable', 'string', 'max:255'],
+            'baggage_items.*.foto_urls' => ['nullable', 'array', 'max:3'],
+            'baggage_items.*.foto_urls.*' => ['nullable', 'string', 'max:255'],
         ]);
 
         $schedule = Jadwal::query()->with('rute')->findOrFail($validated['jadwal_id']);
@@ -149,10 +151,12 @@ class BookingController extends Controller
             'pickup.latitude' => ['required', 'numeric', 'between:-90,90'],
             'pickup.longitude' => ['required', 'numeric', 'between:-180,180'],
             'pickup.address' => ['required', 'string', 'max:1000'],
+            'pickup.note' => ['nullable', 'string', 'max:500'],
             'dropoff' => ['required', 'array'],
             'dropoff.latitude' => ['required', 'numeric', 'between:-90,90'],
             'dropoff.longitude' => ['required', 'numeric', 'between:-180,180'],
             'dropoff.address' => ['required', 'string', 'max:1000'],
+            'dropoff.note' => ['nullable', 'string', 'max:500'],
             'payment_method' => ['required', 'string', 'in:transfer,qris,cash'],
             'passengers' => ['required', 'array', 'min:1'],
             'passengers.*.seat_number' => ['required', 'integer', 'min:1'],
@@ -167,6 +171,14 @@ class BookingController extends Controller
             'baggage_items.*.lebar_cm' => ['nullable', 'integer', 'min:0'],
             'baggage_items.*.jumlah_item' => ['nullable', 'integer', 'min:1'],
             'baggage_items.*.foto_url' => ['nullable', 'string', 'max:255'],
+            'baggage_items.*.foto_urls' => ['nullable', 'array', 'max:3'],
+            'baggage_items.*.foto_urls.*' => ['nullable', 'string', 'max:255'],
+        ], [
+            'baggage_items.*.foto_urls.max' => 'Foto barang bawaan maksimal 3 foto untuk setiap pemesanan.',
+            'pickup.address.required' => 'Alamat titik jemput wajib diisi.',
+            'dropoff.address.required' => 'Alamat titik turun wajib diisi.',
+            'passengers.*.nama_penumpang.required' => 'Nama penumpang wajib diisi.',
+            'passengers.*.no_hp_penumpang.required' => 'Nomor HP penumpang wajib diisi.',
         ]);
 
         $booking = $this->bookingService->createDraft($request->user(), $validated);
@@ -361,11 +373,13 @@ class BookingController extends Controller
                 'latitude' => (float) $booking->lintang_jemput,
                 'longitude' => (float) $booking->bujur_jemput,
                 'address' => $booking->alamat_jemput,
+                'note' => $booking->catatan_jemput,
             ],
             'dropoff' => [
                 'latitude' => $booking->lintang_turun !== null ? (float) $booking->lintang_turun : null,
                 'longitude' => $booking->bujur_turun !== null ? (float) $booking->bujur_turun : null,
                 'address' => $booking->alamat_turun,
+                'note' => $booking->catatan_turun,
             ],
             'passengers' => $booking->detailPemesanan->map(fn ($detail) => [
                 'seat_number' => $detail->nomor_kursi,
@@ -389,8 +403,22 @@ class BookingController extends Controller
                 'lebar_cm' => $item->lebar_cm,
                 'jumlah_item' => $item->jumlah_item,
                 'foto_url' => $item->foto_url,
+                'foto_urls' => $this->baggagePhotoUrls($item),
             ])->all(),
         ];
+    }
+
+    private function baggagePhotoUrls($item): array
+    {
+        $urls = collect($item->foto_urls ?? [])
+            ->filter(fn ($url) => is_string($url) && trim($url) !== '')
+            ->values();
+
+        if ($urls->isEmpty() && is_string($item->foto_url) && trim($item->foto_url) !== '') {
+            $urls->push($item->foto_url);
+        }
+
+        return $urls->take(3)->map(fn ($url) => $this->publicStorageUrl($url) ?? $url)->all();
     }
 
     private function publicStorageUrl(?string $path): ?string

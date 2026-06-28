@@ -137,9 +137,11 @@ class BookingService
                 'lintang_jemput' => data_get($payload, 'pickup.latitude'),
                 'bujur_jemput' => data_get($payload, 'pickup.longitude'),
                 'alamat_jemput' => data_get($payload, 'pickup.address'),
+                'catatan_jemput' => data_get($payload, 'pickup.note'),
                 'lintang_turun' => data_get($payload, 'dropoff.latitude'),
                 'bujur_turun' => data_get($payload, 'dropoff.longitude'),
                 'alamat_turun' => data_get($payload, 'dropoff.address'),
+                'catatan_turun' => data_get($payload, 'dropoff.note'),
                 'subtotal_tiket' => $totals['subtotal_tiket'],
                 'biaya_bagasi' => $totals['biaya_bagasi'],
                 'diskon' => $totals['diskon'],
@@ -175,6 +177,7 @@ class BookingService
                 if ($ukuranCm === null && ($panjangCm !== null || $lebarCm !== null)) {
                     $ukuranCm = (int) ($panjangCm ?? 0) + (int) ($lebarCm ?? 0);
                 }
+                $fotoUrls = $this->normalizeBaggagePhotoUrls($item);
 
                 ItemBagasi::query()->create([
                     'pemesanan_id' => $booking->id,
@@ -185,7 +188,8 @@ class BookingService
                     'panjang_cm' => $panjangCm,
                     'lebar_cm' => $lebarCm,
                     'jumlah_item' => max(1, (int) data_get($item, 'jumlah_item', 1)),
-                    'foto_url' => data_get($item, 'foto_url'),
+                    'foto_url' => $fotoUrls[0] ?? null,
+                    'foto_urls' => $fotoUrls,
                     'biaya_item' => 0,
                 ]);
             }
@@ -1180,6 +1184,25 @@ class BookingService
             ->map(fn ($seat) => (int) $seat)
             ->filter(fn ($seat) => $seat > 0)
             ->values();
+    }
+
+    /**
+     * Data lama hanya menyimpan satu foto. Data baru menyimpan daftar foto,
+     * tetapi tetap dibatasi tiga agar bukti jelas tanpa memberatkan storage.
+     */
+    private function normalizeBaggagePhotoUrls(array $item): array
+    {
+        $urls = collect(data_get($item, 'foto_urls', []))
+            ->filter(fn ($url) => is_string($url) && trim($url) !== '')
+            ->map(fn ($url) => trim($url))
+            ->values();
+
+        $singleUrl = data_get($item, 'foto_url');
+        if ($urls->isEmpty() && is_string($singleUrl) && trim($singleUrl) !== '') {
+            $urls->push(trim($singleUrl));
+        }
+
+        return $urls->take(3)->values()->all();
     }
 
     private function resolveFormLockDeadline($now)

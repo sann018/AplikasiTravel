@@ -47,6 +47,14 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('travs-upload', function (Request $request) {
             return Limit::perMinute(6)->by($this->rateLimitKey($request));
         });
+
+        RateLimiter::for('travs-admin-action', function (Request $request) {
+            return Limit::perMinute(12)->by($this->rateLimitKey($request));
+        });
+
+        RateLimiter::for('travs-webhook', function (Request $request) {
+            return Limit::perMinute(60)->by('webhook:'.$request->ip());
+        });
     }
 
     private function rateLimitKey(Request $request): string

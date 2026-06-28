@@ -126,6 +126,10 @@ class _TicketHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final departure = DateTime.tryParse(booking.waktuBerangkat)?.toLocal();
+    final isCompleted =
+        booking.status == 'selesai' ||
+        (departure != null && departure.isBefore(DateTime.now()));
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -152,7 +156,11 @@ class _TicketHeaderCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(999),
             ),
             child: Text(
-              booking.isPaid ? 'Tiket Aktif' : 'Tiket Belum Aktif',
+              isCompleted
+                  ? 'Perjalanan Selesai'
+                  : booking.isPaid
+                  ? 'Tiket Aktif'
+                  : 'Tiket Belum Aktif',
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.w800,
@@ -577,8 +585,6 @@ class _TicketScheduleInfoPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final vehicle = booking.kendaraan;
-
     return Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
@@ -612,9 +618,10 @@ class _TicketScheduleInfoPanel extends StatelessWidget {
               ),
               _TicketInfoDivider(),
               _TicketInfoRow(
-                label: 'Nopol',
-                value: vehicle?.plat ?? '-',
-                icon: Icons.confirmation_number_outlined,
+                label: 'Harga Tiket',
+                value:
+                    'Rp${_formatCurrency(booking.subtotalTiket / (booking.jumlahKursi == 0 ? 1 : booking.jumlahKursi))}',
+                icon: Icons.payments_outlined,
               ),
             ],
           ),
@@ -922,4 +929,8 @@ String _formatTime(String value) {
   }
 
   return DateFormat('HH:mm', 'id_ID').format(parsed);
+}
+
+String _formatCurrency(double value) {
+  return NumberFormat('#,##0', 'id_ID').format(value).replaceAll(',', '.');
 }

@@ -50,6 +50,18 @@ class AdminSystemSettingsTest extends TestCase
             ->assertDontSee('Simpan Semua Pengaturan');
     }
 
+    public function test_settings_main_sections_can_be_opened_and_closed_locally(): void
+    {
+        $this->actingAs($this->admin())
+            ->get(route('admin.settings.index'))
+            ->assertOk()
+            ->assertSee('aria-controls="settings-admin-account-body"', false)
+            ->assertSee('aria-controls="settings-control-center-body"', false)
+            ->assertSee('aria-controls="settings-general-body"', false)
+            ->assertSee('data-collapsible-section', false)
+            ->assertSee('data-collapse-body', false);
+    }
+
     public function test_general_tab_only_updates_general_settings(): void
     {
         Storage::fake('public');

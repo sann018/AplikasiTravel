@@ -46,6 +46,26 @@ class NotificationHistoryService
         return $query->delete();
     }
 
+    /**
+     * Dipakai admin untuk merapikan log user mobile saja.
+     * Notifikasi admin tidak ikut tersentuh supaya inbox operasional tetap aman.
+     *
+     * @param  array<int, string>  $roles
+     */
+    public function deleteReadHistoryForRoles(string $period, array $roles): int
+    {
+        $query = Notifikasi::query()
+            ->where('sudah_dibaca', true)
+            ->whereHas('pengguna', fn ($penggunaQuery) => $penggunaQuery->whereIn('peran', $roles));
+
+        $days = $this->periodDays($period);
+        if ($days !== null) {
+            $query->where('created_at', '<=', now()->subDays($days));
+        }
+
+        return $query->delete();
+    }
+
     private function periodDays(string $period): ?int
     {
         return match ($period) {

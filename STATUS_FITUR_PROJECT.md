@@ -1,6 +1,32 @@
 # Status Fitur Project AplikasiTravel
 
-Tanggal status terbaru: 22 Juni 2026
+Tanggal status terbaru: 27 Juni 2026
+
+## Snapshot Tambahan - 27 Juni 2026
+
+### Perubahan biaya operasional dan bagasi
+
+- Pengemudi sekarang dapat mengajukan biaya operasional dari jadwal yang ditugaskan melalui endpoint khusus pengemudi.
+- Biaya yang diajukan pengemudi masuk dengan status awal `menunggu_verifikasi`, sehingga tidak langsung memengaruhi rekap final.
+- Admin dapat menyetujui atau menolak pengajuan biaya operasional dari halaman Biaya Operasional.
+- Rekap biaya dan statistik biaya operasional hanya menghitung biaya yang sudah `disetujui`.
+- Biaya yang dicatat langsung oleh admin otomatis berstatus `disetujui` karena admin menjadi pihak verifikasi.
+- Foto barang bawaan mendukung maksimal 3 foto per data bagasi, tetap kompatibel dengan foto lama yang hanya satu file.
+- Foto barang bawaan ditampilkan pada detail pemesanan penumpang dan detail manifest pengemudi dalam grid kecil.
+
+### Perubahan API dan data
+
+- Endpoint baru pengemudi: `POST /api/pengemudi/trips/{jadwal}/expenses`.
+- Endpoint verifikasi admin: `PATCH /admin/biaya-operasional/{biayaOperasional}/verifikasi`.
+- Response manifest pengemudi menyertakan daftar `foto_urls` bagasi dan `whatsapp_url_penumpang`.
+- Payload pemesanan mobile dapat mengirim `foto_urls` untuk mendukung multi foto bagasi.
+
+### Hasil pengujian tambahan
+
+- Backend: `php artisan test --filter=DriverOperationsTest` lulus, 14 test dan 75 assertion.
+- Backend: `php artisan test --filter=AdminOperationsTest` lulus, 16 test dan 88 assertion.
+- Flutter: `flutter analyze` lulus tanpa issue.
+- Flutter: `flutter test` lulus, semua test passed.
 
 ## Snapshot Terbaru - 22 Juni 2026
 
@@ -83,7 +109,7 @@ File ini merangkum kondisi fitur berdasarkan kode yang ada saat ini. Tujuannya s
 - Pemilihan kursi penumpang dengan lock kursi.
 - Checkout penumpang berisi data penumpang, titik jemput, bagasi, dan metode pembayaran.
 - Titik jemput GPS/map picker dengan reverse geocoding koordinat menjadi alamat.
-- Upload foto barang bawaan.
+- Upload foto barang bawaan maksimal 3 foto per data bagasi.
 - Hitung biaya bagasi berdasarkan aturan berat/ukuran dan jumlah item.
 - Detail pemesanan dan tombol menuju tiket.
 - Tiket elektronik QR setelah pembayaran valid.
@@ -94,7 +120,7 @@ File ini merangkum kondisi fitur berdasarkan kode yang ada saat ini. Tujuannya s
 - Aksi pengemudi untuk menandai penurunan penumpang setelah tiket discan.
 - Pengemudi dapat mengonfirmasi pembayaran tunai pada manifest untuk pemesanan cash yang memang menjadi bagian jadwalnya.
 - Scan tiket diarahkan ke detail penumpang (identitas, alamat jemput, bagasi, dan link maps).
-- Catatan pengeluaran pengemudi + upload bukti nota tersimpan per perjalanan.
+- Catatan pengeluaran pengemudi + upload bukti nota tersimpan per perjalanan dan menunggu verifikasi admin sebelum masuk rekap final.
 - Tab notifikasi pengemudi dengan badge unread dan tombol scan via FAB tengah.
 - Admin web untuk dashboard, kendaraan, pengemudi, rute, jadwal, pemesanan, pembayaran, biaya operasional, laporan, notifikasi, dan pengaturan.
 - Admin armada kendaraan sudah mendukung upload foto mobil, thumbnail foto di tabel, preview foto maksimal 500x500, dan dropdown tipe kendaraan agar input lebih rapi.

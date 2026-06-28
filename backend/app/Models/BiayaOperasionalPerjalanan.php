@@ -25,6 +25,11 @@ class BiayaOperasionalPerjalanan extends Model
         'nominal',
         'keterangan',
         'tanggal_biaya',
+        'bukti_url',
+        'status_verifikasi',
+        'diverifikasi_oleh',
+        'diverifikasi_pada',
+        'catatan_verifikasi',
         'created_by',
     ];
 
@@ -33,6 +38,7 @@ class BiayaOperasionalPerjalanan extends Model
         return [
             'nominal' => 'decimal:2',
             'tanggal_biaya' => 'datetime',
+            'diverifikasi_pada' => 'datetime',
         ];
     }
 
@@ -44,5 +50,10 @@ class BiayaOperasionalPerjalanan extends Model
     public function pencatat(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function verifikator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'diverifikasi_oleh');
     }
 }

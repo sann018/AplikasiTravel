@@ -1,3 +1,9 @@
+@php
+    // Beberapa halaman lama mengirim nama "target", halaman baru memakai "targetId".
+    // Dua-duanya diterima agar tombol collapse tetap aman dipakai ulang.
+    $targetId = $targetId ?? $target ?? '';
+@endphp
+
 {{-- Tombol ini dipakai ulang agar ikon dan aksesibilitas section tetap konsisten. --}}
 <button
     type="button"
