@@ -711,11 +711,14 @@ class _BaggageCard extends StatelessWidget {
             spacing: 10,
             runSpacing: 10,
             children: [
+              _MiniBadge(
+                label: item.posisiBarang == 'dipegang_sendiri'
+                    ? 'Dipegang sendiri'
+                    : 'Masuk bagasi',
+              ),
               _MiniBadge(label: '${item.jumlahItem} item'),
               if (item.beratKg != null)
                 _MiniBadge(label: '${item.beratKg!.toStringAsFixed(0)} kg'),
-              if (item.ukuranCm != null)
-                _MiniBadge(label: '${item.ukuranCm} cm'),
             ],
           ),
           if (baggagePhotoUrls.isNotEmpty) ...[
@@ -731,24 +734,45 @@ class _BaggageCard extends StatelessWidget {
               ),
               itemBuilder: (context, index) {
                 final photoUrl = baggagePhotoUrls[index];
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: Image.network(
-                    photoUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Colors.white,
-                        alignment: Alignment.center,
-                        child: Text(
-                          'Foto tidak tersedia',
-                          textAlign: TextAlign.center,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: TravSTheme.navyMuted,
+                return GestureDetector(
+                  onTap: () => showDialog<void>(
+                    context: context,
+                    builder: (context) => Dialog(
+                      insetPadding: const EdgeInsets.all(24),
+                      backgroundColor: Colors.transparent,
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            maxWidth: 500,
+                            maxHeight: 500,
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: Image.network(photoUrl, fit: BoxFit.contain),
                           ),
                         ),
-                      );
-                    },
+                      ),
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.network(
+                      photoUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return Container(
+                          color: Colors.white,
+                          alignment: Alignment.center,
+                          child: Text(
+                            'Foto tidak tersedia',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: TravSTheme.navyMuted,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 );
               },

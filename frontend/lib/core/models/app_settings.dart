@@ -21,6 +21,13 @@ class AppSettings {
     required this.baggageFreeItemCount,
     required this.baggageMaxItemPerPerson,
     required this.baggageExtraFeePerItem,
+    required this.baggageSmallItemFee,
+    required this.baggageLargeItemFee,
+    required this.baggageLargeVehicleEnabled,
+    required this.baggageBicycleFee,
+    required this.baggageMotorcycleFee,
+    required this.baggageHeavyItemFee,
+    required this.baggageOtherLargeItemFee,
     required this.baggageMaxTotalWeightPerVehicle,
   });
 
@@ -46,6 +53,13 @@ class AppSettings {
     baggageFreeItemCount: 2,
     baggageMaxItemPerPerson: 10,
     baggageExtraFeePerItem: 2500,
+    baggageSmallItemFee: 5000,
+    baggageLargeItemFee: 10000,
+    baggageLargeVehicleEnabled: false,
+    baggageBicycleFee: 0,
+    baggageMotorcycleFee: 0,
+    baggageHeavyItemFee: 0,
+    baggageOtherLargeItemFee: 0,
     baggageMaxTotalWeightPerVehicle: 50,
   );
 
@@ -70,6 +84,13 @@ class AppSettings {
   final int baggageFreeItemCount;
   final int baggageMaxItemPerPerson;
   final double baggageExtraFeePerItem;
+  final double baggageSmallItemFee;
+  final double baggageLargeItemFee;
+  final bool baggageLargeVehicleEnabled;
+  final double baggageBicycleFee;
+  final double baggageMotorcycleFee;
+  final double baggageHeavyItemFee;
+  final double baggageOtherLargeItemFee;
   final double baggageMaxTotalWeightPerVehicle;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -152,6 +173,34 @@ class AppSettings {
         json['baggage_extra_fee_per_item'],
         defaults.baggageExtraFeePerItem,
       ),
+      baggageSmallItemFee: _readDouble(
+        json['baggage_small_item_fee'],
+        defaults.baggageSmallItemFee,
+      ),
+      baggageLargeItemFee: _readDouble(
+        json['baggage_large_item_fee'],
+        defaults.baggageLargeItemFee,
+      ),
+      baggageLargeVehicleEnabled: _readBool(
+        json['baggage_large_vehicle_enabled'],
+        defaults.baggageLargeVehicleEnabled,
+      ),
+      baggageBicycleFee: _readDouble(
+        json['baggage_bicycle_fee'],
+        defaults.baggageBicycleFee,
+      ),
+      baggageMotorcycleFee: _readDouble(
+        json['baggage_motorcycle_fee'],
+        defaults.baggageMotorcycleFee,
+      ),
+      baggageHeavyItemFee: _readDouble(
+        json['baggage_heavy_item_fee'],
+        defaults.baggageHeavyItemFee,
+      ),
+      baggageOtherLargeItemFee: _readDouble(
+        json['baggage_other_large_item_fee'],
+        defaults.baggageOtherLargeItemFee,
+      ),
       baggageMaxTotalWeightPerVehicle: _readDouble(
         json['baggage_max_total_weight_per_vehicle'],
         defaults.baggageMaxTotalWeightPerVehicle,
@@ -181,6 +230,13 @@ class AppSettings {
     'baggage_free_item_count': baggageFreeItemCount,
     'baggage_max_item_per_person': baggageMaxItemPerPerson,
     'baggage_extra_fee_per_item': baggageExtraFeePerItem,
+    'baggage_small_item_fee': baggageSmallItemFee,
+    'baggage_large_item_fee': baggageLargeItemFee,
+    'baggage_large_vehicle_enabled': baggageLargeVehicleEnabled,
+    'baggage_bicycle_fee': baggageBicycleFee,
+    'baggage_motorcycle_fee': baggageMotorcycleFee,
+    'baggage_heavy_item_fee': baggageHeavyItemFee,
+    'baggage_other_large_item_fee': baggageOtherLargeItemFee,
     'baggage_max_total_weight_per_vehicle': baggageMaxTotalWeightPerVehicle,
   };
 }

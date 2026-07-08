@@ -312,6 +312,12 @@ class _TravSHomePageState extends State<TravSHomePage> {
     _showMessage('Profil berhasil diperbarui.');
   }
 
+  Future<void> _openPassengerInfoPage() {
+    return Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(builder: (_) => const _PassengerInfoPage()),
+    );
+  }
+
   Future<void> _pickScheduleDate() async {
     final now = DateTime.now();
     final selected = await showDatePicker(
@@ -1032,6 +1038,13 @@ class _TravSHomePageState extends State<TravSHomePage> {
         ),
         const SizedBox(height: 10),
         _ProfileMenuTile(
+          icon: Icons.fact_check_outlined,
+          title: 'Info',
+          subtitle: 'Aturan dan tata cara pemesanan RuslyTravel.',
+          onTap: _openPassengerInfoPage,
+        ),
+        const SizedBox(height: 10),
+        _ProfileMenuTile(
           icon: Icons.info_outline_rounded,
           title: 'Tentang Aplikasi',
           subtitle: 'Kenali layanan dan cara kerja RuslyTravel.',
@@ -1327,7 +1340,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
         _ShortcutTile(
           icon: Icons.rule_rounded,
           title: 'Aturan Pemesanan',
-          subtitle: 'Gunakan data benar, pilih kursi, dan ikuti batas waktu.',
+          subtitle: 'Ketentuan data, kursi, waktu, pembayaran, dan tiket.',
           accent: TravSTheme.navy,
           onTap: () => setState(() => _selectedTabIndex = 2),
         ),
@@ -1335,7 +1348,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
         _ShortcutTile(
           icon: Icons.fact_check_outlined,
           title: 'Tata Cara Pemesanan',
-          subtitle: 'Pilih jadwal, kursi, lokasi, barang, lalu bayar.',
+          subtitle: 'Langkah dari pilih rute sampai tiket QR siap dipakai.',
           accent: TravSTheme.success,
           onTap: () => setState(() => _selectedTabIndex = 2),
         ),
@@ -1530,36 +1543,10 @@ class _TravSHomePageState extends State<TravSHomePage> {
         _PageTopBar(
           leading: _backToHomeButton(),
           title: 'Info Pemesanan',
-          subtitle: 'Ringkasan fitur utama alur penumpang.',
+          subtitle: 'Aturan dan tata cara pemesanan penumpang.',
         ),
         const SizedBox(height: 16),
-        const _InfoCard(
-          title: 'Pilih rute dan jadwal',
-          description:
-              'Lihat kota tujuan, waktu berangkat, kendaraan, harga, dan kursi yang masih tersedia.',
-          icon: Icons.route_rounded,
-        ),
-        const SizedBox(height: 12),
-        const _InfoCard(
-          title: 'Pilih kursi, titik jemput, dan titik turun',
-          description:
-              'Isi lokasi jemput dan turun dengan patokan yang jelas agar pengemudi mudah menemukan titiknya.',
-          icon: Icons.place_outlined,
-        ),
-        const SizedBox(height: 12),
-        const _InfoCard(
-          title: 'Barang bawaan',
-          description:
-              'Masukkan berat, ukuran, jumlah item, dan foto barang agar biaya tambahan dapat dihitung jelas.',
-          icon: Icons.luggage_rounded,
-        ),
-        const SizedBox(height: 12),
-        const _InfoCard(
-          title: 'Pembayaran dan e-ticket',
-          description:
-              'Selesaikan pembayaran, lalu tiket digital dan QR keberangkatan akan tersedia di menu Tiket.',
-          icon: Icons.payments_rounded,
-        ),
+        const _BookingInfoSections(),
       ],
     );
   }
@@ -3966,6 +3953,86 @@ class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
     }
   }
 
+  String? _normalizeWhatsAppNumber(String value) {
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+    if (digits.isEmpty) {
+      return null;
+    }
+
+    if (digits.startsWith('08')) {
+      return '62${digits.substring(1)}';
+    }
+
+    if (digits.startsWith('8')) {
+      return '62$digits';
+    }
+
+    return digits;
+  }
+
+  Future<void> _openPhoneOrWhatsApp(
+    String value, {
+    required bool whatsapp,
+  }) async {
+    final number = whatsapp
+        ? _normalizeWhatsAppNumber(value)
+        : value.replaceAll(RegExp(r'[^0-9+]'), '');
+    if (number == null || number.isEmpty || number == '-') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Nomor belum tersedia.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final uri = whatsapp
+        ? Uri.parse('https://wa.me/$number')
+        : Uri(scheme: 'tel', path: number);
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+
+    if (!opened && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            whatsapp
+                ? 'WhatsApp belum dapat dibuka.'
+                : 'Aplikasi telepon belum dapat dibuka.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _showImagePreview(String imageUrl) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        insetPadding: const EdgeInsets.all(24),
+        backgroundColor: Colors.transparent,
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 500, maxHeight: 500),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  padding: const EdgeInsets.all(20),
+                  color: Colors.white,
+                  child: const Text('Foto belum dapat ditampilkan.'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showPassengerDetail(_ManifestPassengerRecord passenger) {
     showModalBottomSheet<void>(
       context: context,
@@ -4090,6 +4157,30 @@ class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
                   ),
                 ),
               ],
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openPhoneOrWhatsApp(
+                        passenger.phone,
+                        whatsapp: false,
+                      ),
+                      icon: const Icon(Icons.call_outlined),
+                      label: const Text('Telepon'),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () =>
+                          _openPhoneOrWhatsApp(passenger.phone, whatsapp: true),
+                      icon: const Icon(Icons.chat_outlined),
+                      label: const Text('WhatsApp'),
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 18),
               _PassengerDetailBlock(
                 title: 'Identitas penumpang',
@@ -4164,17 +4255,20 @@ class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
                   ),
                   itemBuilder: (context, index) {
                     final photoUrl = baggageUrls[index];
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: Image.network(
-                        photoUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          return const _EmptyStateCard(
-                            title: 'Foto tidak tersedia',
-                            subtitle: '',
-                          );
-                        },
+                    return GestureDetector(
+                      onTap: () => _showImagePreview(photoUrl),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(14),
+                        child: Image.network(
+                          photoUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return const _EmptyStateCard(
+                              title: 'Foto tidak tersedia',
+                              subtitle: '',
+                            );
+                          },
+                        ),
                       ),
                     );
                   },
@@ -6844,6 +6938,166 @@ class _InfoCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _PassengerInfoPage extends StatelessWidget {
+  const _PassengerInfoPage();
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: TravSTheme.background,
+      body: SafeArea(
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          children: [
+            _PageTopBar(
+              leading: IconButton(
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.arrow_back_rounded),
+                color: TravSTheme.navy,
+              ),
+              title: 'Info Pemesanan',
+              subtitle: 'Aturan dan tata cara pemesanan penumpang.',
+            ),
+            const SizedBox(height: 16),
+            const _BookingInfoSections(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BookingInfoSections extends StatelessWidget {
+  const _BookingInfoSections();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _InfoGroupTitle(
+          title: 'Aturan Pemesanan',
+          subtitle: 'Ketentuan yang perlu dipahami sebelum membuat pemesanan.',
+        ),
+        SizedBox(height: 12),
+        _InfoCard(
+          title: 'Data penumpang wajib benar',
+          description:
+              'Gunakan nama lengkap dan nomor HP aktif agar admin atau pengemudi bisa menghubungi Anda jika ada perubahan jadwal.\n\n'
+              '- Nama penumpang dipakai pada tiket dan manifest.\n'
+              '- Nomor HP dipakai untuk komunikasi keberangkatan.\n'
+              '- Data yang salah dapat menyulitkan proses penjemputan.',
+          icon: Icons.badge_outlined,
+        ),
+        SizedBox(height: 12),
+        _InfoCard(
+          title: 'Kursi mengikuti ketersediaan jadwal',
+          description:
+              'Kursi yang sudah dipilih akan dikunci sementara saat proses pemesanan berjalan. Jika sesi habis atau pemesanan dibatalkan, kursi dilepas kembali agar bisa dipilih penumpang lain.\n\n'
+              '- Pilih kursi sesuai jumlah penumpang.\n'
+              '- Jangan menutup proses pemesanan sebelum data selesai dikirim.\n'
+              '- Kursi baru dianggap aman setelah pemesanan berhasil dibuat.',
+          icon: Icons.event_seat_outlined,
+        ),
+        SizedBox(height: 12),
+        _InfoCard(
+          title: 'Pembayaran mengikuti batas waktu',
+          description:
+              'Setelah pemesanan dibuat, pembayaran harus diselesaikan sebelum batas waktu berakhir. Jika melewati batas dan belum berhasil dibayar, pemesanan dapat dibatalkan oleh sistem.\n\n'
+              '- QRIS atau transfer gateway mengikuti status dari sistem pembayaran.\n'
+              '- Pembayaran tunai dikonfirmasi oleh pengemudi atau admin.\n'
+              '- Tiket QR hanya valid setelah pembayaran dinyatakan lunas.',
+          icon: Icons.timer_outlined,
+        ),
+        SizedBox(height: 12),
+        _InfoCard(
+          title: 'Titik jemput, titik turun, dan barang bawaan',
+          description:
+              'Isi alamat serta patokan lokasi dengan jelas agar pengemudi mudah menemukan Anda. Barang bawaan perlu dicatat agar kapasitas kendaraan dan biaya tambahan bisa dihitung dengan benar.\n\n'
+              '- Patokan bisa berupa toko, gang, bangunan, atau warna rumah.\n'
+              '- Barang yang dipegang sendiri tidak dikenakan biaya bagasi.\n'
+              '- Barang masuk bagasi dihitung dari kelebihan berat dan jumlah item sesuai aturan travel.\n'
+              '- Foto barang membantu pengecekan saat jemput dan turun.',
+          icon: Icons.location_on_outlined,
+        ),
+        SizedBox(height: 22),
+        _InfoGroupTitle(
+          title: 'Tata Cara Pemesanan',
+          subtitle:
+              'Langkah penggunaan aplikasi dari mencari jadwal sampai berangkat.',
+        ),
+        SizedBox(height: 12),
+        _InfoCard(
+          title: '1. Pilih rute dan jadwal',
+          description:
+              'Buka menu Rute, pilih tujuan perjalanan, lalu lihat jadwal yang tersedia. Perhatikan tanggal, jam berangkat, armada, harga tiket, dan jumlah kursi kosong sebelum melanjutkan.',
+          icon: Icons.route_rounded,
+        ),
+        SizedBox(height: 12),
+        _InfoCard(
+          title: '2. Pilih kursi dan isi data perjalanan',
+          description:
+              'Pilih kursi yang masih tersedia, lalu isi data penumpang. Setelah itu lengkapi titik jemput dan titik turun dengan alamat serta patokan lokasi yang mudah dipahami pengemudi.',
+          icon: Icons.fact_check_outlined,
+        ),
+        SizedBox(height: 12),
+        _InfoCard(
+          title: '3. Isi barang bawaan',
+          description:
+              'Pilih apakah barang dipegang sendiri atau masuk bagasi. Jika masuk bagasi, isi berat barang, jumlah item, catatan singkat, dan foto barang jika diminta. Sistem akan menampilkan estimasi biaya sebelum pemesanan dikirim.',
+          icon: Icons.luggage_rounded,
+        ),
+        SizedBox(height: 12),
+        _InfoCard(
+          title: '4. Selesaikan pembayaran',
+          description:
+              'Pilih metode pembayaran yang tersedia. Untuk QRIS atau transfer gateway, ikuti instruksi pembayaran sampai berhasil. Untuk tunai, siapkan pembayaran saat bertemu pengemudi sesuai ketentuan.',
+          icon: Icons.payments_rounded,
+        ),
+        SizedBox(height: 12),
+        _InfoCard(
+          title: '5. Gunakan tiket digital saat keberangkatan',
+          description:
+              'Setelah pembayaran berhasil, tiket digital dan QR akan tersedia di menu Tiket. Tunjukkan QR kepada pengemudi saat keberangkatan agar tiket dapat dipindai dan status kehadiran tercatat.',
+          icon: Icons.qr_code_2_rounded,
+        ),
+      ],
+    );
+  }
+}
+
+class _InfoGroupTitle extends StatelessWidget {
+  const _InfoGroupTitle({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.titleLarge?.copyWith(
+            color: TravSTheme.navy,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: TravSTheme.navyMuted,
+          ),
+        ),
+      ],
     );
   }
 }

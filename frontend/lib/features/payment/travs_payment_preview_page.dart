@@ -20,7 +20,11 @@ import '../pickup/travs_pickup_map_picker_page.dart';
 class TravSCheckoutDraft {
   const TravSCheckoutDraft({
     required this.seatCount,
+    required this.passengerCount,
     required this.baggageMethod,
+    required this.baggagePlacement,
+    required this.baggageSizeCategory,
+    required this.largeBaggageType,
     required this.baggageWeight,
     required this.baggageSize,
     required this.baggageLength,
@@ -33,7 +37,11 @@ class TravSCheckoutDraft {
   });
 
   final int seatCount;
+  final int passengerCount;
   final String baggageMethod;
+  final String baggagePlacement;
+  final String baggageSizeCategory;
+  final String largeBaggageType;
   final double baggageWeight;
   final int baggageSize;
   final int baggageLength;
@@ -55,11 +63,8 @@ class TravSPaymentPreviewPage extends StatefulWidget {
     required this.selectedRole,
     required this.session,
     required this.selectedSeatNumbers,
-    required this.baggageMethod,
+    required this.baggagePlacement,
     required this.baggageWeight,
-    required this.baggageSize,
-    required this.baggageLength,
-    required this.baggageWidth,
     required this.baggageItems,
     required this.lockExpiresAt,
     super.key,
@@ -71,11 +76,8 @@ class TravSPaymentPreviewPage extends StatefulWidget {
   final AppRolePreview selectedRole;
   final TravSUserSession session;
   final List<int> selectedSeatNumbers;
-  final String baggageMethod;
+  final String baggagePlacement;
   final double baggageWeight;
-  final int baggageSize;
-  final int baggageLength;
-  final int baggageWidth;
   final int baggageItems;
   final String lockExpiresAt;
 
@@ -325,9 +327,14 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
   }
 
   bool get _hasBaggageData =>
-      widget.baggageWeight > 0 ||
-      widget.baggageSize > 0 ||
-      widget.baggageItems > 0;
+      (widget.detail.baggageRules.weightEnabled && widget.baggageWeight > 0) ||
+      (widget.detail.baggageRules.itemEnabled && widget.baggageItems > 0);
+
+  bool get _requiresBaggagePhoto =>
+      _hasBaggageData &&
+      widget.baggagePlacement == 'masuk_bagasi' &&
+      widget.detail.baggageRules.mobileBaggageInputEnabled &&
+      widget.detail.baggageRules.photoRequired;
 
   TravSPickupPoint? get _draftPickupPoint {
     final latitude = double.tryParse(_pickupLatitudeController.text.trim());
@@ -581,7 +588,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     }
 
     if (_selectedBaggagePhotos.isEmpty) {
-      if (widget.appSettings.baggagePhotoRequired) {
+      if (_requiresBaggagePhoto) {
         setState(() {
           _errorMessage =
               'Foto barang bawaan wajib diunggah sebelum pemesanan.';
@@ -669,9 +676,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
       if (!mounted) {
         return;
       }
-      if (_hasBaggageData &&
-          widget.appSettings.baggagePhotoRequired &&
-          baggagePhotoUrls.isEmpty) {
+      if (_requiresBaggagePhoto && baggagePhotoUrls.isEmpty) {
         return;
       }
 
@@ -848,29 +853,24 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
       return const <TravSBaggagePayload>[];
     }
 
-    final method = widget.baggageMethod;
-    final usesWeight = method == 'berat';
-    final usesSize = method == 'ukuran';
+    final baggageRules = widget.detail.baggageRules;
 
     return <TravSBaggagePayload>[
       TravSBaggagePayload(
-        deskripsiItem: usesSize
-            ? 'Barang bawaan ukuran besar'
-            : 'Barang bawaan penumpang',
-        metodeHitung: method,
-        beratKg: usesWeight && widget.baggageWeight > 0
+        deskripsiItem: 'Barang bawaan penumpang',
+        // Field yang dikirim mengikuti toggle admin. Backend tetap menghitung
+        // ulang biaya final dari Pengaturan Sistem saat pemesanan disimpan.
+        metodeHitung: baggageRules.weightEnabled ? 'berat' : 'item',
+        posisiBarang: widget.baggagePlacement,
+        beratKg: baggageRules.weightEnabled && widget.baggageWeight > 0
             ? widget.baggageWeight
             : null,
-        ukuranCm: usesSize && widget.baggageSize > 0
-            ? widget.baggageSize
+        ukuranCm: null,
+        panjangCm: null,
+        lebarCm: null,
+        jumlahItem: baggageRules.itemEnabled && widget.baggageItems > 0
+            ? widget.baggageItems
             : null,
-        panjangCm: usesSize && widget.baggageLength > 0
-            ? widget.baggageLength
-            : null,
-        lebarCm: usesSize && widget.baggageWidth > 0
-            ? widget.baggageWidth
-            : null,
-        jumlahItem: widget.baggageItems > 0 ? widget.baggageItems : 1,
         fotoUrl: baggagePhotoUrls.isNotEmpty ? baggagePhotoUrls.first : null,
         fotoUrls: baggagePhotoUrls.take(3).toList(),
       ),
@@ -1144,7 +1144,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
               ),
               _HeaderPill(
                 label:
-                    'Kunci form ${widget.appSettings.seatLockFormMinutes} menit',
+                    'Kunci form ${widget.detail.bookingRules.seatLockFormMinutes} menit',
                 color: TravSTheme.orange,
               ),
             ],
@@ -1584,6 +1584,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
 
   Widget _buildBaggageCard(BuildContext context) {
     final theme = Theme.of(context);
+    final baggageRules = widget.detail.baggageRules;
 
     return _SectionCard(
       title: 'Barang Bawaan',
@@ -1603,19 +1604,27 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
               spacing: 10,
               runSpacing: 10,
               children: [
-                if (widget.baggageWeight > 0)
+                _SummaryChip(
+                  icon: widget.baggagePlacement == 'masuk_bagasi'
+                      ? Icons.inventory_2_outlined
+                      : Icons.backpack_outlined,
+                  label: widget.baggagePlacement == 'masuk_bagasi'
+                      ? 'Masuk bagasi'
+                      : 'Dipegang sendiri',
+                ),
+                _SummaryChip(
+                  icon: Icons.info_outline_rounded,
+                  label: widget.baggagePlacement == 'masuk_bagasi'
+                      ? 'Dihitung sesuai aturan bagasi'
+                      : 'Tidak dikenakan biaya bagasi',
+                ),
+                if (baggageRules.weightEnabled && widget.baggageWeight > 0)
                   _SummaryChip(
                     icon: Icons.scale_rounded,
                     label:
                         '${widget.baggageWeight.toStringAsFixed(0)} kg bagasi',
                   ),
-                if (widget.baggageSize > 0)
-                  _SummaryChip(
-                    icon: Icons.straighten_rounded,
-                    label:
-                        '${widget.baggageLength} x ${widget.baggageWidth} cm',
-                  ),
-                if (widget.baggageItems > 0)
+                if (baggageRules.itemEnabled && widget.baggageItems > 0)
                   _SummaryChip(
                     icon: Icons.inventory_2_outlined,
                     label: '${widget.baggageItems} item bagasi',
@@ -1654,7 +1663,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          widget.appSettings.baggagePhotoRequired
+                          _requiresBaggagePhoto
                               ? 'Foto barang bawaan wajib'
                               : 'Foto barang bawaan',
                           style: theme.textTheme.titleSmall?.copyWith(
@@ -1668,7 +1677,9 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                               ? 'Foto sudah terunggah dan akan disimpan bersama pemesanan.'
                               : _selectedBaggagePhotos.isNotEmpty
                               ? '${_selectedBaggagePhotos.length}/3 foto dipilih.'
-                              : 'Ambil foto dari kamera atau pilih dari galeri sebelum submit.',
+                              : _requiresBaggagePhoto
+                              ? 'Ambil foto dari kamera atau pilih dari galeri sebelum submit.'
+                              : 'Foto opsional untuk membantu pengecekan barang.',
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: TravSTheme.navyMuted,
                           ),
@@ -1780,10 +1791,9 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
   Widget _buildSummaryCard(BuildContext context) {
     final baggageRules = widget.detail.baggageRules;
     final freeWeight =
-        baggageRules.freeWeightKg * widget.checkoutDraft.seatCount;
-    final freeSize = baggageRules.freeSizeCm * widget.checkoutDraft.seatCount;
+        baggageRules.freeWeightKg * widget.checkoutDraft.passengerCount;
     final freeItems =
-        baggageRules.freeItemCount * widget.checkoutDraft.seatCount;
+        baggageRules.freeItemCount * widget.checkoutDraft.passengerCount;
 
     return _SectionCard(
       title: 'Ringkasan Pembayaran',
@@ -1795,19 +1805,13 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
             label: 'Subtotal tiket',
             value: 'Rp${_formatCurrency(widget.checkoutDraft.ticketSubtotal)}',
           ),
-          if (widget.checkoutDraft.weightFee > 0)
+          if (baggageRules.weightEnabled && widget.checkoutDraft.weightFee > 0)
             _SummaryRow(
               label:
                   'Tambahan berat (${_formatNumber(widget.checkoutDraft.baggageWeight - freeWeight)} kg)',
               value: 'Rp${_formatCurrency(widget.checkoutDraft.weightFee)}',
             ),
-          if (widget.checkoutDraft.sizeFee > 0)
-            _SummaryRow(
-              label:
-                  'Tambahan ukuran (${widget.checkoutDraft.baggageSize - freeSize} cm)',
-              value: 'Rp${_formatCurrency(widget.checkoutDraft.sizeFee)}',
-            ),
-          if (widget.checkoutDraft.itemFee > 0)
+          if (baggageRules.itemEnabled && widget.checkoutDraft.itemFee > 0)
             _SummaryRow(
               label:
                   'Tambahan item (${widget.checkoutDraft.baggageItems - freeItems} item)',
@@ -1902,7 +1906,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
           _SectionCard(
             title: 'Waktu Pembayaran',
             subtitle:
-                'Batas pembayaran mengikuti aturan ${widget.appSettings.seatLockPaymentMinutes} menit setelah pemesanan dibuat.',
+                'Batas pembayaran mengikuti aturan ${widget.detail.bookingRules.seatLockPaymentMinutes} menit setelah pemesanan dibuat.',
             child: _CountdownPanel(
               title: 'Sisa waktu pembayaran',
               deadlineIso: payment.expiredAt,

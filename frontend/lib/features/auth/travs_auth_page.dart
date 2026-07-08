@@ -599,7 +599,7 @@ class _AuthHero extends StatelessWidget {
         Text(
           isRegisterMode
               ? 'Selamat Datang, Sobat Perjalanan.'
-              : 'Daftar lebih cepat untuk mulai pemesanan travel, memilih kursi, dan menerima tiket digital.',
+              : 'Masuk untuk melanjutkan ke aplikasi.',
           textAlign: TextAlign.center,
           style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
         ),

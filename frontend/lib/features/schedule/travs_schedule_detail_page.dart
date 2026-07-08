@@ -35,11 +35,8 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
   late Future<TravSScheduleDetail> _future;
 
   int _seatCount = 0;
-  String _baggageMethod = 'berat';
+  String _baggagePlacement = 'masuk_bagasi';
   double _baggageWeight = 0;
-  int _baggageSize = 0;
-  int _baggageLength = 0;
-  int _baggageWidth = 0;
   int _baggageItems = 0;
   final Set<int> _selectedSeatNumbers = <int>{};
   bool _isPreparingCheckout = false;
@@ -106,30 +103,21 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
     return math.max(0, available);
   }
 
+  int get _registeredPassengerCount => _selectedSeatNumbers.length;
+
   double _maxWeight(TravSScheduleDetail detail) {
     if (!detail.baggageRules.weightEnabled) {
       return 0;
     }
 
-    final configured = detail.baggageRules.maxWeightPerPersonKg * _seatCount;
+    final configured =
+        detail.baggageRules.maxWeightPerPersonKg * _registeredPassengerCount;
     if (configured > 0) {
       return configured.toDouble();
     }
 
-    return (detail.baggageRules.freeWeightKg * _seatCount + 20).toDouble();
-  }
-
-  int _maxSize(TravSScheduleDetail detail) {
-    if (!detail.baggageRules.sizeEnabled) {
-      return 0;
-    }
-
-    final configured = detail.baggageRules.maxSizePerPersonCm * _seatCount;
-    if (configured > 0) {
-      return configured;
-    }
-
-    return detail.baggageRules.freeSizeCm * _seatCount + 80;
+    return (detail.baggageRules.freeWeightKg * _registeredPassengerCount + 20)
+        .toDouble();
   }
 
   int _maxItems(TravSScheduleDetail detail) {
@@ -137,12 +125,13 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
       return 0;
     }
 
-    final configured = detail.baggageRules.maxItemPerPerson * _seatCount;
+    final configured =
+        detail.baggageRules.maxItemPerPerson * _registeredPassengerCount;
     if (configured > 0) {
       return configured;
     }
 
-    return detail.baggageRules.freeItemCount * _seatCount + 3;
+    return detail.baggageRules.freeItemCount * _registeredPassengerCount + 3;
   }
 
   void _toggleSeatSelection(TravSScheduleDetail detail, TravSSeatItem seat) {
@@ -184,43 +173,13 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
   }
 
   void _syncBaggageLimits(TravSScheduleDetail detail) {
-    if (_baggageMethod == 'ukuran' && !detail.baggageRules.sizeEnabled) {
-      _baggageMethod = 'berat';
-    }
-    if (_baggageMethod == 'berat' && !detail.baggageRules.weightEnabled) {
-      _baggageMethod = 'ukuran';
-    }
-
     _baggageWeight = _baggageWeight.clamp(0, _maxWeight(detail)).toDouble();
-    _syncDimensionTotal(detail);
     _baggageItems = _clampInt(_baggageItems, 0, _maxItems(detail));
-
-    if (_baggageMethod == 'berat') {
-      _baggageLength = 0;
-      _baggageWidth = 0;
-      _baggageSize = 0;
-    } else {
-      _baggageWeight = 0;
-    }
   }
 
-  void _syncDimensionTotal(TravSScheduleDetail detail) {
-    final maxSize = _maxSize(detail);
-    _baggageLength = _clampInt(_baggageLength, 0, maxSize);
-    _baggageWidth = _clampInt(_baggageWidth, 0, maxSize);
-
-    final totalSize = _baggageLength + _baggageWidth;
-    if (maxSize > 0 && totalSize > maxSize) {
-      final overflow = totalSize - maxSize;
-      _baggageWidth = math.max(0, _baggageWidth - overflow);
-    }
-
-    _baggageSize = _baggageLength + _baggageWidth;
-  }
-
-  void _setBaggageMethod(TravSScheduleDetail detail, String value) {
+  void _setBaggagePlacement(TravSScheduleDetail detail, String value) {
     setState(() {
-      _baggageMethod = value;
+      _baggagePlacement = value;
       _syncBaggageLimits(detail);
     });
   }
@@ -228,20 +187,6 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
   void _setBaggageWeight(TravSScheduleDetail detail, double value) {
     setState(() {
       _baggageWeight = value.clamp(0, _maxWeight(detail)).toDouble();
-    });
-  }
-
-  void _setBaggageLength(TravSScheduleDetail detail, int value) {
-    setState(() {
-      _baggageLength = _clampInt(value, 0, _maxSize(detail));
-      _syncDimensionTotal(detail);
-    });
-  }
-
-  void _setBaggageWidth(TravSScheduleDetail detail, int value) {
-    setState(() {
-      _baggageWidth = _clampInt(value, 0, _maxSize(detail));
-      _syncDimensionTotal(detail);
     });
   }
 
@@ -325,29 +270,19 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
                         estimate: estimate,
                         selectedSeatNumbers: _selectedSeatNumbers.toList()
                           ..sort(),
-                        baggageMethod: _baggageMethod,
+                        baggagePlacement: _baggagePlacement,
                         baggageWeight: _baggageWeight,
-                        baggageSize: _baggageSize,
-                        baggageLength: _baggageLength,
-                        baggageWidth: _baggageWidth,
                         baggageItems: _baggageItems,
-                        onBaggageMethodChanged: (value) =>
-                            _setBaggageMethod(detail, value),
+                        onBaggagePlacementChanged: (value) =>
+                            _setBaggagePlacement(detail, value),
                         onWeightChanged: detail.baggageRules.weightEnabled
                             ? (value) => _setBaggageWeight(detail, value)
-                            : null,
-                        onLengthChanged: detail.baggageRules.sizeEnabled
-                            ? (value) => _setBaggageLength(detail, value)
-                            : null,
-                        onWidthChanged: detail.baggageRules.sizeEnabled
-                            ? (value) => _setBaggageWidth(detail, value)
                             : null,
                         onItemsChanged: detail.baggageRules.itemEnabled
                             ? (value) => setState(() => _baggageItems = value)
                             : null,
                         maxSeatCount: _maxSeatCount(detail),
                         maxWeight: _maxWeight(detail),
-                        maxSize: _maxSize(detail),
                         maxItems: _maxItems(detail),
                         isSoldOut: isSoldOut,
                         canEditBooking: _canUseBookingForm,
@@ -397,11 +332,8 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
                                   selectedRole: widget.selectedRole,
                                   session: widget.session!,
                                   selectedSeatNumbers: lockResult.seatNumbers,
-                                  baggageMethod: _baggageMethod,
+                                  baggagePlacement: _baggagePlacement,
                                   baggageWeight: _baggageWeight,
-                                  baggageSize: _baggageSize,
-                                  baggageLength: _baggageLength,
-                                  baggageWidth: _baggageWidth,
                                   baggageItems: _baggageItems,
                                   lockExpiresAt: lockResult.lockExpiresAt,
                                 ),
@@ -440,32 +372,39 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
   TravSCheckoutDraft _estimate(TravSScheduleDetail detail) {
     final baggageRules = detail.baggageRules;
     final ticketSubtotal = detail.schedule.hargaTiket * _seatCount;
+    final passengerCount = _registeredPassengerCount;
+    final effectiveWeight = baggageRules.weightEnabled ? _baggageWeight : 0.0;
+    final effectiveItems = baggageRules.itemEnabled ? _baggageItems : 0;
 
-    final freeWeight = baggageRules.freeWeightKg * _seatCount;
-    final freeSize = baggageRules.freeSizeCm * _seatCount;
-    final freeItems = baggageRules.freeItemCount * _seatCount;
+    final freeWeight = baggageRules.freeWeightKg * passengerCount;
+    final freeItems = baggageRules.freeItemCount * passengerCount;
+    final isStoredInBaggage = _baggagePlacement == 'masuk_bagasi';
+    final itemFeeRate = baggageRules.extraFeePerItem;
 
-    final weightFee = baggageRules.weightEnabled && _baggageMethod == 'berat'
-        ? math.max(0, _baggageWeight - freeWeight) * baggageRules.extraFeePerKg
+    // Estimasi di mobile hanya bantuan tampilan. Backend tetap menghitung
+    // ulang biaya final dari batas gratis dan tarif Pengaturan Sistem.
+    final weightFee = isStoredInBaggage && baggageRules.weightEnabled
+        ? math.max(0, effectiveWeight - freeWeight) * baggageRules.extraFeePerKg
         : 0.0;
-    final sizeFee = baggageRules.sizeEnabled && _baggageMethod == 'ukuran'
-        ? math.max(0, _baggageSize - freeSize) * baggageRules.extraFeePerCm
-        : 0.0;
-    final itemFee = baggageRules.itemEnabled
-        ? math.max(0, _baggageItems - freeItems) * baggageRules.extraFeePerItem
+    final itemFee = isStoredInBaggage && baggageRules.itemEnabled
+        ? math.max(0, effectiveItems - freeItems) * itemFeeRate
         : 0.0;
 
     return TravSCheckoutDraft(
       seatCount: _seatCount,
-      baggageMethod: _baggageMethod,
-      baggageWeight: _baggageWeight,
-      baggageSize: _baggageSize,
-      baggageLength: _baggageLength,
-      baggageWidth: _baggageWidth,
-      baggageItems: _baggageItems,
+      passengerCount: passengerCount,
+      baggageMethod: 'berat',
+      baggagePlacement: _baggagePlacement,
+      baggageSizeCategory: 'sederhana',
+      largeBaggageType: 'tidak_ada',
+      baggageWeight: effectiveWeight,
+      baggageSize: 0,
+      baggageLength: 0,
+      baggageWidth: 0,
+      baggageItems: effectiveItems,
       ticketSubtotal: ticketSubtotal,
       weightFee: weightFee.toDouble(),
-      sizeFee: sizeFee.toDouble(),
+      sizeFee: 0,
       itemFee: itemFee.toDouble(),
     );
   }
@@ -543,7 +482,8 @@ class _HeroCard extends StatelessWidget {
               ),
               _HeroInfoPill(
                 icon: Icons.route_outlined,
-                text: '${detail.schedule.durasiMenit ~/ 60} jam perjalanan',
+                text:
+                    '${_formatDurationMinutes(detail.schedule.durasiMenit)} perjalanan',
               ),
               _HeroInfoPill(
                 icon: Icons.event_seat_outlined,
@@ -735,20 +675,14 @@ class _CheckoutPreviewCard extends StatelessWidget {
     required this.detail,
     required this.estimate,
     required this.selectedSeatNumbers,
-    required this.baggageMethod,
+    required this.baggagePlacement,
     required this.baggageWeight,
-    required this.baggageSize,
-    required this.baggageLength,
-    required this.baggageWidth,
     required this.baggageItems,
-    required this.onBaggageMethodChanged,
+    required this.onBaggagePlacementChanged,
     required this.onWeightChanged,
-    required this.onLengthChanged,
-    required this.onWidthChanged,
     required this.onItemsChanged,
     required this.maxSeatCount,
     required this.maxWeight,
-    required this.maxSize,
     required this.maxItems,
     required this.isSoldOut,
     required this.canEditBooking,
@@ -761,20 +695,14 @@ class _CheckoutPreviewCard extends StatelessWidget {
   final TravSScheduleDetail detail;
   final TravSCheckoutDraft estimate;
   final List<int> selectedSeatNumbers;
-  final String baggageMethod;
+  final String baggagePlacement;
   final double baggageWeight;
-  final int baggageSize;
-  final int baggageLength;
-  final int baggageWidth;
   final int baggageItems;
-  final ValueChanged<String> onBaggageMethodChanged;
+  final ValueChanged<String> onBaggagePlacementChanged;
   final ValueChanged<double>? onWeightChanged;
-  final ValueChanged<int>? onLengthChanged;
-  final ValueChanged<int>? onWidthChanged;
   final ValueChanged<int>? onItemsChanged;
   final int maxSeatCount;
   final double maxWeight;
-  final int maxSize;
   final int maxItems;
   final bool isSoldOut;
   final bool canEditBooking;
@@ -787,6 +715,9 @@ class _CheckoutPreviewCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final baggageRules = detail.baggageRules;
+    final isStoredInBaggage = baggagePlacement == 'masuk_bagasi';
+    final selectedItemFee = baggageRules.extraFeePerItem;
+    final canUseBaggageCalculation = baggageRules.mobileBaggageInputEnabled;
 
     return Card(
       child: Padding(
@@ -874,22 +805,25 @@ class _CheckoutPreviewCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (baggageRules.weightEnabled || baggageRules.sizeEnabled) ...[
+            if (canUseBaggageCalculation) ...[
               const SizedBox(height: 18),
-              _BaggageMethodPicker(
-                selectedMethod: baggageMethod,
-                weightEnabled: baggageRules.weightEnabled,
-                sizeEnabled: baggageRules.sizeEnabled,
+              _BaggagePlacementPicker(
+                selectedPlacement: baggagePlacement,
                 enabled: canEditBooking,
-                onChanged: onBaggageMethodChanged,
+                onChanged: onBaggagePlacementChanged,
+              ),
+            ] else ...[
+              const SizedBox(height: 18),
+              _BaggageCalculationDisabledNotice(
+                sizeEnabled: baggageRules.sizeEnabled,
               ),
             ],
-            if (baggageRules.weightEnabled && baggageMethod == 'berat') ...[
+            if (isStoredInBaggage && baggageRules.weightEnabled) ...[
               const SizedBox(height: 18),
               _NumericBaggageField(
                 label: 'Berat bagasi',
                 helper:
-                    'Gratis ${baggageRules.freeWeightKg * estimate.seatCount} kg, maksimal ${maxWeight.toStringAsFixed(0)} kg',
+                    'Gratis sampai ${baggageRules.freeWeightKg} kg per penumpang. Biaya tambahan hanya untuk kelebihan berat.',
                 value: baggageWeight,
                 maxValue: maxWeight,
                 suffix: 'kg',
@@ -898,32 +832,22 @@ class _CheckoutPreviewCard extends StatelessWidget {
                 onChanged: onWeightChanged ?? (_) {},
               ),
             ],
-            if (baggageRules.sizeEnabled && baggageMethod == 'ukuran') ...[
-              const SizedBox(height: 18),
-              _DimensionInputField(
-                helper:
-                    'Panjang + lebar maksimal ${baggageRules.maxSizePerPersonCm * estimate.seatCount} cm',
-                length: baggageLength,
-                width: baggageWidth,
-                totalSize: baggageSize,
-                maxSize: maxSize,
-                enabled: canEditBooking,
-                onLengthChanged: onLengthChanged ?? (_) {},
-                onWidthChanged: onWidthChanged ?? (_) {},
-              ),
-            ],
-            if (baggageRules.itemEnabled) ...[
+            if (isStoredInBaggage && baggageRules.itemEnabled) ...[
               const SizedBox(height: 18),
               _CounterField(
                 label: 'Jumlah item bagasi',
                 helper:
-                    'Gratis ${baggageRules.freeItemCount * estimate.seatCount} item, tambahan Rp${_formatCurrency(baggageRules.extraFeePerItem)} per item',
+                    'Gratis sampai ${baggageRules.freeItemCount} item per penumpang. Item tambahan dikenakan Rp${_formatCurrency(selectedItemFee)} per item.',
                 value: baggageItems,
                 minValue: 0,
                 maxValue: maxItems,
                 enabled: canEditBooking,
                 onChanged: onItemsChanged ?? (_) {},
               ),
+            ],
+            if (canUseBaggageCalculation && !isStoredInBaggage) ...[
+              const SizedBox(height: 18),
+              _BaggageSelfHeldNotice(),
             ],
             const SizedBox(height: 18),
             Container(
@@ -941,19 +865,13 @@ class _CheckoutPreviewCard extends StatelessWidget {
                   if (estimate.weightFee > 0)
                     _PriceRow(
                       label:
-                          'Tambahan berat (${_formatOverage(baggageWeight, baggageRules.freeWeightKg * estimate.seatCount)} kg)',
+                          'Tambahan berat (${_formatOverage(baggageWeight, baggageRules.freeWeightKg * estimate.passengerCount)} kg)',
                       value: 'Rp${_formatCurrency(estimate.weightFee)}',
-                    ),
-                  if (estimate.sizeFee > 0)
-                    _PriceRow(
-                      label:
-                          'Tambahan ukuran (${math.max(0, baggageSize - baggageRules.freeSizeCm * estimate.seatCount)} cm)',
-                      value: 'Rp${_formatCurrency(estimate.sizeFee)}',
                     ),
                   if (estimate.itemFee > 0)
                     _PriceRow(
                       label:
-                          'Tambahan item (${math.max(0, baggageItems - baggageRules.freeItemCount * estimate.seatCount)} item)',
+                          'Tambahan item (${math.max(0, baggageItems - baggageRules.freeItemCount * estimate.passengerCount)} item)',
                       value: 'Rp${_formatCurrency(estimate.itemFee)}',
                     ),
                   const Divider(height: 24),
@@ -966,7 +884,7 @@ class _CheckoutPreviewCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            if (baggageRules.photoRequired)
+            if (canUseBaggageCalculation && baggageRules.photoRequired)
               Text(
                 'Catatan: foto bagasi wajib dilampirkan saat pemesanan.',
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -1652,7 +1570,7 @@ class _SeatLegend extends StatelessWidget {
       children: const [
         _LegendItem(label: 'Tersedia', color: Color(0xFF16C784)),
         _LegendItem(label: 'Terisi', color: Color(0xFFF0445E)),
-        _LegendItem(label: 'Dikunci', color: Color(0xFF3B82F6)),
+        _LegendItem(label: 'Dikunci/Ditutup', color: Color(0xFF94A3B8)),
         _LegendItem(label: 'Pilihan', color: Color(0xFFF8B825)),
       ],
     );
@@ -1696,7 +1614,12 @@ class _VehicleSeatButton extends StatelessWidget {
               border: Colors.white,
             ),
             'terkunci' => (
-              background: const Color(0xFF3B82F6),
+              background: const Color(0xFF94A3B8),
+              foreground: Colors.white,
+              border: Colors.white,
+            ),
+            'nonaktif' => (
+              background: const Color(0xFFCBD5E1),
               foreground: Colors.white,
               border: Colors.white,
             ),
@@ -1822,38 +1745,20 @@ class _CounterField extends StatelessWidget {
   }
 }
 
-class _BaggageMethodPicker extends StatelessWidget {
-  const _BaggageMethodPicker({
-    required this.selectedMethod,
-    required this.weightEnabled,
-    required this.sizeEnabled,
+class _BaggagePlacementPicker extends StatelessWidget {
+  const _BaggagePlacementPicker({
+    required this.selectedPlacement,
     required this.enabled,
     required this.onChanged,
   });
 
-  final String selectedMethod;
-  final bool weightEnabled;
-  final bool sizeEnabled;
+  final String selectedPlacement;
   final bool enabled;
   final ValueChanged<String> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final segments = <ButtonSegment<String>>[
-      if (weightEnabled)
-        const ButtonSegment<String>(
-          value: 'berat',
-          icon: Icon(Icons.scale_outlined),
-          label: Text('Berat + item'),
-        ),
-      if (sizeEnabled)
-        const ButtonSegment<String>(
-          value: 'ukuran',
-          icon: Icon(Icons.straighten_outlined),
-          label: Text('Ukuran + item'),
-        ),
-    ];
 
     return Container(
       width: double.infinity,
@@ -1866,7 +1771,7 @@ class _BaggageMethodPicker extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Metode hitung barang',
+            'Posisi barang bawaan',
             style: theme.textTheme.titleMedium?.copyWith(
               color: TravSTheme.navy,
               fontWeight: FontWeight.w800,
@@ -1874,15 +1779,26 @@ class _BaggageMethodPicker extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Pilih salah satu: berat dengan jumlah item, atau ukuran dengan jumlah item.',
+            'Barang yang dipegang sendiri dicatat saja dan tidak masuk hitungan biaya bagasi.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: TravSTheme.navyMuted,
             ),
           ),
           const SizedBox(height: 14),
           SegmentedButton<String>(
-            segments: segments,
-            selected: {selectedMethod},
+            segments: const [
+              ButtonSegment<String>(
+                value: 'dipegang_sendiri',
+                icon: Icon(Icons.backpack_outlined),
+                label: Text('Dipegang sendiri'),
+              ),
+              ButtonSegment<String>(
+                value: 'masuk_bagasi',
+                icon: Icon(Icons.inventory_2_outlined),
+                label: Text('Masuk bagasi'),
+              ),
+            ],
+            selected: {selectedPlacement},
             onSelectionChanged: enabled
                 ? (values) {
                     if (values.isNotEmpty) {
@@ -1892,6 +1808,93 @@ class _BaggageMethodPicker extends StatelessWidget {
                 : null,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _BaggageCalculationDisabledNotice extends StatelessWidget {
+  const _BaggageCalculationDisabledNotice({required this.sizeEnabled});
+
+  final bool sizeEnabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final helper = sizeEnabled
+        ? 'Perhitungan ukuran masih aktif di admin, tetapi form mobile versi ini hanya memakai aturan berat dan item.'
+        : 'Perhitungan berat dan item sedang dinonaktifkan oleh admin.';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: TravSTheme.surfaceSoft,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: TravSTheme.line),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: TravSTheme.orangeSoft,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: const Icon(
+              Icons.inventory_2_outlined,
+              color: TravSTheme.orange,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Biaya bagasi tidak dihitung di form ini',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: TravSTheme.navy,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$helper Jika ada barang bawaan, biaya final tetap mengikuti validasi backend.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: TravSTheme.navyMuted,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BaggageSelfHeldNotice extends StatelessWidget {
+  const _BaggageSelfHeldNotice();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: TravSTheme.orangeSoft,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        'Barang akan dicatat sebagai barang yang dipegang penumpang. Biaya bagasi tetap Rp0 karena barang tidak masuk bagasi kendaraan.',
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: TravSTheme.navy,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -1981,128 +1984,6 @@ class _NumericBaggageField extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _DimensionInputField extends StatelessWidget {
-  const _DimensionInputField({
-    required this.helper,
-    required this.length,
-    required this.width,
-    required this.totalSize,
-    required this.maxSize,
-    required this.enabled,
-    required this.onLengthChanged,
-    required this.onWidthChanged,
-  });
-
-  final String helper;
-  final int length;
-  final int width;
-  final int totalSize;
-  final int maxSize;
-  final bool enabled;
-  final ValueChanged<int> onLengthChanged;
-  final ValueChanged<int> onWidthChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: TravSTheme.surfaceSoft,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Ukuran barang',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: TravSTheme.navy,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Text(
-                '$totalSize cm',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: TravSTheme.orange,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            helper,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: TravSTheme.navyMuted,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _IntegerInput(
-                  label: 'Panjang',
-                  value: length,
-                  maxValue: maxSize,
-                  enabled: enabled,
-                  onChanged: onLengthChanged,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _IntegerInput(
-                  label: 'Lebar',
-                  value: width,
-                  maxValue: maxSize,
-                  enabled: enabled,
-                  onChanged: onWidthChanged,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _IntegerInput extends StatelessWidget {
-  const _IntegerInput({
-    required this.label,
-    required this.value,
-    required this.maxValue,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final String label;
-  final int value;
-  final int maxValue;
-  final bool enabled;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      initialValue: value > 0 ? '$value' : '',
-      enabled: enabled && maxValue > 0,
-      style: const TextStyle(
-        color: TravSTheme.navy,
-        fontWeight: FontWeight.w800,
-      ),
-      keyboardType: TextInputType.number,
-      decoration: InputDecoration(labelText: label, suffixText: 'cm'),
-      onChanged: (raw) => onChanged(int.tryParse(raw) ?? 0),
     );
   }
 }
@@ -2333,6 +2214,24 @@ String _formatDate(String iso) {
 
 String _formatOverage(double value, int freeLimit) {
   return math.max(0, value - freeLimit).toStringAsFixed(0);
+}
+
+String _formatDurationMinutes(int minutes) {
+  if (minutes <= 0) {
+    return '-';
+  }
+
+  final hours = minutes ~/ 60;
+  final remainingMinutes = minutes % 60;
+
+  // Durasi dari API tetap menit, lalu diubah agar tidak tampil mentah seperti "405 menit".
+  if (hours > 0 && remainingMinutes > 0) {
+    return '$hours jam $remainingMinutes menit';
+  }
+  if (hours > 0) {
+    return '$hours jam';
+  }
+  return '$remainingMinutes menit';
 }
 
 String _formatCurrency(double value) {

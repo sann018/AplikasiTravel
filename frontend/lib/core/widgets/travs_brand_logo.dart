@@ -19,46 +19,51 @@ class TravSBrandLogo extends StatelessWidget {
   Widget build(BuildContext context) {
     final resolvedUrl = TravSApiService.resolveMediaUrl(imageUrl);
 
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(color: Colors.white24),
-      ),
       child: resolvedUrl == null
           ? _fallback()
-          : Image.network(
-              resolvedUrl,
-              width: size,
-              height: size,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.medium,
-              cacheWidth: (size * 3).round(),
-              loadingBuilder: (context, child, progress) {
-                if (progress == null) return child;
-                return const Center(
-                  child: CircularProgressIndicator(
-                    color: TravSTheme.navy,
-                    strokeWidth: 2,
-                  ),
-                );
-              },
-              errorBuilder: (context, error, stackTrace) => _fallback(),
+          : ClipRRect(
+              borderRadius: BorderRadius.circular(borderRadius),
+              child: Image.network(
+                resolvedUrl,
+                width: size,
+                height: size,
+                fit: BoxFit.contain,
+                filterQuality: FilterQuality.medium,
+                cacheWidth: (size * 3).round(),
+                // Logo ditampilkan langsung agar PNG transparan tidak tertutup
+                // bingkai putih pada halaman login, daftar, dan splash.
+                loadingBuilder: (context, child, progress) {
+                  if (progress == null) return child;
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: TravSTheme.navy,
+                      strokeWidth: 2,
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) => _fallback(),
+              ),
             ),
     );
   }
 
   Widget _fallback() {
-    return const Center(
-      child: Text(
-        'R',
-        style: TextStyle(
-          color: TravSTheme.navy,
-          fontSize: 28,
-          fontWeight: FontWeight.w800,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.18),
+        shape: BoxShape.circle,
+      ),
+      child: const Center(
+        child: Text(
+          'R',
+          style: TextStyle(
+            color: TravSTheme.navy,
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
+          ),
         ),
       ),
     );

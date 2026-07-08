@@ -1272,6 +1272,13 @@ class TravSBaggageRules {
     required this.freeItemCount,
     required this.maxItemPerPerson,
     required this.extraFeePerItem,
+    required this.smallItemFee,
+    required this.largeItemFee,
+    required this.largeVehicleEnabled,
+    required this.bicycleFee,
+    required this.motorcycleFee,
+    required this.heavyItemFee,
+    required this.otherLargeItemFee,
     required this.photoRequired,
   });
 
@@ -1287,9 +1294,22 @@ class TravSBaggageRules {
   final int freeItemCount;
   final int maxItemPerPerson;
   final double extraFeePerItem;
+  final double smallItemFee;
+  final double largeItemFee;
+  final bool largeVehicleEnabled;
+  final double bicycleFee;
+  final double motorcycleFee;
+  final double heavyItemFee;
+  final double otherLargeItemFee;
   final bool photoRequired;
 
+  // Form mobile versi TA hanya memakai aturan berat dan jumlah item.
+  // Ukuran/cm tetap dibaca untuk kompatibilitas API, tapi tidak dirender di form sederhana.
+  bool get mobileBaggageInputEnabled => weightEnabled || itemEnabled;
+
   factory TravSBaggageRules.fromJson(Map<String, dynamic> json) {
+    final fallbackItemFee = _readDouble(json['extra_fee_per_item']);
+
     return TravSBaggageRules(
       weightEnabled: _readBool(json['weight_enabled']),
       freeWeightKg: _readInt(json['free_weight_kg']),
@@ -1302,7 +1322,20 @@ class TravSBaggageRules {
       itemEnabled: _readBool(json['item_enabled']),
       freeItemCount: _readInt(json['free_item_count']),
       maxItemPerPerson: _readInt(json['max_item_per_person']),
-      extraFeePerItem: _readDouble(json['extra_fee_per_item']),
+      extraFeePerItem: fallbackItemFee,
+      smallItemFee: _readDouble(
+        json['small_item_fee'],
+        fallback: fallbackItemFee,
+      ),
+      largeItemFee: _readDouble(
+        json['large_item_fee'],
+        fallback: fallbackItemFee,
+      ),
+      largeVehicleEnabled: _readBool(json['large_vehicle_enabled']),
+      bicycleFee: _readDouble(json['bicycle_fee']),
+      motorcycleFee: _readDouble(json['motorcycle_fee']),
+      heavyItemFee: _readDouble(json['heavy_item_fee']),
+      otherLargeItemFee: _readDouble(json['other_large_item_fee']),
       photoRequired: _readBool(json['photo_required']),
     );
   }

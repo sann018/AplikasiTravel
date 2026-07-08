@@ -47,22 +47,28 @@ class TravSBaggagePayload {
   const TravSBaggagePayload({
     required this.deskripsiItem,
     this.metodeHitung,
+    this.posisiBarang,
+    this.kategoriUkuran,
+    this.jenisBarangBesar,
     this.beratKg,
     this.ukuranCm,
     this.panjangCm,
     this.lebarCm,
-    this.jumlahItem = 1,
+    this.jumlahItem,
     this.fotoUrl,
     this.fotoUrls = const <String>[],
   });
 
   final String deskripsiItem;
   final String? metodeHitung;
+  final String? posisiBarang;
+  final String? kategoriUkuran;
+  final String? jenisBarangBesar;
   final double? beratKg;
   final int? ukuranCm;
   final int? panjangCm;
   final int? lebarCm;
-  final int jumlahItem;
+  final int? jumlahItem;
   final String? fotoUrl;
   final List<String> fotoUrls;
 
@@ -70,11 +76,14 @@ class TravSBaggagePayload {
     return {
       'deskripsi_item': deskripsiItem,
       'metode_hitung': metodeHitung,
+      if (posisiBarang != null) 'posisi_barang': posisiBarang,
+      if (kategoriUkuran != null) 'kategori_ukuran': kategoriUkuran,
+      if (jenisBarangBesar != null) 'jenis_barang_besar': jenisBarangBesar,
       'berat_kg': beratKg,
       'ukuran_cm': ukuranCm,
       'panjang_cm': panjangCm,
       'lebar_cm': lebarCm,
-      'jumlah_item': jumlahItem,
+      if (jumlahItem != null) 'jumlah_item': jumlahItem,
       'foto_url': fotoUrl,
       if (fotoUrls.isNotEmpty) 'foto_urls': fotoUrls,
     };
@@ -333,6 +342,9 @@ class TravSBookingBaggageInfo {
   const TravSBookingBaggageInfo({
     required this.deskripsiItem,
     required this.metodeHitung,
+    required this.posisiBarang,
+    required this.kategoriUkuran,
+    required this.jenisBarangBesar,
     required this.beratKg,
     required this.ukuranCm,
     required this.panjangCm,
@@ -344,6 +356,9 @@ class TravSBookingBaggageInfo {
 
   final String deskripsiItem;
   final String? metodeHitung;
+  final String posisiBarang;
+  final String kategoriUkuran;
+  final String? jenisBarangBesar;
   final double? beratKg;
   final int? ukuranCm;
   final int? panjangCm;
@@ -368,6 +383,9 @@ class TravSBookingBaggageInfo {
     return TravSBookingBaggageInfo(
       deskripsiItem: json['deskripsi_item'] as String? ?? '-',
       metodeHitung: json['metode_hitung'] as String?,
+      posisiBarang: json['posisi_barang'] as String? ?? 'masuk_bagasi',
+      kategoriUkuran: json['kategori_ukuran'] as String? ?? 'besar',
+      jenisBarangBesar: json['jenis_barang_besar'] as String?,
       beratKg: json['berat_kg'] == null ? null : _readDouble(json['berat_kg']),
       ukuranCm: json['ukuran_cm'] == null ? null : _readInt(json['ukuran_cm']),
       panjangCm: json['panjang_cm'] == null
