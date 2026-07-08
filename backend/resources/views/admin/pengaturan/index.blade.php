@@ -555,9 +555,9 @@
                                 </div>
                                 <div class="row g-3 travs-banner-list-grid">
                                     @forelse ($banners as $banner)
-                                        <div class="col-md-6">
-                                            <article class="travs-banner-card">
-                                                <img src="{{ asset('storage/'.$banner->gambar_path) }}" class="travs-banner-card-image travs-photo-preview-trigger" alt="{{ $banner->judul }}" data-preview-src="{{ asset('storage/'.$banner->gambar_path) }}">
+                                        <div class="col-auto" style="width: 260px; max-width: 100%;">
+                                            <article class="travs-banner-card" style="width: 260px; max-width: 100%; height: auto;">
+                                                <img src="{{ asset('storage/'.$banner->gambar_path) }}" class="travs-banner-card-image travs-photo-preview-trigger" alt="{{ $banner->judul }}" data-preview-src="{{ asset('storage/'.$banner->gambar_path) }}" style="display: block; width: 232px; max-width: 100%; height: 131px; object-fit: cover; border-radius: 12px;">
                                                 <div class="travs-banner-card-body">
                                                     <div>
                                                         <strong>{{ $banner->judul }}</strong>

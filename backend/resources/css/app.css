@@ -1900,10 +1900,14 @@ svg {
     padding-left: 4px;
 }
 
+.travs-settings-page .travs-banner-list-grid {
+    align-items: flex-start;
+}
+
 .travs-settings-page .travs-banner-card {
     display: grid;
     gap: 12px;
-    height: 100%;
+    height: auto;
     padding: 14px;
     border: 1px solid var(--travs-border);
     border-radius: 16px;
@@ -1912,10 +1916,10 @@ svg {
 
 .travs-settings-page .travs-banner-card .travs-banner-card-image {
     display: block;
-    width: 100%;
-    height: auto;
+    width: 232px;
+    max-width: 100%;
+    height: 131px;
     aspect-ratio: 16 / 9;
-    max-height: 190px;
     object-fit: cover;
     border-radius: 12px;
 }

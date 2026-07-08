@@ -1255,7 +1255,7 @@ File terkait:
 
 Pengelolaan Banner Beranda sudah dipindahkan ke halaman Pengaturan Sistem sebagai tab `Banner Beranda`. Menu sidebar khusus Banner Beranda tidak lagi ditampilkan agar struktur menu lebih ringkas. Route dan API banner tetap dipertahankan agar aplikasi mobile tamu dan penumpang tetap membaca data banner dari endpoint yang sama.
 
-Tampilan daftar banner di web admin juga diperbaiki. Pada desktop, area daftar banner memakai sekitar dua pertiga lebar konten agar ukuran foto tidak melebar berlebihan. Gambar banner ditampilkan dengan rasio 16:9, ukuran responsif, dan preview tetap dapat dibuka. Jarak toggle dengan teks `Tampilkan di aplikasi` juga dirapikan agar mudah dibaca.
+Tampilan daftar banner di web admin juga diperbaiki. Pada desktop, area daftar banner memakai sekitar dua pertiga lebar konten agar ukuran foto tidak melebar berlebihan. Thumbnail banner admin dibuat kecil dan seragam sekitar rasio 16:9 agar daftar banner tidak merusak layout, sedangkan preview tetap dapat dibuka untuk melihat gambar lebih jelas. Jarak toggle dengan teks `Tampilkan di aplikasi` juga dirapikan agar mudah dibaca.
 
 File terkait:
 
