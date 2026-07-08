@@ -62,8 +62,15 @@
                 </div>
                 <div class="travs-field">
                     <label for="kapasitas_kursi">Kapasitas Kursi</label>
-                    <input id="kapasitas_kursi" name="kapasitas_kursi" type="number" class="travs-input @error('kapasitas_kursi') is-invalid @enderror" value="{{ old('kapasitas_kursi', $kendaraan->kapasitas_kursi) }}" required>
+                    <input id="kapasitas_kursi" name="kapasitas_kursi" type="number" min="5" max="6" class="travs-input @error('kapasitas_kursi') is-invalid @enderror" value="{{ old('kapasitas_kursi', min(6, max(5, (int) $kendaraan->kapasitas_kursi))) }}" required>
+                    <div class="travs-field-meta">Kapasitas kursi adalah jumlah kursi penumpang. Kursi sopir tidak dihitung.</div>
                     @include('admin.partials.field-error', ['name' => 'kapasitas_kursi'])
+                </div>
+                <div class="travs-field">
+                    <label for="seat_layout">Susunan Kursi Default</label>
+                    <input id="seat_layout" name="seat_layout" class="travs-input @error('seat_layout') is-invalid @enderror" value="{{ old('seat_layout', is_array($kendaraan->seat_layout) ? implode(',', $kendaraan->seat_layout) : '') }}" placeholder="Contoh: 1,3,2">
+                    <div class="travs-field-meta">Gunakan 1,3,2 untuk 6 kursi. Kursi yang ditutup untuk ruang bagasi diatur pada saat membuat jadwal.</div>
+                    @include('admin.partials.field-error', ['name' => 'seat_layout'])
                 </div>
                 <div class="travs-field">
                     <label for="total_kilometer">Total Kilometer</label>

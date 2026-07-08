@@ -7,15 +7,12 @@ use App\Models\HomeBanner;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\View\View;
 
 class HomeBannerController extends Controller
 {
-    public function index(): View
+    public function index(): RedirectResponse
     {
-        return view('admin.banner.index', [
-            'banners' => HomeBanner::query()->orderBy('urutan')->latest('id')->get(),
-        ]);
+        return redirect()->route('admin.settings.index', ['tab' => 'banner']);
     }
 
     public function store(Request $request): RedirectResponse
@@ -46,7 +43,7 @@ class HomeBannerController extends Controller
             'dibuat_oleh' => $request->user()?->id,
         ]);
 
-        return redirect()->route('admin.banner.index')->with('status', 'Banner beranda berhasil ditambahkan.');
+        return redirect()->route('admin.settings.index', ['tab' => 'banner'])->with('status', 'Banner beranda berhasil ditambahkan.');
     }
 
     public function destroy(HomeBanner $banner): RedirectResponse
@@ -55,6 +52,6 @@ class HomeBannerController extends Controller
         $banner->delete();
         Storage::disk('public')->delete($path);
 
-        return redirect()->route('admin.banner.index')->with('status', 'Banner beranda berhasil dihapus.');
+        return redirect()->route('admin.settings.index', ['tab' => 'banner'])->with('status', 'Banner beranda berhasil dihapus.');
     }
 }

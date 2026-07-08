@@ -482,9 +482,11 @@ class DriverController extends Controller
             'id' => $jadwal->id,
             'code' => 'DRV-'.$jadwal->id,
             'rute' => $jadwal->rute->kota_asal.' - '.$jadwal->rute->kota_tujuan,
+            'durasi_menit' => (int) $jadwal->rute->estimasi_durasi_menit,
+            'durasi_label' => $jadwal->rute->durasi_label,
             'waktu_berangkat' => $jadwal->waktu_berangkat?->toIso8601String(),
             'estimasi_tiba' => $jadwal->estimasi_tiba?->toIso8601String(),
-            'kendaraan' => $jadwal->kendaraan->merk_kendaraan.' '.$jadwal->kendaraan->nomor_plat,
+            'kendaraan' => $jadwal->kendaraan->label_armada,
             'kendaraan_nama' => $jadwal->kendaraan->merk_kendaraan,
             'nomor_plat' => $jadwal->kendaraan->nomor_plat,
             'kendaraan_tipe' => $jadwal->kendaraan->tipe_kendaraan,
@@ -510,6 +512,7 @@ class DriverController extends Controller
             'waktu_berangkat' => $jadwal->waktu_berangkat?->toIso8601String(),
             'estimasi_tiba' => $jadwal->estimasi_tiba?->toIso8601String(),
             'nomor_plat' => $kendaraan?->nomor_plat,
+            'label' => $kendaraan?->label_armada,
             'merek' => $kendaraan?->merk_kendaraan,
             'merk_kendaraan' => $kendaraan?->merk_kendaraan,
             'tipe' => $kendaraan?->tipe_kendaraan,
@@ -539,8 +542,17 @@ class DriverController extends Controller
 
     private function formatManifestPassenger(Pemesanan $booking, $detail): array
     {
-        $baggageItems = $booking->itemBagasi->sum('jumlah_item');
-        $baggageWeight = $booking->itemBagasi->sum(fn ($item) => (float) $item->berat_kg);
+        $baggageCollection = $booking->itemBagasi;
+        $storedBaggageItems = $baggageCollection->filter(fn ($item) => ($item->posisi_barang ?? 'masuk_bagasi') === 'masuk_bagasi');
+        $heldBaggageItems = $baggageCollection->filter(fn ($item) => ($item->posisi_barang ?? 'masuk_bagasi') === 'dipegang_sendiri');
+
+        $baggageItems = $storedBaggageItems->sum('jumlah_item');
+        $heldItems = $heldBaggageItems->sum('jumlah_item');
+        $baggageWeight = $storedBaggageItems->sum(fn ($item) => (float) $item->berat_kg);
+        $baggageLabel = collect([
+            $baggageItems > 0 ? "{$baggageItems} item masuk bagasi / {$baggageWeight} kg" : null,
+            $heldItems > 0 ? "{$heldItems} item dipegang sendiri" : null,
+        ])->filter()->implode(' - ');
         $baggagePhotoUrls = $this->baggagePhotoUrls($booking);
         $ticket = $detail->tiketElektronik;
         $paymentStatus = $booking->pembayaran?->status_bayar;
@@ -582,12 +594,20 @@ class DriverController extends Controller
             ],
             'baggage' => [
                 'items' => (int) $baggageItems,
+                'held_items' => (int) $heldItems,
                 'weight_kg' => $baggageWeight,
-                'label' => $baggageItems > 0
-                    ? "{$baggageItems} item / {$baggageWeight} kg"
-                    : 'Tidak ada bagasi tercatat',
+                'label' => $baggageLabel !== '' ? $baggageLabel : 'Tidak ada bagasi tercatat',
                 'foto_url' => $baggagePhotoUrls[0] ?? null,
                 'foto_urls' => $baggagePhotoUrls,
+                'items_detail' => $booking->itemBagasi->map(fn ($item) => [
+                    'deskripsi_item' => $item->deskripsi_item,
+                    'posisi_barang' => $item->posisi_barang ?? 'masuk_bagasi',
+                    'kategori_ukuran' => $item->kategori_ukuran ?? 'besar',
+                    'jenis_barang_besar' => $item->jenis_barang_besar,
+                    'berat_kg' => $item->berat_kg !== null ? (float) $item->berat_kg : null,
+                    'jumlah_item' => (int) $item->jumlah_item,
+                    'biaya_item' => (float) ($item->biaya_item ?? 0),
+                ])->values()->all(),
             ],
             'fare' => [
                 'total' => (float) $booking->total_harga,

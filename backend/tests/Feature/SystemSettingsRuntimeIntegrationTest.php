@@ -212,6 +212,42 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
         );
     }
 
+    public function test_baggage_allowance_uses_registered_passenger_count_not_only_selected_seats(): void
+    {
+        $this->setSettings([
+            'baggage_photo_required' => false,
+            'baggage_weight_enabled' => true,
+            'baggage_item_enabled' => true,
+            'baggage_free_weight_kg' => 7,
+            'baggage_max_weight_per_person_kg' => 30,
+            'baggage_extra_fee_per_kg' => 1000,
+            'baggage_free_item_count' => 2,
+            'baggage_max_item_per_person' => 10,
+            'baggage_extra_fee_per_item' => 2000,
+        ]);
+
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $schedule = Jadwal::query()->where('status', 'dibuka')->with('rute')->firstOrFail();
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/penumpang/bookings/estimate', [
+            'jadwal_id' => $schedule->id,
+            'seat_count' => 2,
+            'passenger_count' => 1,
+            'baggage_items' => [[
+                'deskripsi_item' => 'Koper dan kardus',
+                'posisi_barang' => 'masuk_bagasi',
+                'berat_kg' => 16,
+                'jumlah_item' => 5,
+            ]],
+        ])->assertOk()
+            ->assertJsonPath('data.biaya_bagasi', 15000)
+            ->assertJsonPath(
+                'data.total_harga',
+                ((int) $schedule->rute->harga_tiket * 2) + 15000,
+            );
+    }
+
     private function setSettings(array $values): void
     {
         foreach ($values as $key => $value) {

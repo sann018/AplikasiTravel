@@ -132,7 +132,7 @@ class KendaraanController extends Controller
             'warna' => ['required', 'string', 'max:30'],
             'tahun_kendaraan' => ['nullable', 'integer', 'min:2000', 'max:2100'],
             'tipe_kendaraan' => ['nullable', Rule::in(array_keys($this->vehicleTypeOptions($kendaraan)))],
-            'kapasitas_kursi' => ['required', 'integer', 'min:1', 'max:20'],
+            'kapasitas_kursi' => ['required', 'integer', 'min:5', 'max:6'],
             'seat_layout' => ['nullable', 'string', 'max:200'],
             'fasilitas' => ['nullable', 'string'],
             'total_kilometer' => ['nullable', 'integer', 'min:0'],
@@ -143,6 +143,10 @@ class KendaraanController extends Controller
             'foto_kendaraan' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:3072'],
         ]);
 
+        // Kapasitas adalah kursi penumpang, bukan kursi sopir.
+        // Versi TA dibatasi 5-6 kursi; 7-8 kursi bisa jadi pengembangan lanjutan.
+        $validated['kapasitas_kursi'] = min(6, (int) $validated['kapasitas_kursi']);
+
         // Input seperti "1,3,2" diubah menjadi daftar angka agar mudah disimpan
         // dan dipakai kembali saat aplikasi menyusun denah kursi.
         if (! empty($validated['seat_layout'])) {
@@ -150,6 +154,9 @@ class KendaraanController extends Controller
                 array_map('intval', explode(',', $validated['seat_layout'])),
                 fn (int $value) => $value > 0,
             );
+            while (array_sum($layoutParts) > $validated['kapasitas_kursi']) {
+                array_pop($layoutParts);
+            }
             $validated['seat_layout'] = ! empty($layoutParts) ? $layoutParts : null;
         } else {
             $validated['seat_layout'] = null;

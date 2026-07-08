@@ -12,6 +12,8 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -181,6 +183,35 @@ class BookingFlowTest extends TestCase
             'status_kursi' => 'terkunci',
             'dikunci_oleh' => $user->id,
         ]);
+    }
+
+    public function test_closed_schedule_seat_is_visible_and_cannot_be_locked(): void
+    {
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        [$seatNumber] = $this->availableSeatNumbers($jadwal, 1);
+
+        KursiJadwal::query()
+            ->where('jadwal_id', $jadwal->id)
+            ->where('nomor_kursi', $seatNumber)
+            ->firstOrFail()
+            ->update(['status_kursi' => 'nonaktif']);
+
+        $this->getJson("/api/guest/jadwal/{$jadwal->id}")
+            ->assertOk()
+            ->assertJsonFragment([
+                'nomor_kursi' => $seatNumber,
+                'status' => 'nonaktif',
+            ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/penumpang/bookings/lock-form', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seatNumber],
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.seat_numbers.0', "Kursi {$seatNumber} sedang ditutup untuk jadwal ini.");
     }
 
     public function test_booking_action_is_rate_limited_to_reduce_spam_clicks(): void
@@ -381,6 +412,241 @@ class BookingFlowTest extends TestCase
             'metode_hitung' => 'berat',
             'jumlah_item' => 3,
         ]);
+    }
+
+    public function test_self_held_baggage_is_saved_without_baggage_fee(): void
+    {
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        [$seatNumber] = $this->availableSeatNumbers($jadwal, 1);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/penumpang/bookings', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seatNumber],
+            'pickup' => [
+                'latitude' => -0.0225,
+                'longitude' => 109.3425,
+                'address' => 'Jalan Ahmad Yani, Pontianak',
+            ],
+            'dropoff' => [
+                'latitude' => 0.1285,
+                'longitude' => 111.4986,
+                'address' => 'Terminal tujuan',
+            ],
+            'payment_method' => 'qris',
+            'passengers' => [
+                [
+                    'seat_number' => $seatNumber,
+                    'nama_penumpang' => 'Penumpang Bawa Tas',
+                    'no_hp_penumpang' => '081200000014',
+                ],
+            ],
+            'baggage_items' => [
+                [
+                    'deskripsi_item' => 'Tas kecil dipegang sendiri',
+                    'metode_hitung' => 'berat',
+                    'posisi_barang' => 'dipegang_sendiri',
+                    'kategori_ukuran' => 'kecil',
+                    'berat_kg' => 20,
+                    'jumlah_item' => 3,
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.biaya_bagasi', 0);
+
+        $booking = Pemesanan::query()->latest('id')->firstOrFail();
+
+        $this->assertDatabaseHas('item_bagasi', [
+            'pemesanan_id' => $booking->id,
+            'posisi_barang' => 'dipegang_sendiri',
+            'kategori_ukuran' => 'kecil',
+            'biaya_item' => 0,
+        ]);
+    }
+
+    public function test_baggage_item_fee_uses_admin_setting_fee(): void
+    {
+        DB::table('system_settings')->updateOrInsert(
+            ['key' => 'baggage_free_item_count'],
+            ['group' => 'baggage', 'value' => '0', 'type' => 'integer', 'description' => 'Item gratis', 'updated_at' => now(), 'created_at' => now()]
+        );
+        DB::table('system_settings')->updateOrInsert(
+            ['key' => 'baggage_extra_fee_per_item'],
+            ['group' => 'baggage', 'value' => '6000', 'type' => 'float', 'description' => 'Biaya item tambahan', 'updated_at' => now(), 'created_at' => now()]
+        );
+        Cache::forget('system_settings');
+
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        [$seatNumber] = $this->availableSeatNumbers($jadwal, 1);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/penumpang/bookings', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seatNumber],
+            'pickup' => [
+                'latitude' => -0.0225,
+                'longitude' => 109.3425,
+                'address' => 'Jalan Ahmad Yani, Pontianak',
+            ],
+            'dropoff' => [
+                'latitude' => 0.1285,
+                'longitude' => 111.4986,
+                'address' => 'Terminal tujuan',
+            ],
+            'payment_method' => 'qris',
+            'passengers' => [
+                [
+                    'seat_number' => $seatNumber,
+                    'nama_penumpang' => 'Penumpang Item Kecil',
+                    'no_hp_penumpang' => '081200000015',
+                ],
+            ],
+            'baggage_items' => [
+                [
+                    'deskripsi_item' => 'Kardus kecil',
+                    'metode_hitung' => 'berat',
+                    'posisi_barang' => 'masuk_bagasi',
+                    'berat_kg' => 1,
+                    'jumlah_item' => 2,
+                    'foto_url' => '/storage/baggage/demo.jpg',
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.biaya_bagasi', 12000);
+    }
+
+    public function test_baggage_item_fee_only_counts_items_above_free_limit(): void
+    {
+        foreach ([
+            'baggage_free_item_count' => '1',
+            'baggage_extra_fee_per_item' => '5000',
+        ] as $key => $value) {
+            DB::table('system_settings')->updateOrInsert(
+                ['key' => $key],
+                ['group' => 'baggage', 'value' => $value, 'type' => 'float', 'description' => 'Pengaturan uji biaya item bagasi', 'updated_at' => now(), 'created_at' => now()]
+            );
+        }
+        Cache::forget('system_settings');
+
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        [$seatNumber] = $this->availableSeatNumbers($jadwal, 1);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/penumpang/bookings', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seatNumber],
+            'pickup' => [
+                'latitude' => -0.0225,
+                'longitude' => 109.3425,
+                'address' => 'Jalan Ahmad Yani, Pontianak',
+            ],
+            'dropoff' => [
+                'latitude' => 0.1285,
+                'longitude' => 111.4986,
+                'address' => 'Terminal tujuan',
+            ],
+            'payment_method' => 'qris',
+            'passengers' => [
+                [
+                    'seat_number' => $seatNumber,
+                    'nama_penumpang' => 'Penumpang Bawa Sepeda',
+                    'no_hp_penumpang' => '081200000016',
+                ],
+            ],
+            'baggage_items' => [
+                [
+                    'deskripsi_item' => 'Kardus tambahan',
+                    'metode_hitung' => 'berat',
+                    'posisi_barang' => 'masuk_bagasi',
+                    'jumlah_item' => 3,
+                    'foto_url' => '/storage/baggage/kardus.jpg',
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.biaya_bagasi', 10000);
+
+        $booking = Pemesanan::query()->latest('id')->firstOrFail();
+
+        $this->assertDatabaseHas('item_bagasi', [
+            'pemesanan_id' => $booking->id,
+            'jumlah_item' => 3,
+            'biaya_item' => 10000,
+        ]);
+    }
+
+    public function test_large_baggage_type_held_by_passenger_is_not_charged(): void
+    {
+        DB::table('system_settings')->updateOrInsert(
+            ['key' => 'baggage_large_vehicle_enabled'],
+            ['group' => 'baggage', 'value' => '1', 'type' => 'boolean', 'description' => 'Pengaturan uji bagasi besar', 'updated_at' => now(), 'created_at' => now()]
+        );
+        DB::table('system_settings')->updateOrInsert(
+            ['key' => 'baggage_bicycle_fee'],
+            ['group' => 'baggage', 'value' => '30000', 'type' => 'float', 'description' => 'Pengaturan uji bagasi besar', 'updated_at' => now(), 'created_at' => now()]
+        );
+        Cache::forget('system_settings');
+
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        [$seatNumber] = $this->availableSeatNumbers($jadwal, 1);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/penumpang/bookings', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seatNumber],
+            'pickup' => [
+                'latitude' => -0.0225,
+                'longitude' => 109.3425,
+                'address' => 'Jalan Ahmad Yani, Pontianak',
+            ],
+            'dropoff' => [
+                'latitude' => 0.1285,
+                'longitude' => 111.4986,
+                'address' => 'Terminal tujuan',
+            ],
+            'payment_method' => 'qris',
+            'passengers' => [
+                [
+                    'seat_number' => $seatNumber,
+                    'nama_penumpang' => 'Penumpang Pegang Barang',
+                    'no_hp_penumpang' => '081200000017',
+                ],
+            ],
+            'baggage_items' => [
+                [
+                    'deskripsi_item' => 'Sepeda lipat kecil',
+                    'metode_hitung' => 'berat',
+                    'posisi_barang' => 'dipegang_sendiri',
+                    'kategori_ukuran' => 'besar',
+                    'jenis_barang_besar' => 'sepeda',
+                    'jumlah_item' => 1,
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.biaya_bagasi', 0);
     }
 
     public function test_luggage_capacity_counts_existing_bookings(): void

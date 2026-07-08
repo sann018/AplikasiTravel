@@ -39,7 +39,7 @@ class DashboardController extends Controller
         $stats = [
             'total_armada' => Kendaraan::query()->count(),
             'jumlah_pengemudi' => Pengemudi::query()->count(),
-            'pengemudi_terverifikasi' => Pengemudi::query()->where('status_verifikasi', 'terverifikasi')->count(),
+            'pengemudi_aktif' => Pengemudi::query()->where('status', 'aktif')->count(),
             'rute_aktif' => Rute::query()->where('status_aktif', true)->count(),
             'jadwal_hari_ini' => Jadwal::query()->whereDate('waktu_berangkat', $today)->count(),
             'pemesanan_hari_ini' => Pemesanan::query()->whereDate('created_at', $today)->count(),

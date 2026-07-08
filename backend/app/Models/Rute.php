@@ -38,6 +38,30 @@ class Rute extends Model
         ];
     }
 
+    public function getDurasiLabelAttribute(): string
+    {
+        $minutes = (int) $this->estimasi_durasi_menit;
+
+        if ($minutes <= 0) {
+            return '-';
+        }
+
+        $hours = intdiv($minutes, 60);
+        $remainingMinutes = $minutes % 60;
+
+        // Durasi tetap disimpan menit agar mudah dihitung, lalu diubah
+        // menjadi jam-menit supaya lebih gampang dibaca admin dan pengguna.
+        if ($hours > 0 && $remainingMinutes > 0) {
+            return "{$hours} jam {$remainingMinutes} menit";
+        }
+
+        if ($hours > 0) {
+            return "{$hours} jam";
+        }
+
+        return "{$remainingMinutes} menit";
+    }
+
     public function jadwal(): HasMany
     {
         return $this->hasMany(Jadwal::class, 'rute_id');

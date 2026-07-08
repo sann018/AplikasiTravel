@@ -117,6 +117,7 @@ class BookingService
                 $schedule,
                 $seatNumbers->count(),
                 $payload['baggage_items'] ?? [],
+                $passengers->count(),
             );
 
             $now = now();
@@ -170,7 +171,7 @@ class BookingService
                 ]);
             }
 
-            foreach (($payload['baggage_items'] ?? []) as $item) {
+            foreach (($payload['baggage_items'] ?? []) as $index => $item) {
                 $panjangCm = data_get($item, 'panjang_cm');
                 $lebarCm = data_get($item, 'lebar_cm');
                 $ukuranCm = data_get($item, 'ukuran_cm');
@@ -183,6 +184,9 @@ class BookingService
                     'pemesanan_id' => $booking->id,
                     'deskripsi_item' => (string) $item['deskripsi_item'],
                     'metode_hitung' => data_get($item, 'metode_hitung'),
+                    'posisi_barang' => $this->normalizeBaggagePlacement(data_get($item, 'posisi_barang')),
+                    'kategori_ukuran' => $this->normalizeBaggageSizeCategory(data_get($item, 'kategori_ukuran')),
+                    'jenis_barang_besar' => $this->normalizeLargeBaggageType(data_get($item, 'jenis_barang_besar')),
                     'berat_kg' => data_get($item, 'berat_kg'),
                     'ukuran_cm' => $ukuranCm,
                     'panjang_cm' => $panjangCm,
@@ -190,7 +194,7 @@ class BookingService
                     'jumlah_item' => max(1, (int) data_get($item, 'jumlah_item', 1)),
                     'foto_url' => $fotoUrls[0] ?? null,
                     'foto_urls' => $fotoUrls,
-                    'biaya_item' => 0,
+                    'biaya_item' => (float) data_get($totals, "bagasi.item_breakdowns.$index", 0),
                 ]);
             }
 
@@ -1116,6 +1120,12 @@ class BookingService
     private function ensureSeatsCanBeUsedByUser(Collection $selectedSeats, int $userId): void
     {
         foreach ($selectedSeats as $seat) {
+            if ($seat->status_kursi === 'nonaktif') {
+                throw ValidationException::withMessages([
+                    'seat_numbers' => "Kursi {$seat->nomor_kursi} sedang ditutup untuk jadwal ini.",
+                ]);
+            }
+
             if ($seat->status_kursi === 'dipesan') {
                 throw ValidationException::withMessages([
                     'seat_numbers' => "Kursi {$seat->nomor_kursi} tidak tersedia.",
@@ -1203,6 +1213,29 @@ class BookingService
         }
 
         return $urls->take(3)->values()->all();
+    }
+
+    private function normalizeBaggagePlacement(mixed $value): string
+    {
+        $placement = is_string($value) ? strtolower($value) : 'masuk_bagasi';
+
+        return in_array($placement, ['dipegang_sendiri', 'masuk_bagasi'], true)
+            ? $placement
+            : 'masuk_bagasi';
+    }
+
+    private function normalizeBaggageSizeCategory(mixed $value): ?string
+    {
+        $category = is_string($value) ? strtolower($value) : null;
+
+        return in_array($category, ['kecil', 'besar'], true) ? $category : null;
+    }
+
+    private function normalizeLargeBaggageType(mixed $value): ?string
+    {
+        $type = is_string($value) ? strtolower($value) : null;
+
+        return in_array($type, ['sepeda', 'sepeda_motor', 'beko', 'lainnya'], true) ? $type : null;
     }
 
     private function resolveFormLockDeadline($now)

@@ -97,6 +97,14 @@
                     <p>Semua pencatatan biaya operasional yang sudah masuk akan muncul di sini.</p>
                 </div>
                 <div class="collapsible-section__header-actions">
+                    <details class="travs-export-menu">
+                        <summary>Export Data</summary>
+                        <div class="travs-export-menu__list">
+                            <a href="{{ route('admin.biaya.export', array_merge(request()->query(), ['format' => 'csv'])) }}">CSV</a>
+                            <a href="{{ route('admin.biaya.export', array_merge(request()->query(), ['format' => 'xls'])) }}">Excel (.xls)</a>
+                            <a href="{{ route('admin.biaya.export', array_merge(request()->query(), ['format' => 'xlsx'])) }}">XLSX</a>
+                        </div>
+                    </details>
                     @include('admin.partials.collapsible-toggle', ['targetId' => 'cost-list-body'])
                 </div>
             </div>

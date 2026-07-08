@@ -42,6 +42,10 @@ class AdminSystemSettingsTest extends TestCase
             ->assertSee('Simpan Pengaturan Bagasi')
             ->assertSee('Simulasi Bagasi')
             ->assertSee('data-baggage-simulator', false)
+            ->assertSee('Beko / Barang Berat')
+            ->assertDontSee('Biaya Item Kecil')
+            ->assertDontSee('Biaya Item Besar')
+            ->assertDontSee('Barang Besar Lainnya')
             ->assertDontSee('data-notification-preview', false)
             ->assertSee('name="max_seat_per_booking"', false)
             ->assertDontSee('name="admin_fee"', false)
@@ -207,6 +211,10 @@ class AdminSystemSettingsTest extends TestCase
             'baggage_free_item_count' => 2,
             'baggage_max_item_per_person' => 10,
             'baggage_extra_fee_per_item' => 2500,
+            'baggage_large_vehicle_enabled' => '0',
+            'baggage_bicycle_fee' => 0,
+            'baggage_motorcycle_fee' => 0,
+            'baggage_heavy_item_fee' => 0,
             'baggage_max_total_weight_per_vehicle' => 50,
         ], $override);
     }

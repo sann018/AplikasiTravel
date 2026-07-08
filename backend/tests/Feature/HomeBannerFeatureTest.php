@@ -26,7 +26,7 @@ class HomeBannerFeatureTest extends TestCase
                 'urutan' => 1,
                 'aktif' => 1,
             ])
-            ->assertRedirect(route('admin.banner.index'))
+            ->assertRedirect(route('admin.settings.index', ['tab' => 'banner']))
             ->assertSessionHasNoErrors();
 
         $banner = HomeBanner::query()->firstOrFail();

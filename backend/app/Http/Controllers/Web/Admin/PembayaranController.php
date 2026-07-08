@@ -97,6 +97,21 @@ class PembayaranController extends Controller
         ]);
     }
 
+    public function show(Pembayaran $pembayaran): View
+    {
+        $pembayaran->load([
+            'pemesanan.pengguna',
+            'pemesanan.jadwal.rute',
+        ]);
+
+        $pembayaran->issue_label = $this->paymentIssueLabel($pembayaran);
+        $pembayaran->can_confirm_cash = $this->canConfirmCash($pembayaran);
+
+        return view('admin.pembayaran.show', [
+            'payment' => $pembayaran,
+        ]);
+    }
+
     public function confirmCash(Request $request, Pemesanan $pemesanan): RedirectResponse
     {
         $booking = $this->bookingService->confirmCashPayment($pemesanan, $request->user());

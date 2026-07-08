@@ -73,9 +73,11 @@ Route::prefix('admin')->group(function () {
         Route::put('/pemesanan/{pemesanan}', [PemesananController::class, 'update'])->middleware('throttle:travs-admin-action')->name('admin.pemesanan.update');
 
         Route::get('/pembayaran', [PembayaranController::class, 'index'])->name('admin.pembayaran.index');
+        Route::get('/pembayaran/{pembayaran}', [PembayaranController::class, 'show'])->name('admin.pembayaran.show');
         Route::post('/pembayaran/{pemesanan}/confirm-cash', [PembayaranController::class, 'confirmCash'])->middleware('throttle:travs-admin-action')->name('admin.pembayaran.confirm-cash');
 
         Route::get('/biaya-operasional', [BiayaOperasionalController::class, 'index'])->name('admin.biaya.index');
+        Route::get('/biaya-operasional/export', [BiayaOperasionalController::class, 'export'])->name('admin.biaya.export');
         Route::post('/biaya-operasional', [BiayaOperasionalController::class, 'store'])->middleware('throttle:travs-admin-action')->name('admin.biaya.store');
         Route::put('/biaya-operasional/{biayaOperasional}', [BiayaOperasionalController::class, 'update'])->middleware('throttle:travs-admin-action')->name('admin.biaya.update');
         Route::patch('/biaya-operasional/{biayaOperasional}/verifikasi', [BiayaOperasionalController::class, 'verify'])->middleware('throttle:travs-admin-action')->name('admin.biaya.verify');

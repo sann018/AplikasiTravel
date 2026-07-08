@@ -45,6 +45,18 @@ class Kendaraan extends Model
         ];
     }
 
+    public function getLabelArmadaAttribute(): string
+    {
+        $merk = trim((string) $this->merk_kendaraan);
+        $plat = trim((string) $this->nomor_plat);
+
+        if ($merk !== '' && $plat !== '') {
+            return "{$merk} - {$plat}";
+        }
+
+        return $merk !== '' ? $merk : ($plat !== '' ? $plat : '-');
+    }
+
     /// Mengembalikan susunan kursi per baris untuk denah di aplikasi.
     /// Jika admin belum mengatur susunan, sistem membuat susunan awal dari kapasitas.
     /// Contoh [1, 3, 2]: baris pertama 1 kursi, kedua 3 kursi, ketiga 2 kursi.
@@ -62,6 +74,8 @@ class Kendaraan extends Model
     /// Polanya satu kursi depan, lalu dua atau tiga kursi pada baris berikutnya.
     private function defaultSeatLayout(int $capacity): array
     {
+        $capacity = min($capacity, 6);
+
         if ($capacity <= 0) return [];
         if ($capacity == 1) return [1];
         if ($capacity == 2) return [1, 1];
@@ -69,18 +83,8 @@ class Kendaraan extends Model
         if ($capacity == 4) return [1, 3];
         if ($capacity == 5) return [1, 2, 2];
         if ($capacity == 6) return [1, 3, 2];
-        if ($capacity == 7) return [1, 3, 3];
-        if ($capacity == 8) return [1, 3, 2, 2];
 
-        // Kendaraan besar tetap memakai satu kursi depan dan tiga kursi per baris.
-        $rows = [1];
-        $remaining = $capacity - 1;
-        while ($remaining > 0) {
-            $rowSize = min(3, $remaining);
-            $rows[] = $rowSize;
-            $remaining -= $rowSize;
-        }
-        return $rows;
+        return [1, 3, 2];
     }
 
     public function jadwal(): HasMany

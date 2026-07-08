@@ -71,12 +71,10 @@ class AppBootstrapController extends Controller
             'harga_tiket' => (float) $jadwal->rute->harga_tiket,
             'sisa_kursi' => $kursiTersedia,
             'kapasitas' => $jadwal->kendaraan->kapasitas_kursi,
+            'estimasi_durasi_menit' => (int) $jadwal->rute->estimasi_durasi_menit,
+            'durasi_label' => $jadwal->rute->durasi_label,
             'pengemudi' => $jadwal->pengemudi->pengguna->nama,
-            'kendaraan' => sprintf(
-                '%s %s',
-                $jadwal->kendaraan->merk_kendaraan,
-                $jadwal->kendaraan->nomor_plat,
-            ),
+            'kendaraan' => $jadwal->kendaraan->label_armada,
         ];
     }
 }

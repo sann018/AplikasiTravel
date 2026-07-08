@@ -143,8 +143,9 @@
                             </td>
                             <td>
                                 <div class="travs-table-actions">
+                                    <a href="{{ route('admin.pembayaran.show', $payment) }}" class="travs-button-link">Detail Pembayaran</a>
                                     @if ($booking)
-                                        <a href="{{ route('admin.pemesanan.show', $booking) }}" class="travs-button-link">Detail</a>
+                                        <a href="{{ route('admin.pemesanan.show', $booking) }}" class="travs-button-link">Pemesanan</a>
                                     @endif
 
                                     @if ($payment->can_confirm_cash && $booking)

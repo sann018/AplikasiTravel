@@ -15,38 +15,46 @@ class BaggageCalculatorService
      * @param  array<int, array<string, mixed>>  $items
      * @return array<string, mixed>
      */
-    public function calculate(Jadwal $schedule, int $seatCount, array $items): array
+    public function calculate(Jadwal $schedule, int $passengerCount, array $items): array
     {
         $totals = ['weight' => 0.0, 'size' => 0, 'items' => 0];
+        $chargeableItems = [];
+        $baggageEnabled = $this->baggageRulesEnabled();
 
         foreach ($items as $index => $item) {
-            $method = $this->normalizeMethod(data_get($item, 'metode_hitung'));
+            $placement = $this->normalizePlacement(data_get($item, 'posisi_barang'));
+            $method = 'berat';
             $weight = (float) data_get($item, 'berat_kg', 0);
-            $size = $this->resolveSize($item);
+            $size = 0;
 
-            if ($method === 'berat') {
-                $size = 0;
-            } elseif ($method === 'ukuran') {
-                $weight = 0.0;
-            }
-
-            if ($this->settingService->get('baggage_photo_required', false) && blank(data_get($item, 'foto_url'))) {
+            if ($baggageEnabled && $placement === 'masuk_bagasi' && $this->settingService->get('baggage_photo_required', false) && blank(data_get($item, 'foto_url'))) {
                 throw ValidationException::withMessages([
                     "baggage_items.$index.foto_url" => 'Foto barang bawaan wajib diunggah sebelum melanjutkan.',
                 ]);
             }
 
+            if ($placement === 'dipegang_sendiri') {
+                continue;
+            }
+
+            $quantity = max(1, (int) data_get($item, 'jumlah_item', 1));
             $totals['weight'] += $weight;
             $totals['size'] += $size;
-            $totals['items'] += max(1, (int) data_get($item, 'jumlah_item', 1));
+            $totals['items'] += $quantity;
+            $chargeableItems[] = [
+                'index' => $index,
+                'quantity' => $quantity,
+            ];
         }
 
         $existingWeight = $this->activeVehicleWeight($schedule);
+        $itemFee = $this->itemFee($totals['items'], $passengerCount, $chargeableItems);
 
         return [
-            'weight_fee' => $this->weightFee($totals['weight'], $seatCount, $existingWeight),
-            'size_fee' => $this->sizeFee($totals['size'], $seatCount),
-            'item_fee' => $this->itemFee($totals['items'], $seatCount),
+            'weight_fee' => $this->weightFee($totals['weight'], $passengerCount, $existingWeight),
+            'size_fee' => $this->sizeFee($totals['size'], $passengerCount),
+            'item_fee' => $itemFee['total'],
+            'item_breakdowns' => $itemFee['breakdowns'],
             'totals' => [
                 ...$totals,
                 'existing_vehicle_weight' => $existingWeight,
@@ -55,14 +63,15 @@ class BaggageCalculatorService
         ];
     }
 
-    private function weightFee(float $weight, int $seatCount, float $existingWeight): float
+    private function weightFee(float $weight, int $passengerCount, float $existingWeight): float
     {
         if (! $this->settingService->get('baggage_weight_enabled', false)) {
             return 0.0;
         }
 
-        $free = (float) $this->settingService->get('baggage_free_weight_kg', 0) * $seatCount;
-        $maxPerBooking = (float) $this->settingService->get('baggage_max_weight_per_person_kg', 0) * $seatCount;
+        // Batas gratis dihitung dari jumlah penumpang terdaftar agar kursi ekstra tidak menambah jatah bagasi.
+        $free = (float) $this->settingService->get('baggage_free_weight_kg', 0) * $passengerCount;
+        $maxPerBooking = (float) $this->settingService->get('baggage_max_weight_per_person_kg', 0) * $passengerCount;
         $maxVehicle = (float) $this->settingService->get('baggage_max_total_weight_per_vehicle', 0);
 
         if ($maxPerBooking > 0 && $weight > $maxPerBooking) {
@@ -80,14 +89,14 @@ class BaggageCalculatorService
         return max(0, $weight - $free) * (float) $this->settingService->get('baggage_extra_fee_per_kg', 0);
     }
 
-    private function sizeFee(int $size, int $seatCount): float
+    private function sizeFee(int $size, int $passengerCount): float
     {
         if (! $this->settingService->get('baggage_size_enabled', false)) {
             return 0.0;
         }
 
-        $free = (float) $this->settingService->get('baggage_free_size_cm', 0) * $seatCount;
-        $max = (float) $this->settingService->get('baggage_max_size_per_person_cm', 0) * $seatCount;
+        $free = (float) $this->settingService->get('baggage_free_size_cm', 0) * $passengerCount;
+        $max = (float) $this->settingService->get('baggage_max_size_per_person_cm', 0) * $passengerCount;
         if ($max > 0 && $size > $max) {
             throw ValidationException::withMessages([
                 'baggage_items' => 'Ukuran barang bawaan melebihi batas maksimal penumpang.',
@@ -97,46 +106,67 @@ class BaggageCalculatorService
         return max(0, $size - $free) * (float) $this->settingService->get('baggage_extra_fee_per_cm', 0);
     }
 
-    private function itemFee(int $itemCount, int $seatCount): float
+    /**
+     * Kuota gratis hanya dipakai oleh barang yang benar-benar masuk bagasi.
+     * Kategori kecil/besar tidak dipakai di versi TA agar alurnya sederhana.
+     *
+     * @param  array<int, array{index:int, quantity:int}>  $chargeableItems
+     * @return array{total:float, breakdowns:array<int, float>}
+     */
+    private function itemFee(int $itemCount, int $passengerCount, array $chargeableItems): array
     {
         if (! $this->settingService->get('baggage_item_enabled', false)) {
-            return 0.0;
+            return ['total' => 0.0, 'breakdowns' => []];
         }
 
-        $free = (int) $this->settingService->get('baggage_free_item_count', 0) * $seatCount;
-        $max = (int) $this->settingService->get('baggage_max_item_per_person', 0) * $seatCount;
+        $free = (int) $this->settingService->get('baggage_free_item_count', 0) * $passengerCount;
+        $max = (int) $this->settingService->get('baggage_max_item_per_person', 0) * $passengerCount;
         if ($max > 0 && $itemCount > $max) {
             throw ValidationException::withMessages([
                 'baggage_items' => 'Jumlah barang bawaan melebihi batas maksimal penumpang.',
             ]);
         }
 
-        return max(0, $itemCount - $free) * (float) $this->settingService->get('baggage_extra_fee_per_item', 0);
+        $remainingFree = $free;
+        $total = 0.0;
+        $breakdowns = [];
+        $feePerItem = (float) $this->settingService->get('baggage_extra_fee_per_item', 0);
+
+        foreach ($chargeableItems as $item) {
+            $paidQuantity = max(0, $item['quantity'] - $remainingFree);
+            $remainingFree = max(0, $remainingFree - $item['quantity']);
+            $fee = $paidQuantity * $feePerItem;
+            $breakdowns[$item['index']] = $fee;
+            $total += $fee;
+        }
+
+        return ['total' => $total, 'breakdowns' => $breakdowns];
     }
 
     private function activeVehicleWeight(Jadwal $schedule): float
     {
         return (float) $schedule->pemesanan()
             ->whereIn('status_pemesanan', ['menunggu_pembayaran', 'terbayar'])
-            ->with('itemBagasi:id,pemesanan_id,berat_kg')
+            ->with('itemBagasi:id,pemesanan_id,berat_kg,posisi_barang')
             ->get()
-            ->sum(fn ($booking) => $booking->itemBagasi->sum(fn ($item) => (float) $item->berat_kg));
+            ->sum(fn ($booking) => $booking->itemBagasi
+                ->filter(fn ($item) => ($item->posisi_barang ?? 'masuk_bagasi') === 'masuk_bagasi')
+                ->sum(fn ($item) => (float) $item->berat_kg));
     }
 
-    /** @param array<string, mixed> $item */
-    private function resolveSize(array $item): int
+    private function normalizePlacement(mixed $value): string
     {
-        if (filled(data_get($item, 'ukuran_cm'))) {
-            return (int) data_get($item, 'ukuran_cm');
-        }
+        $placement = is_string($value) ? strtolower($value) : 'masuk_bagasi';
 
-        return (int) data_get($item, 'panjang_cm', 0) + (int) data_get($item, 'lebar_cm', 0);
+        return in_array($placement, ['dipegang_sendiri', 'masuk_bagasi'], true)
+            ? $placement
+            : 'masuk_bagasi';
     }
 
-    private function normalizeMethod(mixed $value): ?string
+    private function baggageRulesEnabled(): bool
     {
-        $method = is_string($value) ? strtolower($value) : null;
-
-        return in_array($method, ['berat', 'ukuran'], true) ? $method : null;
+        return (bool) $this->settingService->get('baggage_weight_enabled', false)
+            || (bool) $this->settingService->get('baggage_size_enabled', false)
+            || (bool) $this->settingService->get('baggage_item_enabled', false);
     }
 }

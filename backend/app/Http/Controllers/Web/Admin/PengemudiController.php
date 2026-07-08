@@ -19,7 +19,7 @@ class PengemudiController extends Controller
     public function index(Request $request): View
     {
         $query = Pengemudi::query()
-            ->with(['pengguna', 'verifikator'])
+            ->with('pengguna')
             ->withCount('jadwal');
 
         if ($request->filled('search')) {
@@ -40,10 +40,6 @@ class PengemudiController extends Controller
             $query->where('status', $request->string('status'));
         }
 
-        if ($request->filled('status_verifikasi')) {
-            $query->where('status_verifikasi', $request->string('status_verifikasi'));
-        }
-
         $pengemudi = $query->latest()->paginate(10)->withQueryString();
         $editingPengemudi = $request->filled('edit')
             ? Pengemudi::query()->with('pengguna')->findOrFail($request->integer('edit'))
@@ -55,10 +51,8 @@ class PengemudiController extends Controller
                 'total' => Pengemudi::query()->count(),
                 'aktif' => Pengemudi::query()->where('status', 'aktif')->count(),
                 'nonaktif' => Pengemudi::query()->where('status', 'nonaktif')->count(),
-                'terverifikasi' => Pengemudi::query()->where('status_verifikasi', 'terverifikasi')->count(),
-                'menunggu' => Pengemudi::query()->where('status_verifikasi', 'menunggu')->count(),
             ],
-            'filters' => $request->only(['search', 'status', 'status_verifikasi']),
+            'filters' => $request->only(['search', 'status']),
         ]);
     }
 
@@ -80,9 +74,8 @@ class PengemudiController extends Controller
     {
         $payload = $this->validatedPayload($request);
         $normalizedStatus = $this->normalizeStatus($payload);
-        $verificationAttributes = $this->verificationAttributes($payload, null, $request->user()->id);
 
-        DB::transaction(function () use ($request, $payload, $normalizedStatus, $verificationAttributes) {
+        DB::transaction(function () use ($request, $payload, $normalizedStatus) {
             $profilePhotoPath = $this->storeUploadedImage($request, 'foto_profil', 'profiles');
             $simPhotoPath = $this->storeUploadedImage($request, 'foto_sim', 'driver-documents');
 
@@ -102,24 +95,21 @@ class PengemudiController extends Controller
                 'nomor_sim' => $payload['nomor_sim'],
                 'foto_sim' => $simPhotoPath,
                 'status' => $normalizedStatus['status'],
-                ...$verificationAttributes,
+                ...$this->adminManagedVerificationAttributes($request->user()->id),
             ]);
         });
 
         return redirect()
             ->route('admin.pengemudi.index')
-            ->with('status', $normalizedStatus['forced_nonactive']
-                ? 'Akun pengemudi berhasil ditambahkan, tetapi tetap nonaktif sampai dokumen diverifikasi.'
-                : 'Akun pengemudi berhasil ditambahkan.');
+            ->with('status', 'Akun pengemudi berhasil ditambahkan.');
     }
 
     public function update(Request $request, Pengemudi $pengemudi): RedirectResponse
     {
         $payload = $this->validatedPayload($request, $pengemudi);
         $normalizedStatus = $this->normalizeStatus($payload);
-        $verificationAttributes = $this->verificationAttributes($payload, $pengemudi, $request->user()->id);
 
-        DB::transaction(function () use ($request, $pengemudi, $payload, $normalizedStatus, $verificationAttributes) {
+        DB::transaction(function () use ($request, $pengemudi, $payload, $normalizedStatus) {
             $oldProfilePhotoPath = $pengemudi->pengguna->foto_profil;
             $oldSimPhotoPath = $pengemudi->foto_sim;
             $profilePhotoPath = $this->storeUploadedImage($request, 'foto_profil', 'profiles');
@@ -140,7 +130,7 @@ class PengemudiController extends Controller
                 'nomor_sim' => $payload['nomor_sim'],
                 ...($simPhotoPath ? ['foto_sim' => $simPhotoPath] : []),
                 'status' => $normalizedStatus['status'],
-                ...$verificationAttributes,
+                ...$this->adminManagedVerificationAttributes($request->user()->id, $pengemudi),
             ]);
 
             if ($profilePhotoPath) {
@@ -154,9 +144,7 @@ class PengemudiController extends Controller
 
         return redirect()
             ->route('admin.pengemudi.index')
-            ->with('status', $normalizedStatus['forced_nonactive']
-                ? 'Data pengemudi berhasil diperbarui. Akun tetap nonaktif sampai status verifikasi terkonfirmasi.'
-                : 'Data pengemudi berhasil diperbarui.');
+            ->with('status', 'Data pengemudi berhasil diperbarui.');
     }
 
     public function destroy(Pengemudi $pengemudi): RedirectResponse
@@ -199,14 +187,35 @@ class PengemudiController extends Controller
             ],
             'foto_sim' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'status' => ['required', Rule::in(['aktif', 'nonaktif'])],
-            'status_verifikasi' => ['required', Rule::in(['menunggu', 'terverifikasi', 'ditolak'])],
-            'catatan_verifikasi' => ['nullable', 'string', 'max:1000'],
             'password' => [$pengemudi ? 'nullable' : 'required', 'string', 'min:8', 'max:100'],
             'foto_profil' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ], [
+            'nama.required' => 'Nama pengemudi wajib diisi.',
+            'nama.max' => 'Nama pengemudi maksimal 100 karakter.',
+            'email.required' => 'Email pengemudi wajib diisi.',
+            'email.email' => 'Format email pengemudi belum valid.',
+            'email.max' => 'Email pengemudi maksimal 100 karakter.',
+            'email.unique' => 'Email ini sudah digunakan akun lain. Gunakan email berbeda.',
+            'no_hp.required' => 'Nomor HP pengemudi wajib diisi.',
+            'no_hp.min' => 'Nomor HP terlalu pendek.',
+            'no_hp.max' => 'Nomor HP maksimal 16 karakter.',
+            'no_hp.regex' => 'Nomor HP harus memakai format Indonesia, contoh 081234567890.',
+            'no_hp.unique' => 'Nomor HP ini sudah digunakan akun lain.',
+            'nomor_sim.required' => 'Nomor SIM/NIK KTP wajib diisi.',
             'nomor_sim.size' => 'Nomor SIM harus menggunakan NIK KTP yang terdiri dari 16 digit.',
             'nomor_sim.regex' => 'Nomor SIM hanya boleh berisi angka.',
             'nomor_sim.unique' => 'NIK KTP tersebut sudah dipakai pengemudi lain.',
+            'foto_sim.image' => 'Foto SIM harus berupa file gambar.',
+            'foto_sim.mimes' => 'Foto SIM hanya menerima format JPG, JPEG, PNG, atau WEBP.',
+            'foto_sim.max' => 'Ukuran foto SIM maksimal 2 MB.',
+            'status.required' => 'Status akun wajib dipilih.',
+            'status.in' => 'Status akun yang dipilih tidak valid.',
+            'password.required' => 'Password awal wajib diisi.',
+            'password.min' => 'Password minimal 8 karakter.',
+            'password.max' => 'Password maksimal 100 karakter.',
+            'foto_profil.image' => 'Foto profil harus berupa file gambar.',
+            'foto_profil.mimes' => 'Foto profil hanya menerima format JPG, JPEG, PNG, atau WEBP.',
+            'foto_profil.max' => 'Ukuran foto profil maksimal 2 MB.',
         ]);
     }
 
@@ -230,42 +239,23 @@ class PengemudiController extends Controller
 
     private function normalizeStatus(array $payload): array
     {
-        $isVerified = $payload['status_verifikasi'] === 'terverifikasi';
-        $status = $isVerified ? $payload['status'] : 'nonaktif';
+        $status = $payload['status'];
 
         return [
             'status' => $status,
-            'status_aktif' => $isVerified && $status === 'aktif',
-            'forced_nonactive' => ! $isVerified && $payload['status'] === 'aktif',
+            'status_aktif' => $status === 'aktif',
         ];
     }
 
-    private function verificationAttributes(array $payload, ?Pengemudi $pengemudi, int $adminId): array
+    private function adminManagedVerificationAttributes(int $adminId, ?Pengemudi $pengemudi = null): array
     {
-        $statusVerifikasi = $payload['status_verifikasi'];
-        $catatan = filled($payload['catatan_verifikasi'] ?? null)
-            ? $payload['catatan_verifikasi']
-            : null;
-
-        return match ($statusVerifikasi) {
-            'terverifikasi' => [
-                'status_verifikasi' => 'terverifikasi',
-                'catatan_verifikasi' => $catatan,
-                'verified_at' => $pengemudi?->verified_at ?? now(),
-                'verified_by' => $adminId,
-            ],
-            'ditolak' => [
-                'status_verifikasi' => 'ditolak',
-                'catatan_verifikasi' => $catatan ?: 'Dokumen pengemudi perlu diperbarui sebelum bisa diaktifkan.',
-                'verified_at' => null,
-                'verified_by' => $adminId,
-            ],
-            default => [
-                'status_verifikasi' => 'menunggu',
-                'catatan_verifikasi' => $catatan,
-                'verified_at' => null,
-                'verified_by' => null,
-            ],
-        };
+        return [
+            // Akun pengemudi dibuat langsung oleh admin, jadi kolom legacy verifikasi
+            // diisi otomatis agar validasi penjadwalan lama tetap kompatibel.
+            'status_verifikasi' => 'terverifikasi',
+            'catatan_verifikasi' => null,
+            'verified_at' => $pengemudi?->verified_at ?? now(),
+            'verified_by' => $adminId,
+        ];
     }
 }

@@ -29,6 +29,13 @@ class MobileSettingsController extends Controller
         'baggage_free_item_count',
         'baggage_max_item_per_person',
         'baggage_extra_fee_per_item',
+        'baggage_small_item_fee',
+        'baggage_large_item_fee',
+        'baggage_large_vehicle_enabled',
+        'baggage_bicycle_fee',
+        'baggage_motorcycle_fee',
+        'baggage_heavy_item_fee',
+        'baggage_other_large_item_fee',
         'baggage_max_total_weight_per_vehicle',
     ];
 

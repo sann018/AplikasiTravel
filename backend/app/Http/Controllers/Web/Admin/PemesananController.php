@@ -120,6 +120,14 @@ class PemesananController extends Controller
                 return;
             }
 
+            if ($this->isGatewayPayment($lockedPemesanan)) {
+                // Status metode digital mengikuti gateway agar data pembayaran,
+                // tiket, dan laporan tidak berubah karena update manual admin.
+                throw ValidationException::withMessages([
+                    'status_pemesanan' => 'Status pemesanan dengan pembayaran digital tidak dapat diubah manual. Silakan gunakan detail pembayaran atau sinkronisasi sistem.',
+                ]);
+            }
+
             if (
                 $newStatus === 'terbayar'
                 && $lockedPemesanan->pembayaran?->metode_bayar === 'cash'
@@ -233,6 +241,19 @@ class PemesananController extends Controller
                 'status_pemesanan' => 'Perubahan status tidak valid untuk lifecycle pemesanan saat ini.',
             ]);
         }
+    }
+
+    private function isGatewayPayment(Pemesanan $pemesanan): bool
+    {
+        $payment = $pemesanan->pembayaran;
+
+        if (! $payment) {
+            return false;
+        }
+
+        $manualMethods = ['cash', 'transfer_manual', 'manual_transfer', 'bank_manual'];
+
+        return ! in_array($payment->metode_bayar, $manualMethods, true);
     }
 
     private function escapeLikeValue(string $value): string

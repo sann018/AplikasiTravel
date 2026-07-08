@@ -70,7 +70,7 @@
                                 <div class="travs-table-subcopy">{{ $item->deskripsi_jalur ?: 'Deskripsi jalur belum diisi' }}</div>
                             </td>
                             <td>Rp{{ number_format($item->harga_tiket, 0, ',', '.') }}</td>
-                            <td>{{ $item->estimasi_durasi_menit ? $item->estimasi_durasi_menit.' menit' : '-' }}</td>
+                            <td>{{ $item->durasi_label }}</td>
                             <td>
                                 <span class="travs-status-pill travs-status-{{ $item->status_aktif ? 'aktif' : 'nonaktif' }}">
                                     {{ $item->status_aktif ? 'Aktif' : 'Nonaktif' }}

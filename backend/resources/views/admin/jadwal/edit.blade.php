@@ -51,12 +51,24 @@
                     <select id="kendaraan_id" name="kendaraan_id" class="travs-select @error('kendaraan_id') is-invalid @enderror" required>
                         <option value="">Pilih kendaraan</option>
                         @foreach ($kendaraanOptions as $kendaraan)
-                            <option value="{{ $kendaraan->id }}" @selected(old('kendaraan_id', $jadwal->kendaraan_id) == $kendaraan->id)>
-                                {{ $kendaraan->merk_kendaraan }} ({{ $kendaraan->nomor_plat }}) - {{ $kendaraan->kapasitas_kursi }} kursi
+                            <option
+                                value="{{ $kendaraan->id }}"
+                                data-capacity="{{ (int) $kendaraan->kapasitas_kursi }}"
+                                data-layout='@json($kendaraan->getSeatLayoutConfig())'
+                                @selected(old('kendaraan_id', $jadwal->kendaraan_id) == $kendaraan->id)
+                            >
+                                {{ $kendaraan->label_armada }} - {{ $kendaraan->kapasitas_kursi }} kursi
                             </option>
                         @endforeach
                     </select>
                     @include('admin.partials.field-error', ['name' => 'kendaraan_id'])
+                </div>
+                <div class="travs-field travs-field-span-2">
+                    <label>Kursi yang Ditutup</label>
+                    <div class="travs-field-meta">Pengaturan ini khusus untuk jadwal ini. Kursi yang ditutup tampil abu-abu di aplikasi dan tidak bisa dipilih penumpang.</div>
+                    <div id="closed-seat-options" class="travs-seat-toggle-grid" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:12px;"></div>
+                    <div id="closed-seat-empty" class="travs-field-meta" style="margin-top:10px;">Pilih kendaraan terlebih dahulu untuk menampilkan nomor kursi.</div>
+                    @include('admin.partials.field-error', ['name' => 'kursi_ditutup'])
                 </div>
                 <div class="travs-field">
                     <label for="pengemudi_id">Pengemudi</label>
@@ -119,17 +131,68 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const routeSelect = document.getElementById('rute_id');
+            const vehicleSelect = document.getElementById('kendaraan_id');
+            const closedSeatOptions = document.getElementById('closed-seat-options');
+            const closedSeatEmpty = document.getElementById('closed-seat-empty');
             const departureInput = document.getElementById('waktu_berangkat');
             const departureDateInput = document.getElementById('tanggal_berangkat_display');
             const departureTimeInput = document.getElementById('jam_berangkat_display');
             const arrivalInput = document.getElementById('estimasi_tiba');
             const arrivalDisplayInput = document.getElementById('estimasi_tiba_display');
 
-            if (!routeSelect || !departureInput || !departureDateInput || !departureTimeInput || !arrivalInput || !arrivalDisplayInput) {
+            if (!routeSelect || !vehicleSelect || !closedSeatOptions || !closedSeatEmpty || !departureInput || !departureDateInput || !departureTimeInput || !arrivalInput || !arrivalDisplayInput) {
                 return;
             }
 
+            const selectedClosedSeats = new Set(@json($closedSeatNumbers ?? []));
             const pad = (value) => String(value).padStart(2, '0');
+
+            const renderClosedSeatOptions = () => {
+                closedSeatOptions.innerHTML = '';
+                const selectedOption = vehicleSelect.options[vehicleSelect.selectedIndex];
+                const capacity = Number(selectedOption?.dataset?.capacity || 0);
+
+                if (!capacity) {
+                    closedSeatEmpty.style.display = 'block';
+                    return;
+                }
+
+                closedSeatEmpty.style.display = 'none';
+
+                for (let seatNumber = 1; seatNumber <= capacity; seatNumber += 1) {
+                    const id = `kursi_ditutup_${seatNumber}`;
+                    const label = document.createElement('label');
+                    label.setAttribute('for', id);
+                    label.style.display = 'inline-flex';
+                    label.style.alignItems = 'center';
+                    label.style.gap = '8px';
+                    label.style.padding = '10px 14px';
+                    label.style.border = '1px solid #d8e1ef';
+                    label.style.borderRadius = '14px';
+                    label.style.background = '#f8fafc';
+                    label.style.fontWeight = '700';
+                    label.style.cursor = 'pointer';
+
+                    const input = document.createElement('input');
+                    input.type = 'checkbox';
+                    input.id = id;
+                    input.name = 'kursi_ditutup[]';
+                    input.value = String(seatNumber);
+                    input.checked = selectedClosedSeats.has(seatNumber);
+
+                    input.addEventListener('change', () => {
+                        if (input.checked) {
+                            selectedClosedSeats.add(seatNumber);
+                        } else {
+                            selectedClosedSeats.delete(seatNumber);
+                        }
+                    });
+
+                    label.appendChild(input);
+                    label.append(`Kursi ${seatNumber}`);
+                    closedSeatOptions.appendChild(label);
+                }
+            };
 
             const toDateTimeValue = (date) => {
                 return [
@@ -233,8 +296,10 @@
             };
 
             splitInitialDeparture();
+            renderClosedSeatOptions();
 
             routeSelect.addEventListener('change', refreshArrivalEstimate);
+            vehicleSelect.addEventListener('change', renderClosedSeatOptions);
             departureDateInput.addEventListener('input', refreshArrivalEstimate);
             departureTimeInput.addEventListener('input', refreshArrivalEstimate);
             departureTimeInput.addEventListener('blur', refreshArrivalEstimate);

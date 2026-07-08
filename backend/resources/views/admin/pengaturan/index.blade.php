@@ -24,6 +24,7 @@
         'booking' => 'Pemesanan',
         'payment' => 'Pembayaran',
         'baggage' => 'Bagasi',
+        'banner' => 'Banner Beranda',
     ];
 @endphp
 
@@ -406,6 +407,42 @@
                     </div>
                 </section>
 
+                {{-- Tarif kecil/besar tidak ditampilkan lagi karena versi ini memakai aturan berat + item agar lebih mudah dipahami admin. --}}
+                <section class="travs-settings-subsection">
+                    <div class="travs-settings-subsection-head">
+                        <h4>Barang Besar / Kendaraan</h4>
+                        <p>Tarif ini dipakai untuk barang khusus yang masuk bagasi, seperti sepeda, motor, atau beko.</p>
+                    </div>
+                    <div class="travs-switch-grid mb-3">
+                        <div class="travs-switch-card">
+                            <div>
+                                <strong>Tarif Barang Besar</strong>
+                                <p>{{ $settingValue('baggage_large_vehicle_enabled') ? 'Tarif khusus sedang aktif.' : 'Tarif khusus sedang nonaktif.' }}</p>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input type="hidden" name="baggage_large_vehicle_enabled" value="0">
+                                <input class="form-check-input" type="checkbox" role="switch" id="baggage_large_vehicle_enabled" name="baggage_large_vehicle_enabled" value="1" @checked($settingValue('baggage_large_vehicle_enabled'))>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row g-3">
+                        @foreach ([
+                            'baggage_bicycle_fee' => 'Sepeda',
+                            'baggage_motorcycle_fee' => 'Sepeda Motor',
+                            'baggage_heavy_item_fee' => 'Beko / Barang Berat',
+                        ] as $key => $label)
+                            <div class="col-md-3">
+                                <label class="form-label" for="{{ $key }}">{{ $label }}</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">Rp</span>
+                                    <input id="{{ $key }}" name="{{ $key }}" type="number" min="0" step="0.01" class="form-control @error($key) is-invalid @enderror" value="{{ $settingValue($key) }}" required>
+                                </div>
+                                @include('admin.partials.field-error', ['name' => $key])
+                            </div>
+                        @endforeach
+                    </div>
+                </section>
+
                 <section class="travs-settings-subsection">
                     <div class="travs-settings-subsection-head"><h4>Batas Kendaraan</h4></div>
                     <div class="row g-3">
@@ -439,6 +476,15 @@
                             <div class="input-group"><input id="simulation_item" type="number" min="0" step="1" class="form-control" value="0" data-simulation-item><span class="input-group-text">item</span></div>
                         </div>
                         <div class="col-md-3">
+                            <label class="form-label" for="simulation_large_type">Barang Besar</label>
+                            <select id="simulation_large_type" class="form-control" data-simulation-large-type>
+                                <option value="">Tidak ada</option>
+                                <option value="baggage_bicycle_fee">Sepeda</option>
+                                <option value="baggage_motorcycle_fee">Sepeda motor</option>
+                                <option value="baggage_heavy_item_fee">Beko / barang berat</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
                             <div class="travs-simulation-result"><span>Estimasi tambahan</span><strong data-simulation-result>Rp0</strong></div>
                         </div>
                     </div>
@@ -450,6 +496,93 @@
                 </div>
                 </div>
             </form>
+
+            <section id="settings-banner" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="banner" data-collapsible-section @if ($activeTab !== 'banner') hidden @endif>
+                <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
+                    <div>
+                        <span class="travs-eyebrow">Banner Beranda</span>
+                        <h3>Informasi Beranda Aplikasi</h3>
+                        <p>Kelola gambar promo atau informasi yang tampil di beranda tamu dan penumpang.</p>
+                    </div>
+                    @include('admin.partials.collapsible-toggle', ['targetId' => 'settings-banner-body'])
+                </div>
+
+                <div id="settings-banner-body" class="collapsible-section__body" data-collapse-body>
+                    <div class="row g-4 travs-banner-manager-row">
+                        <div class="col-xl-4">
+                            <form method="POST" action="{{ route('admin.banner.store') }}" enctype="multipart/form-data" class="travs-settings-subsection mt-0">
+                                @csrf
+                                <div class="travs-settings-subsection-head">
+                                    <h4>Tambah Banner</h4>
+                                    <p>Banner aktif akan dibaca API yang sama oleh aplikasi mobile.</p>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" for="banner_judul">Judul</label>
+                                    <input id="banner_judul" name="judul" class="form-control @error('judul') is-invalid @enderror" value="{{ old('judul') }}" maxlength="120" required>
+                                    @include('admin.partials.field-error', ['name' => 'judul'])
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" for="banner_subjudul">Keterangan Singkat</label>
+                                    <textarea id="banner_subjudul" name="subjudul" class="form-control @error('subjudul') is-invalid @enderror" rows="3" maxlength="255">{{ old('subjudul') }}</textarea>
+                                    @include('admin.partials.field-error', ['name' => 'subjudul'])
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" for="banner_gambar">Gambar Banner</label>
+                                    <input id="banner_gambar" name="gambar" type="file" accept="image/jpeg,image/png,image/webp" class="form-control @error('gambar') is-invalid @enderror" data-banner-image-input required>
+                                    <div class="form-text">JPG, JPEG, PNG, atau WEBP. Maksimal 3 MB.</div>
+                                    @include('admin.partials.field-error', ['name' => 'gambar'])
+                                    <img class="travs-banner-preview d-none" alt="Preview banner" data-banner-image-preview>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label" for="banner_urutan">Urutan Tampil</label>
+                                    <input id="banner_urutan" name="urutan" type="number" min="0" max="999" class="form-control @error('urutan') is-invalid @enderror" value="{{ old('urutan', 0) }}" required>
+                                    @include('admin.partials.field-error', ['name' => 'urutan'])
+                                </div>
+                                <div class="form-check form-switch travs-switch-inline travs-banner-switch mb-4">
+                                    <input type="hidden" name="aktif" value="0">
+                                    <input class="form-check-input" type="checkbox" id="banner_aktif" name="aktif" value="1" @checked((bool) old('aktif', true))>
+                                    <label class="form-check-label" for="banner_aktif">Tampilkan di aplikasi</label>
+                                </div>
+                                <button class="travs-button w-100" type="submit">Simpan Banner</button>
+                            </form>
+                        </div>
+
+                        <div class="col-xl-8">
+                            <section class="travs-settings-subsection mt-0">
+                                <div class="travs-settings-subsection-head">
+                                    <h4>Daftar Banner</h4>
+                                    <p>Urutan terkecil tampil lebih awal pada carousel mobile.</p>
+                                </div>
+                                <div class="row g-3 travs-banner-list-grid">
+                                    @forelse ($banners as $banner)
+                                        <div class="col-md-6">
+                                            <article class="travs-banner-card">
+                                                <img src="{{ asset('storage/'.$banner->gambar_path) }}" class="travs-banner-card-image travs-photo-preview-trigger" alt="{{ $banner->judul }}" data-preview-src="{{ asset('storage/'.$banner->gambar_path) }}">
+                                                <div class="travs-banner-card-body">
+                                                    <div>
+                                                        <strong>{{ $banner->judul }}</strong>
+                                                        <p>{{ $banner->subjudul ?: 'Tanpa keterangan' }}</p>
+                                                    </div>
+                                                    <span class="travs-status-pill travs-status-{{ $banner->aktif ? 'aktif' : 'nonaktif' }}">{{ $banner->aktif ? 'Aktif' : 'Nonaktif' }}</span>
+                                                </div>
+                                                <form method="POST" action="{{ route('admin.banner.destroy', $banner) }}" onsubmit="return confirm('Hapus banner ini?')">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <button class="travs-button-link travs-button-link-danger" type="submit">Hapus</button>
+                                                </form>
+                                            </article>
+                                        </div>
+                                    @empty
+                                        <div class="col-12">
+                                            <p class="travs-empty-inline">Belum ada banner beranda.</p>
+                                        </div>
+                                    @endforelse
+                                </div>
+                            </section>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
         </div>
     </div>
@@ -510,12 +643,17 @@
                 const itemCost = document.querySelector('#baggage_item_enabled')?.checked
                     ? Math.max(0, numberValue('[data-simulation-item]') - numberValue('#baggage_free_item_count')) * numberValue('#baggage_extra_fee_per_item')
                     : 0;
-                const total = weightCost + sizeCost + itemCost;
+                const largeTypeKey = document.querySelector('[data-simulation-large-type]')?.value;
+                const largeTypeCost = document.querySelector('#baggage_large_vehicle_enabled')?.checked && largeTypeKey
+                    ? numberValue(`#${largeTypeKey}`)
+                    : 0;
+                const total = weightCost + sizeCost + itemCost + largeTypeCost;
                 const output = document.querySelector('[data-simulation-result]');
                 if (output) output.textContent = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(total);
             };
             // Simulasi ini hanya untuk tampilan admin; perhitungan final tetap dilakukan backend.
-            document.querySelectorAll('[data-baggage-simulator] input').forEach((input) => input.addEventListener('input', calculateBaggage));
+            document.querySelectorAll('[data-baggage-simulator] input, [data-baggage-simulator] select').forEach((input) => input.addEventListener('input', calculateBaggage));
+            document.querySelectorAll('[data-baggage-simulator] select').forEach((input) => input.addEventListener('change', calculateBaggage));
             document.querySelectorAll('[data-rule-toggle]').forEach((input) => input.addEventListener('change', calculateBaggage));
             calculateBaggage();
 
@@ -531,6 +669,15 @@
                 temporaryLogoUrl = URL.createObjectURL(file);
                 wrapper.hidden = false;
                 image.src = temporaryLogoUrl;
+            });
+
+            const bannerInput = document.querySelector('[data-banner-image-input]');
+            const bannerPreview = document.querySelector('[data-banner-image-preview]');
+            bannerInput?.addEventListener('change', () => {
+                const file = bannerInput.files?.[0];
+                if (!file || !bannerPreview) return;
+                bannerPreview.src = URL.createObjectURL(file);
+                bannerPreview.classList.remove('d-none');
             });
         });
     </script>

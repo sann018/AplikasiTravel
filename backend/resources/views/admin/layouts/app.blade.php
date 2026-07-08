@@ -37,8 +37,7 @@
             [
                 'label' => 'Sistem',
                 'items' => [
-                    ['label' => 'Pengaturan', 'route' => 'admin.settings.index', 'active' => 'admin.settings.*|admin.pengaturan.*', 'icon' => 'settings'],
-                    ['label' => 'Banner Beranda', 'route' => 'admin.banner.index', 'active' => 'admin.banner.*', 'icon' => 'image'],
+                    ['label' => 'Pengaturan', 'route' => 'admin.settings.index', 'active' => 'admin.settings.*|admin.pengaturan.*|admin.banner.*', 'icon' => 'settings'],
                     ['label' => 'Notifikasi Admin', 'route' => 'admin.notifikasi.admin', 'active' => 'admin.notifikasi.admin*', 'icon' => 'bell'],
                     ['label' => 'Log Notifikasi User', 'route' => 'admin.notifikasi.user', 'active' => 'admin.notifikasi.user*', 'icon' => 'message-square'],
                 ],

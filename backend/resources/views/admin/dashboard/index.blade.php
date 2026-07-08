@@ -8,7 +8,7 @@
     @php
         $today = now()->toDateString();
         $completionRate = $stats['jumlah_pengemudi'] > 0
-            ? round(($stats['pengemudi_terverifikasi'] / max($stats['jumlah_pengemudi'], 1)) * 100)
+            ? round(($stats['pengemudi_aktif'] / max($stats['jumlah_pengemudi'], 1)) * 100)
             : 0;
         $maxPendapatan = max($pendapatanHarian->max('total'), 1);
         $dashboardTabs = [
@@ -74,15 +74,22 @@
                         <strong>{{ number_format($stats['booking_menunggu']) }}</strong>
                         <span>Perlu tindak lanjut</span>
                     </a>
-                    <a href="{{ route('admin.pengemudi.index', ['status_verifikasi' => 'terverifikasi']) }}" class="travs-summary-card travs-summary-link" aria-label="Buka pengemudi terverifikasi">
-                        <small>Driver Terverifikasi</small>
-                        <strong>{{ number_format($stats['pengemudi_terverifikasi']) }}</strong>
+                    <a href="{{ route('admin.pengemudi.index', ['status' => 'aktif']) }}" class="travs-summary-card travs-summary-link" aria-label="Buka pengemudi aktif">
+                        <small>Driver Aktif</small>
+                        <strong>{{ number_format($stats['pengemudi_aktif']) }}</strong>
                         <span>{{ $completionRate }}% dari total driver</span>
                     </a>
-                    <a href="{{ route('admin.biaya.index', ['tanggal_mulai' => $today, 'tanggal_selesai' => $today]) }}" class="travs-summary-card travs-summary-link" aria-label="Buka biaya operasional hari ini">
-                        <small>Biaya Hari Ini</small>
-                        <strong>Rp{{ number_format($stats['biaya_harian'], 0, ',', '.') }}</strong>
-                        <span>Pengeluaran operasional</span>
+                    <a href="{{ route('admin.biaya.index', ['tanggal_mulai' => $today, 'tanggal_selesai' => $today]) }}" class="travs-summary-card travs-summary-link travs-summary-card-multi travs-summary-card-finance" aria-label="Buka ringkasan keuangan operasional hari ini">
+                        <small>Keuangan Hari Ini</small>
+                        <span class="travs-summary-card-row travs-summary-income">
+                            <em>Pendapatan</em>
+                            <strong>Rp{{ number_format($stats['pendapatan_harian'], 0, ',', '.') }}</strong>
+                        </span>
+                        <span class="travs-summary-card-row travs-summary-cost">
+                            <em>Biaya</em>
+                            <strong>Rp{{ number_format($stats['biaya_harian'], 0, ',', '.') }}</strong>
+                        </span>
+                        <span>Pemasukan dan pengeluaran operasional</span>
                     </a>
                         </div>
                     </div>
@@ -104,15 +111,15 @@
                             <strong>{{ number_format($stats['booking_menunggu']) }} booking menunggu pembayaran</strong>
                             <p>Buka daftar untuk memeriksa status pembayaran.</p>
                         </a>
-                        <a href="{{ route('admin.pengemudi.index', ['status_verifikasi' => 'terverifikasi']) }}" class="travs-dashboard-focus-item">
-                            <span class="travs-status-pill travs-status-terverifikasi">Driver</span>
-                            <strong>{{ number_format($stats['pengemudi_terverifikasi']) }} driver terverifikasi</strong>
+                        <a href="{{ route('admin.pengemudi.index', ['status' => 'aktif']) }}" class="travs-dashboard-focus-item">
+                            <span class="travs-status-pill travs-status-aktif">Driver</span>
+                            <strong>{{ number_format($stats['pengemudi_aktif']) }} driver aktif</strong>
                             <p>Siap dipilih saat admin membuat jadwal.</p>
                         </a>
                         <a href="{{ route('admin.biaya.index', ['tanggal_mulai' => $today, 'tanggal_selesai' => $today]) }}" class="travs-dashboard-focus-item">
                             <span class="travs-status-pill travs-status-qris">Operasional</span>
-                            <strong>Biaya hari ini Rp{{ number_format($stats['biaya_harian'], 0, ',', '.') }}</strong>
-                            <p>Buka pencatatan biaya operasional hari ini.</p>
+                            <strong>Pendapatan Rp{{ number_format($stats['pendapatan_harian'], 0, ',', '.') }} · Biaya Rp{{ number_format($stats['biaya_harian'], 0, ',', '.') }}</strong>
+                            <p>Buka ringkasan keuangan operasional hari ini.</p>
                         </a>
                     </div>
                 </article>
@@ -252,7 +259,7 @@
                                     <tr>
                                         <td>{{ $jadwal->waktu_berangkat->format('H:i') }}</td>
                                         <td>{{ $jadwal->rute->kota_asal }} - {{ $jadwal->rute->kota_tujuan }}</td>
-                                        <td>{{ $jadwal->kendaraan->nomor_plat }}</td>
+                                        <td>{{ $jadwal->kendaraan->label_armada }}</td>
                                         <td>{{ $jadwal->kursi->where('status_kursi', 'tersedia')->count() }} tersedia</td>
                                     </tr>
                                 @empty

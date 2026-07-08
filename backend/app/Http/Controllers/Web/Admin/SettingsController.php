@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\HomeBanner;
 use App\Services\LogoImageService;
 use App\Services\SettingService;
 use Illuminate\Http\RedirectResponse;
@@ -26,6 +27,7 @@ class SettingsController extends Controller
             'booking' => 'Pemesanan',
             'payment' => 'Pembayaran',
             'baggage' => 'Bagasi',
+            'banner' => 'Banner Beranda',
         ];
 
         $activeTab = $request->string('tab')->toString();
@@ -38,6 +40,7 @@ class SettingsController extends Controller
             'groupLabels' => $groupLabels,
             'activeTab' => $activeTab,
             'adminUser' => $request->user(),
+            'banners' => HomeBanner::query()->orderBy('urutan')->latest('id')->get(),
         ]);
     }
 
@@ -149,6 +152,7 @@ class SettingsController extends Controller
             'baggage_size_enabled',
             'baggage_item_enabled',
             'baggage_photo_required',
+            'baggage_large_vehicle_enabled',
         ]);
 
         $validated = $request->validate([
@@ -165,6 +169,10 @@ class SettingsController extends Controller
             'baggage_free_item_count' => ['required', 'integer', 'min:0', 'lte:baggage_max_item_per_person'],
             'baggage_max_item_per_person' => ['required', 'integer', 'min:0'],
             'baggage_extra_fee_per_item' => ['required', 'numeric', 'min:0'],
+            'baggage_large_vehicle_enabled' => ['required', 'boolean'],
+            'baggage_bicycle_fee' => ['required', 'numeric', 'min:0'],
+            'baggage_motorcycle_fee' => ['required', 'numeric', 'min:0'],
+            'baggage_heavy_item_fee' => ['required', 'numeric', 'min:0'],
             'baggage_max_total_weight_per_vehicle' => ['required', 'numeric', 'gt:0'],
         ], [
             ...$this->numericMessages(),

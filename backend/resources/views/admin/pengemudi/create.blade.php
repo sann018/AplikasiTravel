@@ -31,7 +31,7 @@
             <div class="travs-form-grid-2">
                 <div class="travs-field">
                     <label for="nama">Nama Lengkap</label>
-                    <input id="nama" name="nama" class="travs-input @error('nama') is-invalid @enderror" value="{{ old('nama') }}" required placeholder="Contoh: Budi Santoso">
+                    <input id="nama" name="nama" class="travs-input @error('nama') is-invalid @enderror" value="{{ old('nama') }}" required placeholder="Contoh: Subianto">
                     @include('admin.partials.field-error', ['name' => 'nama'])
                 </div>
                 <div class="travs-field">
@@ -71,24 +71,10 @@
                     </select>
                     @include('admin.partials.field-error', ['name' => 'status'])
                 </div>
-                <div class="travs-field">
-                    <label for="status_verifikasi">Status Verifikasi</label>
-                    <select id="status_verifikasi" name="status_verifikasi" class="travs-select @error('status_verifikasi') is-invalid @enderror" required>
-                        <option value="menunggu" @selected(old('status_verifikasi', 'menunggu') === 'menunggu')>Menunggu Verifikasi</option>
-                        <option value="terverifikasi" @selected(old('status_verifikasi') === 'terverifikasi')>Terverifikasi</option>
-                        <option value="ditolak" @selected(old('status_verifikasi') === 'ditolak')>Ditolak</option>
-                    </select>
-                    @include('admin.partials.field-error', ['name' => 'status_verifikasi'])
-                </div>
                 <div class="travs-field travs-field-span-2">
                     <label for="password">Password Awal</label>
                     <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror" placeholder="Minimal 8 karakter">
                     @include('admin.partials.field-error', ['name' => 'password'])
-                </div>
-                <div class="travs-field travs-field-span-2">
-                    <label for="catatan_verifikasi">Catatan Verifikasi</label>
-                    <textarea id="catatan_verifikasi" name="catatan_verifikasi" class="travs-textarea @error('catatan_verifikasi') is-invalid @enderror" placeholder="Catatan admin untuk hasil verifikasi dokumen pengemudi">{{ old('catatan_verifikasi') }}</textarea>
-                    @include('admin.partials.field-error', ['name' => 'catatan_verifikasi'])
                 </div>
             </div>
 

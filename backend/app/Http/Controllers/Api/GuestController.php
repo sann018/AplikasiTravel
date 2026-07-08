@@ -61,7 +61,9 @@ class GuestController extends Controller
                 'sisa_kursi' => $kursiTersedia,
                 'kapasitas' => $item->kendaraan->kapasitas_kursi,
                 'estimasi_durasi_menit' => $item->rute->estimasi_durasi_menit,
+                'durasi_label' => $item->rute->durasi_label,
                 'kendaraan' => [
+                    'label' => $item->kendaraan->label_armada,
                     'merk' => $item->kendaraan->merk_kendaraan,
                     'plat' => $item->kendaraan->nomor_plat,
                     'warna' => $item->kendaraan->warna,

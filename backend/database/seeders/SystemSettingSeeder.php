@@ -43,6 +43,15 @@ class SystemSettingSeeder extends Seeder
             ['group' => 'baggage', 'key' => 'baggage_free_item_count', 'value' => '2', 'type' => 'integer', 'description' => 'Jumlah item bagasi yang tidak dikenai biaya.'],
             ['group' => 'baggage', 'key' => 'baggage_max_item_per_person', 'value' => '10', 'type' => 'integer', 'description' => 'Jumlah item bagasi maksimal per penumpang.'],
             ['group' => 'baggage', 'key' => 'baggage_extra_fee_per_item', 'value' => '2500', 'type' => 'float', 'description' => 'Biaya tambahan setiap item di atas batas gratis.'],
+            // Key lama ini tetap disimpan untuk kompatibilitas data lama, tetapi tidak dipakai lagi di UI dan perhitungan versi ini.
+            ['group' => 'baggage', 'key' => 'baggage_small_item_fee', 'value' => '5000', 'type' => 'float', 'description' => 'Biaya item kecil yang masuk bagasi setelah kuota gratis habis.'],
+            ['group' => 'baggage', 'key' => 'baggage_large_item_fee', 'value' => '10000', 'type' => 'float', 'description' => 'Biaya item besar yang masuk bagasi setelah kuota gratis habis.'],
+            ['group' => 'baggage', 'key' => 'baggage_large_vehicle_enabled', 'value' => '0', 'type' => 'boolean', 'description' => 'Aktifkan tarif khusus barang besar seperti sepeda, motor, atau beko.'],
+            ['group' => 'baggage', 'key' => 'baggage_bicycle_fee', 'value' => '0', 'type' => 'float', 'description' => 'Tarif khusus sepeda yang masuk bagasi.'],
+            ['group' => 'baggage', 'key' => 'baggage_motorcycle_fee', 'value' => '0', 'type' => 'float', 'description' => 'Tarif khusus sepeda motor yang ikut diangkut.'],
+            ['group' => 'baggage', 'key' => 'baggage_heavy_item_fee', 'value' => '0', 'type' => 'float', 'description' => 'Tarif khusus beko atau barang berat.'],
+            // Field barang besar lainnya juga disimpan agar seeding lama aman, tetapi tidak ditampilkan lagi di pengaturan.
+            ['group' => 'baggage', 'key' => 'baggage_other_large_item_fee', 'value' => '0', 'type' => 'float', 'description' => 'Tarif khusus barang besar lainnya.'],
             ['group' => 'baggage', 'key' => 'baggage_max_total_weight_per_vehicle', 'value' => '50', 'type' => 'float', 'description' => 'Batas total berat bagasi dalam satu kendaraan.'],
 
             ['group' => 'notification', 'key' => 'notif_departure_reminder', 'value' => 'true', 'type' => 'boolean', 'description' => 'Mengaktifkan pengingat keberangkatan.'],

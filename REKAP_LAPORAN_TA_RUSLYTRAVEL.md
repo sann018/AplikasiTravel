@@ -1,6 +1,7 @@
 # Rekap Sistem dan Bahan Laporan Tugas Akhir RuslyTravel
 
-Tanggal penyusunan: 24 Juni 2026
+Tanggal penyusunan awal: 24 Juni 2026  
+Pembaruan terakhir: 8 Juli 2026
 
 Dokumen ini dibuat sebagai bahan utama penyusunan Laporan Tugas Akhir berdasarkan:
 
@@ -928,3 +929,356 @@ Poin yang perlu dipahami:
 Berdasarkan analisis frontend, backend, dan dokumentasi project, sistem RuslyTravel sudah berkembang dari rancangan proposal menjadi aplikasi yang memiliki tiga bagian utama: aplikasi mobile, backend API, dan web admin. Sistem telah mencakup proses utama bisnis travel lintas kota, mulai dari pengelolaan rute dan jadwal, pemilihan kursi, pemesanan, pembayaran, tiket QR, manifest pengemudi, sampai laporan admin.
 
 Untuk laporan TA, dokumen ini dapat dijadikan bahan dasar BAB I sampai BAB IV. Bagian yang paling perlu dirapikan selanjutnya adalah penyusunan narasi akademik sesuai template, penyisipan gambar antarmuka, diagram arsitektur, relasi database, serta tabel hasil pengujian black box.
+
+## 28. Addendum Sinkronisasi BAB IV dan BAB V - 28 Juni 2026
+
+Bagian ini menyatukan hasil analisis proposal, template laporan, kode backend Laravel, kode frontend Flutter, dan dokumen markdown project agar bahan BAB IV dan BAB V tidak saling bertentangan.
+
+Catatan penting yang perlu dijaga konsisten dalam laporan:
+
+- Sistem autentikasi yang berjalan saat ini adalah autentikasi lokal menggunakan akun, email/nomor HP, password, token API, dan role.
+- Login Google/OAuth belum menjadi implementasi sistem.
+- Reset password sudah disiapkan dengan alur token/email-ready, tetapi SMS OTP belum diterapkan karena membutuhkan layanan SMS gateway berbayar.
+- Tracking GPS real-time kendaraan belum menjadi implementasi sistem.
+- WebSocket realtime penuh untuk notifikasi belum diterapkan. Notifikasi yang ada lebih tepat dijelaskan sebagai notifikasi berbasis API/polling/refresh data.
+- Payment gateway Pakasir pada kebutuhan demo dijelaskan sebagai mode simulasi atau integrasi terbatas, bukan klaim transaksi production penuh.
+- Fitur yang belum diterapkan tetap boleh ditulis pada bagian saran pengembangan, bukan sebagai fitur yang sudah selesai.
+
+### 28.1 Kesesuaian Rancangan Proposal dan Implementasi
+
+| Rancangan pada Proposal | Status pada Kode Project | Bukti Implementasi |
+|---|---|---|
+| Aplikasi mobile untuk penumpang dan pengemudi | Sudah ada. Implementasi juga menambahkan mode tamu. | `frontend/lib/features/home/travs_home_page.dart`, `frontend/lib/features/auth/travs_auth_page.dart` |
+| Backend API Laravel | Sudah ada. API mobile didefinisikan pada route API. | `backend/routes/api.php`, `backend/app/Http/Controllers/Api` |
+| Web admin | Sudah ada untuk pengelolaan operasional. | `backend/routes/web.php`, `backend/resources/views/admin` |
+| Pengelolaan rute | Sudah ada. | `backend/app/Http/Controllers/Web/Admin/RuteController.php`, `backend/app/Models/Rute.php` |
+| Pengelolaan armada kendaraan | Sudah ada. | `backend/app/Http/Controllers/Web/Admin/KendaraanController.php`, `backend/app/Models/Kendaraan.php` |
+| Pengelolaan pengemudi | Sudah ada. | `backend/app/Http/Controllers/Web/Admin/PengemudiController.php`, `backend/app/Models/Pengemudi.php` |
+| Pengelolaan jadwal perjalanan | Sudah ada, termasuk relasi rute, kendaraan, dan pengemudi. | `backend/app/Http/Controllers/Web/Admin/JadwalController.php`, `backend/app/Models/Jadwal.php` |
+| Pemesanan tiket travel | Sudah ada. | `backend/app/Http/Controllers/Api/BookingController.php`, `backend/app/Services/BookingService.php` |
+| Penguncian kursi sementara | Sudah ada melalui data kursi jadwal dan service booking. | `backend/app/Models/KursiJadwal.php`, `backend/app/Services/BookingService.php` |
+| Pembayaran digital dan tunai | Sudah ada. Digital melalui Pakasir/simulasi, tunai melalui konfirmasi manual. | `backend/app/Services/PakasirService.php`, `backend/app/Models/Pembayaran.php` |
+| Tiket elektronik QR Code | Sudah ada. | `backend/app/Models/TiketElektronik.php`, `frontend/lib/features/ticket/travs_ticket_detail_page.dart` |
+| Manifest pengemudi dan scan QR | Sudah ada. | `backend/app/Http/Controllers/Api/DriverController.php`, `frontend/lib/features/home/travs_home_page.dart` |
+| Pencatatan barang bawaan | Sudah ada, termasuk perhitungan biaya bagasi dan foto barang. | `backend/app/Services/BaggageCalculatorService.php`, `backend/app/Models/ItemBagasi.php` |
+| Notifikasi | Sudah ada, tetapi bukan WebSocket realtime penuh. | `backend/app/Http/Controllers/Api/NotificationController.php`, `backend/app/Models/Notifikasi.php` |
+| Laporan admin | Sudah ada. | `backend/app/Http/Controllers/Web/Admin/LaporanController.php`, `backend/resources/views/admin/laporan` |
+
+### 28.2 Fitur Tambahan yang Perlu Dijelaskan pada BAB IV
+
+Beberapa fitur berkembang dari rancangan awal proposal dan perlu dijelaskan sebagai hasil pengembangan implementasi:
+
+- Mode tamu untuk melihat informasi awal tanpa login.
+- Banner beranda yang dikelola admin.
+- Pengaturan sistem untuk beberapa konfigurasi aplikasi.
+- Rate limit untuk mengurangi spam request.
+- Notifikasi operasional admin.
+- Upload logo aplikasi, foto profil, foto kendaraan, dan foto barang bawaan.
+- Pengajuan biaya operasional dari pengemudi dengan status verifikasi.
+- Validasi bentrok jadwal pengemudi dan kendaraan.
+
+### 28.3 Fitur yang Sebaiknya Masuk Saran, Bukan Klaim Implementasi
+
+Fitur berikut tidak dijadikan klaim implementasi utama:
+
+- Login Google/OAuth.
+- SMS OTP produksi.
+- Tracking GPS real-time kendaraan.
+- WebSocket realtime penuh.
+- Refund otomatis.
+- Komplain otomatis.
+- Reschedule mandiri penumpang.
+- Deployment production penuh dengan transaksi payment gateway nyata.
+
+## 29. Draft Narasi BAB IV Hasil dan Pembahasan
+
+# BAB IV HASIL DAN PEMBAHASAN
+
+## 4.1 Gambaran Umum Sistem
+
+RuslyTravel merupakan aplikasi pemesanan jasa transportasi umum lintas kota berbasis mobile yang dikembangkan untuk membantu proses operasional Rusly Travel. Sistem ini dibangun menggunakan aplikasi mobile Flutter, backend Laravel, database relasional, dan web admin berbasis Laravel Blade. Aplikasi mobile digunakan oleh tamu, penumpang, dan pengemudi, sedangkan web admin digunakan oleh pihak admin untuk mengelola data operasional.
+
+Sistem ini mendukung proses pengelolaan rute, armada kendaraan, pengemudi, jadwal perjalanan, pemesanan tiket, pembayaran, pencatatan barang bawaan, penerbitan tiket elektronik QR Code, manifest pengemudi, notifikasi, biaya operasional, laporan, banner beranda, dan pengaturan sistem. Dengan adanya sistem ini, proses pemesanan yang sebelumnya dilakukan secara manual dapat dibuat lebih terstruktur karena data pemesanan, kursi, pembayaran, dan tiket tersimpan dalam satu sistem.
+
+[Masukkan Gambar: Arsitektur Sistem RuslyTravel]
+
+Hak akses pengguna dibagi menjadi empat role utama:
+
+1. Tamu, yaitu pengguna yang belum login dan dapat melihat informasi awal seperti rute dan jadwal terbatas.
+2. Penumpang, yaitu pengguna yang dapat melakukan pemesanan, pembayaran, melihat tiket, dan mengelola profil.
+3. Pengemudi, yaitu pengguna yang dapat melihat jadwal tugas, manifest penumpang, scan QR tiket, serta melihat riwayat perjalanan.
+4. Admin, yaitu pengguna web admin yang mengelola data operasional sistem.
+
+## 4.2 Implementasi Sistem
+
+### 4.2.1 Implementasi Backend Laravel
+
+Backend sistem dikembangkan menggunakan Laravel. Backend menyediakan API untuk aplikasi mobile dan route web untuk dashboard admin. Route API dapat ditemukan pada `backend/routes/api.php`, sedangkan route web admin terdapat pada `backend/routes/web.php`.
+
+Controller API yang digunakan antara lain `AuthController`, `BookingController`, `DriverController`, `GuestController`, `PassengerController`, `NotificationController`, dan `PaymentGatewayController`. Controller web admin berada pada folder `backend/app/Http/Controllers/Web/Admin`, seperti `DashboardController`, `KendaraanController`, `PengemudiController`, `RuteController`, `JadwalController`, `PemesananController`, `PembayaranController`, `BiayaOperasionalController`, `LaporanController`, `HomeBannerController`, `NotifikasiController`, dan `SettingsController`.
+
+Backend juga menggunakan service class untuk memisahkan logika bisnis agar controller tidak terlalu penuh. Beberapa service penting adalah `BookingService`, `BaggageCalculatorService`, `PakasirService`, `SettingService`, `DriverAvailabilityService`, `ScheduleLifecycleService`, dan `AdminOperationalNotificationService`.
+
+### 4.2.2 Implementasi Aplikasi Mobile Flutter
+
+Aplikasi mobile dikembangkan menggunakan Flutter. Struktur aplikasi berada pada folder `frontend/lib`. Halaman autentikasi terdapat pada `frontend/lib/features/auth/travs_auth_page.dart`, sedangkan halaman utama role pengguna banyak diatur pada `frontend/lib/features/home/travs_home_page.dart`.
+
+Aplikasi mobile memiliki beberapa halaman utama, yaitu halaman login/register, beranda tamu, beranda penumpang, daftar rute, detail jadwal, form pemesanan, pembayaran, tiket digital, profil, beranda pengemudi, manifest pengemudi, scan QR, dan riwayat perjalanan. Komunikasi antara Flutter dan backend dilakukan melalui service API pada `frontend/lib/core/services/travs_api_service.dart`.
+
+[Masukkan Gambar: Halaman Login Mobile]  
+[Masukkan Gambar: Beranda Penumpang]  
+[Masukkan Gambar: Beranda Pengemudi]
+
+### 4.2.3 Implementasi Web Admin
+
+Web admin dikembangkan menggunakan Laravel Blade dan Bootstrap. View admin berada pada folder `backend/resources/views/admin`. Web admin digunakan untuk mengelola data operasional seperti kendaraan, pengemudi, rute, jadwal, pemesanan, pembayaran, biaya operasional, laporan, notifikasi, banner, dan pengaturan sistem.
+
+Dashboard admin menampilkan ringkasan operasional. Halaman armada digunakan untuk mengelola kendaraan. Halaman pengemudi digunakan untuk mengelola akun dan identitas pengemudi. Halaman jadwal digunakan untuk memasangkan rute, kendaraan, dan pengemudi dalam satu jadwal perjalanan.
+
+[Masukkan Gambar: Dashboard Admin]  
+[Masukkan Gambar: Halaman Armada Kendaraan]  
+[Masukkan Gambar: Halaman Jadwal Perjalanan]
+
+### 4.2.4 Implementasi Database
+
+Database sistem dibuat menggunakan migration Laravel. Entitas utama yang digunakan antara lain `users`, `rute`, `kendaraan`, `pengemudi`, `jadwal`, `kursi_jadwal`, `pemesanan`, `detail_pemesanan`, `pembayaran`, `tiket_elektronik`, `item_bagasi`, `notifikasi`, `biaya_operasional_perjalanan`, dan `system_settings`.
+
+Relasi utama sistem adalah satu jadwal memiliki satu rute, satu kendaraan, dan satu pengemudi. Satu pemesanan terhubung dengan satu jadwal dan memiliki detail pemesanan per kursi. Pembayaran terhubung dengan pemesanan, sedangkan tiket elektronik terhubung dengan detail pemesanan.
+
+[Masukkan Gambar: Relasi Database]
+
+### 4.2.5 Implementasi Pemesanan dan Seat Lock
+
+Pemesanan ditangani oleh `BookingController` dan `BookingService`. Sistem memiliki mekanisme penguncian kursi sementara melalui tabel `kursi_jadwal`. Saat penumpang memilih kursi, kursi dapat dikunci dalam waktu tertentu agar tidak dipilih oleh penumpang lain secara bersamaan.
+
+Seat lock membantu mengurangi risiko pemesanan ganda. Jika waktu pemesanan atau pembayaran habis, sistem dapat melepas kursi agar kembali tersedia.
+
+### 4.2.6 Implementasi Pembayaran
+
+Pembayaran dikelola melalui model `Pembayaran`, controller `PaymentGatewayController`, dan service `PakasirService`. Sistem mendukung pembayaran digital melalui Pakasir/simulasi dan pembayaran tunai. Pembayaran digital mengikuti status dari gateway atau proses sinkronisasi sistem, sedangkan pembayaran tunai dapat dikonfirmasi oleh admin atau pengemudi sesuai alur sistem.
+
+Pada laporan TA, Pakasir sebaiknya dijelaskan sebagai mode simulasi atau integrasi terbatas untuk kebutuhan demo lokal. Jika sistem akan digunakan secara production, maka pengujian transaksi nyata dan konfigurasi payment gateway production perlu dilakukan kembali.
+
+### 4.2.7 Implementasi Tiket Elektronik QR Code
+
+Tiket elektronik disimpan pada model `TiketElektronik`. Tiket berisi kode QR yang digunakan sebagai bukti keberangkatan. Penumpang dapat melihat tiket digital pada aplikasi mobile, sedangkan pengemudi dapat melakukan scan QR untuk memvalidasi kehadiran penumpang.
+
+Fitur ini membantu menggantikan tiket kertas yang mudah hilang atau rusak.
+
+### 4.2.8 Implementasi Manifest Pengemudi
+
+Manifest pengemudi ditangani oleh `DriverController`. Pengemudi dapat melihat daftar penumpang berdasarkan jadwal yang ditugaskan. Data manifest berisi informasi penumpang, nomor kursi, status pembayaran, status kehadiran, titik jemput, titik turun, dan informasi barang bawaan jika tersedia.
+
+Pengemudi juga dapat melakukan scan tiket QR untuk mengubah status kehadiran penumpang. Setelah perjalanan selesai, jadwal dapat masuk ke riwayat perjalanan pengemudi.
+
+### 4.2.9 Implementasi Laporan dan Pengaturan Sistem
+
+Laporan admin dikelola melalui `LaporanController` dan view pada folder `backend/resources/views/admin/laporan`. Laporan yang tersedia meliputi laporan pemesanan dan laporan transaksi. Biaya operasional juga dikelola pada modul tersendiri agar admin dapat mencatat pengeluaran perjalanan.
+
+Pengaturan sistem dikelola melalui `SettingsController`, `SettingService`, dan model `SystemSetting`. Modul ini digunakan untuk menyimpan konfigurasi sistem seperti identitas aplikasi, aturan pemesanan, pembayaran tunai, dan aturan bagasi.
+
+## 4.3 Pengujian Sistem
+
+Pengujian sistem diarahkan menggunakan metode Black Box Testing. Pengujian dilakukan dengan mengamati input, proses, dan output sistem tanpa membahas kode program secara langsung.
+
+[Masukkan Tabel: Pengujian Black Box]
+
+| No | Fitur yang Diuji | Skenario Pengujian | Data Uji | Hasil yang Diharapkan | Hasil Aktual | Status |
+|---:|---|---|---|---|---|---|
+| 1 | Login | User memasukkan akun valid | Email/no HP dan password benar | User masuk sesuai role | Perlu diuji langsung | Perlu diuji |
+| 2 | Register penumpang | Penumpang mengisi form daftar | Nama, email, no HP, password | Akun penumpang berhasil dibuat | Perlu diuji langsung | Perlu diuji |
+| 3 | Mode tamu | User memilih lanjut sebagai tamu | Tanpa akun | Beranda tamu tampil | Perlu diuji langsung | Perlu diuji |
+| 4 | Melihat rute dan jadwal | User membuka daftar rute | Rute aktif | Jadwal tersedia tampil | Perlu diuji langsung | Perlu diuji |
+| 5 | Memilih kursi | Penumpang memilih kursi tersedia | Nomor kursi | Kursi terkunci sementara | Perlu diuji langsung | Perlu diuji |
+| 6 | Pemesanan | Penumpang mengisi data pemesanan | Data penumpang, kursi, lokasi | Pemesanan berhasil dibuat | Perlu diuji langsung | Perlu diuji |
+| 7 | Titik jemput/turun | Penumpang mengisi lokasi | Alamat/koordinat/patokan | Lokasi tersimpan pada pemesanan | Perlu diuji langsung | Perlu diuji |
+| 8 | Barang bawaan | Penumpang mengisi data bagasi | Berat, item, foto | Biaya bagasi dihitung | Perlu diuji langsung | Perlu diuji |
+| 9 | Pembayaran digital | Penumpang memilih QRIS/transfer | Metode digital | Status pembayaran diproses | Perlu diuji langsung | Perlu diuji |
+| 10 | Pembayaran tunai | Penumpang memilih tunai | Metode tunai | Status menunggu konfirmasi | Perlu diuji langsung | Perlu diuji |
+| 11 | Tiket digital | Penumpang membuka tiket | Pemesanan terbayar | QR tiket tampil | Perlu diuji langsung | Perlu diuji |
+| 12 | Scan QR | Pengemudi scan tiket valid | QR tiket | Status hadir berubah | Perlu diuji langsung | Perlu diuji |
+| 13 | Kelola kendaraan | Admin tambah/edit kendaraan | Data kendaraan | Kendaraan tersimpan | Perlu diuji langsung | Perlu diuji |
+| 14 | Kelola pengemudi | Admin tambah/edit pengemudi | Data pengemudi | Pengemudi tersimpan | Perlu diuji langsung | Perlu diuji |
+| 15 | Kelola rute | Admin tambah/edit rute | Data rute | Rute tersimpan | Perlu diuji langsung | Perlu diuji |
+| 16 | Kelola jadwal | Admin membuat jadwal | Rute, kendaraan, pengemudi, waktu | Jadwal tersimpan | Perlu diuji langsung | Perlu diuji |
+| 17 | Detail pemesanan admin | Admin membuka detail pemesanan | Kode pemesanan | Detail lengkap tampil | Perlu diuji langsung | Perlu diuji |
+| 18 | Laporan admin | Admin membuka laporan | Filter periode | Laporan tampil sesuai filter | Perlu diuji langsung | Perlu diuji |
+
+Project juga memiliki test otomatis pada backend dan Flutter. Namun untuk laporan, hasil aktual pengujian tetap perlu diisi berdasarkan pengujian langsung pada aplikasi yang berjalan.
+
+## 4.4 Analisis Hasil dan Evaluasi
+
+Berdasarkan implementasi kode, sistem RuslyTravel telah menjawab masalah utama pada proses pemesanan manual. Sistem membantu penumpang melihat jadwal, memilih kursi, membuat pemesanan, melakukan pembayaran, dan memperoleh tiket digital. Sistem juga membantu mengurangi risiko pemesanan ganda melalui mekanisme seat lock.
+
+Bagi pengemudi, sistem membantu melihat jadwal tugas, manifest penumpang, titik jemput, titik turun, status pembayaran, dan validasi tiket QR. Bagi admin, sistem membantu mengelola data operasional dan memantau pemesanan, pembayaran, biaya operasional, notifikasi, dan laporan.
+
+Keterbatasan sistem yang perlu ditulis secara jujur adalah belum adanya Login Google/OAuth, OTP SMS produksi, tracking GPS real-time kendaraan, WebSocket realtime penuh, refund otomatis, dan komplain otomatis. Fitur-fitur tersebut tidak mengurangi fungsi utama sistem, tetapi dapat menjadi arah pengembangan selanjutnya.
+
+## 30. Draft Narasi BAB V Penutup
+
+# BAB V PENUTUP
+
+## 5.1 Kesimpulan
+
+Berdasarkan hasil implementasi dan pembahasan, dapat disimpulkan bahwa:
+
+1. Sistem RuslyTravel berhasil dirancang sebagai aplikasi pemesanan jasa transportasi umum lintas kota berbasis mobile dengan dukungan backend Laravel dan web admin.
+2. Sistem menyediakan fitur utama untuk penumpang, pengemudi, tamu, dan admin, seperti pengelolaan rute, armada, pengemudi, jadwal perjalanan, pemesanan, pembayaran, tiket elektronik QR Code, manifest pengemudi, notifikasi, biaya operasional, laporan, banner, dan pengaturan sistem.
+3. Mekanisme pemilihan kursi dan seat lock membantu mengurangi risiko kursi dipesan oleh lebih dari satu penumpang pada waktu yang bersamaan.
+4. Tiket elektronik berbasis QR Code membantu menggantikan bukti pemesanan kertas sehingga lebih mudah ditampilkan, disimpan, dan diverifikasi.
+5. Web admin membantu pihak Rusly Travel mengelola data operasional dan memantau aktivitas pemesanan secara lebih terstruktur.
+6. Sistem belum mencakup beberapa fitur lanjutan seperti Login Google/OAuth, OTP SMS produksi, tracking GPS real-time kendaraan, dan WebSocket realtime penuh, sehingga fitur tersebut dapat dijadikan saran pengembangan.
+
+## 5.2 Saran
+
+Saran pengembangan sistem RuslyTravel ke depan adalah:
+
+1. Mengintegrasikan payment gateway production secara penuh jika sistem akan digunakan untuk transaksi nyata.
+2. Menambahkan push notification menggunakan Firebase Cloud Messaging atau layanan serupa agar notifikasi dapat diterima pengguna tanpa harus membuka aplikasi.
+3. Menambahkan tracking GPS real-time kendaraan jika kebutuhan operasional travel sudah memerlukan pemantauan posisi kendaraan.
+4. Menambahkan Login Google/OAuth atau OTP SMS apabila tersedia kebutuhan dan anggaran layanan pihak ketiga.
+5. Menyempurnakan export laporan Excel/CSV agar laporan lebih siap digunakan untuk administrasi perusahaan.
+6. Menambahkan backup database berkala untuk menjaga keamanan data operasional.
+7. Menambahkan audit log yang lebih lengkap untuk mencatat aktivitas penting admin.
+8. Melakukan pengujian langsung bersama penumpang, pengemudi, dan admin Rusly Travel agar sistem dapat dievaluasi berdasarkan kondisi penggunaan nyata.
+
+## 31. Checklist Sinkronisasi Dokumen Laporan
+
+Gunakan checklist ini agar isi laporan tidak bertentangan dengan kondisi project:
+
+- [ ] BAB IV menyebut sistem memakai auth lokal, bukan Google/OAuth.
+- [ ] BAB IV menyebut SMS OTP belum diterapkan dan dapat menjadi saran pengembangan.
+- [ ] BAB IV menyebut notifikasi tersedia, tetapi bukan WebSocket realtime penuh.
+- [ ] BAB IV menyebut GPS dipakai untuk titik jemput/turun, bukan tracking kendaraan realtime.
+- [ ] BAB IV menyebut Pakasir sebagai simulasi/integrasi terbatas jika belum diuji production.
+- [ ] BAB IV menampilkan bukti implementasi dari file controller, model, service, route, dan view.
+- [ ] Tabel pengujian tidak mengarang hasil aktual; gunakan “Perlu diuji langsung” jika belum diuji.
+- [ ] BAB V hanya menyimpulkan fitur yang benar-benar dibahas pada BAB IV.
+- [ ] Saran BAB V berisi fitur lanjutan yang memang belum menjadi implementasi utama.
+
+## 32. File Bukti Implementasi yang Bisa Dirujuk
+
+Backend Laravel:
+
+- `backend/routes/api.php`
+- `backend/routes/web.php`
+- `backend/app/Http/Controllers/Api/AuthController.php`
+- `backend/app/Http/Controllers/Api/BookingController.php`
+- `backend/app/Http/Controllers/Api/DriverController.php`
+- `backend/app/Http/Controllers/Api/NotificationController.php`
+- `backend/app/Http/Controllers/Api/PaymentGatewayController.php`
+- `backend/app/Http/Controllers/Web/Admin/JadwalController.php`
+- `backend/app/Http/Controllers/Web/Admin/PemesananController.php`
+- `backend/app/Http/Controllers/Web/Admin/KendaraanController.php`
+- `backend/app/Http/Controllers/Web/Admin/PengemudiController.php`
+- `backend/app/Services/BookingService.php`
+- `backend/app/Services/BaggageCalculatorService.php`
+- `backend/app/Services/PakasirService.php`
+- `backend/app/Services/SettingService.php`
+
+Frontend Flutter:
+
+- `frontend/lib/features/auth/travs_auth_page.dart`
+- `frontend/lib/features/home/travs_home_page.dart`
+- `frontend/lib/features/schedule/travs_schedule_detail_page.dart`
+- `frontend/lib/features/booking/travs_booking_detail_page.dart`
+- `frontend/lib/features/payment/travs_payment_preview_page.dart`
+- `frontend/lib/features/ticket/travs_ticket_detail_page.dart`
+- `frontend/lib/features/pickup/travs_pickup_map_picker_page.dart`
+- `frontend/lib/core/services/travs_api_service.dart`
+- `frontend/lib/core/theme/travs_theme.dart`
+
+Database dan model:
+
+- `backend/database/migrations`
+- `backend/app/Models/Pemesanan.php`
+- `backend/app/Models/Pembayaran.php`
+- `backend/app/Models/TiketElektronik.php`
+- `backend/app/Models/Jadwal.php`
+- `backend/app/Models/Kendaraan.php`
+- `backend/app/Models/Pengemudi.php`
+- `backend/app/Models/ItemBagasi.php`
+- `backend/app/Models/Notifikasi.php`
+
+Pengujian:
+
+- `backend/tests/Feature/BookingFlowTest.php`
+- `backend/tests/Feature/PaymentGatewayTest.php`
+- `backend/tests/Feature/DriverOperationsTest.php`
+- `backend/tests/Feature/AdminOperationsTest.php`
+- `backend/tests/Feature/NotificationApiTest.php`
+- `frontend/test`
+
+## 33. Pembaruan Sistem per 8 Juli 2026
+
+Bagian ini mencatat perubahan terbaru yang perlu ikut dipertimbangkan saat menyusun BAB IV dan BAB V laporan tugas akhir.
+
+### 33.1 Validasi dan Manajemen Pengemudi
+
+Menu Pengemudi pada web admin sudah disederhanakan karena akun pengemudi dibuat langsung oleh admin. Fitur verifikasi manual tidak lagi ditampilkan pada daftar, filter, maupun form tambah/edit pengemudi. Field lama terkait verifikasi tetap dipertahankan pada database untuk menjaga kompatibilitas data lama, tetapi proses admin sekarang otomatis menyiapkan pengemudi agar siap dipilih pada jadwal.
+
+Pesan validasi form pengemudi juga sudah menggunakan Bahasa Indonesia yang lebih ramah. Contohnya, email duplikat tidak lagi menampilkan pesan bawaan framework, tetapi menampilkan keterangan bahwa email sudah digunakan akun lain.
+
+File terkait:
+
+- `backend/app/Http/Controllers/Web/Admin/PengemudiController.php`
+- `backend/resources/views/admin/pengemudi/index.blade.php`
+- `backend/resources/views/admin/pengemudi/create.blade.php`
+- `backend/resources/views/admin/pengemudi/edit.blade.php`
+
+### 33.2 Detail Pemesanan dan Pembayaran
+
+Teks pada halaman Detail Pemesanan admin sudah dibuat lebih ramah. Istilah teknis seperti gateway dan status digital manual tidak ditonjolkan kepada admin. Penjelasan pembayaran digital diarahkan menjadi bahwa status pembayaran diperbarui otomatis setelah konfirmasi dari layanan pembayaran, sedangkan pembayaran tunai tetap dapat dikonfirmasi sesuai alur sistem.
+
+File terkait:
+
+- `backend/resources/views/admin/pemesanan/show.blade.php`
+- `backend/app/Http/Controllers/Web/Admin/PemesananController.php`
+- `backend/app/Http/Controllers/Web/Admin/PembayaranController.php`
+
+### 33.3 Export Laporan
+
+Export Laporan Pemesanan dan Laporan Transaksi sudah dirapikan. Format utama yang disediakan adalah:
+
+- `Export Excel` untuk laporan rapi dalam format `.xls`.
+- `Export CSV` untuk data mentah.
+
+Format `.xlsx` tidak ditampilkan pada laporan utama agar fitur lebih sederhana dan tidak membutuhkan dependency tambahan. Export `.xls` dibuat lebih formal dengan identitas `RUSLY TRAVEL`, judul laporan, periode, pencetak, tanggal cetak, header berwarna navy, border tabel, alignment, wrap text, format tanggal, format Rupiah, dan ringkasan total jika tersedia.
+
+File terkait:
+
+- `backend/app/Http/Controllers/Web/Admin/LaporanController.php`
+- `backend/resources/views/admin/laporan/pemesanan.blade.php`
+- `backend/resources/views/admin/laporan/transaksi.blade.php`
+
+### 33.4 Banner Beranda
+
+Pengelolaan Banner Beranda sudah dipindahkan ke halaman Pengaturan Sistem sebagai tab `Banner Beranda`. Menu sidebar khusus Banner Beranda tidak lagi ditampilkan agar struktur menu lebih ringkas. Route dan API banner tetap dipertahankan agar aplikasi mobile tamu dan penumpang tetap membaca data banner dari endpoint yang sama.
+
+Tampilan daftar banner di web admin juga diperbaiki. Pada desktop, area daftar banner memakai sekitar dua pertiga lebar konten agar ukuran foto tidak melebar berlebihan. Gambar banner ditampilkan dengan rasio 16:9, ukuran responsif, dan preview tetap dapat dibuka. Jarak toggle dengan teks `Tampilkan di aplikasi` juga dirapikan agar mudah dibaca.
+
+File terkait:
+
+- `backend/app/Http/Controllers/Web/Admin/HomeBannerController.php`
+- `backend/app/Http/Controllers/Web/Admin/SettingsController.php`
+- `backend/resources/views/admin/pengaturan/index.blade.php`
+- `backend/resources/views/admin/layouts/app.blade.php`
+- `backend/resources/css/app.css`
+
+### 33.5 Notifikasi
+
+Teks ringkasan yang tidak terlalu penting pada halaman Notifikasi admin dan Log Notifikasi User sudah disederhanakan. Fungsi notifikasi tidak diubah; perubahan hanya pada teks tampilan agar halaman lebih bersih.
+
+File terkait:
+
+- `backend/resources/views/admin/notifikasi/index.blade.php`
+
+### 33.6 Pengujian Terbaru
+
+Pengujian backend terakhir yang dijalankan:
+
+- `php -l` pada controller admin yang diubah: berhasil tanpa error sintaks.
+- `php artisan test --filter=AdminOperationsTest`: 19 test berhasil.
+- `php artisan test`: 164 test berhasil dengan 886 assertion.
+
+Pengujian Flutter tidak dijalankan pada pembaruan ini karena perubahan utama sesi ini berada pada web admin dan backend. Sinkronisasi banner ke aplikasi mobile tetap dijaga melalui API yang sama dan telah tercakup oleh test backend `HomeBannerFeatureTest`.

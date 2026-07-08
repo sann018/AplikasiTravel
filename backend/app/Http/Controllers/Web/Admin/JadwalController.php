@@ -112,7 +112,7 @@ class JadwalController extends Controller
     public function edit(Request $request, Jadwal $jadwal): View
     {
         $this->scheduleLifecycleService->closeSingleIfPastBookingWindow($jadwal);
-        $jadwal->load(['kendaraan', 'rute', 'pengemudi']);
+        $jadwal->load(['kendaraan', 'rute', 'pengemudi', 'kursi']);
         $pengemudiOptions = Pengemudi::query()
             ->with('pengguna')
             ->where('status', 'aktif')
@@ -136,6 +136,7 @@ class JadwalController extends Controller
                 ->where('status_aktif', true)
                 ->orderBy('kota_asal')
                 ->get(),
+            'closedSeatNumbers' => $this->closedSeatNumbersFromRequestOrSchedule($request, $jadwal),
         ]);
     }
 
@@ -143,9 +144,12 @@ class JadwalController extends Controller
     {
         $payload = $this->validatedPayload($request);
 
-        DB::transaction(function () use ($payload) {
+        $closedSeatNumbers = $payload['kursi_ditutup'] ?? [];
+        unset($payload['kursi_ditutup']);
+
+        DB::transaction(function () use ($payload, $closedSeatNumbers) {
             $jadwal = Jadwal::query()->create($payload);
-            $this->syncSeatMap($jadwal->fresh('kendaraan'));
+            $this->syncSeatMap($jadwal->fresh('kendaraan'), $closedSeatNumbers);
         });
 
         return redirect()
@@ -157,7 +161,10 @@ class JadwalController extends Controller
     {
         $payload = $this->validatedPayload($request, $jadwal);
 
-        DB::transaction(function () use ($jadwal, $payload) {
+        $closedSeatNumbers = $payload['kursi_ditutup'] ?? [];
+        unset($payload['kursi_ditutup']);
+
+        DB::transaction(function () use ($jadwal, $payload, $closedSeatNumbers) {
             $lockedJadwal = Jadwal::query()
                 ->lockForUpdate()
                 ->findOrFail($jadwal->id);
@@ -169,10 +176,8 @@ class JadwalController extends Controller
 
             $lockedJadwal->update($payload);
 
-            if ($vehicleChanged) {
-                $lockedJadwal->load('kendaraan');
-                $this->syncSeatMap($lockedJadwal);
-            }
+            $lockedJadwal->load('kendaraan');
+            $this->syncSeatMap($lockedJadwal, $closedSeatNumbers);
 
             if ($driverChanged) {
                 $this->notifyAssignedDriver($lockedJadwal);
@@ -208,6 +213,8 @@ class JadwalController extends Controller
             'pengemudi_id' => ['required', 'exists:pengemudi,id'],
             'waktu_berangkat' => ['required', 'date'],
             'status' => ['required', Rule::in(['draft', 'dibuka', 'ditutup', 'berangkat', 'selesai', 'dibatalkan'])],
+            'kursi_ditutup' => ['nullable', 'array'],
+            'kursi_ditutup.*' => ['integer', 'min:1'],
         ], [
             'kendaraan_id.required' => 'Kendaraan wajib dipilih.',
             'kendaraan_id.exists' => 'Kendaraan yang dipilih tidak ditemukan.',
@@ -219,6 +226,9 @@ class JadwalController extends Controller
             'waktu_berangkat.date' => 'Format waktu berangkat tidak valid.',
             'status.required' => 'Status jadwal wajib dipilih.',
             'status.in' => 'Status jadwal yang dipilih tidak valid.',
+            'kursi_ditutup.array' => 'Kursi yang ditutup harus berupa daftar nomor kursi.',
+            'kursi_ditutup.*.integer' => 'Nomor kursi yang ditutup harus berupa angka.',
+            'kursi_ditutup.*.min' => 'Nomor kursi yang ditutup tidak valid.',
         ]);
 
         $rute = Rute::query()->findOrFail($validated['rute_id']);
@@ -243,11 +253,15 @@ class JadwalController extends Controller
             ]);
         }
 
+        $closedSeats = $this->normalizeClosedSeats($validated['kursi_ditutup'] ?? [], (int) $kendaraan->kapasitas_kursi);
+        $this->ensureClosedSeatsCanBeApplied($closedSeats, $currentJadwal);
+        $validated['kursi_ditutup'] = $closedSeats;
+
         $pengemudi = Pengemudi::query()->findOrFail($validated['pengemudi_id']);
 
         if ($pengemudi->status !== 'aktif' || $pengemudi->status_verifikasi !== 'terverifikasi') {
             throw ValidationException::withMessages([
-                'pengemudi_id' => 'Pengemudi harus aktif dan sudah diverifikasi sebelum dimasukkan ke jadwal.',
+                'pengemudi_id' => 'Pengemudi harus berstatus aktif sebelum dimasukkan ke jadwal.',
             ]);
         }
 
@@ -319,28 +333,106 @@ class JadwalController extends Controller
         }
     }
 
-    private function syncSeatMap(Jadwal $jadwal): void
+    private function normalizeClosedSeats(array $seatNumbers, int $capacity): array
+    {
+        $closedSeats = collect($seatNumbers)
+            ->map(fn ($seatNumber) => (int) $seatNumber)
+            ->filter(fn (int $seatNumber) => $seatNumber >= 1 && $seatNumber <= $capacity)
+            ->unique()
+            ->sort()
+            ->values()
+            ->all();
+
+        if (count($closedSeats) >= $capacity) {
+            throw ValidationException::withMessages([
+                'kursi_ditutup' => 'Minimal harus ada satu kursi yang tetap bisa dipesan.',
+            ]);
+        }
+
+        return $closedSeats;
+    }
+
+    private function ensureClosedSeatsCanBeApplied(array $closedSeats, ?Jadwal $currentJadwal = null): void
+    {
+        if (! $currentJadwal || empty($closedSeats)) {
+            return;
+        }
+
+        $currentJadwal->loadMissing('kursi.detailPemesanan');
+        $blockedSeats = $currentJadwal->kursi
+            ->filter(function (KursiJadwal $seat) use ($closedSeats) {
+                return in_array((int) $seat->nomor_kursi, $closedSeats, true)
+                    && (
+                        in_array($seat->status_kursi, ['terkunci', 'dipesan'], true)
+                        || $seat->detailPemesanan !== null
+                    );
+            })
+            ->pluck('nomor_kursi')
+            ->sort()
+            ->values()
+            ->all();
+
+        if (! empty($blockedSeats)) {
+            throw ValidationException::withMessages([
+                'kursi_ditutup' => 'Kursi '.implode(', ', $blockedSeats).' sudah dikunci atau dipesan, sehingga tidak bisa ditutup.',
+            ]);
+        }
+    }
+
+    private function closedSeatNumbersFromRequestOrSchedule(Request $request, Jadwal $jadwal): array
+    {
+        if ($request->old('kursi_ditutup') !== null) {
+            return collect($request->old('kursi_ditutup', []))
+                ->map(fn ($seatNumber) => (int) $seatNumber)
+                ->filter(fn (int $seatNumber) => $seatNumber > 0)
+                ->values()
+                ->all();
+        }
+
+        return $jadwal->kursi
+            ->where('status_kursi', 'nonaktif')
+            ->pluck('nomor_kursi')
+            ->map(fn ($seatNumber) => (int) $seatNumber)
+            ->values()
+            ->all();
+    }
+
+    private function syncSeatMap(Jadwal $jadwal, array $closedSeatNumbers = []): void
     {
         $kapasitas = (int) $jadwal->kendaraan->kapasitas_kursi;
+        $closedSeats = collect($closedSeatNumbers)
+            ->map(fn ($seatNumber) => (int) $seatNumber)
+            ->filter(fn (int $seatNumber) => $seatNumber >= 1 && $seatNumber <= $kapasitas)
+            ->unique()
+            ->values();
         $now = now();
 
         for ($seatNumber = 1; $seatNumber <= $kapasitas; $seatNumber++) {
-            KursiJadwal::query()->firstOrCreate(
+            $seat = KursiJadwal::query()->firstOrCreate(
                 [
                     'jadwal_id' => $jadwal->id,
                     'nomor_kursi' => $seatNumber,
                 ],
                 [
-                    'status_kursi' => 'tersedia',
+                    'status_kursi' => $closedSeats->contains($seatNumber) ? 'nonaktif' : 'tersedia',
                     'updated_at' => $now,
                 ],
             );
+
+            // Kursi yang ditutup berlaku per jadwal, bukan permanen di armada.
+            // Kursi yang sudah dipesan/dikunci tidak diubah agar data penumpang tetap aman.
+            if (! in_array($seat->status_kursi, ['terkunci', 'dipesan'], true) && ! $seat->detailPemesanan()->exists()) {
+                $seat->update([
+                    'status_kursi' => $closedSeats->contains($seatNumber) ? 'nonaktif' : 'tersedia',
+                    'updated_at' => $now,
+                ]);
+            }
         }
 
         KursiJadwal::query()
             ->where('jadwal_id', $jadwal->id)
             ->where('nomor_kursi', '>', $kapasitas)
-            ->where('status_kursi', 'tersedia')
+            ->whereIn('status_kursi', ['tersedia', 'nonaktif'])
             ->doesntHave('detailPemesanan')
             ->delete();
     }

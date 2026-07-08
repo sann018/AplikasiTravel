@@ -64,7 +64,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('jadwal_id')->constrained('jadwal')->cascadeOnDelete();
             $table->unsignedInteger('nomor_kursi');
-            $table->enum('status_kursi', ['tersedia', 'terkunci', 'dipesan'])->default('tersedia');
+            $table->enum('status_kursi', ['tersedia', 'terkunci', 'dipesan', 'nonaktif'])->default('tersedia');
             $table->foreignId('dikunci_oleh')->nullable()->constrained('pengguna')->nullOnDelete();
             $table->dateTime('locked_at')->nullable();
             $table->dateTime('lock_expires_at')->nullable();

@@ -30,9 +30,13 @@
                 <p>Pilih status dan rentang tanggal untuk menampilkan laporan booking yang dibutuhkan.</p>
             </div>
 
-            <a href="{{ route('admin.laporan.pemesanan.export', request()->query()) }}" class="travs-button">
-                Export CSV
-            </a>
+            <details class="travs-export-menu">
+                <summary>Export Data</summary>
+                <div class="travs-export-menu__list">
+                    <a href="{{ route('admin.laporan.pemesanan.export', array_merge(request()->query(), ['format' => 'xls'])) }}">Export Excel</a>
+                    <a href="{{ route('admin.laporan.pemesanan.export', array_merge(request()->query(), ['format' => 'csv'])) }}">Export CSV</a>
+                </div>
+            </details>
         </div>
 
         <form method="GET" class="travs-filter-grid">

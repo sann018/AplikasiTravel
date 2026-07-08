@@ -86,7 +86,7 @@
                                 <div class="travs-table-subcopy">{{ $item->waktu_berangkat->format('H:i') }} &middot; {{ ucfirst($item->status) }}</div>
                             </td>
                             <td>{{ $item->rute->kota_asal }} - {{ $item->rute->kota_tujuan }}</td>
-                            <td>{{ $item->kendaraan->nomor_plat }}</td>
+                            <td>{{ $item->kendaraan->label_armada }}</td>
                             <td>{{ $item->pengemudi->pengguna->nama }}</td>
                             <td>{{ $item->kursi_tersedia }} tersedia / {{ $item->pemesanan_count }} booking</td>
                             <td>

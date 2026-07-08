@@ -42,6 +42,7 @@ class BookingController extends Controller
                     'jalur' => $jadwal->rute->deskripsi_jalur,
                     'harga_tiket' => (float) $jadwal->rute->harga_tiket,
                     'durasi_menit' => $jadwal->rute->estimasi_durasi_menit,
+                    'durasi_label' => $jadwal->rute->durasi_label,
                 ],
                 'kendaraan' => $this->formatVehicle($jadwal),
                 'pengemudi' => $this->formatDriver($jadwal),
@@ -78,6 +79,13 @@ class BookingController extends Controller
                     'free_item_count' => (int) $this->settingService->get('baggage_free_item_count', 0),
                     'max_item_per_person' => (int) $this->settingService->get('baggage_max_item_per_person', 0),
                     'extra_fee_per_item' => (float) $this->settingService->get('baggage_extra_fee_per_item', 0),
+                    'small_item_fee' => (float) $this->settingService->get('baggage_small_item_fee', $this->settingService->get('baggage_extra_fee_per_item', 0)),
+                    'large_item_fee' => (float) $this->settingService->get('baggage_large_item_fee', $this->settingService->get('baggage_extra_fee_per_item', 0)),
+                    'large_vehicle_enabled' => (bool) $this->settingService->get('baggage_large_vehicle_enabled', false),
+                    'bicycle_fee' => (float) $this->settingService->get('baggage_bicycle_fee', 0),
+                    'motorcycle_fee' => (float) $this->settingService->get('baggage_motorcycle_fee', 0),
+                    'heavy_item_fee' => (float) $this->settingService->get('baggage_heavy_item_fee', 0),
+                    'other_large_item_fee' => (float) $this->settingService->get('baggage_other_large_item_fee', 0),
                     'photo_required' => (bool) $this->settingService->get('baggage_photo_required', false),
                 ],
             ],
@@ -89,9 +97,13 @@ class BookingController extends Controller
         $validated = $request->validate([
             'jadwal_id' => ['required', 'integer', 'exists:jadwal,id'],
             'seat_count' => ['required', 'integer', 'min:1'],
+            'passenger_count' => ['nullable', 'integer', 'min:1'],
             'baggage_items' => ['nullable', 'array'],
             'baggage_items.*.deskripsi_item' => ['required_with:baggage_items', 'string', 'max:255'],
             'baggage_items.*.metode_hitung' => ['nullable', 'string', 'in:berat,ukuran'],
+            'baggage_items.*.posisi_barang' => ['nullable', 'string', 'in:dipegang_sendiri,masuk_bagasi'],
+            'baggage_items.*.kategori_ukuran' => ['nullable', 'string', 'in:kecil,besar'],
+            'baggage_items.*.jenis_barang_besar' => ['nullable', 'string', 'in:sepeda,sepeda_motor,beko,lainnya'],
             'baggage_items.*.berat_kg' => ['nullable', 'numeric', 'min:0'],
             'baggage_items.*.ukuran_cm' => ['nullable', 'integer', 'min:0'],
             'baggage_items.*.panjang_cm' => ['nullable', 'integer', 'min:0'],
@@ -116,6 +128,7 @@ class BookingController extends Controller
             $schedule,
             (int) $validated['seat_count'],
             $validated['baggage_items'] ?? [],
+            (int) ($validated['passenger_count'] ?? $validated['seat_count']),
         );
 
         return response()->json([
@@ -165,6 +178,9 @@ class BookingController extends Controller
             'baggage_items' => ['nullable', 'array'],
             'baggage_items.*.deskripsi_item' => ['required_with:baggage_items', 'string', 'max:255'],
             'baggage_items.*.metode_hitung' => ['nullable', 'string', 'in:berat,ukuran'],
+            'baggage_items.*.posisi_barang' => ['nullable', 'string', 'in:dipegang_sendiri,masuk_bagasi'],
+            'baggage_items.*.kategori_ukuran' => ['nullable', 'string', 'in:kecil,besar'],
+            'baggage_items.*.jenis_barang_besar' => ['nullable', 'string', 'in:sepeda,sepeda_motor,beko,lainnya'],
             'baggage_items.*.berat_kg' => ['nullable', 'numeric', 'min:0'],
             'baggage_items.*.ukuran_cm' => ['nullable', 'integer', 'min:0'],
             'baggage_items.*.panjang_cm' => ['nullable', 'integer', 'min:0'],
@@ -397,11 +413,15 @@ class BookingController extends Controller
             'baggage_items' => $booking->itemBagasi->map(fn ($item) => [
                 'deskripsi_item' => $item->deskripsi_item,
                 'metode_hitung' => $item->metode_hitung,
+                'posisi_barang' => $item->posisi_barang ?? 'masuk_bagasi',
+                'kategori_ukuran' => $item->kategori_ukuran ?? 'besar',
+                'jenis_barang_besar' => $item->jenis_barang_besar,
                 'berat_kg' => $item->berat_kg !== null ? (float) $item->berat_kg : null,
                 'ukuran_cm' => $item->ukuran_cm,
                 'panjang_cm' => $item->panjang_cm,
                 'lebar_cm' => $item->lebar_cm,
                 'jumlah_item' => $item->jumlah_item,
+                'biaya_item' => (float) ($item->biaya_item ?? 0),
                 'foto_url' => $item->foto_url,
                 'foto_urls' => $this->baggagePhotoUrls($item),
             ])->all(),
@@ -438,11 +458,13 @@ class BookingController extends Controller
         }
 
         return [
+            'label' => $kendaraan->label_armada,
             'merk' => $kendaraan->merk_kendaraan,
             'plat' => $kendaraan->nomor_plat,
             'warna' => $kendaraan->warna,
             'tipe' => $kendaraan->tipe_kendaraan,
             'kapasitas' => (int) $kendaraan->kapasitas_kursi,
+            'seat_layout' => $kendaraan->getSeatLayoutConfig(),
             'fasilitas' => $kendaraan->fasilitas,
             'foto_url' => $this->publicStorageUrl($kendaraan->foto_kendaraan),
         ];

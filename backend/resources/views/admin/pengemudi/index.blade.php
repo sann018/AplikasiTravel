@@ -21,11 +21,6 @@
             <strong>{{ number_format($stats['nonaktif']) }}</strong>
             <span>Belum dijadwalkan</span>
         </article>
-        <article class="travs-summary-card">
-            <small>Terverifikasi</small>
-            <strong>{{ number_format($stats['terverifikasi']) }}</strong>
-            <span>Sudah lolos validasi admin</span>
-        </article>
     </section>
 
     <section class="travs-section-card">
@@ -48,15 +43,6 @@
                     <option value="">Semua status</option>
                     <option value="aktif" @selected(($filters['status'] ?? '') === 'aktif')>Aktif</option>
                     <option value="nonaktif" @selected(($filters['status'] ?? '') === 'nonaktif')>Nonaktif</option>
-                </select>
-            </div>
-            <div class="travs-field">
-                <label for="status_verifikasi_filter">Verifikasi</label>
-                <select id="status_verifikasi_filter" name="status_verifikasi" class="travs-select">
-                    <option value="">Semua verifikasi</option>
-                    <option value="menunggu" @selected(($filters['status_verifikasi'] ?? '') === 'menunggu')>Menunggu</option>
-                    <option value="terverifikasi" @selected(($filters['status_verifikasi'] ?? '') === 'terverifikasi')>Terverifikasi</option>
-                    <option value="ditolak" @selected(($filters['status_verifikasi'] ?? '') === 'ditolak')>Ditolak</option>
                 </select>
             </div>
             <div class="travs-filter-actions">
@@ -103,18 +89,9 @@
                                     <span class="travs-status-pill travs-status-{{ $item->status }}">
                                         {{ ucfirst($item->status) }}
                                     </span>
-                                    <span class="travs-status-pill travs-status-{{ $item->status_verifikasi }}">
-                                        {{ ucfirst($item->status_verifikasi) }}
-                                    </span>
                                 </div>
                                 <div class="travs-table-subcopy">
-                                    @if ($item->verified_at)
-                                        Diverifikasi {{ $item->verified_at->translatedFormat('d M Y H:i') }}
-                                    @elseif ($item->catatan_verifikasi)
-                                        {{ $item->catatan_verifikasi }}
-                                    @else
-                                        Menunggu review admin
-                                    @endif
+                                    {{ $item->status === 'aktif' ? 'Siap dipilih pada jadwal.' : 'Tidak dipakai sementara.' }}
                                 </div>
                             </td>
                             <td>{{ number_format($item->jadwal_count) }} jadwal</td>

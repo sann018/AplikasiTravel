@@ -11,6 +11,7 @@
         $metodeManualTransfer = ['transfer_manual', 'manual_transfer', 'bank_manual'];
         $isCashPayment = $metodeBayar === 'cash';
         $isGatewayPayment = $pembayaran && ! in_array($metodeBayar, array_merge(['cash'], $metodeManualTransfer), true);
+        $statusLockedByGateway = $isGatewayPayment;
         $cashVerificationReady = $isCashPayment
             && $pembayaran?->status_bayar === 'menunggu'
             && $pemesanan->status_pemesanan === 'menunggu_pembayaran';
@@ -18,9 +19,12 @@
             $isCashPayment && $pembayaran?->status_bayar === 'menunggu' => 'Lihat Detail Tunai',
             $isCashPayment => 'Lihat Detail Tunai',
             in_array($metodeBayar, $metodeManualTransfer, true) => 'Lihat Bukti Pembayaran',
-            $pembayaran?->status_bayar === 'berhasil' => 'Lihat Detail Pembayaran',
-            default => 'Buka Pembayaran',
+            $isGatewayPayment => 'Lihat Detail Pembayaran',
+            default => 'Lihat Detail Pembayaran',
         };
+        $paymentDetailUrl = $pembayaran
+            ? route('admin.pembayaran.show', $pembayaran)
+            : route('admin.pembayaran.index', ['search' => $pemesanan->kode_booking]);
         $formatRupiah = fn ($value) => 'Rp'.number_format((float) $value, 0, ',', '.');
         $storageUrl = fn (?string $path) => $path
             ? (str_starts_with($path, 'http') ? $path : asset('storage/'.ltrim($path, '/')))
@@ -119,7 +123,7 @@
         <article class="travs-section-card">
             <div class="travs-panel-title">
                 <h3>Status dan Pembayaran</h3>
-                <p>Status pemesanan dapat diubah sesuai alur. Status bayar digital tetap mengikuti gateway.</p>
+                <p>Status pemesanan dapat diperbarui sesuai proses perjalanan. Pembayaran digital diperbarui otomatis setelah konfirmasi layanan pembayaran.</p>
             </div>
 
             <form method="POST" action="{{ route('admin.pemesanan.update', $pemesanan) }}" class="travs-form-grid">
@@ -128,7 +132,7 @@
 
                 <div class="travs-field">
                     <label for="status_pemesanan">Status Pemesanan</label>
-                    <select id="status_pemesanan" name="status_pemesanan" class="travs-select @error('status_pemesanan') is-invalid @enderror">
+                    <select id="status_pemesanan" name="status_pemesanan" class="travs-select @error('status_pemesanan') is-invalid @enderror" @disabled($statusLockedByGateway)>
                         @foreach (['menunggu_pembayaran' => 'Menunggu Pembayaran', 'terbayar' => 'Terbayar', 'dibatalkan' => 'Dibatalkan', 'selesai' => 'Selesai'] as $value => $label)
                             <option
                                 value="{{ $value }}"
@@ -139,8 +143,11 @@
                             </option>
                         @endforeach
                     </select>
+                    @if ($statusLockedByGateway)
+                        <small style="color:#64748b;">Status pembayaran digital diperbarui otomatis dari layanan pembayaran.</small>
+                    @endif
                     @if ($isGatewayPayment && $pembayaran?->status_bayar !== 'berhasil')
-                        <small style="color:#64748b;">Pembayaran digital tidak bisa ditandai terbayar manual. Gunakan sinkronisasi/gateway.</small>
+                        <small style="color:#64748b;">Untuk pembayaran digital, gunakan pengecekan status pembayaran yang tersedia.</small>
                     @endif
                     @include('admin.partials.field-error', ['name' => 'status_pemesanan'])
                 </div>
@@ -171,8 +178,10 @@
 
                 <div class="travs-form-actions travs-inline">
                     <a href="{{ route('admin.pemesanan.index') }}" class="travs-button-secondary">Kembali ke Daftar</a>
-                    <a href="{{ route('admin.pembayaran.index', ['search' => $pemesanan->kode_booking]) }}" class="travs-button-secondary">{{ $paymentDetailLabel }}</a>
-                    <button type="submit" class="travs-button">Simpan Status</button>
+                    <a href="{{ $paymentDetailUrl }}" class="travs-button-secondary">{{ $paymentDetailLabel }}</a>
+                    @unless ($statusLockedByGateway)
+                        <button type="submit" class="travs-button">Simpan Status</button>
+                    @endunless
                 </div>
             </form>
 
@@ -305,6 +314,15 @@
                                 if ($itemCost <= 0 && $pemesanan->itemBagasi->count() === 1 && (float) $pemesanan->biaya_bagasi > 0) {
                                     $itemCost = (float) $pemesanan->biaya_bagasi;
                                 }
+                                $placementLabel = ($item->posisi_barang ?? 'masuk_bagasi') === 'dipegang_sendiri' ? 'Dipegang sendiri' : 'Masuk bagasi';
+                                $categoryLabel = ($item->kategori_ukuran ?? 'besar') === 'kecil' ? 'Barang kecil' : 'Barang besar';
+                                $largeTypeLabel = match ($item->jenis_barang_besar) {
+                                    'sepeda' => 'Sepeda',
+                                    'sepeda_motor' => 'Sepeda motor',
+                                    'beko' => 'Beko / barang berat',
+                                    'lainnya' => 'Barang besar lainnya',
+                                    default => null,
+                                };
                                 $photos = collect($item->foto_urls ?? []);
                                 if ($item->foto_url) {
                                     $photos = $photos->prepend($item->foto_url);
@@ -315,6 +333,7 @@
                                 <div>
                                     <strong>{{ $item->deskripsi_item }}</strong>
                                     <p>{{ $item->berat_kg ? $item->berat_kg.' kg' : '0 kg' }} &middot; {{ $item->ukuran_cm ?: 0 }} cm &middot; {{ $item->jumlah_item }} item</p>
+                                    <p>{{ $placementLabel }} &middot; {{ $categoryLabel }}@if($largeTypeLabel) &middot; {{ $largeTypeLabel }}@endif</p>
                                     <div class="travs-bagasi-photo-row">
                                         @forelse ($photos as $photo)
                                             <img

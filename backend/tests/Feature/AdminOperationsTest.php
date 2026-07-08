@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Pemesanan;
+use App\Models\Pembayaran;
 use App\Models\Pengemudi;
 use App\Models\TiketElektronik;
 use App\Models\User;
@@ -162,11 +163,31 @@ class AdminOperationsTest extends TestCase
 
         $content = $response->streamedContent();
 
-        $this->assertStringContainsString('Kode Booking', $content);
+        $this->assertStringContainsString('Kode Pemesanan', $content);
         $this->assertStringContainsString('TRAVS-DEMO-001', $content);
     }
 
-    public function test_unverified_driver_is_stored_as_nonactive_even_if_admin_selects_active(): void
+    public function test_admin_can_export_operational_cost_in_supported_formats(): void
+    {
+        $admin = User::factory()->create([
+            'peran' => 'admin',
+            'status_aktif' => true,
+        ]);
+
+        foreach (['csv', 'xls', 'xlsx'] as $format) {
+            $response = $this
+                ->actingAs($admin)
+                ->get(route('admin.biaya.export', ['format' => $format]));
+
+            $response->assertOk();
+            $this->assertStringContainsString(
+                'attachment',
+                (string) $response->headers->get('content-disposition'),
+            );
+        }
+    }
+
+    public function test_admin_created_driver_is_ready_without_verification_step(): void
     {
         $admin = User::factory()->create([
             'peran' => 'admin',
@@ -181,8 +202,6 @@ class AdminOperationsTest extends TestCase
                 'no_hp' => '081111111111',
                 'nomor_sim' => '6102233435410001',
                 'status' => 'aktif',
-                'status_verifikasi' => 'menunggu',
-                'catatan_verifikasi' => 'Masih review.',
                 'password' => 'driver12345',
             ]);
 
@@ -193,9 +212,9 @@ class AdminOperationsTest extends TestCase
             ->where('nomor_sim', '6102233435410001')
             ->firstOrFail();
 
-        $this->assertSame('nonaktif', $pengemudi->status);
-        $this->assertSame('menunggu', $pengemudi->status_verifikasi);
-        $this->assertFalse($pengemudi->pengguna->status_aktif);
+        $this->assertSame('aktif', $pengemudi->status);
+        $this->assertSame('terverifikasi', $pengemudi->status_verifikasi);
+        $this->assertTrue($pengemudi->pengguna->status_aktif);
     }
 
     public function test_admin_can_upload_driver_profile_photo_from_driver_form(): void
@@ -215,8 +234,6 @@ class AdminOperationsTest extends TestCase
                 'no_hp' => '081111111112',
                 'nomor_sim' => '6102233435420002',
                 'status' => 'aktif',
-                'status_verifikasi' => 'terverifikasi',
-                'catatan_verifikasi' => 'Foto profil lengkap.',
                 'password' => 'driver12345',
                 'foto_profil' => UploadedFile::fake()->image('driver.jpg', 640, 640),
                 'foto_sim' => UploadedFile::fake()->image('sim.jpg', 900, 560),
@@ -254,7 +271,6 @@ class AdminOperationsTest extends TestCase
                 'no_hp' => '12345',
                 'nomor_sim' => 'SIM-SALAH',
                 'status' => 'aktif',
-                'status_verifikasi' => 'terverifikasi',
                 'password' => 'driver12345',
                 'foto_sim' => UploadedFile::fake()->create('sim.pdf', 120, 'application/pdf'),
             ]);
@@ -289,6 +305,36 @@ class AdminOperationsTest extends TestCase
         $this->assertSame('kedaluwarsa', $booking->pembayaran()->firstOrFail()->status_bayar);
     }
 
+    public function test_admin_cannot_update_gateway_booking_status_manually(): void
+    {
+        $this->seed([
+            SystemSettingSeeder::class,
+            TravSDemoSeeder::class,
+        ]);
+
+        $admin = User::query()->where('email', 'admin@travs.com')->firstOrFail();
+        $booking = Pemesanan::query()
+            ->where('kode_booking', 'TRAVS-DEMO-001')
+            ->firstOrFail();
+
+        $booking->update(['status_pemesanan' => 'terbayar']);
+        $booking->pembayaran()->update([
+            'metode_bayar' => 'qris',
+            'status_bayar' => 'berhasil',
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->put(route('admin.pemesanan.update', $booking), [
+                'status_pemesanan' => 'selesai',
+            ]);
+
+        $response->assertSessionHasErrors('status_pemesanan');
+
+        $this->assertSame('terbayar', $booking->fresh()->status_pemesanan);
+        $this->assertSame('berhasil', $booking->pembayaran()->firstOrFail()->status_bayar);
+    }
+
     public function test_admin_can_open_payment_dashboard_and_filter_cash_exception(): void
     {
         $this->seed([
@@ -317,6 +363,32 @@ class AdminOperationsTest extends TestCase
         $response->assertSee('Pembayaran');
         $response->assertSee('TRAVS-DEMO-002');
         $response->assertSee('Verifikasi Cash');
+    }
+
+    public function test_admin_can_open_read_only_payment_detail(): void
+    {
+        $this->seed([
+            SystemSettingSeeder::class,
+            TravSDemoSeeder::class,
+        ]);
+
+        $admin = User::query()->where('email', 'admin@travs.com')->firstOrFail();
+        $payment = Pembayaran::query()
+            ->where('metode_bayar', 'qris')
+            ->with('pemesanan')
+            ->firstOrFail();
+
+        $response = $this
+            ->actingAs($admin)
+            ->get(route('admin.pembayaran.show', $payment));
+
+        $response->assertOk();
+        $response->assertSee('Detail Pembayaran');
+        $response->assertSee('Ringkasan Transaksi');
+        $response->assertSee($payment->pemesanan->kode_booking);
+        $response->assertDontSee('Simpan Status');
+        $response->assertDontSee('checkout_url');
+        $response->assertDontSee('create_payment');
     }
 
     public function test_admin_can_confirm_cash_payment_and_issue_ticket_notification(): void

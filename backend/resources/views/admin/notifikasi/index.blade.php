@@ -16,8 +16,7 @@
     <section class="collapsible-section" data-collapsible-section>
         <div class="collapsible-section__header" data-collapse-header>
             <div class="travs-panel-title">
-                <h3>Ringkasan Notifikasi</h3>
-                <p>{{ $summaryDescription ?? 'Ikhtisar notifikasi yang tersimpan di sistem.' }}</p>
+                <h3>Statistik</h3>
             </div>
             @include('admin.partials.collapsible-toggle', ['targetId' => 'notification-summary-body'])
         </div>
