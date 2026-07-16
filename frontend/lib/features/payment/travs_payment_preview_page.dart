@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -106,6 +107,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
   final TextEditingController _dropoffAddressController =
       TextEditingController();
   final TextEditingController _dropoffNoteController = TextEditingController();
+  final TextEditingController _baggageDescriptionController =
+      TextEditingController();
 
   late final List<_PassengerFormController> _passengerForms;
   late final List<_PaymentMethodOption> _paymentOptions;
@@ -117,8 +120,9 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
   bool _isPickingBaggagePhoto = false;
   bool _isRefreshingPayment = false;
   bool _showLeaveWarningOnResume = false;
-  bool _hasOpenedGatewayCheckout = false;
+  bool _hasBaggage = false;
   String? _errorMessage;
+  late final String _stableFormLockDeadlineIso;
   TravSBookingResult? _createdBooking;
   final List<XFile> _selectedBaggagePhotos = <XFile>[];
   TravSUploadedBaggagePhoto? _uploadedBaggagePhoto;
@@ -129,6 +133,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _stableFormLockDeadlineIso = _resolveStableFormLockDeadlineIso();
     _paymentOptions = _resolvePaymentOptions(
       widget.detail.paymentMethods,
       cashEnabled: widget.appSettings.paymentCashEnabled,
@@ -153,6 +158,22 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     _registerDraftListeners();
   }
 
+  String _resolveStableFormLockDeadlineIso() {
+    final parsedDeadline = DateTime.tryParse(widget.lockExpiresAt)?.toLocal();
+    final maxMinutes = widget.detail.bookingRules.seatLockFormMinutes;
+    if (parsedDeadline == null || maxMinutes <= 0) {
+      return widget.lockExpiresAt;
+    }
+
+    // Deadline form distabilkan sekali saat halaman dibuat. Jika validasi form
+    // memicu rebuild, countdown tidak ikut maju ulang dari waktu terbaru.
+    final maxDeadline = DateTime.now().add(Duration(minutes: maxMinutes));
+    final effectiveDeadline = parsedDeadline.isAfter(maxDeadline)
+        ? maxDeadline
+        : parsedDeadline;
+    return effectiveDeadline.toIso8601String();
+  }
+
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
@@ -164,6 +185,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     _dropoffLongitudeController.dispose();
     _dropoffAddressController.dispose();
     _dropoffNoteController.dispose();
+    _baggageDescriptionController.dispose();
     for (final passenger in _passengerForms) {
       passenger.dispose();
     }
@@ -207,6 +229,10 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
         _dropoffNoteController.text =
             draft['dropoff_note'] as String? ?? _dropoffNoteController.text;
         _selectedMethod = draft['payment_method'] as String? ?? _selectedMethod;
+        _hasBaggage = draft['has_baggage'] as bool? ?? _hasBaggage;
+        _baggageDescriptionController.text =
+            draft['baggage_description'] as String? ??
+            _baggageDescriptionController.text;
 
         final passengers = draft['passengers'];
         if (passengers is List) {
@@ -242,6 +268,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
       _dropoffLongitudeController,
       _dropoffAddressController,
       _dropoffNoteController,
+      _baggageDescriptionController,
       for (final passenger in _passengerForms) ...[
         passenger.nameController,
         passenger.phoneController,
@@ -272,6 +299,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
           'dropoff_address': _dropoffAddressController.text,
           'dropoff_note': _dropoffNoteController.text,
           'payment_method': _selectedMethod,
+          'has_baggage': _hasBaggage,
+          'baggage_description': _baggageDescriptionController.text,
           'passengers': _passengerForms
               .map(
                 (passenger) => {
@@ -326,15 +355,17 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     }
   }
 
-  bool get _hasBaggageData =>
-      (widget.detail.baggageRules.weightEnabled && widget.baggageWeight > 0) ||
-      (widget.detail.baggageRules.itemEnabled && widget.baggageItems > 0);
+  bool get _hasBaggageData => _hasBaggage;
 
-  bool get _requiresBaggagePhoto =>
-      _hasBaggageData &&
-      widget.baggagePlacement == 'masuk_bagasi' &&
-      widget.detail.baggageRules.mobileBaggageInputEnabled &&
-      widget.detail.baggageRules.photoRequired;
+  bool get _requiresBaggagePhoto => false;
+
+  String? get _baggageInputError {
+    if (_hasBaggage && _baggageDescriptionController.text.trim().isEmpty) {
+      return 'Nama atau keterangan barang bawaan wajib diisi.';
+    }
+
+    return null;
+  }
 
   TravSPickupPoint? get _draftPickupPoint {
     final latitude = double.tryParse(_pickupLatitudeController.text.trim());
@@ -514,6 +545,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
           initialPickup: _draftDropoffPoint,
           title: 'Pilih Titik Turun',
           locationLabel: 'titik turun',
+          showCurrentLocationButton: false,
         ),
       ),
     );
@@ -660,6 +692,14 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
       return;
     }
 
+    final baggageInputError = _baggageInputError;
+    if (baggageInputError != null) {
+      setState(() {
+        _errorMessage = baggageInputError;
+      });
+      return;
+    }
+
     final form = _formKey.currentState;
     if (form == null || !form.validate()) {
       return;
@@ -731,14 +771,6 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
           behavior: SnackBarBehavior.floating,
         ),
       );
-
-      if ((booking.payment.method == 'qris' ||
-              booking.payment.method == 'transfer') &&
-          booking.payment.hasCheckoutUrl &&
-          !_hasOpenedGatewayCheckout) {
-        _hasOpenedGatewayCheckout = true;
-        await _openPaymentCheckout(booking.payment.checkoutUrl);
-      }
     } on TravSApiException catch (error) {
       setState(() {
         _errorMessage = error.message;
@@ -853,24 +885,18 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
       return const <TravSBaggagePayload>[];
     }
 
-    final baggageRules = widget.detail.baggageRules;
-
     return <TravSBaggagePayload>[
       TravSBaggagePayload(
-        deskripsiItem: 'Barang bawaan penumpang',
-        // Field yang dikirim mengikuti toggle admin. Backend tetap menghitung
-        // ulang biaya final dari Pengaturan Sistem saat pemesanan disimpan.
-        metodeHitung: baggageRules.weightEnabled ? 'berat' : 'item',
-        posisiBarang: widget.baggagePlacement,
-        beratKg: baggageRules.weightEnabled && widget.baggageWeight > 0
-            ? widget.baggageWeight
-            : null,
+        deskripsiItem: _baggageDescriptionController.text.trim(),
+        // Field tarif lama dikosongkan; backend hanya menyimpan keterangan dan
+        // foto barang bawaan untuk kebutuhan penumpang serta pengemudi.
+        metodeHitung: null,
+        posisiBarang: 'masuk_bagasi',
+        beratKg: null,
         ukuranCm: null,
         panjangCm: null,
         lebarCm: null,
-        jumlahItem: baggageRules.itemEnabled && widget.baggageItems > 0
-            ? widget.baggageItems
-            : null,
+        jumlahItem: 1,
         fotoUrl: baggagePhotoUrls.isNotEmpty ? baggagePhotoUrls.first : null,
         fotoUrls: baggagePhotoUrls.take(3).toList(),
       ),
@@ -946,8 +972,29 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     return null;
   }
 
+  String? _validatePassengerPhone(String? value) {
+    final raw = value?.trim() ?? '';
+    if (raw.isEmpty) {
+      return 'Nomor HP penumpang wajib diisi.';
+    }
+    if (raw.length > 12) {
+      return 'Nomor HP penumpang maksimal 12 digit.';
+    }
+    return null;
+  }
+
   Future<void> _handleFormSessionExpired() async {
     if (_createdBooking != null || !mounted) return;
+
+    try {
+      await _apiService.releaseFormSeatLocks(
+        token: widget.session.token,
+        scheduleId: widget.detail.schedule.id,
+        seatNumbers: widget.selectedSeatNumbers,
+      );
+    } catch (_) {
+      // Jika jaringan gagal, backend tetap membersihkan lock saat jadwal dibuka ulang.
+    }
 
     await _clearFormDraft();
     if (!mounted) return;
@@ -1085,7 +1132,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
             icon: const Icon(Icons.arrow_back_rounded),
           ),
           title: Text(
-            _createdBooking == null ? 'Pemesanan Jadwal' : 'Pembayaran',
+            _createdBooking == null ? 'Konfirmasi Pemesanan' : 'Pembayaran',
           ),
         ),
         body: Container(
@@ -1146,6 +1193,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                 label:
                     'Kunci form ${widget.detail.bookingRules.seatLockFormMinutes} menit',
                 color: TravSTheme.orange,
+                textColor: Colors.white,
+                solid: true,
               ),
             ],
           ),
@@ -1159,7 +1208,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
           ),
           const SizedBox(height: 8),
           Text(
-            'Kursi ${widget.selectedSeatNumbers.map((seat) => 'A$seat').join(', ')} sudah dikunci. Lengkapi data sebelum ${_formatDateTime(widget.lockExpiresAt)}.',
+            'Kursi ${widget.selectedSeatNumbers.map((seat) => 'A$seat').join(', ')} sudah dikunci. Lengkapi data sebelum ${_formatDateTime(_stableFormLockDeadlineIso)}.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: Colors.white.withValues(alpha: 0.9),
             ),
@@ -1183,7 +1232,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
           const SizedBox(height: 14),
           _CountdownPanel(
             title: 'Sisa waktu pengisian form',
-            deadlineIso: widget.lockExpiresAt,
+            deadlineIso: _stableFormLockDeadlineIso,
+            maxDurationMinutes: widget.detail.bookingRules.seatLockFormMinutes,
             icon: Icons.timer_outlined,
             onDark: true,
             onExpired: () {
@@ -1537,13 +1587,17 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                       TextFormField(
                         controller: passenger.phoneController,
                         keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          // Nomor penumpang dibatasi agar tidak melebihi format HP lokal yang dipakai saat pemesanan.
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(12),
+                        ],
                         decoration: _passengerInputDecoration(
                           icon: Icons.phone_outlined,
                           label: 'Nomor HP / WhatsApp',
                           hint: 'Contoh: 081234567891',
                         ),
-                        validator: (value) =>
-                            _validateRequiredText(value, 'Nomor HP penumpang'),
+                        validator: _validatePassengerPhone,
                       ),
                     ],
                   ),
@@ -1584,56 +1638,79 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
 
   Widget _buildBaggageCard(BuildContext context) {
     final theme = Theme.of(context);
-    final baggageRules = widget.detail.baggageRules;
 
     return _SectionCard(
       title: 'Barang Bawaan',
-      subtitle: 'Ringkasan barang bawaan yang akan dibawa dalam perjalanan.',
+      subtitle:
+          'Catat nama barang yang dibawa. Barang bawaan biasa tidak dikenakan biaya tambahan.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (!_hasBaggageData)
-            Text(
-              'Belum ada bagasi tambahan yang dicatat pada pemesanan ini.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: TravSTheme.navyMuted,
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              ChoiceChip(
+                label: const Text('Tidak membawa barang'),
+                selected: !_hasBaggage,
+                onSelected: (_) {
+                  setState(() {
+                    _hasBaggage = false;
+                    _baggageDescriptionController.clear();
+                    _selectedBaggagePhotos.clear();
+                    _uploadedBaggagePhotos = <TravSUploadedBaggagePhoto>[];
+                    _uploadedBaggagePhoto = null;
+                  });
+                  _saveFormDraft();
+                },
               ),
-            )
-          else
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                _SummaryChip(
-                  icon: widget.baggagePlacement == 'masuk_bagasi'
-                      ? Icons.inventory_2_outlined
-                      : Icons.backpack_outlined,
-                  label: widget.baggagePlacement == 'masuk_bagasi'
-                      ? 'Masuk bagasi'
-                      : 'Dipegang sendiri',
-                ),
-                _SummaryChip(
-                  icon: Icons.info_outline_rounded,
-                  label: widget.baggagePlacement == 'masuk_bagasi'
-                      ? 'Dihitung sesuai aturan bagasi'
-                      : 'Tidak dikenakan biaya bagasi',
-                ),
-                if (baggageRules.weightEnabled && widget.baggageWeight > 0)
-                  _SummaryChip(
-                    icon: Icons.scale_rounded,
-                    label:
-                        '${widget.baggageWeight.toStringAsFixed(0)} kg bagasi',
-                  ),
-                if (baggageRules.itemEnabled && widget.baggageItems > 0)
-                  _SummaryChip(
-                    icon: Icons.inventory_2_outlined,
-                    label: '${widget.baggageItems} item bagasi',
-                  ),
-              ],
+              ChoiceChip(
+                label: const Text('Membawa barang'),
+                selected: _hasBaggage,
+                onSelected: (_) {
+                  setState(() {
+                    _hasBaggage = true;
+                  });
+                  _saveFormDraft();
+                },
+              ),
+            ],
+          ),
+          if (_hasBaggage) ...[
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _baggageDescriptionController,
+              maxLength: 255,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: _passengerInputDecoration(
+                label: 'Nama atau keterangan barang',
+                hint: 'Contoh: tas pakaian dan kardus oleh-oleh',
+                icon: Icons.inventory_2_outlined,
+              ),
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'Nama atau keterangan barang wajib diisi.'
+                  : null,
             ),
+          ],
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: TravSTheme.orangeSoft,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Text(
+              'Sepeda, sepeda motor, dan barang berukuran besar wajib dikonfirmasi langsung kepada admin sebelum pemesanan. Barang tersebut tidak dihitung atau diterima otomatis oleh aplikasi.',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: TravSTheme.navy,
+                height: 1.45,
+              ),
+            ),
+          ),
           // Opsi foto tetap tersedia agar penumpang bisa mendokumentasikan
           // barang bawaan sebelum pemesanan dikirim.
-          ...[
+          if (_hasBaggage) ...[
             const SizedBox(height: 12),
             Container(
               width: double.infinity,
@@ -1789,34 +1866,15 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
   }
 
   Widget _buildSummaryCard(BuildContext context) {
-    final baggageRules = widget.detail.baggageRules;
-    final freeWeight =
-        baggageRules.freeWeightKg * widget.checkoutDraft.passengerCount;
-    final freeItems =
-        baggageRules.freeItemCount * widget.checkoutDraft.passengerCount;
-
     return _SectionCard(
       title: 'Ringkasan Pembayaran',
-      subtitle:
-          'Nominal di bawah ini mengikuti hasil estimasi tiket dan barang bawaan.',
+      subtitle: 'Nominal pembayaran dihitung dari harga tiket yang dipilih.',
       child: Column(
         children: [
           _SummaryRow(
             label: 'Subtotal tiket',
             value: 'Rp${_formatCurrency(widget.checkoutDraft.ticketSubtotal)}',
           ),
-          if (baggageRules.weightEnabled && widget.checkoutDraft.weightFee > 0)
-            _SummaryRow(
-              label:
-                  'Tambahan berat (${_formatNumber(widget.checkoutDraft.baggageWeight - freeWeight)} kg)',
-              value: 'Rp${_formatCurrency(widget.checkoutDraft.weightFee)}',
-            ),
-          if (baggageRules.itemEnabled && widget.checkoutDraft.itemFee > 0)
-            _SummaryRow(
-              label:
-                  'Tambahan item (${widget.checkoutDraft.baggageItems - freeItems} item)',
-              value: 'Rp${_formatCurrency(widget.checkoutDraft.itemFee)}',
-            ),
           const Divider(height: 26),
           _SummaryRow(
             label: 'Total pembayaran',
@@ -1867,7 +1925,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
               ),
               const SizedBox(height: 16),
               Text(
-                booking.kodeBooking,
+                booking.rute,
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   color: Colors.white,
                   fontWeight: FontWeight.w800,
@@ -1901,7 +1959,9 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
         ),
         const SizedBox(height: 16),
         _buildGatewayPaymentCard(context, booking),
-        if (!isPaid && payment.expiredAt.isNotEmpty) ...[
+        if (!isPaid &&
+            payment.method != 'cash' &&
+            payment.expiredAt.isNotEmpty) ...[
           const SizedBox(height: 16),
           _SectionCard(
             title: 'Waktu Pembayaran',
@@ -1910,6 +1970,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
             child: _CountdownPanel(
               title: 'Sisa waktu pembayaran',
               deadlineIso: payment.expiredAt,
+              maxDurationMinutes:
+                  widget.detail.bookingRules.seatLockPaymentMinutes,
               icon: Icons.payments_outlined,
               onExpired: () {
                 _handlePaymentSessionExpired();
@@ -1924,8 +1986,14 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
               'Ringkasan pemesanan ini dipakai juga oleh daftar pemesanan, riwayat, dan tiket penumpang.',
           child: Column(
             children: [
-              _SummaryRow(label: 'Status pemesanan', value: booking.status),
-              _SummaryRow(label: 'Status pembayaran', value: payment.status),
+              _SummaryRow(
+                label: 'Status pemesanan',
+                value: _humanizeBookingStatus(booking.status),
+              ),
+              _SummaryRow(
+                label: 'Status pembayaran',
+                value: _humanizeBookingStatus(payment.status),
+              ),
               _SummaryRow(
                 label: 'Metode pembayaran',
                 value: payment.method.toUpperCase(),
@@ -1938,6 +2006,11 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                 label: 'Batas pembayaran',
                 value: _formatDateTime(booking.batasPembayaran),
               ),
+              if (payment.paidAt.isNotEmpty)
+                _SummaryRow(
+                  label: 'Dibayarkan pada',
+                  value: _formatDateTime(payment.paidAt),
+                ),
               const Divider(height: 26),
               _SummaryRow(
                 label: 'Total tagihan',
@@ -1953,9 +2026,10 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
         ],
         const SizedBox(height: 16),
         OutlinedButton.icon(
-          onPressed: () => Navigator.of(context).pop(true),
+          onPressed: () =>
+              Navigator.of(context).pop(isPaid ? 'open_tickets' : true),
           icon: const Icon(Icons.check_circle_outline_rounded),
-          label: Text(isPaid ? 'Kembali ke Tiket' : 'Simpan dan Kembali'),
+          label: Text(isPaid ? 'Ke Halaman Tiket' : 'Simpan dan Kembali'),
         ),
       ],
     );
@@ -1988,7 +2062,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
             _GatewayBadgeRow(
               title: 'QRIS $providerLabel',
               subtitle:
-                  'Project ${payment.project.isEmpty ? 'travs' : payment.project}',
+                  'Buka halaman pembayaran untuk menyelesaikan transaksi.',
             ),
             const SizedBox(height: 14),
 
@@ -2154,7 +2228,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                     Text(
                       payment.hasPaymentNumber
                           ? payment.paymentNumber
-                          : booking.kodeBooking,
+                          : 'Tersimpan di sistem',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: TravSTheme.navy,
                         fontWeight: FontWeight.w800,
@@ -2227,7 +2301,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
           const _InstructionList(
             steps: [
               'Siapkan nominal pembayaran sesuai total tagihan.',
-              'Tunjukkan kode pemesanan saat melakukan pelunasan.',
+              'Tunjukkan halaman pemesanan ini saat melakukan pelunasan.',
               'Tiket akan aktif setelah admin mengonfirmasi pembayaran tunai.',
             ],
           ),
@@ -2471,39 +2545,6 @@ class _SummaryRow extends StatelessWidget {
   }
 }
 
-class _SummaryChip extends StatelessWidget {
-  const _SummaryChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: TravSTheme.surfaceSoft,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: TravSTheme.line),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 18, color: TravSTheme.orange),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: TravSTheme.navy,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _GatewayBadgeRow extends StatelessWidget {
   const _GatewayBadgeRow({required this.title, required this.subtitle});
 
@@ -2655,19 +2696,26 @@ class _HeaderPill extends StatelessWidget {
     required this.label,
     this.color = Colors.white,
     this.textColor = TravSTheme.navy,
+    this.solid = false,
   });
 
   final String label;
   final Color color;
   final Color textColor;
+  final bool solid;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: color == Colors.white ? 1 : 0.18),
+        color: solid
+            ? color
+            : color.withValues(alpha: color == Colors.white ? 1 : 0.18),
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: solid ? color : color.withValues(alpha: 0.18),
+        ),
       ),
       child: Text(
         label,
@@ -2717,6 +2765,7 @@ class _CountdownPanel extends StatefulWidget {
     required this.deadlineIso,
     required this.icon,
     this.onDark = false,
+    this.maxDurationMinutes,
     this.onExpired,
   });
 
@@ -2724,6 +2773,7 @@ class _CountdownPanel extends StatefulWidget {
   final String deadlineIso;
   final IconData icon;
   final bool onDark;
+  final int? maxDurationMinutes;
   final VoidCallback? onExpired;
 
   @override
@@ -2732,12 +2782,14 @@ class _CountdownPanel extends StatefulWidget {
 
 class _CountdownPanelState extends State<_CountdownPanel> {
   Timer? _timer;
+  late DateTime? _effectiveDeadline;
   late Duration _remaining;
   bool _expiredCallbackSent = false;
 
   @override
   void initState() {
     super.initState();
+    _effectiveDeadline = _resolveEffectiveDeadline();
     _remaining = _calculateRemaining();
     _notifyExpiredIfNeeded();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -2753,8 +2805,10 @@ class _CountdownPanelState extends State<_CountdownPanel> {
   @override
   void didUpdateWidget(covariant _CountdownPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.deadlineIso != widget.deadlineIso) {
+    if (oldWidget.deadlineIso != widget.deadlineIso ||
+        oldWidget.maxDurationMinutes != widget.maxDurationMinutes) {
       _expiredCallbackSent = false;
+      _effectiveDeadline = _resolveEffectiveDeadline();
       _remaining = _calculateRemaining();
       _notifyExpiredIfNeeded();
     }
@@ -2767,13 +2821,31 @@ class _CountdownPanelState extends State<_CountdownPanel> {
   }
 
   Duration _calculateRemaining() {
-    final deadline = DateTime.tryParse(widget.deadlineIso)?.toLocal();
+    final deadline = _effectiveDeadline;
     if (deadline == null) {
       return Duration.zero;
     }
 
     final difference = deadline.difference(DateTime.now());
     return difference.isNegative ? Duration.zero : difference;
+  }
+
+  DateTime? _resolveEffectiveDeadline() {
+    final parsedDeadline = DateTime.tryParse(widget.deadlineIso)?.toLocal();
+    final maxMinutes = widget.maxDurationMinutes;
+    if (parsedDeadline == null) {
+      return null;
+    }
+
+    if (maxMinutes == null || maxMinutes <= 0) {
+      return parsedDeadline;
+    }
+
+    final now = DateTime.now();
+    final maxDeadline = now.add(Duration(minutes: maxMinutes));
+    // Countdown memakai durasi dari Pengaturan Sistem agar tampilan mobile tidak
+    // lebih panjang dari aturan admin jika nilai deadline lama/berbeda timezone terbawa.
+    return parsedDeadline.isAfter(maxDeadline) ? maxDeadline : parsedDeadline;
   }
 
   void _notifyExpiredIfNeeded() {
@@ -2894,7 +2966,16 @@ String _formatDateTime(String isoValue) {
     return '-';
   }
 
-  return DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(parsed);
+  return DateFormat('dd MMM yyyy\nHH:mm', 'id_ID').format(parsed);
+}
+
+String _humanizeBookingStatus(String value) {
+  final normalized = value.trim().replaceAll('_', ' ');
+  if (normalized.isEmpty) {
+    return '-';
+  }
+
+  return normalized[0].toUpperCase() + normalized.substring(1).toLowerCase();
 }
 
 String _formatDuration(Duration duration) {
@@ -2907,12 +2988,6 @@ String _formatDuration(Duration duration) {
   }
 
   return '$minutes:$seconds';
-}
-
-String _formatNumber(num value) {
-  return NumberFormat.decimalPattern(
-    'id_ID',
-  ).format(value.clamp(0, double.infinity));
 }
 
 String _formatCurrency(double value) {

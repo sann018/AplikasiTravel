@@ -134,7 +134,7 @@ class PemesananController extends Controller
                 && $lockedPemesanan->pembayaran?->status_bayar === 'menunggu'
             ) {
                 throw ValidationException::withMessages([
-                    'status_pemesanan' => 'Gunakan tombol Verifikasi Cash agar audit pembayaran, tiket, dan notifikasi ikut tersinkron.',
+                    'status_pemesanan' => 'Gunakan tombol Konfirmasi Pembayaran Tunai agar pembayaran, tiket, dan notifikasi ikut diperbarui.',
                 ]);
             }
 
@@ -238,7 +238,7 @@ class PemesananController extends Controller
 
         if (! in_array($newStatus, $allowedTransitions[$pemesanan->status_pemesanan] ?? [], true)) {
             throw ValidationException::withMessages([
-                'status_pemesanan' => 'Perubahan status tidak valid untuk lifecycle pemesanan saat ini.',
+                'status_pemesanan' => 'Perubahan status tidak sesuai dengan alur pemesanan saat ini.',
             ]);
         }
     }

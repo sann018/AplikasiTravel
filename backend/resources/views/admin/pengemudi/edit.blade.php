@@ -16,8 +16,7 @@
 
         @if ($errors->any())
             <div class="travs-alert travs-alert-danger">
-                <strong>Terjadi kesalahan:</strong>
-                <ul style="margin: 8px 0 0; padding-left: 18px;">
+                <ul style="margin: 0; padding-left: 18px;">
                     @foreach ($errors->all() as $error)
                         <li>{{ $error }}</li>
                     @endforeach

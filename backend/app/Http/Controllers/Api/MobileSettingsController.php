@@ -49,6 +49,15 @@ class MobileSettingsController extends Controller
         $safeSettings = collect(self::SAFE_KEYS)
             ->mapWithKeys(fn (string $key) => [$key => $allSettings[$key] ?? null])
             ->all();
+        // Seluruh key bagasi lama tetap tersedia untuk kompatibilitas parsing,
+        // tetapi tidak lagi mengaktifkan form maupun perhitungan tarif di mobile.
+        foreach (self::SAFE_KEYS as $key) {
+            if (str_starts_with($key, 'baggage_')) {
+                $safeSettings[$key] = str_ends_with($key, '_enabled') || $key === 'baggage_photo_required'
+                    ? false
+                    : 0;
+            }
+        }
         $safeSettings['app_logo_url'] = $this->settingService->publicAssetPath(
             'app_logo',
             'travs-logo.svg',

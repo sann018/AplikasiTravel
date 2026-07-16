@@ -25,13 +25,6 @@ class PembayaranController extends Controller
             'search' => ['nullable', 'string', 'max:80'],
             'metode_bayar' => ['nullable', Rule::in(['transfer', 'qris', 'cash'])],
             'status_bayar' => ['nullable', Rule::in(['menunggu', 'berhasil', 'gagal', 'kedaluwarsa'])],
-            'exception' => ['nullable', Rule::in([
-                'perlu_tindak_lanjut',
-                'perlu_verifikasi_cash',
-                'gateway_gagal',
-                'kedaluwarsa',
-                'status_tidak_sinkron',
-            ])],
             'tanggal_mulai' => ['nullable', 'date'],
             'tanggal_selesai' => ['nullable', 'date'],
         ]);
@@ -64,10 +57,6 @@ class PembayaranController extends Controller
 
         if (filled($filters['status_bayar'] ?? null)) {
             $query->where('status_bayar', $filters['status_bayar']);
-        }
-
-        if (filled($filters['exception'] ?? null)) {
-            $this->applyExceptionFilter($query, (string) $filters['exception']);
         }
 
         if (filled($filters['tanggal_mulai'] ?? null)) {
@@ -118,7 +107,7 @@ class PembayaranController extends Controller
 
         return redirect()
             ->route('admin.pembayaran.index')
-            ->with('status', 'Pembayaran cash '.$booking->kode_booking.' berhasil diverifikasi dan tiket sudah diterbitkan.');
+            ->with('status', 'Pembayaran tunai '.$booking->kode_booking.' berhasil diverifikasi dan tiket sudah diterbitkan.');
     }
 
     private function summary(): array

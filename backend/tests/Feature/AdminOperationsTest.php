@@ -42,9 +42,11 @@ class AdminOperationsTest extends TestCase
         $response->assertOk();
         $response->assertSee('Total Armada');
         $response->assertSee('Ringkasan Pendapatan 7 Hari');
-        $response->assertSee('data-dashboard-tab="ringkasan"', false);
-        $response->assertSee('data-dashboard-tab="keuangan"', false);
-        $response->assertSee('data-dashboard-tab="aktivitas"', false);
+        $response->assertSee('Jadwal Keberangkatan Hari Ini');
+        $response->assertDontSee('data-dashboard-tab=', false);
+        $response->assertDontSee('Fokus Operasional');
+        $response->assertDontSee('Biaya Operasional Terbaru');
+        $response->assertDontSee('Pemesanan Terbaru');
         $response->assertSee(route('admin.kendaraan.index'), false);
         $response->assertSee(route('admin.rute.index', ['status' => 'aktif']), false);
         $response->assertSee(
@@ -64,13 +66,13 @@ class AdminOperationsTest extends TestCase
 
         $response = $this
             ->actingAs($admin)
-            ->from(route('admin.pengaturan.index'))
+            ->from(route('admin.settings.index', ['tab' => 'account']))
             ->put(route('admin.pengaturan.account.update'), [
                 'email' => 'adminbaru@travs.com',
                 'current_password' => 'admin12345',
             ]);
 
-        $response->assertRedirect(route('admin.pengaturan.index'));
+        $response->assertRedirect(route('admin.settings.index', ['tab' => 'account']));
         $response->assertSessionHasNoErrors();
 
         $this->assertSame('adminbaru@travs.com', $admin->fresh()->email);
@@ -88,7 +90,7 @@ class AdminOperationsTest extends TestCase
 
         $response = $this
             ->actingAs($admin)
-            ->get(route('admin.pengaturan.index'));
+            ->get(route('admin.settings.index', ['tab' => 'account']));
 
         $response->assertOk();
         $response->assertSee('Akun Admin');
@@ -107,13 +109,13 @@ class AdminOperationsTest extends TestCase
 
         $response = $this
             ->actingAs($admin)
-            ->from(route('admin.pengaturan.index'))
+            ->from(route('admin.settings.index', ['tab' => 'account']))
             ->put(route('admin.pengaturan.account.update'), [
                 'email' => 'adminrusak@travs.com',
                 'current_password' => 'password-salah',
             ]);
 
-        $response->assertRedirect(route('admin.pengaturan.index'));
+        $response->assertRedirect(route('admin.settings.index', ['tab' => 'account']));
         $response->assertSessionHasErrors('current_password');
 
         $this->assertSame('adminaman@travs.com', $admin->fresh()->email);
@@ -130,7 +132,7 @@ class AdminOperationsTest extends TestCase
 
         $response = $this
             ->actingAs($admin)
-            ->from(route('admin.pengaturan.index'))
+            ->from(route('admin.settings.index', ['tab' => 'account']))
             ->put(route('admin.pengaturan.account.update'), [
                 'email' => 'adminpassword@travs.com',
                 'current_password' => 'admin12345',
@@ -138,7 +140,7 @@ class AdminOperationsTest extends TestCase
                 'password_confirmation' => 'passwordbaru123',
             ]);
 
-        $response->assertRedirect(route('admin.pengaturan.index'));
+        $response->assertRedirect(route('admin.settings.index', ['tab' => 'account']));
         $response->assertSessionHasNoErrors();
 
         $this->assertTrue(Hash::check('passwordbaru123', $admin->fresh()->password));
@@ -335,7 +337,7 @@ class AdminOperationsTest extends TestCase
         $this->assertSame('berhasil', $booking->pembayaran()->firstOrFail()->status_bayar);
     }
 
-    public function test_admin_can_open_payment_dashboard_and_filter_cash_exception(): void
+    public function test_admin_can_open_payment_dashboard_without_technical_status_filter(): void
     {
         $this->seed([
             SystemSettingSeeder::class,
@@ -355,14 +357,13 @@ class AdminOperationsTest extends TestCase
 
         $response = $this
             ->actingAs($admin)
-            ->get(route('admin.pembayaran.index', [
-                'exception' => 'perlu_verifikasi_cash',
-            ]));
+            ->get(route('admin.pembayaran.index'));
 
         $response->assertOk();
         $response->assertSee('Pembayaran');
         $response->assertSee('TRAVS-DEMO-002');
         $response->assertSee('Verifikasi Cash');
+        $response->assertDontSee('<label for="exception">Catatan Status</label>', false);
     }
 
     public function test_admin_can_open_read_only_payment_detail(): void
@@ -440,6 +441,26 @@ class AdminOperationsTest extends TestCase
             'referensi_id' => $booking->id,
             'sudah_dibaca' => false,
         ]);
+
+        $detailResponse = $this
+            ->actingAs($admin)
+            ->get(route('admin.pemesanan.show', $booking));
+
+        $detailResponse->assertOk();
+        $this->assertMatchesRegularExpression(
+            '/<option\s+value="menunggu_pembayaran"[^>]*disabled/s',
+            $detailResponse->getContent(),
+        );
+
+        $reverseResponse = $this
+            ->actingAs($admin)
+            ->put(route('admin.pemesanan.update', $booking), [
+                'status_pemesanan' => 'menunggu_pembayaran',
+            ]);
+
+        $reverseResponse->assertSessionHasErrors('status_pemesanan');
+        $this->assertSame('terbayar', $booking->fresh()->status_pemesanan);
+        $this->assertSame('berhasil', $booking->pembayaran()->firstOrFail()->status_bayar);
     }
 
     public function test_admin_cannot_confirm_cash_payment_twice(): void

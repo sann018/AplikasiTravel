@@ -49,12 +49,22 @@ class AdminNotificationTest extends TestCase
         $this->createNotification($admin, false, now(), 'Notifikasi khusus admin');
         $this->createNotification($passenger, false, now(), 'Notifikasi penumpang');
 
-        $this->actingAs($admin)
+        $firstVisit = $this->actingAs($admin)
             ->get(route('admin.notifikasi.admin'))
             ->assertOk()
             ->assertSee('Notifikasi Admin')
+            ->assertSee('Notifikasi Baru')
+            ->assertSee('is-new-notification', false)
             ->assertSee('Notifikasi khusus admin')
             ->assertDontSee('Notifikasi penumpang');
+
+        $this->assertStringNotContainsString(' · ', $firstVisit->getContent());
+
+        $this->actingAs($admin)
+            ->get(route('admin.notifikasi.admin'))
+            ->assertOk()
+            ->assertSee('Notifikasi Lama')
+            ->assertSee('is-old-notification', false);
     }
 
     public function test_user_notification_log_only_shows_passenger_and_driver_notifications(): void
@@ -65,15 +75,33 @@ class AdminNotificationTest extends TestCase
         Notifikasi::query()->delete();
         $this->createNotification($admin, false, now(), 'Pesan rahasia admin');
         $this->createNotification($passenger, false, now(), 'Notifikasi penumpang');
-        $this->createNotification($driver, false, now(), 'Notifikasi pengemudi');
+        $this->createNotification($driver, true, now()->subMinute(), 'Notifikasi pengemudi');
 
         $this->actingAs($admin)
             ->get(route('admin.notifikasi.user'))
             ->assertOk()
             ->assertSee('Log Notifikasi User')
+            ->assertSee('Notifikasi Baru')
+            ->assertSee('Notifikasi Lama')
             ->assertSee('Notifikasi penumpang')
             ->assertSee('Notifikasi pengemudi')
             ->assertDontSee('Pesan rahasia admin');
+    }
+
+    public function test_user_notification_log_is_hidden_from_sidebar_without_removing_its_route(): void
+    {
+        $admin = User::query()->where('peran', 'admin')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertDontSee('Log Notifikasi User');
+
+        // Route lama tetap tersedia untuk kompatibilitas bookmark dan kebutuhan audit.
+        $this->actingAs($admin)
+            ->get(route('admin.notifikasi.user'))
+            ->assertOk()
+            ->assertSee('Log Notifikasi User');
     }
 
     public function test_admin_header_shows_notification_link_and_unread_badge(): void

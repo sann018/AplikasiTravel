@@ -37,7 +37,7 @@
         <div class="travs-panel-header">
             <div class="travs-panel-title">
                 <h3>Daftar Jadwal</h3>
-                <p>Monitoring jadwal mencakup armada, driver, kursi tersedia, dan jumlah booking yang sudah masuk.</p>
+                <p>Monitoring jadwal mencakup armada, pengemudi, kursi tersedia, dan jumlah pemesanan yang sudah masuk.</p>
             </div>
             <a href="{{ route('admin.jadwal.create') }}" class="travs-button">Tambah Jadwal</a>
         </div>
@@ -88,7 +88,7 @@
                             <td>{{ $item->rute->kota_asal }} - {{ $item->rute->kota_tujuan }}</td>
                             <td>{{ $item->kendaraan->label_armada }}</td>
                             <td>{{ $item->pengemudi->pengguna->nama }}</td>
-                            <td>{{ $item->kursi_tersedia }} tersedia / {{ $item->pemesanan_count }} booking</td>
+                            <td>{{ $item->kursi_tersedia }} tersedia / {{ $item->pemesanan_count }} pemesanan</td>
                             <td>
                                 <div class="travs-table-actions">
                                     <a href="{{ route('admin.jadwal.edit', $item) }}" class="travs-button-link">Edit</a>

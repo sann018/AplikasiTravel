@@ -44,44 +44,83 @@ class TravSTheme {
     final textTheme = GoogleFonts.plusJakartaSansTextTheme(base.textTheme)
         .copyWith(
           displayLarge: GoogleFonts.plusJakartaSans(
+            fontSize: 40,
             fontWeight: FontWeight.w800,
+            height: 1.12,
           ),
           displayMedium: GoogleFonts.plusJakartaSans(
+            fontSize: 32,
             fontWeight: FontWeight.w800,
+            height: 1.16,
           ),
           displaySmall: GoogleFonts.plusJakartaSans(
+            fontSize: 26,
             fontWeight: FontWeight.w800,
+            height: 1.2,
           ),
           headlineLarge: GoogleFonts.plusJakartaSans(
+            fontSize: 26,
             fontWeight: FontWeight.w800,
+            height: 1.22,
           ),
           headlineMedium: GoogleFonts.plusJakartaSans(
+            fontSize: 24,
             fontWeight: FontWeight.w800,
+            height: 1.26,
           ),
           headlineSmall: GoogleFonts.plusJakartaSans(
+            fontSize: 22,
             fontWeight: FontWeight.w700,
+            height: 1.28,
           ),
           titleLarge: GoogleFonts.plusJakartaSans(
+            fontSize: 20,
             color: navy,
             fontWeight: FontWeight.w700,
+            height: 1.28,
           ),
           titleMedium: GoogleFonts.plusJakartaSans(
+            fontSize: 18,
             color: navy,
             fontWeight: FontWeight.w700,
+            height: 1.3,
           ),
           titleSmall: GoogleFonts.plusJakartaSans(
+            fontSize: 16,
             color: navy,
             fontWeight: FontWeight.w700,
+            height: 1.34,
           ),
-          bodyLarge: GoogleFonts.plusJakartaSans(color: navy, height: 1.45),
-          bodyMedium: GoogleFonts.plusJakartaSans(color: navy, height: 1.45),
+          bodyLarge: GoogleFonts.plusJakartaSans(
+            fontSize: 16,
+            color: navy,
+            height: 1.45,
+          ),
+          bodyMedium: GoogleFonts.plusJakartaSans(
+            fontSize: 15,
+            color: navy,
+            height: 1.45,
+          ),
           bodySmall: GoogleFonts.plusJakartaSans(
+            fontSize: 13,
             color: navyMuted,
             height: 1.45,
           ),
-          labelLarge: GoogleFonts.plusJakartaSans(color: navy),
-          labelMedium: GoogleFonts.plusJakartaSans(color: navy),
-          labelSmall: GoogleFonts.plusJakartaSans(color: navyMuted),
+          labelLarge: GoogleFonts.plusJakartaSans(
+            fontSize: 14,
+            color: navy,
+            height: 1.3,
+          ),
+          labelMedium: GoogleFonts.plusJakartaSans(
+            fontSize: 12,
+            color: navy,
+            height: 1.28,
+          ),
+          labelSmall: GoogleFonts.plusJakartaSans(
+            fontSize: 11,
+            color: navyMuted,
+            height: 1.25,
+          ),
         );
 
     return base.copyWith(
@@ -97,7 +136,10 @@ class TravSTheme {
         foregroundColor: navy,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
-        titleTextStyle: textTheme.titleLarge?.copyWith(color: navy),
+        titleTextStyle: textTheme.headlineSmall?.copyWith(
+          color: navy,
+          fontWeight: FontWeight.w700,
+        ),
       ),
       cardTheme: CardThemeData(
         color: surface,
@@ -108,6 +150,21 @@ class TravSTheme {
           side: const BorderSide(color: line),
         ),
       ),
+      // Semua dialog validasi memakai kontras yang sama agar judul tetap
+      // terbaca pada emulator maupun perangkat fisik dengan tema berbeda.
+      dialogTheme: DialogThemeData(
+        backgroundColor: surface,
+        surfaceTintColor: Colors.transparent,
+        titleTextStyle: textTheme.headlineSmall?.copyWith(
+          color: navy,
+          fontWeight: FontWeight.w700,
+        ),
+        contentTextStyle: textTheme.bodyLarge?.copyWith(
+          color: navy,
+          height: 1.45,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+      ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           elevation: 0,
@@ -117,7 +174,7 @@ class TravSTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
-          textStyle: textTheme.titleMedium?.copyWith(
+          textStyle: textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w800,
           ),
         ),
@@ -130,7 +187,7 @@ class TravSTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
           ),
-          textStyle: textTheme.titleMedium?.copyWith(
+          textStyle: textTheme.bodyMedium?.copyWith(
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -185,7 +242,7 @@ class TravSTheme {
         indicatorColor: orangeSoft,
         height: 74,
         labelTextStyle: WidgetStatePropertyAll(
-          textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+          textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w600),
         ),
       ),
     );

@@ -30,14 +30,14 @@ class PengaturanController extends Controller
             'email.required' => 'Email admin wajib diisi.',
             'email.email' => 'Format email admin belum valid.',
             'email.unique' => 'Email ini sudah dipakai akun lain.',
-            'current_password.required' => 'Password lama wajib diisi untuk menyimpan perubahan akun.',
-            'password.min' => 'Password baru minimal 8 karakter.',
-            'password.confirmed' => 'Konfirmasi password baru belum sama.',
+            'current_password.required' => 'Kata sandi lama wajib diisi untuk menyimpan perubahan akun.',
+            'password.min' => 'Kata sandi baru minimal 8 karakter.',
+            'password.confirmed' => 'Konfirmasi kata sandi baru belum sama.',
         ]);
 
         if (! Hash::check($validated['current_password'], $admin->password)) {
             throw ValidationException::withMessages([
-                'current_password' => 'Password lama tidak sesuai.',
+                'current_password' => 'Kata sandi lama tidak sesuai.',
             ]);
         }
 
@@ -51,7 +51,7 @@ class PengaturanController extends Controller
         $admin->save();
 
         return redirect()
-            ->route('admin.pengaturan.index')
+            ->route('admin.settings.index', ['tab' => 'account'])
             ->with('status', 'Akun admin berhasil diperbarui.');
     }
 

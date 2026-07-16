@@ -6,7 +6,7 @@
 
 @section('content')
     <section class="travs-section-card">
-        <form method="POST" action="{{ route('admin.biaya.update', $biaya) }}" class="travs-form-grid">
+        <form method="POST" enctype="multipart/form-data" action="{{ route('admin.biaya.update', $biaya) }}" class="travs-form-grid">
             @csrf
             @method('PUT')
 
@@ -66,15 +66,46 @@
                 </div>
 
                 <div class="travs-field travs-field-span-2">
-                    <label for="keterangan">Keterangan</label>
+                    <label for="keterangan">Keterangan <span class="text-danger">*</span></label>
                     <textarea
                         id="keterangan"
                         name="keterangan"
                         class="travs-textarea @error('keterangan') is-invalid @enderror"
                         rows="3"
+                        required
                         placeholder="Detail tambahan tentang biaya ini"
                     >{{ old('keterangan', $biaya->keterangan) }}</textarea>
                     @include('admin.partials.field-error', ['name' => 'keterangan'])
+                </div>
+
+                <div class="travs-field travs-field-span-2">
+                    <label for="bukti_nota">Foto Bukti Nota <span class="text-danger">*</span></label>
+                    <input
+                        id="bukti_nota"
+                        name="bukti_nota"
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        class="travs-input @error('bukti_nota') is-invalid @enderror"
+                        @required(! $biaya->bukti_url)
+                    >
+                    <div class="travs-field-meta">
+                        @if ($biaya->bukti_url)
+                            Bukti saat ini tetap digunakan jika tidak memilih file baru.
+                        @else
+                            Bukti wajib berupa JPG, JPEG, PNG, atau WEBP dengan ukuran maksimal 3 MB.
+                        @endif
+                    </div>
+                    @include('admin.partials.field-error', ['name' => 'bukti_nota'])
+                    @if ($biaya->bukti_url)
+                        <button
+                            type="button"
+                            class="travs-photo-preview-trigger mt-2"
+                            data-preview-src="{{ asset('storage/'.ltrim($biaya->bukti_url, '/')) }}"
+                            aria-label="Lihat bukti nota yang tersimpan"
+                        >
+                            <img src="{{ asset('storage/'.ltrim($biaya->bukti_url, '/')) }}" alt="Bukti nota {{ $biaya->jenis_biaya }}" width="100" height="100" style="width:100px;height:100px;object-fit:cover;border-radius:8px;">
+                        </button>
+                    @endif
                 </div>
             </div>
 

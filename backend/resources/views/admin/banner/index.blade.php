@@ -1,9 +1,7 @@
 @extends('admin.layouts.app')
-
 @section('title', 'Banner Beranda')
 @section('page-title', 'Banner Beranda')
 @section('page-description', 'Kelola informasi promo yang tampil di beranda aplikasi.')
-
 @section('content')
 <div class="row g-4">
     <div class="col-xl-4">

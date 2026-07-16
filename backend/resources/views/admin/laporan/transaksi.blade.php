@@ -77,7 +77,7 @@
                 <thead>
                     <tr>
                         <th>Order Gateway</th>
-                        <th>Booking</th>
+                        <th>Kode Pemesanan</th>
                         <th>Metode</th>
                         <th>Status</th>
                         <th>Nominal</th>

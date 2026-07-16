@@ -12,20 +12,23 @@ use Illuminate\View\View;
 
 class NotifikasiController extends Controller
 {
-    public function __construct(private readonly NotificationHistoryService $notificationHistoryService)
-    {
-    }
+    public function __construct(private readonly NotificationHistoryService $notificationHistoryService) {}
 
     public function admin(Request $request): View
     {
         $filters = $this->validatedFilters($request);
         $adminId = $request->user()->id;
 
-        // Halaman ini khusus notifikasi yang memang ditujukan ke admin web.
-        // Saat admin membukanya, badge lonceng ikut bersih karena datanya sudah terbaca.
-        Notifikasi::query()
+        // ID disimpan sebelum status diperbarui agar notifikasi yang baru dibuka
+        // tetap terlihat sebagai kelompok baru pada render pertama halaman.
+        $newNotificationIds = Notifikasi::query()
             ->where('pengguna_id', $adminId)
             ->where('sudah_dibaca', false)
+            ->pluck('id')
+            ->all();
+
+        Notifikasi::query()
+            ->whereIn('id', $newNotificationIds)
             ->update(['sudah_dibaca' => true]);
 
         $query = $this->filteredQuery($filters)
@@ -42,6 +45,7 @@ class NotifikasiController extends Controller
             'pageDescription' => 'Pemberitahuan khusus untuk admin web.',
             'summaryDescription' => 'Ikhtisar notifikasi yang masuk ke akun admin.',
             'listDescription' => 'Notifikasi terbaru yang ditujukan ke admin web.',
+            'newNotificationIds' => $newNotificationIds,
         ]);
     }
 
@@ -49,11 +53,16 @@ class NotifikasiController extends Controller
     {
         $filters = $this->validatedFilters($request);
 
-        // Halaman admin tetap menampilkan log semua role, tetapi status baca
-        // hanya diubah untuk notifikasi milik admin yang sedang login.
-        Notifikasi::query()
+        // Snapshot ini mempertahankan penanda baru pada render pertama, sedangkan
+        // database tetap menandainya sudah dibaca untuk membersihkan badge admin.
+        $newNotificationIds = Notifikasi::query()
             ->where('pengguna_id', $request->user()->id)
             ->where('sudah_dibaca', false)
+            ->pluck('id')
+            ->all();
+
+        Notifikasi::query()
+            ->whereIn('id', $newNotificationIds)
             ->update(['sudah_dibaca' => true]);
 
         $query = $this->filteredQuery($filters);
@@ -71,6 +80,7 @@ class NotifikasiController extends Controller
             'pageDescription' => 'Pantau notifikasi untuk penumpang, pengemudi, dan admin.',
             'summaryDescription' => 'Ikhtisar notifikasi yang tersimpan di sistem.',
             'listDescription' => 'Notifikasi terbaru dari seluruh aktivitas sistem.',
+            'newNotificationIds' => $newNotificationIds,
         ]);
     }
 
@@ -93,6 +103,7 @@ class NotifikasiController extends Controller
             'pageDescription' => 'Pantau notifikasi yang dikirim ke penumpang dan pengemudi.',
             'summaryDescription' => 'Ikhtisar notifikasi untuk user aplikasi mobile.',
             'listDescription' => 'Notifikasi terbaru yang diterima penumpang dan pengemudi.',
+            'newNotificationIds' => [],
         ]);
     }
 
@@ -164,7 +175,7 @@ class NotifikasiController extends Controller
 
     private function escapeLikeValue(string $value): string
     {
-        return addcslashes($value, "\\%_");
+        return addcslashes($value, '\\%_');
     }
 
     /**
@@ -175,10 +186,22 @@ class NotifikasiController extends Controller
      */
     private function validatedFilters(Request $request): array
     {
+        $tanggalSelesaiRules = ['nullable', 'date'];
+
+        if ($request->filled('tanggal_mulai')) {
+            $tanggalSelesaiRules[] = 'after_or_equal:tanggal_mulai';
+        }
+
         return $request->validate([
             'search' => ['nullable', 'string', 'max:80'],
             'jenis' => ['nullable', Rule::in(['pembayaran', 'perjalanan', 'pemesanan', 'sistem'])],
             'dibaca' => ['nullable', Rule::in(['0', '1'])],
+            'tanggal_mulai' => ['nullable', 'date'],
+            'tanggal_selesai' => $tanggalSelesaiRules,
+        ], [
+            'tanggal_mulai.date' => 'Tanggal mulai tidak valid.',
+            'tanggal_selesai.date' => 'Tanggal selesai tidak valid.',
+            'tanggal_selesai.after_or_equal' => 'Tanggal selesai harus sama atau setelah tanggal mulai.',
         ]);
     }
 
@@ -212,6 +235,15 @@ class NotifikasiController extends Controller
 
         if (filled($filters['dibaca'] ?? null)) {
             $query->where('sudah_dibaca', $filters['dibaca'] === '1');
+        }
+
+        if (filled($filters['tanggal_mulai'] ?? null)) {
+            // Filter tanggal memakai created_at karena notifikasi tersimpan saat event sistem terjadi.
+            $query->whereDate('created_at', '>=', $filters['tanggal_mulai']);
+        }
+
+        if (filled($filters['tanggal_selesai'] ?? null)) {
+            $query->whereDate('created_at', '<=', $filters['tanggal_selesai']);
         }
 
         return $query;

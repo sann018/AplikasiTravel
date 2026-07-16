@@ -251,7 +251,7 @@ class AuthController extends Controller
 
         if (! Hash::check($validated['current_password'], $user->password)) {
             throw ValidationException::withMessages([
-                'current_password' => ['Password saat ini tidak sesuai.'],
+                'current_password' => ['Kata sandi saat ini tidak sesuai.'],
             ]);
         }
 

@@ -12,6 +12,7 @@ class SystemSettingSeeder extends Seeder
     {
         $settings = [
             ['group' => 'general', 'key' => 'app_name', 'value' => 'RuslyTravel', 'type' => 'string', 'description' => 'Nama aplikasi yang tampil kepada pengguna.'],
+            ['group' => 'general', 'key' => 'important_information', 'value' => json_encode([['id' => 'large-items-confirmation', 'title' => 'Konfirmasi barang besar', 'description' => 'Sepeda, sepeda motor, dan barang berukuran besar wajib dikonfirmasi kepada admin sebelum pemesanan. Barang tersebut tidak dihitung atau diterima otomatis oleh aplikasi.']], JSON_UNESCAPED_UNICODE), 'type' => 'string', 'description' => 'Daftar informasi penting yang ditampilkan pada beranda aplikasi.'],
             ['group' => 'general', 'key' => 'app_logo', 'value' => 'travs-logo.svg', 'type' => 'string', 'description' => 'Path logo aplikasi yang sedang digunakan.'],
             ['group' => 'general', 'key' => 'admin_contact', 'value' => '08123456789', 'type' => 'string', 'description' => 'Nomor kontak admin operasional.'],
             ['group' => 'general', 'key' => 'service_whatsapp', 'value' => '08123456789', 'type' => 'string', 'description' => 'Nomor WhatsApp layanan pelanggan.'],

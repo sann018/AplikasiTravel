@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -40,6 +41,19 @@ class BiayaOperasionalPerjalanan extends Model
             'tanggal_biaya' => 'datetime',
             'diverifikasi_pada' => 'datetime',
         ];
+    }
+
+    /**
+     * Kolom verifikasi dipertahankan untuk data lama. Pencatatan versi saat ini
+     * langsung berstatus disetujui agar dapat masuk ke rekap tanpa alur approval.
+     */
+    public function scopeFinalized(Builder $query): Builder
+    {
+        return $query->where(function (Builder $builder) {
+            $builder
+                ->where('status_verifikasi', 'disetujui')
+                ->orWhereNull('status_verifikasi');
+        });
     }
 
     public function jadwal(): BelongsTo

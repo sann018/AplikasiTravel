@@ -2,7 +2,7 @@
 
 @section('title', 'Pengemudi')
 @section('page-title', 'Kelola Pengemudi')
-@section('page-description', 'Buat, aktifkan, dan perbarui akun pengemudi yang akan dipakai pada jadwal perjalanan RuslyTravel.')
+@section('page-description', 'Buat, aktifkan, dan perbarui akun pengemudi.')
 
 @section('content')
     <section class="travs-summary-grid">

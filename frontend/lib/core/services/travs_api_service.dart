@@ -8,6 +8,7 @@ import '../models/travs_booking_contract.dart';
 import '../models/app_settings.dart';
 import '../models/travs_notification.dart';
 import '../models/travs_user_session.dart';
+import 'travs_validation_message.dart';
 
 class TravSApiException implements Exception {
   const TravSApiException(this.message);
@@ -189,6 +190,8 @@ class TravSApiService {
     final scheduleItems = scheduleJson['data'] as List<dynamic>? ?? <dynamic>[];
     final featuredItems =
         bootstrapData['featured_schedules'] as List<dynamic>? ?? <dynamic>[];
+    final importantInformationItems =
+        bootstrapData['important_information'] as List<dynamic>? ?? <dynamic>[];
     final bannerItems = bannerJson['data'] as List<dynamic>? ?? <dynamic>[];
 
     final schedulesById = <int, TravSSchedule>{};
@@ -207,6 +210,11 @@ class TravSApiService {
       sourceLabel: 'Data tersedia',
       serviceWhatsapp: branding['service_whatsapp'] as String?,
       adminContact: branding['contact'] as String?,
+      importantInformation: importantInformationItems
+          .whereType<Map<String, dynamic>>()
+          .map(TravSImportantInformation.fromJson)
+          .where((item) => item.title.isNotEmpty && item.description.isNotEmpty)
+          .toList(),
       banners: bannerItems
           .map((item) => TravSHomeBanner.fromJson(item as Map<String, dynamic>))
           .toList(),
@@ -339,6 +347,23 @@ class TravSApiService {
     );
   }
 
+  Future<TravSDriverTripItem> updateDriverTripStatus({
+    required String token,
+    required int tripId,
+    required String status,
+  }) async {
+    final response = await postWithFallback(
+      '/api/pengemudi/trips/$tripId/status',
+      headers: jsonHeaders(token: token),
+      body: jsonEncode({'status': status}),
+    );
+
+    return _decodeDataObject(
+      response,
+      (data) => TravSDriverTripItem.fromJson(data),
+    );
+  }
+
   /// Memuat daftar pemesanan milik penumpang yang sedang login.
   /// Data harus dari backend supaya status bayar dan tiket selalu akurat.
   Future<List<TravSBookingResult>> loadPassengerBookings(String token) async {
@@ -386,6 +411,18 @@ class TravSApiService {
     return _decodeDataObject(
       response,
       (data) => TravSSeatLockResult.fromJson(data),
+    );
+  }
+
+  Future<void> releaseFormSeatLocks({
+    required String token,
+    required int scheduleId,
+    required List<int> seatNumbers,
+  }) async {
+    await postWithFallback(
+      '/api/penumpang/bookings/release-form-lock',
+      headers: jsonHeaders(token: token),
+      body: jsonEncode({'jadwal_id': scheduleId, 'seat_numbers': seatNumbers}),
     );
   }
 
@@ -687,7 +724,7 @@ class TravSApiService {
     required num nominal,
     required DateTime tanggal,
     String? keterangan,
-    XFile? fotoBuktiNota,
+    required XFile fotoBuktiNota,
   }) async {
     Object? lastError;
 
@@ -709,16 +746,14 @@ class TravSApiService {
             'keterangan': keterangan.trim(),
         });
 
-        if (fotoBuktiNota != null) {
-          final bytes = await fotoBuktiNota.readAsBytes();
-          request.files.add(
-            http.MultipartFile.fromBytes(
-              'foto_bukti_nota',
-              bytes,
-              filename: fotoBuktiNota.name,
-            ),
-          );
-        }
+        final bytes = await fotoBuktiNota.readAsBytes();
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            'foto_bukti_nota',
+            bytes,
+            filename: fotoBuktiNota.name,
+          ),
+        );
 
         final streamed = await request.send().timeout(
           const Duration(seconds: 20),
@@ -736,7 +771,9 @@ class TravSApiService {
       throw lastError;
     }
 
-    throw const TravSApiException('Pengajuan biaya operasional gagal dikirim.');
+    throw const TravSApiException(
+      'Pencatatan biaya operasional gagal dikirim.',
+    );
   }
 
   /// Meminta token reset password ke backend.
@@ -841,6 +878,9 @@ class TravSApiService {
             return _friendlyValidationMessage(fieldName, message);
           }
         }
+        if (value is String && value.isNotEmpty) {
+          return _friendlyValidationMessage(fieldName, value);
+        }
       }
     }
 
@@ -853,44 +893,7 @@ class TravSApiService {
   }
 
   String _friendlyValidationMessage(String fieldName, String message) {
-    final normalizedMessage = message.toLowerCase();
-
-    if (normalizedMessage == 'validation.unique') {
-      if (fieldName == 'email') {
-        return 'Email sudah terdaftar. Silakan masuk atau gunakan email lain.';
-      }
-      if (fieldName == 'no_hp') {
-        return 'Nomor HP sudah terdaftar. Silakan masuk atau gunakan nomor lain.';
-      }
-
-      return 'Data tersebut sudah terdaftar. Silakan gunakan data lain.';
-    }
-
-    if (normalizedMessage == 'validation.confirmed') {
-      return 'Konfirmasi kata sandi belum sama.';
-    }
-
-    if (normalizedMessage == 'validation.email') {
-      return 'Format email belum valid.';
-    }
-
-    if (normalizedMessage == 'validation.required') {
-      return 'Data wajib masih ada yang belum diisi.';
-    }
-
-    if (normalizedMessage == 'validation.max.file') {
-      return 'Ukuran file terlalu besar. Pilih foto maksimal 5 MB.';
-    }
-
-    if (normalizedMessage == 'validation.image') {
-      return 'File harus berupa gambar.';
-    }
-
-    if (normalizedMessage == 'validation.mimes') {
-      return 'Format file belum didukung. Gunakan JPG, JPEG, PNG, atau WEBP.';
-    }
-
-    return message;
+    return travsFriendlyValidationMessage(fieldName, message);
   }
 
   static Future<http.Response> _sendWithFallback(
@@ -986,6 +989,7 @@ class TravSHomePayload {
     required this.sourceLabel,
     this.serviceWhatsapp,
     this.adminContact,
+    this.importantInformation = const <TravSImportantInformation>[],
     this.banners = const <TravSHomeBanner>[],
   });
 
@@ -994,7 +998,28 @@ class TravSHomePayload {
   final String sourceLabel;
   final String? serviceWhatsapp;
   final String? adminContact;
+  final List<TravSImportantInformation> importantInformation;
   final List<TravSHomeBanner> banners;
+}
+
+class TravSImportantInformation {
+  const TravSImportantInformation({
+    required this.id,
+    required this.title,
+    required this.description,
+  });
+
+  final String id;
+  final String title;
+  final String description;
+
+  factory TravSImportantInformation.fromJson(Map<String, dynamic> json) {
+    return TravSImportantInformation(
+      id: json['id'] as String? ?? '',
+      title: (json['title'] as String? ?? '').trim(),
+      description: (json['description'] as String? ?? '').trim(),
+    );
+  }
 }
 
 class TravSHomeBanner {
@@ -1116,6 +1141,7 @@ class TravSScheduleDetail {
     required this.vehicleType,
     this.vehiclePhotoUrl,
     required this.driverLicenseNumber,
+    this.driverPhotoUrl,
     required this.sourceLabel,
     required this.isLive,
   });
@@ -1135,6 +1161,7 @@ class TravSScheduleDetail {
   final String vehicleType;
   final String? vehiclePhotoUrl;
   final String driverLicenseNumber;
+  final String? driverPhotoUrl;
   final String sourceLabel;
   final bool isLive;
 
@@ -1169,6 +1196,7 @@ class TravSScheduleDetail {
       vehicleType: kendaraan['tipe'] as String? ?? '-',
       vehiclePhotoUrl: kendaraan['foto_url'] as String?,
       driverLicenseNumber: pengemudi['nomor_sim'] as String? ?? '-',
+      driverPhotoUrl: pengemudi['foto_url'] as String?,
       sourceLabel: 'Data tersedia',
       isLive: true,
     );

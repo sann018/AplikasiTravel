@@ -53,6 +53,7 @@ Route::middleware(['auth:sanctum', 'role:penumpang'])->group(function () {
     });
 
     Route::post('/penumpang/bookings/lock-form', [BookingController::class, 'lockForm'])->middleware('throttle:travs-action');
+    Route::post('/penumpang/bookings/release-form-lock', [BookingController::class, 'releaseFormLock'])->middleware('throttle:travs-action');
     Route::post('/penumpang/bookings/estimate', [BookingController::class, 'estimate'])->middleware('throttle:travs-action');
     Route::post('/penumpang/bookings/baggage-photo', [BookingController::class, 'uploadBaggagePhoto'])->middleware('throttle:travs-upload');
     Route::post('/penumpang/bookings', [BookingController::class, 'store'])->middleware('throttle:travs-action');

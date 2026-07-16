@@ -5,17 +5,21 @@ import 'package:latlong2/latlong.dart';
 import '../../core/services/travs_location_service.dart';
 import '../../core/theme/travs_theme.dart';
 
+enum _TravSMapLayer { standard, satellite }
+
 class TravSPickupMapPickerPage extends StatefulWidget {
   const TravSPickupMapPickerPage({
     this.initialPickup,
     this.title = 'Pilih Titik Jemput',
     this.locationLabel = 'titik jemput',
+    this.showCurrentLocationButton = true,
     super.key,
   });
 
   final TravSPickupPoint? initialPickup;
   final String title;
   final String locationLabel;
+  final bool showCurrentLocationButton;
 
   @override
   State<TravSPickupMapPickerPage> createState() =>
@@ -31,6 +35,7 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
   late LatLng _selectedPoint;
   late String _selectedAddress;
   bool _isResolvingAddress = false;
+  _TravSMapLayer _mapLayer = _TravSMapLayer.standard;
   int _lookupToken = 0;
 
   @override
@@ -118,6 +123,19 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
     }
   }
 
+  void _changeZoom(double delta) {
+    final camera = _mapController.camera;
+    final targetZoom = (camera.zoom + delta).clamp(3.0, 19.0);
+    _mapController.move(camera.center, targetZoom);
+  }
+
+  void _setMapLayer(_TravSMapLayer layer) {
+    if (_mapLayer == layer) return;
+    setState(() {
+      _mapLayer = layer;
+    });
+  }
+
   void _confirmSelection() {
     Navigator.of(context).pop(
       TravSPickupPoint(
@@ -172,45 +190,117 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(28),
-                child: FlutterMap(
-                  mapController: _mapController,
-                  options: MapOptions(
-                    initialCenter: _selectedPoint,
-                    initialZoom: 15,
-                    onTap: (_, point) => _selectPoint(point),
-                  ),
+                child: Stack(
                   children: [
-                    TileLayer(
-                      urlTemplate:
-                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.ruslytravel.app',
+                    FlutterMap(
+                      mapController: _mapController,
+                      options: MapOptions(
+                        initialCenter: _selectedPoint,
+                        initialZoom: 15,
+                        minZoom: 3,
+                        maxZoom: 19,
+                        onTap: (_, point) => _selectPoint(point),
+                      ),
+                      children: [
+                        TileLayer(
+                          urlTemplate: _mapLayer == _TravSMapLayer.satellite
+                              ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                              : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                          userAgentPackageName: 'com.ruslytravel.app',
+                        ),
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: _selectedPoint,
+                              width: 54,
+                              height: 54,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(999),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x26000000),
+                                      blurRadius: 12,
+                                      offset: Offset(0, 6),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.location_pin,
+                                  color: TravSTheme.orange,
+                                  size: 34,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        RichAttributionWidget(
+                          attributions: [
+                            TextSourceAttribution(
+                              _mapLayer == _TravSMapLayer.satellite
+                                  ? 'Esri World Imagery'
+                                  : 'OpenStreetMap contributors',
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: _selectedPoint,
-                          width: 54,
-                          height: 54,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(999),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x26000000),
-                                  blurRadius: 12,
-                                  offset: Offset(0, 6),
+                    Positioned(
+                      top: 12,
+                      right: 12,
+                      child: Material(
+                        color: Colors.white,
+                        elevation: 3,
+                        borderRadius: BorderRadius.circular(14),
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            PopupMenuButton<_TravSMapLayer>(
+                              tooltip: 'Pilih tampilan peta',
+                              initialValue: _mapLayer,
+                              onSelected: _setMapLayer,
+                              icon: Icon(
+                                _mapLayer == _TravSMapLayer.satellite
+                                    ? Icons.satellite_alt_outlined
+                                    : Icons.layers_outlined,
+                                color: TravSTheme.navy,
+                              ),
+                              itemBuilder: (context) => const [
+                                PopupMenuItem(
+                                  value: _TravSMapLayer.standard,
+                                  child: Text('Peta standar'),
+                                ),
+                                PopupMenuItem(
+                                  value: _TravSMapLayer.satellite,
+                                  child: Text('Satelit'),
                                 ),
                               ],
                             ),
-                            child: const Icon(
-                              Icons.location_pin,
-                              color: TravSTheme.orange,
-                              size: 34,
+                            const SizedBox(
+                              width: 34,
+                              child: Divider(height: 1),
                             ),
-                          ),
+                            IconButton(
+                              tooltip: 'Perbesar peta',
+                              onPressed: () => _changeZoom(1),
+                              icon: const Icon(Icons.add_rounded),
+                              color: TravSTheme.navy,
+                            ),
+                            const SizedBox(
+                              width: 34,
+                              child: Divider(height: 1),
+                            ),
+                            IconButton(
+                              tooltip: 'Perkecil peta',
+                              onPressed: () => _changeZoom(-1),
+                              icon: const Icon(Icons.remove_rounded),
+                              color: TravSTheme.navy,
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -256,16 +346,18 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _isResolvingAddress
-                              ? null
-                              : _useCurrentLocation,
-                          icon: const Icon(Icons.my_location_rounded),
-                          label: const Text('Lokasi Saya'),
+                      if (widget.showCurrentLocationButton) ...[
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _isResolvingAddress
+                                ? null
+                                : _useCurrentLocation,
+                            icon: const Icon(Icons.my_location_rounded),
+                            label: const Text('Lokasi Saya'),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
+                        const SizedBox(width: 12),
+                      ],
                       Expanded(
                         child: ElevatedButton.icon(
                           onPressed: _isResolvingAddress

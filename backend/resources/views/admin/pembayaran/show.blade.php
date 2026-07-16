@@ -11,22 +11,6 @@
             ? $booking->jadwal->rute->kota_asal.' - '.$booking->jadwal->rute->kota_tujuan
             : 'Rute tidak tersedia';
         $formatRupiah = fn ($value) => 'Rp'.number_format((float) $value, 0, ',', '.');
-        $gatewayResponse = is_array($payment->gateway_response)
-            ? $payment->gateway_response
-            : json_decode((string) $payment->gateway_response, true);
-        $gatewayResponse = is_array($gatewayResponse) ? $gatewayResponse : [];
-        $rawPayload = is_array($payment->raw_webhook_payload) ? $payment->raw_webhook_payload : [];
-        $gatewayProvider = data_get($gatewayResponse, 'provider', 'Pakasir');
-        $gatewayStatus = data_get($gatewayResponse, 'transaction_detail.status')
-            ?? data_get($gatewayResponse, 'status')
-            ?? $payment->status_bayar;
-        $gatewayMethod = data_get($gatewayResponse, 'transaction_detail.payment_method')
-            ?? data_get($gatewayResponse, 'payment_method')
-            ?? $payment->metode_bayar;
-        $gatewayFee = data_get($gatewayResponse, 'create_payment.fee')
-            ?? data_get($gatewayResponse, 'fee');
-        $isSandbox = data_get($gatewayResponse, 'transaction_detail.is_sandbox')
-            ?? data_get($gatewayResponse, 'is_sandbox');
     @endphp
 
     <section class="travs-detail-stack">
@@ -69,10 +53,6 @@
                     <dt>Status Pemesanan</dt>
                     <dd>{{ ucwords(str_replace('_', ' ', $booking?->status_pemesanan ?? 'draft')) }}</dd>
                 </div>
-                <div>
-                    <dt>Catatan Status</dt>
-                    <dd>{{ $payment->issue_label }}</dd>
-                </div>
             </dl>
         </article>
 
@@ -106,70 +86,6 @@
                 <div>
                     <dt>Diperbarui Pada</dt>
                     <dd>{{ $payment->updated_at?->translatedFormat('d F Y H:i') }}</dd>
-                </div>
-            </dl>
-        </article>
-
-        <article class="travs-section-card">
-            <div class="travs-panel-title">
-                <h3>Akses Pembayaran</h3>
-                <p>Referensi teknis gateway disimpan di sistem dan tidak ditampilkan agar data transaksi tetap aman.</p>
-            </div>
-
-            <dl class="travs-description-list">
-                <div>
-                    <dt>Invoice / Link Pembayaran</dt>
-                    <dd>
-                        @php
-                            $invoiceUrl = data_get($gatewayResponse, 'payment_url')
-                                ?? data_get($gatewayResponse, 'invoice_url')
-                                ?? data_get($gatewayResponse, 'redirect_url');
-                        @endphp
-
-                        @if ($invoiceUrl)
-                            <a href="{{ $invoiceUrl }}" target="_blank" rel="noopener" class="travs-button-link">Buka invoice</a>
-                        @else
-                            -
-                        @endif
-                    </dd>
-                </div>
-                <div>
-                    <dt>Referensi Teknis</dt>
-                    <dd>Disimpan aman di sistem</dd>
-                </div>
-            </dl>
-        </article>
-
-        <article class="travs-section-card">
-            <div class="travs-panel-title">
-                <h3>Data Teknis Gateway</h3>
-                <p>Ringkasan aman untuk audit. Payload mentah tidak ditampilkan agar data teknis pembayaran tidak bocor.</p>
-            </div>
-
-            <dl class="travs-description-list">
-                <div>
-                    <dt>Provider</dt>
-                    <dd>{{ strtoupper((string) $gatewayProvider) }}</dd>
-                </div>
-                <div>
-                    <dt>Status Gateway</dt>
-                    <dd>{{ ucwords(str_replace('_', ' ', (string) $gatewayStatus)) }}</dd>
-                </div>
-                <div>
-                    <dt>Metode Gateway</dt>
-                    <dd>{{ strtoupper((string) $gatewayMethod) }}</dd>
-                </div>
-                <div>
-                    <dt>Biaya Gateway</dt>
-                    <dd>{{ $gatewayFee !== null ? $formatRupiah($gatewayFee) : '-' }}</dd>
-                </div>
-                <div>
-                    <dt>Mode Simulasi</dt>
-                    <dd>{{ $isSandbox ? 'Ya' : 'Tidak' }}</dd>
-                </div>
-                <div>
-                    <dt>Payload Teknis</dt>
-                    <dd>{{ $gatewayResponse === [] && $rawPayload === [] ? 'Tidak ada data' : 'Tersimpan di sistem' }}</dd>
                 </div>
             </dl>
         </article>

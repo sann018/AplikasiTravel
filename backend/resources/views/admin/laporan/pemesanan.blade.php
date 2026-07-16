@@ -7,7 +7,7 @@
 @section('content')
     <section class="travs-summary-grid">
         <article class="travs-summary-card">
-            <small>Total Booking</small>
+            <small>Total Pemesanan</small>
             <strong>{{ number_format($summary['total_booking']) }}</strong>
             <span>Pada hasil filter saat ini</span>
         </article>
@@ -19,7 +19,7 @@
         <article class="travs-summary-card">
             <small>Total Nilai</small>
             <strong>Rp{{ number_format($summary['total_nilai'], 0, ',', '.') }}</strong>
-            <span>Akumulasi nominal booking</span>
+            <span>Akumulasi nominal pemesanan</span>
         </article>
     </section>
 
@@ -27,7 +27,7 @@
         <div class="travs-panel-header">
             <div class="travs-panel-title">
                 <h3>Filter Laporan</h3>
-                <p>Pilih status dan rentang tanggal untuk menampilkan laporan booking yang dibutuhkan.</p>
+                <p>Pilih status dan rentang tanggal untuk menampilkan laporan pemesanan yang dibutuhkan.</p>
             </div>
 
             <details class="travs-export-menu">
@@ -41,7 +41,7 @@
 
         <form method="GET" class="travs-filter-grid">
             <div class="travs-field">
-                <label for="status">Status Booking</label>
+                <label for="status">Status Pemesanan</label>
                 <select id="status" name="status" class="travs-select">
                     <option value="">Semua status</option>
                     @foreach (['menunggu_pembayaran' => 'Menunggu Pembayaran', 'terbayar' => 'Terbayar', 'dibatalkan' => 'Dibatalkan', 'selesai' => 'Selesai'] as $value => $label)
@@ -67,7 +67,7 @@
             <table class="travs-table">
                 <thead>
                     <tr>
-                        <th>Kode Booking</th>
+                        <th>Kode Pemesanan</th>
                         <th>Penumpang</th>
                         <th>Rute</th>
                         <th>Status</th>
@@ -91,7 +91,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="travs-table-empty">Belum ada data booking pada filter ini.</td>
+                            <td colspan="6" class="travs-table-empty">Belum ada data pemesanan pada filter ini.</td>
                         </tr>
                     @endforelse
                 </tbody>

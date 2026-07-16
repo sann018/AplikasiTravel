@@ -155,6 +155,11 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                               label: 'Batas pembayaran',
                               value: _formatDateTime(booking.batasPembayaran),
                             ),
+                            if (booking.payment.paidAt.isNotEmpty)
+                              _DetailRow(
+                                label: 'Dibayarkan pada',
+                                value: _formatDateTime(booking.payment.paidAt),
+                              ),
                             const Divider(height: 24),
                             _DetailRow(
                               label: 'Total tagihan',
@@ -297,15 +302,16 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                       ),
                       const SizedBox(height: 16),
                       _DetailSectionCard(
-                        title: 'Bagasi',
+                        title: 'Barang Bawaan',
                         initiallyExpanded: false,
                         subtitle:
-                            'Bagasi tambahan yang dimasukkan saat checkout akan tercatat di pemesanan ini.',
+                            'Barang yang dicatat saat pemesanan tampil di bagian ini tanpa perhitungan biaya otomatis.',
                         child: Column(
                           children: booking.baggageItems.isEmpty
                               ? const [
                                   _InlineEmptyState(
-                                    title: 'Tidak ada bagasi tambahan.',
+                                    title:
+                                        'Tidak ada barang bawaan yang dicatat.',
                                   ),
                                 ]
                               : booking.baggageItems
@@ -343,8 +349,8 @@ class _RequesterCard extends StatelessWidget {
     final imageUrl = TravSApiService.resolveMediaUrl(requester.fotoUrl);
 
     return _DetailSectionCard(
-      title: 'Pemesan',
-      subtitle: 'Akun penumpang yang membuat pemesanan ini.',
+      title: 'Pemesanan Atas',
+      subtitle: '',
       child: Row(
         children: [
           _RequesterAvatar(name: requester.nama, imageUrl: imageUrl),
@@ -461,29 +467,63 @@ class _BookingHeaderCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            booking.kodeBooking,
+            booking.rute,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            booking.rute,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            _formatDateTime(booking.waktuBerangkat),
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _HeaderScheduleInfo(
+                  label: 'Tanggal keberangkatan',
+                  value: _formatDate(booking.waktuBerangkat),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _HeaderScheduleInfo(
+                  label: 'Waktu keberangkatan',
+                  value: _formatTime(booking.waktuBerangkat),
+                ),
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+}
+
+class _HeaderScheduleInfo extends StatelessWidget {
+  const _HeaderScheduleInfo({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -532,7 +572,7 @@ class _DetailSectionCardState extends State<_DetailSectionCard> {
                   Expanded(
                     child: Text(
                       widget.title,
-                      style: theme.textTheme.titleLarge?.copyWith(
+                      style: theme.textTheme.titleMedium?.copyWith(
                         color: TravSTheme.navy,
                         fontWeight: FontWeight.w800,
                       ),
@@ -547,13 +587,15 @@ class _DetailSectionCardState extends State<_DetailSectionCard> {
                 ],
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              widget.subtitle,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: TravSTheme.navyMuted,
+            if (widget.subtitle.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                widget.subtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: TravSTheme.navyMuted,
+                ),
               ),
-            ),
+            ],
             AnimatedCrossFade(
               duration: const Duration(milliseconds: 180),
               crossFadeState: _expanded
@@ -594,7 +636,7 @@ class _DetailRow extends StatelessWidget {
           Expanded(
             child: Text(
               label,
-              style: theme.textTheme.bodyMedium?.copyWith(
+              style: theme.textTheme.labelLarge?.copyWith(
                 color: emphasize ? TravSTheme.navy : TravSTheme.navyMuted,
                 fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
               ),
@@ -607,7 +649,7 @@ class _DetailRow extends StatelessWidget {
               textAlign: TextAlign.end,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: TravSTheme.navy,
-                fontWeight: emphasize ? FontWeight.w800 : FontWeight.w700,
+                fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
               ),
             ),
           ),
@@ -641,7 +683,7 @@ class _PassengerCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Kursi A${passenger.seatNumber}',
-                  style: theme.textTheme.titleMedium?.copyWith(
+                  style: theme.textTheme.titleSmall?.copyWith(
                     color: TravSTheme.navy,
                     fontWeight: FontWeight.w800,
                   ),
@@ -683,11 +725,9 @@ class _BaggageCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final baggagePhotoUrls = item.fotoUrls
-        .map(TravSApiService.resolveMediaUrl)
-        .whereType<String>()
-        .take(3)
-        .toList();
+    final baggagePhotoUrls = _uniquePhotoUrls(
+      item.fotoUrls.map(TravSApiService.resolveMediaUrl).whereType<String>(),
+    ).take(3).toList();
 
     return Container(
       width: double.infinity,
@@ -701,7 +741,7 @@ class _BaggageCard extends StatelessWidget {
         children: [
           Text(
             item.deskripsiItem,
-            style: theme.textTheme.titleMedium?.copyWith(
+            style: theme.textTheme.titleSmall?.copyWith(
               color: TravSTheme.navy,
               fontWeight: FontWeight.w800,
             ),
@@ -716,9 +756,6 @@ class _BaggageCard extends StatelessWidget {
                     ? 'Dipegang sendiri'
                     : 'Masuk bagasi',
               ),
-              _MiniBadge(label: '${item.jumlahItem} item'),
-              if (item.beratKg != null)
-                _MiniBadge(label: '${item.beratKg!.toStringAsFixed(0)} kg'),
             ],
           ),
           if (baggagePhotoUrls.isNotEmpty) ...[
@@ -735,25 +772,7 @@ class _BaggageCard extends StatelessWidget {
               itemBuilder: (context, index) {
                 final photoUrl = baggagePhotoUrls[index];
                 return GestureDetector(
-                  onTap: () => showDialog<void>(
-                    context: context,
-                    builder: (context) => Dialog(
-                      insetPadding: const EdgeInsets.all(24),
-                      backgroundColor: Colors.transparent,
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(
-                            maxWidth: 500,
-                            maxHeight: 500,
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(18),
-                            child: Image.network(photoUrl, fit: BoxFit.contain),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  onTap: () => _showPhotoPreview(context, photoUrl),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(14),
                     child: Image.network(
@@ -924,6 +943,63 @@ String _formatCurrency(double value) {
   return NumberFormat.decimalPattern('id_ID').format(value);
 }
 
+List<String> _uniquePhotoUrls(Iterable<String> urls) {
+  final seen = <String>{};
+  final result = <String>[];
+  for (final url in urls) {
+    final normalized = url.trim();
+    if (normalized.isEmpty || !seen.add(normalized)) {
+      continue;
+    }
+    result.add(normalized);
+  }
+  return result;
+}
+
+void _showPhotoPreview(BuildContext context, String imageUrl) {
+  showDialog<void>(
+    context: context,
+    builder: (context) => Dialog(
+      insetPadding: const EdgeInsets.all(20),
+      backgroundColor: Colors.transparent,
+      child: Stack(
+        children: [
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 500, maxHeight: 500),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  errorBuilder: (context, error, stackTrace) => Container(
+                    padding: const EdgeInsets.all(20),
+                    color: Colors.white,
+                    child: const Text('Foto belum dapat ditampilkan.'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: 8,
+            left: 8,
+            child: Material(
+              color: Colors.white,
+              shape: const CircleBorder(),
+              child: IconButton(
+                tooltip: 'Tutup preview',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 String _formatDateTime(String value) {
   if (value.isEmpty) {
     return '-';
@@ -934,7 +1010,19 @@ String _formatDateTime(String value) {
     return '-';
   }
 
-  return DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(parsed);
+  return DateFormat('dd MMM yyyy\nHH:mm', 'id_ID').format(parsed);
+}
+
+String _formatDate(String value) {
+  final parsed = DateTime.tryParse(value)?.toLocal();
+  return parsed == null
+      ? '-'
+      : DateFormat('d MMMM yyyy', 'id_ID').format(parsed);
+}
+
+String _formatTime(String value) {
+  final parsed = DateTime.tryParse(value)?.toLocal();
+  return parsed == null ? '-' : DateFormat('HH:mm', 'id_ID').format(parsed);
 }
 
 String _humanizeStatus(String value) {

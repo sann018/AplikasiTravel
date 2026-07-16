@@ -16,8 +16,7 @@
 
         @if ($errors->any())
             <div class="travs-alert travs-alert-danger">
-                <strong>Terjadi kesalahan:</strong>
-                <ul style="margin: 8px 0 0; padding-left: 18px;">
+                <ul style="margin: 0; padding-left: 18px;">
                     @foreach ($errors->all() as $error)
                         <li>{{ $error }}</li>
                     @endforeach
@@ -97,6 +96,7 @@
                             <option value="{{ $value }}" @selected(old('status', 'dibuka') === $value)>{{ $label }}</option>
                         @endforeach
                     </select>
+                    <div class="travs-field-meta">Gunakan status Berangkat hanya jika perjalanan benar-benar sudah dimulai. Pengemudi juga dapat mengubahnya melalui tombol Mulai Perjalanan.</div>
                     @include('admin.partials.field-error', ['name' => 'status'])
                 </div>
                 <div class="travs-field">

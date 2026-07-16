@@ -10,7 +10,6 @@ use App\Models\Pembayaran;
 use App\Models\Pemesanan;
 use App\Models\Pengemudi;
 use App\Models\Rute;
-use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -49,6 +48,7 @@ class DashboardController extends Controller
                 ->whereDate('dibayar_pada', $today)
                 ->sum('jumlah_bayar'),
             'biaya_harian' => (float) BiayaOperasionalPerjalanan::query()
+                ->finalized()
                 ->whereDate('tanggal_biaya', $today)
                 ->sum('nominal'),
         ];
@@ -60,24 +60,10 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        $pemesananTerbaru = Pemesanan::query()
-            ->with(['pengguna', 'jadwal.rute'])
-            ->latest()
-            ->limit(5)
-            ->get();
-
-        $biayaOperasionalTerbaru = BiayaOperasionalPerjalanan::query()
-            ->with(['jadwal.rute'])
-            ->latest('tanggal_biaya')
-            ->limit(5)
-            ->get();
-
         return view('admin.dashboard.index', [
             'stats' => $stats,
             'jadwalHariIni' => $jadwalHariIni,
-            'pemesananTerbaru' => $pemesananTerbaru,
             'pendapatanHarian' => $pendapatanHarian,
-            'biayaOperasionalTerbaru' => $biayaOperasionalTerbaru,
         ]);
     }
 }

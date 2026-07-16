@@ -169,29 +169,63 @@ class _TicketHeaderCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            booking.kodeBooking,
+            booking.rute,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            booking.rute,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            _formatDateTime(booking.waktuBerangkat),
-            style: Theme.of(
-              context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+          const SizedBox(height: 16),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _TicketHeaderScheduleInfo(
+                  label: 'Tanggal keberangkatan',
+                  value: _formatDayDate(booking.waktuBerangkat),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: _TicketHeaderScheduleInfo(
+                  label: 'Waktu keberangkatan',
+                  value: _formatTime(booking.waktuBerangkat),
+                ),
+              ),
+            ],
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TicketHeaderScheduleInfo extends StatelessWidget {
+  const _TicketHeaderScheduleInfo({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: Theme.of(
+            context,
+          ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -296,7 +330,7 @@ class _TicketCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Kursi A${passenger.seatNumber} • ${booking.rute}',
+              'Kursi A${passenger.seatNumber} - ${booking.rute}',
               style: Theme.of(
                 context,
               ).textTheme.bodyMedium?.copyWith(color: TravSTheme.navyMuted),
@@ -890,19 +924,6 @@ class _TicketErrorState extends StatelessWidget {
       ],
     );
   }
-}
-
-String _formatDateTime(String value) {
-  if (value.isEmpty) {
-    return '-';
-  }
-
-  final parsed = DateTime.tryParse(value)?.toLocal();
-  if (parsed == null) {
-    return '-';
-  }
-
-  return DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(parsed);
 }
 
 String _formatDayDate(String value) {

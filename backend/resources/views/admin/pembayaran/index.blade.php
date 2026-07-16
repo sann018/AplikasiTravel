@@ -37,7 +37,7 @@
         <form method="GET" class="travs-filter-grid travs-filter-grid-wide">
             <div class="travs-field">
                 <label for="search">Cari</label>
-                <input id="search" name="search" class="travs-input" value="{{ $filters['search'] ?? '' }}" placeholder="Kode booking, order, penumpang, rute">
+                <input id="search" name="search" class="travs-input" value="{{ $filters['search'] ?? '' }}" placeholder="Kode pemesanan, order, penumpang, rute">
             </div>
             <div class="travs-field">
                 <label for="metode_bayar">Metode</label>
@@ -54,21 +54,6 @@
                     <option value="">Semua status</option>
                     @foreach (['menunggu' => 'Menunggu', 'berhasil' => 'Berhasil', 'gagal' => 'Gagal', 'kedaluwarsa' => 'Kedaluwarsa'] as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['status_bayar'] ?? '') === $value)>{{ $label }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="travs-field">
-                <label for="exception">Catatan Status</label>
-                <select id="exception" name="exception" class="travs-select">
-                    <option value="">Semua data</option>
-                    @foreach ([
-                        'perlu_tindak_lanjut' => 'Perlu Tindak Lanjut',
-                        'perlu_verifikasi_cash' => 'Perlu Verifikasi Tunai',
-                        'gateway_gagal' => 'Pembayaran Gagal',
-                        'kedaluwarsa' => 'Kedaluwarsa',
-                        'status_tidak_sinkron' => 'Status Perlu Dicek',
-                    ] as $value => $label)
-                        <option value="{{ $value }}" @selected(($filters['exception'] ?? '') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
             </div>
@@ -90,7 +75,7 @@
             <table class="travs-table">
                 <thead>
                     <tr>
-                        <th>Booking</th>
+                        <th>Kode Pemesanan</th>
                         <th>Penumpang & Rute</th>
                         <th>Metode</th>
                         <th>Status</th>

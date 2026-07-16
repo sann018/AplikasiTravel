@@ -39,13 +39,11 @@ class AdminSystemSettingsTest extends TestCase
         $this->actingAs($this->admin())
             ->get(route('admin.settings.index', ['tab' => 'baggage']))
             ->assertOk()
-            ->assertSee('Simpan Pengaturan Bagasi')
-            ->assertSee('Simulasi Bagasi')
-            ->assertSee('data-baggage-simulator', false)
-            ->assertSee('Beko / Barang Berat')
-            ->assertDontSee('Biaya Item Kecil')
-            ->assertDontSee('Biaya Item Besar')
-            ->assertDontSee('Barang Besar Lainnya')
+            ->assertSee('Informasi Penting')
+            ->assertSee('Tambah Informasi')
+            ->assertDontSee('Simpan Pengaturan Bagasi')
+            ->assertDontSee('Simulasi Bagasi')
+            ->assertDontSee('data-baggage-simulator', false)
             ->assertDontSee('data-notification-preview', false)
             ->assertSee('name="max_seat_per_booking"', false)
             ->assertDontSee('name="admin_fee"', false)
@@ -160,22 +158,52 @@ class AdminSystemSettingsTest extends TestCase
             ]);
     }
 
-    public function test_baggage_tab_rejects_free_limits_above_maximum(): void
+    public function test_legacy_baggage_endpoint_no_longer_changes_tariffs(): void
     {
+        $before = SystemSetting::query()->where('key', 'baggage_extra_fee_per_kg')->value('value');
+
         $this->actingAs($this->admin())
             ->post(route('admin.settings.baggage.update'), $this->validBaggagePayload([
-                'baggage_free_weight_kg' => 21,
-                'baggage_max_weight_per_person_kg' => 20,
-                'baggage_free_size_cm' => 170,
-                'baggage_max_size_per_person_cm' => 160,
-                'baggage_free_item_count' => 11,
-                'baggage_max_item_per_person' => 10,
+                'baggage_extra_fee_per_kg' => 999999,
             ]))
-            ->assertSessionHasErrors([
-                'baggage_free_weight_kg',
-                'baggage_free_size_cm',
-                'baggage_free_item_count',
-            ]);
+            ->assertRedirect(route('admin.settings.index', ['tab' => 'general']))
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(
+            $before,
+            SystemSetting::query()->where('key', 'baggage_extra_fee_per_kg')->value('value'),
+        );
+    }
+
+    public function test_admin_can_add_and_remove_important_information(): void
+    {
+        $admin = $this->admin();
+
+        $this->actingAs($admin)
+            ->post(route('admin.settings.important-information.store'), [
+                'title' => 'Perubahan titik keberangkatan',
+                'description' => 'Periksa kembali titik keberangkatan sebelum berangkat.',
+            ])
+            ->assertRedirect(route('admin.settings.index', ['tab' => 'general']))
+            ->assertSessionHasNoErrors();
+
+        $items = json_decode((string) SystemSetting::query()
+            ->where('key', 'important_information')
+            ->value('value'), true);
+        $created = collect($items)->firstWhere('title', 'Perubahan titik keberangkatan');
+
+        $this->assertNotNull($created);
+
+        $this->actingAs($admin)
+            ->delete(route('admin.settings.important-information.destroy', $created['id']))
+            ->assertRedirect(route('admin.settings.index', ['tab' => 'general']))
+            ->assertSessionHasNoErrors();
+
+        $remaining = json_decode((string) SystemSetting::query()
+            ->where('key', 'important_information')
+            ->value('value'), true);
+
+        $this->assertNull(collect($remaining)->firstWhere('id', $created['id']));
     }
 
     public function test_notification_tab_is_not_available_from_settings_page(): void
@@ -199,15 +227,11 @@ class AdminSystemSettingsTest extends TestCase
     {
         return array_merge([
             'baggage_weight_enabled' => '1',
-            'baggage_size_enabled' => '1',
             'baggage_item_enabled' => '1',
             'baggage_photo_required' => '1',
             'baggage_free_weight_kg' => 10,
             'baggage_max_weight_per_person_kg' => 20,
             'baggage_extra_fee_per_kg' => 3000,
-            'baggage_free_size_cm' => 160,
-            'baggage_max_size_per_person_cm' => 160,
-            'baggage_extra_fee_per_cm' => 500,
             'baggage_free_item_count' => 2,
             'baggage_max_item_per_person' => 10,
             'baggage_extra_fee_per_item' => 2500,

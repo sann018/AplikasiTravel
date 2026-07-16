@@ -2,7 +2,7 @@
 
 @section('title', 'Rute Perjalanan')
 @section('page-title', 'Rute Perjalanan')
-@section('page-description', 'Kelola jalur lintas kota, harga tiket, estimasi durasi, dan status aktif rute untuk kebutuhan jadwal.')
+@section('page-description', 'Kelola jalur lintas kota, harga tiket, estimasi durasi, dan status aktif rute.')
 
 @section('content')
     <section class="travs-summary-grid">
@@ -14,7 +14,7 @@
         <article class="travs-summary-card">
             <small>Rute Aktif</small>
             <strong>{{ number_format($stats['aktif']) }}</strong>
-            <span>Siap digunakan booking</span>
+            <span>Siap digunakan untuk pemesanan</span>
         </article>
         <article class="travs-summary-card">
             <small>Rute Nonaktif</small>
@@ -27,7 +27,7 @@
         <div class="travs-panel-header">
             <div class="travs-panel-title">
                 <h3>Daftar Rute</h3>
-                <p>Semua jadwal aktif akan mengambil referensi dari rute dan harga tiket yang ada di sini.</p>
+                <p>Semua rute untuk pengelolaan jadwal aktif.</p>
             </div>
             <a href="{{ route('admin.rute.create') }}" class="travs-button">Tambah Rute</a>
         </div>

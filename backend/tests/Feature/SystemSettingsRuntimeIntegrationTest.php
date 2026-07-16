@@ -66,7 +66,7 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
             'jadwal_id' => $schedule->id,
             'seat_numbers' => $seats,
         ])->assertUnprocessable()
-            ->assertJsonPath('errors.seat_numbers.0', 'Jumlah kursi melebihi batas maksimal per booking.');
+            ->assertJsonPath('errors.seat_numbers.0', 'Jumlah kursi melebihi batas maksimal dalam satu pemesanan.');
 
         $this->postJson('/api/penumpang/bookings/lock-form', [
             'jadwal_id' => $schedule->id,
@@ -75,7 +75,7 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
             ->assertJsonPath('data.lock_minutes', 12);
     }
 
-    public function test_total_only_contains_ticket_and_baggage_fee(): void
+    public function test_total_contains_ticket_only_when_barang_bawaan_is_recorded(): void
     {
         $this->setSettings([
             'baggage_photo_required' => false,
@@ -102,10 +102,10 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
             ]],
         ])->assertOk()
             ->assertJsonMissingPath('data.biaya_admin')
-            ->assertJsonPath('data.biaya_bagasi', 6000)
+            ->assertJsonPath('data.biaya_bagasi', 0)
             ->assertJsonPath(
                 'data.total_harga',
-                (int) $schedule->rute->harga_tiket + 6000,
+                (int) $schedule->rute->harga_tiket,
             );
 
         $this->assertDatabaseMissing('system_settings', ['key' => 'admin_fee']);
@@ -212,7 +212,7 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
         );
     }
 
-    public function test_baggage_allowance_uses_registered_passenger_count_not_only_selected_seats(): void
+    public function test_legacy_baggage_settings_do_not_add_fee_to_new_booking(): void
     {
         $this->setSettings([
             'baggage_photo_required' => false,
@@ -241,10 +241,10 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
                 'jumlah_item' => 5,
             ]],
         ])->assertOk()
-            ->assertJsonPath('data.biaya_bagasi', 15000)
+            ->assertJsonPath('data.biaya_bagasi', 0)
             ->assertJsonPath(
                 'data.total_harga',
-                ((int) $schedule->rute->harga_tiket * 2) + 15000,
+                (int) $schedule->rute->harga_tiket * 2,
             );
     }
 

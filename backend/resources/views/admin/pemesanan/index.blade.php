@@ -2,12 +2,12 @@
 
 @section('title', 'Pemesanan')
 @section('page-title', 'Monitoring Pemesanan')
-@section('page-description', 'Pantau booking yang masuk, status pembayaran, dan arahkan admin ke detail pemesanan untuk tindak lanjut operasional.')
+@section('page-description', 'Pantau pemesanan yang masuk, status pembayaran, dan arahkan admin ke detail pemesanan untuk tindak lanjut operasional.')
 
 @section('content')
     <section class="travs-summary-grid">
         <article class="travs-summary-card">
-            <small>Total Booking</small>
+            <small>Total Pemesanan</small>
             <strong>{{ number_format($stats['total']) }}</strong>
             <span>Seluruh transaksi</span>
         </article>
@@ -30,17 +30,17 @@
 
     <article class="travs-section-card">
         <div class="travs-panel-title">
-            <h3>Filter Booking</h3>
-            <p>Cari booking berdasarkan kode, penumpang, rute, rentang tanggal, atau status pembayaran.</p>
+            <h3>Filter Pemesanan</h3>
+            <p>Cari pemesanan berdasarkan kode, penumpang, rute, rentang tanggal, atau status pembayaran.</p>
         </div>
 
         <form method="GET" class="travs-filter-grid travs-filter-grid-wide">
             <div class="travs-field">
                 <label for="search">Cari</label>
-                <input id="search" name="search" class="travs-input" value="{{ $filters['search'] ?? '' }}" placeholder="Kode booking, nama penumpang, atau rute">
+                <input id="search" name="search" class="travs-input" value="{{ $filters['search'] ?? '' }}" placeholder="Kode pemesanan, nama penumpang, atau rute">
             </div>
             <div class="travs-field">
-                <label for="status">Status Booking</label>
+                <label for="status">Status Pemesanan</label>
                 <select id="status" name="status" class="travs-select">
                     <option value="">Semua status</option>
                     @foreach (['menunggu_pembayaran' => 'Menunggu Pembayaran', 'terbayar' => 'Terbayar', 'dibatalkan' => 'Dibatalkan', 'selesai' => 'Selesai'] as $value => $label)
@@ -75,7 +75,7 @@
             <table class="travs-table">
                 <thead>
                     <tr>
-                        <th>Kode Booking</th>
+                        <th>Kode Pemesanan</th>
                         <th>Penumpang</th>
                         <th>Rute</th>
                         <th>Status</th>
@@ -121,7 +121,7 @@
                                         Turun {{ $booking->penumpang_turun_count }}/{{ $booking->detail_pemesanan_count }}
                                     </span>
                                     <span class="travs-status-pill travs-status-{{ $booking->item_bagasi_count > 0 ? 'qris' : 'draft' }}">
-                                        Bagasi {{ $booking->item_bagasi_count }} item
+                                        Barang {{ $booking->item_bagasi_count }} catatan
                                     </span>
                                 </div>
                             </td>

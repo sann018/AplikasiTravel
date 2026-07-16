@@ -37,7 +37,7 @@
         <form method="GET" class="travs-filter-grid travs-filter-grid-wide">
             <div class="travs-field">
                 <label for="search">Cari</label>
-                <input id="search" name="search" class="travs-input" value="{{ $filters['search'] ?? '' }}" placeholder="Kode QR, booking, nama penumpang">
+                <input id="search" name="search" class="travs-input" value="{{ $filters['search'] ?? '' }}" placeholder="Kode QR, kode pemesanan, nama penumpang">
             </div>
             <div class="travs-field">
                 <label for="status_scan">Status Scan</label>
@@ -78,7 +78,7 @@
                 <thead>
                     <tr>
                         <th>Kode QR</th>
-                        <th>Booking</th>
+                        <th>Kode Pemesanan</th>
                         <th>Penumpang</th>
                         <th>Kursi</th>
                         <th>Rute</th>

@@ -2,7 +2,7 @@
 
 @section('title', 'Pengaturan Sistem')
 @section('page-title', 'Pengaturan Sistem')
-@section('page-description', 'Kelola aturan utama aplikasi dari satu halaman.')
+@section('page-description', 'Kelola aturan utama aplikasi.')
 
 @php
     $allSettings = collect($settings)->flatten(1)->keyBy('key');
@@ -20,72 +20,16 @@
     }
 
     $tabLabels = [
+        'account' => 'Akun Admin',
         'general' => 'Umum',
         'booking' => 'Pemesanan',
         'payment' => 'Pembayaran',
-        'baggage' => 'Bagasi',
         'banner' => 'Banner Beranda',
     ];
 @endphp
 
 @section('content')
     <div class="travs-settings-page">
-        <section id="akun-admin" class="travs-card travs-admin-account-card collapsible-section mb-4" data-collapsible-section>
-            <div class="collapsible-section__header" data-collapse-header>
-                <div class="travs-admin-account-head flex-grow-1">
-                    <div>
-                        <span class="travs-eyebrow">Akun Admin</span>
-                        <h3>Email dan Password</h3>
-                        <p>Perbarui email login atau ganti password dashboard admin.</p>
-                    </div>
-                    <div class="travs-admin-account-badge">
-                        <span>Akun aktif</span>
-                        <strong>{{ $adminUser->email }}</strong>
-                    </div>
-                </div>
-                @include('admin.partials.collapsible-toggle', ['targetId' => 'settings-admin-account-body'])
-            </div>
-
-            <div id="settings-admin-account-body" class="collapsible-section__body" data-collapse-body>
-                <form method="POST" action="{{ route('admin.pengaturan.account.update') }}" class="travs-admin-account-form">
-                @csrf
-                @method('PUT')
-                <div class="travs-admin-account-primary">
-                    <div class="travs-field">
-                        <label for="admin_email">Email Admin</label>
-                        <input id="admin_email" name="email" type="email" class="travs-input @error('email') is-invalid @enderror" value="{{ old('email', $adminUser->email) }}" required autocomplete="email">
-                        @include('admin.partials.field-error', ['name' => 'email'])
-                    </div>
-                    <div class="travs-field">
-                        <label for="current_password">Password Lama</label>
-                        <input id="current_password" name="current_password" type="password" class="travs-input @error('current_password') is-invalid @enderror" required autocomplete="current-password" placeholder="Masukkan password lama">
-                        @include('admin.partials.field-error', ['name' => 'current_password'])
-                    </div>
-                </div>
-                <div class="travs-admin-password-panel">
-                    <div class="travs-admin-password-copy">
-                        <h4>Ganti Password</h4>
-                        <p>Isi dua kolom ini hanya jika ingin mengganti password.</p>
-                    </div>
-                    <div class="travs-form-grid-2">
-                        <div class="travs-field">
-                            <label for="password">Password Baru</label>
-                            <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror" autocomplete="new-password" placeholder="Minimal 8 karakter">
-                            @include('admin.partials.field-error', ['name' => 'password'])
-                        </div>
-                        <div class="travs-field">
-                            <label for="password_confirmation">Konfirmasi Password Baru</label>
-                            <input id="password_confirmation" name="password_confirmation" type="password" class="travs-input" autocomplete="new-password" placeholder="Ulangi password baru">
-                        </div>
-                    </div>
-                </div>
-                <div class="travs-form-actions travs-admin-account-actions">
-                    <button type="submit" class="travs-button">Simpan Perubahan Akun</button>
-                </div>
-                </form>
-            </div>
-        </section>
-
         @if ($errors->any())
             <div class="alert alert-danger" role="alert">
                 <strong>Pengaturan belum dapat disimpan.</strong>
@@ -97,8 +41,6 @@
             <div class="collapsible-section__header" data-collapse-header>
                 <div class="travs-settings-tabs-copy">
                     <span class="travs-eyebrow">Control Center</span>
-                    <h3>Pilih bagian yang ingin diatur</h3>
-                    <p>Setiap tab disimpan secara terpisah agar perubahan tidak mengenai bagian lain.</p>
                 </div>
                 @include('admin.partials.collapsible-toggle', ['targetId' => 'settings-control-center-body'])
             </div>
@@ -116,6 +58,63 @@
         </section>
 
         <div class="travs-settings-grid">
+            <form id="settings-account" method="POST" action="{{ route('admin.pengaturan.account.update') }}" class="travs-card travs-admin-account-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="account" data-collapsible-section @if ($activeTab !== 'account') hidden @endif>
+                @csrf
+                @method('PUT')
+                <div class="collapsible-section__header" data-collapse-header>
+                    <div class="travs-admin-account-head flex-grow-1">
+                        <div>
+                            <span class="travs-eyebrow">Akun Admin</span>
+                            <h3>Email dan Password</h3>
+                            <p>Perbarui email login atau ganti password dashboard admin.</p>
+                        </div>
+                        <div class="travs-admin-account-badge">
+                            <span>Akun aktif</span>
+                            <strong>{{ $adminUser->email }}</strong>
+                        </div>
+                    </div>
+                    @include('admin.partials.collapsible-toggle', ['targetId' => 'settings-admin-account-body'])
+                </div>
+
+                <div id="settings-admin-account-body" class="collapsible-section__body" data-collapse-body>
+                    {{-- Akun admin diletakkan di Control Center agar semua pengaturan sistem berada dalam satu area. --}}
+                    <div class="travs-admin-account-form">
+                        <div class="travs-admin-account-primary">
+                            <div class="travs-field">
+                                <label for="admin_email">Email Admin</label>
+                                <input id="admin_email" name="email" type="email" class="travs-input @error('email') is-invalid @enderror" value="{{ old('email', $adminUser->email) }}" required autocomplete="email">
+                                @include('admin.partials.field-error', ['name' => 'email'])
+                            </div>
+                            <div class="travs-field">
+                                <label for="current_password">Password Lama</label>
+                                <input id="current_password" name="current_password" type="password" class="travs-input @error('current_password') is-invalid @enderror" required autocomplete="current-password" placeholder="Masukkan password lama">
+                                @include('admin.partials.field-error', ['name' => 'current_password'])
+                            </div>
+                        </div>
+                        <div class="travs-admin-password-panel">
+                            <div class="travs-admin-password-copy">
+                                <h4>Ganti Password</h4>
+                                <p>Isi dua kolom ini hanya jika ingin mengganti password.</p>
+                            </div>
+                            <div class="travs-form-grid-2">
+                                <div class="travs-field">
+                                    <label for="password">Password Baru</label>
+                                    <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror" autocomplete="new-password" placeholder="Minimal 8 karakter">
+                                    @include('admin.partials.field-error', ['name' => 'password'])
+                                </div>
+                                <div class="travs-field">
+                                    <label for="password_confirmation">Konfirmasi Password Baru</label>
+                                    <input id="password_confirmation" name="password_confirmation" type="password" class="travs-input" autocomplete="new-password" placeholder="Ulangi password baru">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="travs-form-actions travs-admin-account-actions">
+                            <button type="submit" class="travs-button">Simpan Perubahan Akun</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
             <form id="settings-general" method="POST" action="{{ route('admin.settings.general.update') }}" enctype="multipart/form-data" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="general" data-collapsible-section @if ($activeTab !== 'general') hidden @endif>
                 @csrf
                 <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
@@ -173,6 +172,60 @@
                 </div>
             </form>
 
+            <section id="settings-important-information" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="general" data-collapsible-section @if ($activeTab !== 'general') hidden @endif>
+                <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
+                    <div>
+                        <span class="travs-eyebrow">Informasi Penting</span>
+                        <h3>Informasi Beranda Aplikasi</h3>
+                        <p>Tambahkan pengumuman singkat yang perlu dibaca tamu dan penumpang.</p>
+                    </div>
+                    @include('admin.partials.collapsible-toggle', ['targetId' => 'settings-important-information-body'])
+                </div>
+
+                <div id="settings-important-information-body" class="collapsible-section__body" data-collapse-body>
+                    <form method="POST" action="{{ route('admin.settings.important-information.store') }}" class="travs-settings-subsection mt-0">
+                        @csrf
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label" for="important_title">Judul Informasi</label>
+                                <input id="important_title" name="title" type="text" maxlength="100" class="form-control @error('title') is-invalid @enderror" value="{{ old('title') }}" required>
+                                @include('admin.partials.field-error', ['name' => 'title'])
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label" for="important_description">Isi Informasi</label>
+                                <textarea id="important_description" name="description" rows="3" maxlength="1000" class="form-control @error('description') is-invalid @enderror" required>{{ old('description') }}</textarea>
+                                @include('admin.partials.field-error', ['name' => 'description'])
+                            </div>
+                        </div>
+                        <div class="travs-form-actions mt-3">
+                            <button type="submit" class="travs-button">Tambah Informasi</button>
+                        </div>
+                    </form>
+
+                    <div class="travs-settings-subsection mt-3">
+                        <div class="travs-settings-subsection-head">
+                            <h4>Informasi yang Sedang Tampil</h4>
+                            <p>Informasi ini dibaca aplikasi dari API saat beranda dimuat ulang.</p>
+                        </div>
+                        @forelse ($importantInformation as $information)
+                            <div class="d-flex flex-column flex-md-row align-items-md-start justify-content-between gap-3 border rounded-3 p-3 mb-2">
+                                <div>
+                                    <strong>{{ $information['title'] }}</strong>
+                                    <p class="mb-0 mt-1 text-muted">{{ $information['description'] }}</p>
+                                </div>
+                                <form method="POST" action="{{ route('admin.settings.important-information.destroy', $information['id']) }}" onsubmit="return confirm('Hapus informasi penting ini?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">Hapus</button>
+                                </form>
+                            </div>
+                        @empty
+                            <p class="text-muted mb-0">Belum ada informasi penting yang ditampilkan.</p>
+                        @endforelse
+                    </div>
+                </div>
+            </section>
+
             <form id="settings-booking" method="POST" action="{{ route('admin.settings.booking.update') }}" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="booking" data-collapsible-section @if ($activeTab !== 'booking') hidden @endif>
                 @csrf
                 <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
@@ -190,7 +243,7 @@
                         {{-- Switch dipakai karena pengaturan ini hanya memiliki kondisi aktif atau nonaktif. --}}
                         <div class="travs-settings-switch-row">
                             <div>
-                                <strong>Auto Cancel Booking</strong>
+                                <strong>Pembatalan Pemesanan Otomatis</strong>
                                 <p>Pemesanan dibatalkan otomatis setelah batas waktunya habis.</p>
                             </div>
                             <div class="form-check form-switch m-0">
@@ -201,7 +254,7 @@
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label" for="max_seat_per_booking">Maksimal Kursi per Booking</label>
+                        <label class="form-label" for="max_seat_per_booking">Maksimal Kursi per Pemesanan</label>
                         <div class="input-group">
                             <input id="max_seat_per_booking" name="max_seat_per_booking" type="number" min="1" class="form-control @error('max_seat_per_booking') is-invalid @enderror" value="{{ $settingValue('max_seat_per_booking') }}" required>
                             <span class="input-group-text">kursi</span>
@@ -303,7 +356,9 @@
                 </div>
             </form>
 
-            <form id="settings-baggage" method="POST" action="{{ route('admin.settings.baggage.update') }}" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="baggage" data-collapsible-section @if ($activeTab !== 'baggage') hidden @endif>
+            {{-- Form tarif bagasi lama tidak dirender. Key database dipertahankan agar transaksi lama tetap kompatibel. --}}
+            @if (false)
+            <form id="settings-baggage" method="POST" action="{{ route('admin.settings.baggage.update') }}" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="baggage" data-collapsible-section hidden>
                 @csrf
                 <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
                     <div>
@@ -323,7 +378,6 @@
                     <div class="row g-3">
                         @foreach ([
                             'baggage_weight_enabled' => ['Perhitungan Berat', 'Aturan kilogram'],
-                            'baggage_size_enabled' => ['Perhitungan Ukuran', 'Aturan sentimeter'],
                             'baggage_item_enabled' => ['Perhitungan Item', 'Aturan jumlah barang'],
                             'baggage_photo_required' => ['Foto Bagasi Wajib', 'Bukti foto barang bawaan'],
                         ] as $switchKey => [$switchLabel, $switchHelp])
@@ -358,27 +412,6 @@
                                     @if ($currency)<span class="input-group-text">Rp</span>@endif
                                     <input id="{{ $key }}" name="{{ $key }}" type="number" min="0" step="0.01" class="form-control @error($key) is-invalid @enderror" value="{{ $settingValue($key) }}" data-rule-input="weight" required>
                                     @if (! $currency)<span class="input-group-text">{{ $unit }}</span>@endif
-                                </div>
-                                @include('admin.partials.field-error', ['name' => $key])
-                            </div>
-                        @endforeach
-                    </div>
-                </section>
-
-                <section class="travs-settings-subsection" data-rule-section="size">
-                    <div class="travs-settings-subsection-head"><h4>Aturan Ukuran</h4></div>
-                    <div class="row g-3">
-                        @foreach ([
-                            'baggage_free_size_cm' => ['Ukuran Gratis', false],
-                            'baggage_max_size_per_person_cm' => ['Ukuran Maksimal per Orang', false],
-                            'baggage_extra_fee_per_cm' => ['Biaya Tambahan per Cm', true],
-                        ] as $key => [$label, $currency])
-                            <div class="col-md-4">
-                                <label class="form-label" for="{{ $key }}">{{ $label }}</label>
-                                <div class="input-group">
-                                    @if ($currency)<span class="input-group-text">Rp</span>@endif
-                                    <input id="{{ $key }}" name="{{ $key }}" type="number" min="0" step="0.01" class="form-control @error($key) is-invalid @enderror" value="{{ $settingValue($key) }}" data-rule-input="size" required>
-                                    @if (! $currency)<span class="input-group-text">cm</span>@endif
                                 </div>
                                 @include('admin.partials.field-error', ['name' => $key])
                             </div>
@@ -468,10 +501,6 @@
                             <div class="input-group"><input id="simulation_weight" type="number" min="0" step="0.1" class="form-control" value="0" data-simulation-weight><span class="input-group-text">kg</span></div>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label" for="simulation_size">Ukuran Bagasi</label>
-                            <div class="input-group"><input id="simulation_size" type="number" min="0" step="0.1" class="form-control" value="0" data-simulation-size><span class="input-group-text">cm</span></div>
-                        </div>
-                        <div class="col-md-3">
                             <label class="form-label" for="simulation_item">Jumlah Item</label>
                             <div class="input-group"><input id="simulation_item" type="number" min="0" step="1" class="form-control" value="0" data-simulation-item><span class="input-group-text">item</span></div>
                         </div>
@@ -496,6 +525,8 @@
                 </div>
                 </div>
             </form>
+
+            @endif
 
             <section id="settings-banner" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="banner" data-collapsible-section @if ($activeTab !== 'banner') hidden @endif>
                 <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
@@ -616,46 +647,10 @@
             cashToggle?.addEventListener('change', syncCashNote);
             syncCashNote();
 
-            const syncRuleSection = (toggle) => {
-                const rule = toggle.dataset.ruleToggle;
-                const section = document.querySelector(`[data-rule-section="${rule}"]`);
-                section?.classList.toggle('is-disabled', !toggle.checked);
-                section?.querySelectorAll(`[data-rule-input="${rule}"]`).forEach((input) => input.disabled = !toggle.checked);
-            };
-            document.querySelectorAll('[data-rule-toggle]').forEach((toggle) => {
-                toggle.addEventListener('change', () => syncRuleSection(toggle));
-                syncRuleSection(toggle);
-            });
-
             // Field yang redup diaktifkan sesaat sebelum submit agar nilainya tetap diterima backend.
             document.querySelectorAll('.travs-settings-pane').forEach((form) => {
                 form.addEventListener('submit', () => form.querySelectorAll(':disabled').forEach((field) => field.disabled = false));
             });
-
-            const numberValue = (selector) => Number.parseFloat(document.querySelector(selector)?.value || '0') || 0;
-            const calculateBaggage = () => {
-                const weightCost = document.querySelector('#baggage_weight_enabled')?.checked
-                    ? Math.max(0, numberValue('[data-simulation-weight]') - numberValue('#baggage_free_weight_kg')) * numberValue('#baggage_extra_fee_per_kg')
-                    : 0;
-                const sizeCost = document.querySelector('#baggage_size_enabled')?.checked
-                    ? Math.max(0, numberValue('[data-simulation-size]') - numberValue('#baggage_free_size_cm')) * numberValue('#baggage_extra_fee_per_cm')
-                    : 0;
-                const itemCost = document.querySelector('#baggage_item_enabled')?.checked
-                    ? Math.max(0, numberValue('[data-simulation-item]') - numberValue('#baggage_free_item_count')) * numberValue('#baggage_extra_fee_per_item')
-                    : 0;
-                const largeTypeKey = document.querySelector('[data-simulation-large-type]')?.value;
-                const largeTypeCost = document.querySelector('#baggage_large_vehicle_enabled')?.checked && largeTypeKey
-                    ? numberValue(`#${largeTypeKey}`)
-                    : 0;
-                const total = weightCost + sizeCost + itemCost + largeTypeCost;
-                const output = document.querySelector('[data-simulation-result]');
-                if (output) output.textContent = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(total);
-            };
-            // Simulasi ini hanya untuk tampilan admin; perhitungan final tetap dilakukan backend.
-            document.querySelectorAll('[data-baggage-simulator] input, [data-baggage-simulator] select').forEach((input) => input.addEventListener('input', calculateBaggage));
-            document.querySelectorAll('[data-baggage-simulator] select').forEach((input) => input.addEventListener('change', calculateBaggage));
-            document.querySelectorAll('[data-rule-toggle]').forEach((input) => input.addEventListener('change', calculateBaggage));
-            calculateBaggage();
 
             const logoInput = document.querySelector('#app_logo');
             let temporaryLogoUrl = null;

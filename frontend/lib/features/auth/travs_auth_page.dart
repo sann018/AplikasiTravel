@@ -261,12 +261,8 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                                   color: TravSTheme.navyMuted,
                                 ),
                               ),
-                              const SizedBox(height: 14),
-                              if (_isRegisterMode)
-                                _RoleAccessSummary(
-                                  isRegisterMode: _isRegisterMode,
-                                )
-                              else
+                              SizedBox(height: _isRegisterMode ? 10 : 14),
+                              if (!_isRegisterMode)
                                 _LoginRolePicker(
                                   selectedRole: _loginRole,
                                   onChanged: (value) {
@@ -276,7 +272,7 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                                     });
                                   },
                                 ),
-                              const SizedBox(height: 18),
+                              SizedBox(height: _isRegisterMode ? 8 : 18),
                               if (_errorMessage != null) ...[
                                 _InlineMessage(
                                   message: _errorMessage!,
@@ -608,60 +604,6 @@ class _AuthHero extends StatelessWidget {
   }
 }
 
-class _RoleAccessSummary extends StatelessWidget {
-  const _RoleAccessSummary({required this.isRegisterMode});
-
-  final bool isRegisterMode;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: TravSTheme.surfaceSoft,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: TravSTheme.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Akses masuk',
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: TravSTheme.navy,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _RoleAccessPill(
-                label: 'Penumpang',
-                icon: Icons.event_seat_outlined,
-                active: true,
-              ),
-              _RoleAccessPill(
-                label: 'Pengemudi',
-                icon: Icons.directions_car_filled_rounded,
-                active: !isRegisterMode,
-              ),
-              _RoleAccessPill(
-                label: 'Tamu',
-                icon: Icons.visibility_outlined,
-                active: true,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _LoginRolePicker extends StatelessWidget {
   const _LoginRolePicker({required this.selectedRole, required this.onChanged});
 
@@ -753,54 +695,6 @@ class _LoginRoleButton extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _RoleAccessPill extends StatelessWidget {
-  const _RoleAccessPill({
-    required this.label,
-    required this.icon,
-    required this.active,
-  });
-
-  final String label;
-  final IconData icon;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: active ? Colors.white : TravSTheme.surfaceMuted,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: active
-              ? TravSTheme.orange.withValues(alpha: 0.36)
-              : TravSTheme.line,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            color: active ? TravSTheme.orange : TravSTheme.navyMuted,
-            size: 16,
-          ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: active ? TravSTheme.navy : TravSTheme.navyMuted,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
       ),
     );
   }

@@ -50,6 +50,7 @@ class AppBootstrapController extends Controller
                     'qris' => $this->settingService->get('payment_qris_enabled', true),
                     'cash' => $this->settingService->get('payment_cash_enabled', false),
                 ],
+                'important_information' => $this->settingService->importantInformation(),
                 'featured_schedules' => $jadwal->map(fn (Jadwal $item) => $this->formatSchedule($item))->all(),
             ],
         ]);

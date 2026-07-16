@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/travs_user_session.dart';
 import 'travs_api_service.dart';
+import 'travs_validation_message.dart';
 
 class TravSAuthException implements Exception {
   const TravSAuthException(this.message);
@@ -195,6 +196,9 @@ class TravSAuthService {
             return _friendlyValidationMessage(fieldName, message);
           }
         }
+        if (value is String && value.isNotEmpty) {
+          return _friendlyValidationMessage(fieldName, value);
+        }
       }
     }
 
@@ -207,31 +211,6 @@ class TravSAuthService {
   }
 
   String _friendlyValidationMessage(String fieldName, String message) {
-    final normalizedMessage = message.toLowerCase();
-
-    if (normalizedMessage == 'validation.unique') {
-      if (fieldName == 'email') {
-        return 'Email sudah terdaftar. Silakan masuk atau gunakan email lain.';
-      }
-      if (fieldName == 'no_hp') {
-        return 'Nomor HP sudah terdaftar. Silakan masuk atau gunakan nomor lain.';
-      }
-
-      return 'Data tersebut sudah terdaftar. Silakan gunakan data lain.';
-    }
-
-    if (normalizedMessage == 'validation.confirmed') {
-      return 'Konfirmasi kata sandi belum sama.';
-    }
-
-    if (normalizedMessage == 'validation.email') {
-      return 'Format email belum valid.';
-    }
-
-    if (normalizedMessage == 'validation.required') {
-      return 'Data wajib masih ada yang belum diisi.';
-    }
-
-    return message;
+    return travsFriendlyValidationMessage(fieldName, message);
   }
 }

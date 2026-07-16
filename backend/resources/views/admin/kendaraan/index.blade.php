@@ -2,7 +2,7 @@
 
 @section('title', 'Armada Kendaraan')
 @section('page-title', 'Armada Kendaraan')
-@section('page-description', 'Kelola data kendaraan travel yang aktif, sedang perawatan, atau dinonaktifkan dari satu halaman operasional.')
+@section('page-description', 'Kelola data kendaraan travel.')
 
 @section('content')
     <section class="travs-summary-grid">

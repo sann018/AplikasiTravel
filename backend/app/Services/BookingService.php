@@ -80,6 +80,34 @@ class BookingService
     }
 
     /**
+     * Melepas kunci kursi tahap pengisian form yang belum menjadi pemesanan.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    public function releaseFormLocks(User $user, array $payload): int
+    {
+        $scheduleId = (int) $payload['jadwal_id'];
+        $seatNumbers = $this->normalizeSeatNumbers($payload['seat_numbers'] ?? []);
+        $this->ensureSeatSelectionValid($seatNumbers);
+
+        return DB::transaction(function () use ($user, $scheduleId, $seatNumbers) {
+            return KursiJadwal::query()
+                ->where('jadwal_id', $scheduleId)
+                ->whereIn('nomor_kursi', $seatNumbers->all())
+                ->where('status_kursi', 'terkunci')
+                ->where('dikunci_oleh', $user->id)
+                ->whereDoesntHave('detailPemesanan')
+                ->update([
+                    'status_kursi' => 'tersedia',
+                    'dikunci_oleh' => null,
+                    'locked_at' => null,
+                    'lock_expires_at' => null,
+                    'updated_at' => now(),
+                ]);
+        });
+    }
+
+    /**
      * Membuat pemesanan menunggu pembayaran beserta kursi, penumpang, dan bagasi.
      *
      * @param  array<string, mixed>  $payload
@@ -194,7 +222,8 @@ class BookingService
                     'jumlah_item' => max(1, (int) data_get($item, 'jumlah_item', 1)),
                     'foto_url' => $fotoUrls[0] ?? null,
                     'foto_urls' => $fotoUrls,
-                    'biaya_item' => (float) data_get($totals, "bagasi.item_breakdowns.$index", 0),
+                    // Barang bawaan biasa dicatat untuk operasional tanpa biaya otomatis.
+                    'biaya_item' => 0,
                 ]);
             }
 
@@ -227,7 +256,7 @@ class BookingService
                 $this->cancelBookingBecauseGatewayFailed($booking, $exception->getMessage());
 
                 throw ValidationException::withMessages([
-                    'payment_method' => 'Gagal membuat pembayaran Pakasir. '.$exception->getMessage(),
+                    'payment_method' => 'Pembayaran melalui Pakasir belum dapat dibuat. Silakan coba lagi.',
                 ]);
             }
         }
@@ -293,13 +322,13 @@ class BookingService
     {
         if (! app()->environment(['local', 'testing'])) {
             throw ValidationException::withMessages([
-                'booking' => 'Simulasi pembayaran hanya tersedia pada environment lokal/testing.',
+                'booking' => 'Simulasi pembayaran hanya tersedia pada lingkungan lokal atau pengujian.',
             ]);
         }
 
         if ($booking->pengguna_id !== $user->id) {
             throw ValidationException::withMessages([
-                'booking' => 'Booking ini bukan milik akun Anda.',
+                'booking' => 'Pemesanan ini bukan milik akun Anda.',
             ]);
         }
 
@@ -412,13 +441,13 @@ class BookingService
             $payment = $lockedBooking->pembayaran;
             if (! $payment) {
                 throw ValidationException::withMessages([
-                    'payment' => 'Data pembayaran lokal tidak ditemukan untuk booking ini.',
+                    'payment' => 'Data pembayaran tidak ditemukan untuk pemesanan ini.',
                 ]);
             }
 
             if ($payment->metode_bayar !== 'cash') {
                 throw ValidationException::withMessages([
-                    'payment' => 'Route ini hanya untuk verifikasi pembayaran cash.',
+                    'payment' => 'Proses ini hanya digunakan untuk konfirmasi pembayaran tunai.',
                 ]);
             }
 
@@ -427,7 +456,7 @@ class BookingService
                 || $payment->status_bayar !== 'menunggu'
             ) {
                 throw ValidationException::withMessages([
-                    'payment' => 'Pembayaran cash sudah diproses atau booking tidak lagi menunggu pembayaran.',
+                    'payment' => 'Pembayaran tunai sudah diproses atau pemesanan tidak lagi menunggu pembayaran.',
                 ]);
             }
 
@@ -488,7 +517,7 @@ class BookingService
     ): Pemesanan {
         if ($booking->pengguna_id !== $user->id) {
             throw ValidationException::withMessages([
-                'booking' => 'Booking ini bukan milik akun Anda.',
+                'booking' => 'Pemesanan ini bukan milik akun Anda.',
             ]);
         }
 
@@ -513,13 +542,13 @@ class BookingService
     {
         if (! $this->pakasirService->isConfigured()) {
             throw ValidationException::withMessages([
-                'project' => 'Integrasi Pakasir belum aktif pada server ini.',
+                'project' => 'Layanan pembayaran Pakasir belum aktif pada sistem ini.',
             ]);
         }
 
         if (! $this->pakasirService->validateProject((string) $payload['project'])) {
             throw ValidationException::withMessages([
-                'project' => 'Webhook project Pakasir tidak sesuai dengan konfigurasi server.',
+                'project' => 'Identitas layanan Pakasir tidak sesuai dengan konfigurasi sistem.',
             ]);
         }
 
@@ -534,7 +563,7 @@ class BookingService
 
         if ((int) round((float) $booking->total_harga) !== (int) round((float) $payload['amount'])) {
             throw ValidationException::withMessages([
-                'amount' => 'Amount webhook Pakasir tidak cocok dengan transaksi lokal.',
+                'amount' => 'Nominal pembayaran dari Pakasir tidak sesuai dengan total pemesanan.',
             ]);
         }
 
@@ -663,7 +692,7 @@ class BookingService
             $payment = $lockedBooking->pembayaran;
             if (! $payment) {
                 throw ValidationException::withMessages([
-                    'payment' => 'Pembayaran lokal tidak ditemukan untuk booking ini.',
+                    'payment' => 'Data pembayaran tidak ditemukan untuk pemesanan ini.',
                 ]);
             }
 
@@ -735,7 +764,7 @@ class BookingService
             $payment = $lockedBooking->pembayaran;
             if (! $payment) {
                 throw ValidationException::withMessages([
-                    'payment' => 'Pembayaran lokal tidak ditemukan untuk booking ini.',
+                    'payment' => 'Data pembayaran tidak ditemukan untuk pemesanan ini.',
                 ]);
             }
 
@@ -851,7 +880,7 @@ class BookingService
                 'judul' => 'Pembayaran berhasil dikonfirmasi',
             ],
             [
-                'pesan' => trim($message.' Tiket elektronik untuk booking '.$booking->kode_booking.' sudah aktif.'),
+                'pesan' => trim($message.' Tiket elektronik untuk pemesanan '.$booking->kode_booking.' sudah aktif.'),
                 'sudah_dibaca' => false,
             ],
         );
@@ -901,7 +930,7 @@ class BookingService
 
         if ($strictPendingState) {
             throw ValidationException::withMessages([
-                'booking' => 'Simulasi pembayaran belum menghasilkan status completed dari Pakasir.',
+                'booking' => 'Simulasi pembayaran belum memperoleh status berhasil dari Pakasir.',
             ]);
         }
 
@@ -1088,7 +1117,7 @@ class BookingService
         $maxSeatPerBooking = (int) $this->settingService->get('max_seat_per_booking', 4);
         if ($seatNumbers->count() > $maxSeatPerBooking) {
             throw ValidationException::withMessages([
-                'seat_numbers' => 'Jumlah kursi melebihi batas maksimal per booking.',
+                'seat_numbers' => 'Jumlah kursi melebihi batas maksimal dalam satu pemesanan.',
             ]);
         }
     }
@@ -1144,7 +1173,7 @@ class BookingService
 
             if ($hasBooking) {
                 throw ValidationException::withMessages([
-                    'seat_numbers' => "Kursi {$seat->nomor_kursi} sudah dipesan dalam booking lain.",
+                    'seat_numbers' => "Kursi {$seat->nomor_kursi} sudah dipesan dalam pemesanan lain.",
                 ]);
             }
         }

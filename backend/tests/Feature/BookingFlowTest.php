@@ -185,6 +185,37 @@ class BookingFlowTest extends TestCase
         ]);
     }
 
+    public function test_passenger_can_release_form_seat_lock(): void
+    {
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        [$seatNumber] = $this->availableSeatNumbers($jadwal, 1);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/penumpang/bookings/lock-form', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seatNumber],
+        ])->assertOk();
+
+        $response = $this->postJson('/api/penumpang/bookings/release-form-lock', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seatNumber],
+        ]);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.released', 1);
+
+        $this->assertDatabaseHas('kursi_jadwal', [
+            'jadwal_id' => $jadwal->id,
+            'nomor_kursi' => $seatNumber,
+            'status_kursi' => 'tersedia',
+            'dikunci_oleh' => null,
+        ]);
+    }
+
     public function test_closed_schedule_seat_is_visible_and_cannot_be_locked(): void
     {
         $user = User::query()->where('peran', 'penumpang')->firstOrFail();
@@ -360,7 +391,7 @@ class BookingFlowTest extends TestCase
         );
     }
 
-    public function test_booking_charges_item_fee_above_free_baggage_limit(): void
+    public function test_booking_records_barang_bawaan_without_automatic_fee(): void
     {
         $user = User::query()->where('peran', 'penumpang')->firstOrFail();
         $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
@@ -403,7 +434,7 @@ class BookingFlowTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.biaya_bagasi', 2500);
+            ->assertJsonPath('data.biaya_bagasi', 0);
 
         $booking = Pemesanan::query()->latest('id')->firstOrFail();
 
@@ -411,6 +442,7 @@ class BookingFlowTest extends TestCase
             'pemesanan_id' => $booking->id,
             'metode_hitung' => 'berat',
             'jumlah_item' => 3,
+            'biaya_item' => 0,
         ]);
     }
 
@@ -470,7 +502,7 @@ class BookingFlowTest extends TestCase
         ]);
     }
 
-    public function test_baggage_item_fee_uses_admin_setting_fee(): void
+    public function test_legacy_item_fee_setting_does_not_change_booking_total(): void
     {
         DB::table('system_settings')->updateOrInsert(
             ['key' => 'baggage_free_item_count'],
@@ -524,10 +556,10 @@ class BookingFlowTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.biaya_bagasi', 12000);
+            ->assertJsonPath('data.biaya_bagasi', 0);
     }
 
-    public function test_baggage_item_fee_only_counts_items_above_free_limit(): void
+    public function test_legacy_free_item_limit_does_not_create_barang_fee(): void
     {
         foreach ([
             'baggage_free_item_count' => '1',
@@ -581,14 +613,14 @@ class BookingFlowTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.biaya_bagasi', 10000);
+            ->assertJsonPath('data.biaya_bagasi', 0);
 
         $booking = Pemesanan::query()->latest('id')->firstOrFail();
 
         $this->assertDatabaseHas('item_bagasi', [
             'pemesanan_id' => $booking->id,
             'jumlah_item' => 3,
-            'biaya_item' => 10000,
+            'biaya_item' => 0,
         ]);
     }
 
@@ -649,7 +681,7 @@ class BookingFlowTest extends TestCase
             ->assertJsonPath('data.biaya_bagasi', 0);
     }
 
-    public function test_luggage_capacity_counts_existing_bookings(): void
+    public function test_legacy_luggage_capacity_does_not_reject_barang_note(): void
     {
         $userA = User::query()->where('email', 'penumpang@travs.com')->firstOrFail();
         $userB = User::query()->where('email', 'fitri@travs.com')->firstOrFail();
@@ -715,8 +747,9 @@ class BookingFlowTest extends TestCase
         ]);
 
         $response
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('baggage_items');
+            ->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.biaya_bagasi', 0);
     }
 
     public function test_expired_pending_booking_is_released_before_new_booking_is_created(): void
@@ -873,6 +906,7 @@ class BookingFlowTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.status', 'terbayar')
             ->assertJsonPath('data.payment.status', 'berhasil')
+            ->assertJsonStructure(['data' => ['payment' => ['paid_at']]])
             ->assertJsonCount(1, 'data.passengers');
 
         $seat->refresh();

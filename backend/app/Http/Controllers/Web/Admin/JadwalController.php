@@ -150,6 +150,10 @@ class JadwalController extends Controller
         DB::transaction(function () use ($payload, $closedSeatNumbers) {
             $jadwal = Jadwal::query()->create($payload);
             $this->syncSeatMap($jadwal->fresh('kendaraan'), $closedSeatNumbers);
+
+            // Jadwal baru langsung memberi tahu pengemudi yang dipilih admin,
+            // supaya tugas perjalanan muncul di notifikasi aplikasi pengemudi.
+            $this->notifyAssignedDriver($jadwal);
         });
 
         return redirect()
@@ -207,12 +211,16 @@ class JadwalController extends Controller
 
     private function validatedPayload(Request $request, ?Jadwal $currentJadwal = null): array
     {
+        // Status berangkat tersedia untuk admin dan juga dipakai endpoint
+        // Mulai Perjalanan agar status web dan aplikasi pengemudi tetap sama.
+        $allowedStatuses = ['draft', 'dibuka', 'ditutup', 'berangkat', 'selesai', 'dibatalkan'];
+
         $validated = $request->validate([
             'kendaraan_id' => ['required', 'exists:kendaraan,id'],
             'rute_id' => ['required', 'exists:rute,id'],
             'pengemudi_id' => ['required', 'exists:pengemudi,id'],
             'waktu_berangkat' => ['required', 'date'],
-            'status' => ['required', Rule::in(['draft', 'dibuka', 'ditutup', 'berangkat', 'selesai', 'dibatalkan'])],
+            'status' => ['required', Rule::in($allowedStatuses)],
             'kursi_ditutup' => ['nullable', 'array'],
             'kursi_ditutup.*' => ['integer', 'min:1'],
         ], [

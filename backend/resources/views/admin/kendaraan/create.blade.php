@@ -16,8 +16,7 @@
 
         @if ($errors->any())
             <div class="travs-alert travs-alert-danger">
-                <strong>Terjadi kesalahan:</strong>
-                <ul style="margin: 8px 0 0; padding-left: 18px;">
+                <ul style="margin: 0; padding-left: 18px;">
                     @foreach ($errors->all() as $error)
                         <li>{{ $error }}</li>
                     @endforeach
@@ -51,12 +50,7 @@
                 </div>
                 <div class="travs-field">
                     <label for="tipe_kendaraan">Tipe Kendaraan</label>
-                    <select id="tipe_kendaraan" name="tipe_kendaraan" class="travs-select @error('tipe_kendaraan') is-invalid @enderror">
-                        <option value="">Pilih tipe kendaraan</option>
-                        @foreach ($vehicleTypeOptions as $value => $label)
-                            <option value="{{ $value }}" @selected(old('tipe_kendaraan') === $value)>{{ $label }}</option>
-                        @endforeach
-                    </select>
+                    <input id="tipe_kendaraan" name="tipe_kendaraan" class="travs-input @error('tipe_kendaraan') is-invalid @enderror" value="{{ old('tipe_kendaraan') }}" placeholder="Contoh: MPV, Minibus, atau Travel Shuttle">
                     @include('admin.partials.field-error', ['name' => 'tipe_kendaraan'])
                 </div>
                 <div class="travs-field">
@@ -103,6 +97,7 @@
                             <option value="{{ $value }}" @selected(old('status_kendaraan', 'aktif') === $value)>{{ $label }}</option>
                         @endforeach
                     </select>
+                    <div class="travs-field-meta">Perawatan untuk armada yang sementara diservis. Nonaktif untuk armada yang tidak digunakan dalam operasional.</div>
                     @include('admin.partials.field-error', ['name' => 'status_kendaraan'])
                 </div>
                 <div class="travs-field">

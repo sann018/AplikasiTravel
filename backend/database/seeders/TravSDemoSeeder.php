@@ -29,7 +29,7 @@ class TravSDemoSeeder extends Seeder
         $admin = User::query()->updateOrCreate(
             ['email' => 'admin@travs.com'],
             [
-                'nama' => 'Admin TravS',
+                'nama' => 'Admin Rusly Travel',
                 'no_hp' => '081234567890',
                 'peran' => 'admin',
                 'status_aktif' => true,
@@ -501,7 +501,7 @@ class TravSDemoSeeder extends Seeder
         Notifikasi::query()->updateOrCreate(
             ['pengguna_id' => $penumpang->id, 'judul' => 'Pembayaran berhasil dikonfirmasi'],
             [
-                'pesan' => 'Pembayaran untuk booking TRAVS-DEMO-001 sudah berhasil dan tiket elektronik telah diterbitkan.',
+                'pesan' => 'Pembayaran untuk pemesanan TRAVS-DEMO-001 sudah berhasil dan tiket elektronik telah diterbitkan.',
                 'jenis' => 'pembayaran',
                 'referensi_id' => $booking->id,
                 'sudah_dibaca' => false,

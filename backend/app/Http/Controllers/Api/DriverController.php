@@ -6,16 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\BiayaOperasionalPerjalanan;
 use App\Models\DetailPemesanan;
 use App\Models\Jadwal;
-use App\Models\Pengemudi;
 use App\Models\Pemesanan;
+use App\Models\Pengemudi;
 use App\Models\TiketElektronik;
 use App\Services\BookingService;
 use App\Services\ScheduleLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
 class DriverController extends Controller
@@ -23,8 +23,7 @@ class DriverController extends Controller
     public function __construct(
         private readonly BookingService $bookingService,
         private readonly ScheduleLifecycleService $scheduleLifecycleService,
-    ) {
-    }
+    ) {}
 
     public function dashboard(Request $request): JsonResponse
     {
@@ -142,7 +141,7 @@ class DriverController extends Controller
             if ($booking->status_pemesanan !== 'terbayar') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Tiket belum aktif karena booking belum berstatus terbayar.',
+                    'message' => 'Tiket belum aktif karena pemesanan belum berstatus terbayar.',
                 ], 422);
             }
 
@@ -549,10 +548,13 @@ class DriverController extends Controller
         $baggageItems = $storedBaggageItems->sum('jumlah_item');
         $heldItems = $heldBaggageItems->sum('jumlah_item');
         $baggageWeight = $storedBaggageItems->sum(fn ($item) => (float) $item->berat_kg);
-        $baggageLabel = collect([
-            $baggageItems > 0 ? "{$baggageItems} item masuk bagasi / {$baggageWeight} kg" : null,
-            $heldItems > 0 ? "{$heldItems} item dipegang sendiri" : null,
-        ])->filter()->implode(' - ');
+        // Manifest menampilkan nama barang; jumlah dan berat legacy tidak lagi dipakai pada UI pengemudi.
+        $baggageLabel = $baggageCollection
+            ->pluck('deskripsi_item')
+            ->map(fn ($description) => trim((string) $description))
+            ->filter()
+            ->unique()
+            ->implode(', ');
         $baggagePhotoUrls = $this->baggagePhotoUrls($booking);
         $ticket = $detail->tiketElektronik;
         $paymentStatus = $booking->pembayaran?->status_bayar;
@@ -596,7 +598,7 @@ class DriverController extends Controller
                 'items' => (int) $baggageItems,
                 'held_items' => (int) $heldItems,
                 'weight_kg' => $baggageWeight,
-                'label' => $baggageLabel !== '' ? $baggageLabel : 'Tidak ada bagasi tercatat',
+                'label' => $baggageLabel !== '' ? $baggageLabel : 'Tidak ada barang bawaan tercatat',
                 'foto_url' => $baggagePhotoUrls[0] ?? null,
                 'foto_urls' => $baggagePhotoUrls,
                 'items_detail' => $booking->itemBagasi->map(fn ($item) => [
@@ -714,27 +716,36 @@ class DriverController extends Controller
             ], 403);
         }
 
+        if (! in_array($jadwal->status, ['dibuka', 'ditutup', 'berangkat'], true)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Biaya hanya dapat dicatat pada jadwal tugas yang sedang aktif.',
+            ], 422);
+        }
+
         $validated = $request->validate([
             'jenis_biaya' => ['required', 'string', 'max:100'],
-            'nominal' => ['required', 'numeric', 'min:0'],
+            'nominal' => ['required', 'numeric', 'min:1'],
             'tanggal' => ['required', 'date'],
-            'keterangan' => ['nullable', 'string', 'max:1000'],
-            'foto_bukti_nota' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:3072'],
+            'keterangan' => ['required', 'string', 'min:10', 'max:1000'],
+            'foto_bukti_nota' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:3072'],
         ], [
             'jenis_biaya.required' => 'Jenis biaya wajib diisi.',
             'nominal.required' => 'Nominal biaya wajib diisi.',
-            'nominal.min' => 'Nominal biaya tidak boleh negatif.',
+            'nominal.min' => 'Nominal biaya minimal Rp1.',
             'tanggal.required' => 'Tanggal biaya wajib diisi.',
+            'keterangan.required' => 'Keterangan biaya wajib diisi.',
+            'keterangan.min' => 'Keterangan biaya minimal 10 karakter.',
+            'foto_bukti_nota.required' => 'Foto bukti nota wajib dilampirkan.',
             'foto_bukti_nota.image' => 'Bukti nota harus berupa gambar.',
             'foto_bukti_nota.mimes' => 'Bukti nota harus JPG, PNG, atau WEBP.',
             'foto_bukti_nota.max' => 'Ukuran bukti nota maksimal 3 MB.',
         ]);
 
-        $buktiPath = $request->file('foto_bukti_nota')
-            ? $request->file('foto_bukti_nota')->store('driver-expenses', 'public')
-            : null;
+        $buktiPath = $request->file('foto_bukti_nota')->store('driver-expenses', 'public');
 
-        // Biaya dari pengemudi masuk antrean verifikasi dulu agar rekap admin tetap bersih.
+        // Biaya langsung menjadi pencatatan final. Status internal disetujui
+        // dipertahankan agar query laporan lama tetap dapat membaca data ini.
         $expense = BiayaOperasionalPerjalanan::query()->create([
             'jadwal_id' => $jadwal->id,
             'jenis_biaya' => $validated['jenis_biaya'],
@@ -743,14 +754,16 @@ class DriverController extends Controller
             'keterangan' => $validated['keterangan'] ?? null,
             'bukti_url' => $buktiPath,
             'created_by' => $request->user()->id,
-            'status_verifikasi' => 'menunggu_verifikasi',
+            'status_verifikasi' => 'disetujui',
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Pengajuan biaya berhasil dikirim dan menunggu verifikasi admin.',
+            'message' => 'Biaya operasional berhasil dicatat.',
             'data' => [
                 'id' => $expense->id,
+                'status' => 'tercatat',
+                // Field lama tetap dikirim untuk kompatibilitas aplikasi lama.
                 'status_verifikasi' => $expense->status_verifikasi,
                 'bukti_url' => $this->publicStorageUrl($expense->bukti_url),
             ],

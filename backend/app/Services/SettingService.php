@@ -50,6 +50,31 @@ class SettingService
             : '/'.$path;
     }
 
+    /**
+     * Informasi penting disimpan sebagai JSON agar admin dapat menambah atau
+     * menghapus pengumuman tanpa menambah tabel baru untuk data yang sederhana.
+     *
+     * @return array<int, array{id:string, title:string, description:string}>
+     */
+    public function importantInformation(): array
+    {
+        $decoded = json_decode((string) $this->get('important_information', '[]'), true);
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        return collect($decoded)
+            ->filter(fn ($item) => is_array($item))
+            ->map(fn (array $item) => [
+                'id' => (string) ($item['id'] ?? ''),
+                'title' => trim((string) ($item['title'] ?? '')),
+                'description' => trim((string) ($item['description'] ?? '')),
+            ])
+            ->filter(fn (array $item) => $item['id'] !== '' && $item['title'] !== '' && $item['description'] !== '')
+            ->values()
+            ->all();
+    }
+
     public function definitionsByGroup(): Collection
     {
         return $this->records()

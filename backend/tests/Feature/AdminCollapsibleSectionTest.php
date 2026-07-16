@@ -69,18 +69,14 @@ class AdminCollapsibleSectionTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.dashboard'))
             ->assertOk()
-            ->assertSee('dashboard-tabs-body', false)
+            ->assertSee('dashboard-summary-body', false)
             ->assertSee('dashboard-revenue-body', false)
-            ->assertSee('dashboard-latest-cost-body', false)
-            ->assertSee('dashboard-latest-booking-body', false)
             ->assertSee('dashboard-schedule-body', false);
 
         $this->actingAs($admin)
             ->get(route('admin.biaya.index'))
             ->assertOk()
-            ->assertSee('cost-summary-body', false)
-            ->assertSee('cost-form-body', false)
-            ->assertSee('cost-filter-body', false)
+            ->assertSee('data-static-cost-summary', false)
             ->assertSee('cost-list-body', false);
 
         $this->actingAs($admin)
@@ -98,21 +94,25 @@ class AdminCollapsibleSectionTest extends TestCase
             ->assertSee('notification-list-body', false);
     }
 
-    public function test_cost_pages_use_the_requested_shelf_layout(): void
+    public function test_operational_cost_uses_separate_form_and_integrated_filter_layout(): void
     {
         $admin = User::query()->where('peran', 'admin')->firstOrFail();
 
         $this->actingAs($admin)
             ->get(route('admin.biaya.index'))
             ->assertOk()
-            ->assertSee('travs-cost-form-panel', false)
-            ->assertSee('travs-cost-list-panel', false)
-            ->assertSee('travs-cost-filter-section', false);
+            ->assertSee('Tambah Biaya')
+            ->assertSee('name="rute_id"', false)
+            ->assertSee('Tampilkan Semua')
+            ->assertSee('travs-cost-table-section', false)
+            ->assertDontSee('name="jenis_biaya"', false);
 
         $this->actingAs($admin)
-            ->get(route('admin.biaya.index'))
+            ->get(route('admin.biaya.create'))
             ->assertOk()
-            ->assertSee('travs-cost-accumulation-panel', false);
+            ->assertSee('Tambah Biaya Operasional')
+            ->assertSee('name="jenis_biaya"', false)
+            ->assertSee('name="bukti_nota"', false);
     }
 
     public function test_old_recap_page_redirects_to_operational_cost_page(): void
@@ -132,13 +132,12 @@ class AdminCollapsibleSectionTest extends TestCase
             ->get(route('admin.biaya.index'))
             ->assertOk()
             ->assertSee('data-static-cost-summary', false)
-            ->assertSee('aria-controls="cost-form-body"', false)
             ->assertSee('aria-controls="cost-list-body"', false)
+            ->assertSee('aria-controls="cost-recap-route-body"', false)
             ->assertDontSee('data-cost-summary-toggle', false)
             ->assertDontSee('data-cost-filter-toggle', false)
             ->assertSeeInOrder([
                 'Ringkasan Biaya',
-                'Catat Biaya Operasional',
                 'Daftar Biaya',
                 'Akumulasi per Rute',
             ]);

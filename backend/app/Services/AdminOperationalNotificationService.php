@@ -20,7 +20,7 @@ class AdminOperationalNotificationService
 
         $this->notifyAdmins(
             'Pemesanan baru masuk',
-            "Booking {$booking->kode_booking} dari {$booking->pengguna?->nama} untuk rute {$route} baru dibuat.",
+            "Pemesanan {$booking->kode_booking} dari {$booking->pengguna?->nama} untuk rute {$route} baru dibuat.",
             'sistem',
             $booking->id,
         );
@@ -28,7 +28,7 @@ class AdminOperationalNotificationService
         if ($booking->pembayaran?->metode_bayar === 'tunai') {
             $this->notifyAdmins(
                 'Pembayaran tunai menunggu konfirmasi',
-                "Booking {$booking->kode_booking} memilih pembayaran tunai dan perlu dikonfirmasi setelah uang diterima.",
+                "Pemesanan {$booking->kode_booking} memilih pembayaran tunai dan perlu dikonfirmasi setelah uang diterima.",
                 'pembayaran',
                 $booking->id,
             );
@@ -42,15 +42,15 @@ class AdminOperationalNotificationService
         [$title, $message] = match ($status) {
             'berhasil' => [
                 'Pembayaran berhasil',
-                "Pembayaran booking {$booking->kode_booking} milik {$booking->pengguna?->nama} berhasil dikonfirmasi.",
+                "Pembayaran pemesanan {$booking->kode_booking} milik {$booking->pengguna?->nama} berhasil dikonfirmasi.",
             ],
             'gagal' => [
                 'Pembayaran gagal',
-                "Pembayaran booking {$booking->kode_booking} gagal. Periksa transaksi jika penumpang membutuhkan bantuan.",
+                "Pembayaran pemesanan {$booking->kode_booking} gagal. Periksa transaksi jika penumpang membutuhkan bantuan.",
             ],
             'kedaluwarsa' => [
                 'Pembayaran kedaluwarsa',
-                "Waktu pembayaran booking {$booking->kode_booking} telah habis dan kursi dapat dilepas kembali.",
+                "Waktu pembayaran pemesanan {$booking->kode_booking} telah habis dan kursi dapat dilepas kembali.",
             ],
         };
 

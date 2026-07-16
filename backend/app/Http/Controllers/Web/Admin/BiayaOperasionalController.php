@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Web\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\BiayaOperasionalPerjalanan;
 use App\Models\Jadwal;
+use App\Models\Rute;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -18,9 +20,9 @@ class BiayaOperasionalController extends Controller
     {
         $query = $this->filteredQuery($request);
 
-        // Rekap final hanya memakai biaya yang sudah disetujui admin.
+        // Semua pencatatan baru langsung final; status lama hanya dipertahankan
+        // sebagai kompatibilitas database dan tidak menjadi alur kerja admin.
         $rekapRecords = (clone $query)
-            ->where('status_verifikasi', 'disetujui')
             ->orderByDesc('tanggal_biaya')
             ->get();
         $rekap = $rekapRecords
@@ -36,34 +38,44 @@ class BiayaOperasionalController extends Controller
             ->values();
 
         $biaya = $query->latest('tanggal_biaya')->paginate(12)->withQueryString();
-        $editingBiaya = $request->filled('edit')
-            ? BiayaOperasionalPerjalanan::query()->findOrFail($request->integer('edit'))
-            : null;
-
         return view('admin.biaya.index', [
             'biaya' => $biaya,
-            'editingBiaya' => $editingBiaya,
-            'jadwalOptions' => Jadwal::query()
-                ->with('rute')
-                ->orderByDesc('waktu_berangkat')
-                ->limit(100)
+            'routeOptions' => Rute::query()
+                ->whereHas('jadwal')
+                ->orderBy('kota_asal')
+                ->orderBy('kota_tujuan')
                 ->get(),
             'stats' => [
                 'hari_ini' => (float) BiayaOperasionalPerjalanan::query()
-                    ->where('status_verifikasi', 'disetujui')
+                    ->finalized()
                     ->whereDate('tanggal_biaya', today())
                     ->sum('nominal'),
                 'bulan_ini' => (float) BiayaOperasionalPerjalanan::query()
-                    ->where('status_verifikasi', 'disetujui')
+                    ->finalized()
                     ->whereMonth('tanggal_biaya', today()->month)
                     ->whereYear('tanggal_biaya', today()->year)
                     ->sum('nominal'),
                 'total_item' => BiayaOperasionalPerjalanan::query()
-                    ->where('status_verifikasi', 'disetujui')
+                    ->finalized()
                     ->count(),
             ],
-            'filters' => $request->only(['search', 'jadwal_id', 'tanggal_mulai', 'tanggal_selesai']),
+            'filters' => $request->only(['search', 'rute_id', 'tanggal_mulai', 'tanggal_selesai']),
             'rekap' => $rekap,
+        ]);
+    }
+
+    public function create(): View
+    {
+        return view('admin.biaya.create', [
+            'jadwalOptions' => $this->scheduleOptions(),
+        ]);
+    }
+
+    public function edit(BiayaOperasionalPerjalanan $biayaOperasional): View
+    {
+        return view('admin.biaya.edit', [
+            'biaya' => $biayaOperasional,
+            'jadwalOptions' => $this->scheduleOptions(),
         ]);
     }
 
@@ -89,10 +101,12 @@ class BiayaOperasionalController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $payload = $this->validatedPayload($request);
+        unset($payload['bukti_nota']);
         $payload['created_by'] = $request->user()->id;
+        $payload['bukti_url'] = $request->file('bukti_nota')->store('biaya-operasional', 'public');
+        // Status internal tetap diisi agar query lama tetap kompatibel, tetapi
+        // pencatatan biaya tidak lagi melalui proses persetujuan.
         $payload['status_verifikasi'] = 'disetujui';
-        $payload['diverifikasi_oleh'] = $request->user()->id;
-        $payload['diverifikasi_pada'] = now();
 
         BiayaOperasionalPerjalanan::query()->create($payload);
 
@@ -103,7 +117,19 @@ class BiayaOperasionalController extends Controller
 
     public function update(Request $request, BiayaOperasionalPerjalanan $biayaOperasional): RedirectResponse
     {
-        $biayaOperasional->update($this->validatedPayload($request));
+        $payload = $this->validatedPayload($request, $biayaOperasional);
+        unset($payload['bukti_nota']);
+        $oldProofPath = $biayaOperasional->bukti_url;
+
+        if ($request->hasFile('bukti_nota')) {
+            $payload['bukti_url'] = $request->file('bukti_nota')->store('biaya-operasional', 'public');
+        }
+
+        $biayaOperasional->update($payload);
+
+        if (isset($payload['bukti_url']) && $oldProofPath && $oldProofPath !== $payload['bukti_url']) {
+            Storage::disk('public')->delete($oldProofPath);
+        }
 
         return redirect()
             ->route('admin.biaya.index')
@@ -112,10 +138,16 @@ class BiayaOperasionalController extends Controller
 
     public function destroy(BiayaOperasionalPerjalanan $biayaOperasional): RedirectResponse
     {
+        $proofPath = $biayaOperasional->bukti_url;
+
         try {
             $biayaOperasional->delete();
         } catch (QueryException) {
             return back()->with('error', 'Biaya operasional tidak dapat dihapus.');
+        }
+
+        if ($proofPath) {
+            Storage::disk('public')->delete($proofPath);
         }
 
         return back()->with('status', 'Biaya operasional berhasil dihapus.');
@@ -123,26 +155,9 @@ class BiayaOperasionalController extends Controller
 
     public function verify(Request $request, BiayaOperasionalPerjalanan $biayaOperasional): RedirectResponse
     {
-        $validated = $request->validate([
-            'status_verifikasi' => ['required', 'in:disetujui,ditolak'],
-            'catatan_verifikasi' => ['nullable', 'string', 'max:1000'],
-        ], [
-            'status_verifikasi.required' => 'Status verifikasi wajib dipilih.',
-            'status_verifikasi.in' => 'Status verifikasi tidak valid.',
-        ]);
-
-        $biayaOperasional->update([
-            'status_verifikasi' => $validated['status_verifikasi'],
-            'catatan_verifikasi' => $validated['catatan_verifikasi'] ?? null,
-            'diverifikasi_oleh' => $request->user()->id,
-            'diverifikasi_pada' => now(),
-        ]);
-
-        $message = $validated['status_verifikasi'] === 'disetujui'
-            ? 'Pengajuan biaya sudah disetujui dan masuk rekap.'
-            : 'Pengajuan biaya sudah ditolak.';
-
-        return back()->with('status', $message);
+        // Route lama dipertahankan agar tautan lama tidak error, tetapi proses
+        // setujui/tolak sudah tidak digunakan pada pencatatan biaya saat ini.
+        return back()->with('status', 'Pencatatan biaya operasional tidak memerlukan verifikasi.');
     }
 
     public function rekap(): RedirectResponse
@@ -153,7 +168,9 @@ class BiayaOperasionalController extends Controller
 
     private function filteredQuery(Request $request)
     {
-        $query = BiayaOperasionalPerjalanan::query()->with(['jadwal.rute', 'pencatat']);
+        $query = BiayaOperasionalPerjalanan::query()
+            ->finalized()
+            ->with(['jadwal.rute', 'pencatat']);
 
         if ($request->filled('search')) {
             $search = (string) $request->string('search');
@@ -169,8 +186,10 @@ class BiayaOperasionalController extends Controller
             });
         }
 
-        if ($request->filled('jadwal_id')) {
-            $query->where('jadwal_id', $request->integer('jadwal_id'));
+        if ($request->filled('rute_id')) {
+            $query->whereHas('jadwal', function ($jadwalQuery) use ($request) {
+                $jadwalQuery->where('rute_id', $request->integer('rute_id'));
+            });
         }
 
         if ($request->filled('tanggal_mulai')) {
@@ -192,7 +211,6 @@ class BiayaOperasionalController extends Controller
             'Rute',
             'Jenis Biaya',
             'Nominal',
-            'Status',
             'Pencatat',
             'Keterangan',
         ]];
@@ -208,7 +226,6 @@ class BiayaOperasionalController extends Controller
                 $route,
                 $item->jenis_biaya,
                 'Rp'.number_format((float) $item->nominal, 0, ',', '.'),
-                ucwords(str_replace('_', ' ', $item->status_verifikasi ?: 'disetujui')),
                 $item->pencatat?->nama ?? '-',
                 $item->keterangan ?: '-',
             ];
@@ -268,7 +285,7 @@ class BiayaOperasionalController extends Controller
         }
 
         $tempPath = tempnam(sys_get_temp_dir(), 'travs-xlsx-');
-        $zip = new \ZipArchive();
+        $zip = new \ZipArchive;
 
         if ($zip->open($tempPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE) !== true) {
             @unlink($tempPath);
@@ -392,20 +409,43 @@ class BiayaOperasionalController extends Controller
             .'</styleSheet>';
     }
 
-    private function validatedPayload(Request $request): array
+    private function validatedPayload(
+        Request $request,
+        ?BiayaOperasionalPerjalanan $biayaOperasional = null,
+    ): array
     {
+        // Bukti wajib untuk pencatatan baru. Saat edit, bukti lama boleh tetap
+        // dipakai agar admin tidak perlu mengunggah ulang file yang sama.
+        $proofPresenceRule = $biayaOperasional?->bukti_url ? 'nullable' : 'required';
+
         return $request->validate([
             'jadwal_id' => ['required', 'exists:jadwal,id'],
             'jenis_biaya' => ['required', 'string', 'max:100'],
-            'nominal' => ['required', 'numeric', 'min:0'],
-            'keterangan' => ['nullable', 'string'],
+            'nominal' => ['required', 'numeric', 'min:1'],
+            'keterangan' => ['required', 'string', 'min:10', 'max:1000'],
             'tanggal_biaya' => ['required', 'date'],
+            'bukti_nota' => [$proofPresenceRule, 'image', 'mimes:jpg,jpeg,png,webp', 'max:3072'],
         ], [
             'jadwal_id.required' => 'Jadwal terkait wajib dipilih.',
             'jenis_biaya.required' => 'Jenis biaya wajib diisi.',
             'nominal.required' => 'Nominal biaya wajib diisi.',
-            'nominal.min' => 'Nominal biaya tidak boleh negatif.',
+            'nominal.min' => 'Nominal biaya minimal Rp1.',
+            'keterangan.required' => 'Keterangan biaya wajib diisi.',
+            'keterangan.min' => 'Keterangan biaya minimal 10 karakter agar mudah diperiksa.',
             'tanggal_biaya.required' => 'Tanggal biaya wajib diisi.',
+            'bukti_nota.required' => 'Foto bukti nota wajib dilampirkan.',
+            'bukti_nota.image' => 'Bukti nota harus berupa gambar.',
+            'bukti_nota.mimes' => 'Bukti nota harus berformat JPG, JPEG, PNG, atau WEBP.',
+            'bukti_nota.max' => 'Ukuran bukti nota maksimal 3 MB.',
         ]);
+    }
+
+    private function scheduleOptions(): Collection
+    {
+        return Jadwal::query()
+            ->with('rute')
+            ->orderByDesc('waktu_berangkat')
+            ->limit(100)
+            ->get();
     }
 }

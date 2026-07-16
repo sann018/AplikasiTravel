@@ -298,6 +298,40 @@ class SecurityAndTDTest extends TestCase
         $this->assertSame($scheduleCount + 1, Jadwal::query()->count());
     }
 
+    public function test_admin_schedule_creation_notifies_assigned_driver(): void
+    {
+        $admin = User::query()->where('email', 'admin@travs.com')->firstOrFail();
+        $existingSchedule = Jadwal::query()
+            ->with('pengemudi.pengguna')
+            ->where('status', 'dibuka')
+            ->firstOrFail();
+
+        Jadwal::query()
+            ->where('pengemudi_id', $existingSchedule->pengemudi_id)
+            ->whereDate('waktu_berangkat', $existingSchedule->waktu_berangkat?->toDateString())
+            ->update(['status' => 'selesai']);
+
+        $this
+            ->actingAs($admin)
+            ->from(route('admin.jadwal.create'))
+            ->post(route('admin.jadwal.store'), [
+                'kendaraan_id' => $existingSchedule->kendaraan_id,
+                'rute_id' => $existingSchedule->rute_id,
+                'pengemudi_id' => $existingSchedule->pengemudi_id,
+                'waktu_berangkat' => $existingSchedule->waktu_berangkat?->copy()->addHours(3)->format('Y-m-d H:i'),
+                'estimasi_tiba' => $existingSchedule->waktu_berangkat?->copy()->addHours(8)->format('Y-m-d H:i'),
+                'status' => 'dibuka',
+            ])
+            ->assertRedirect(route('admin.jadwal.index'))
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('notifikasi', [
+            'pengguna_id' => $existingSchedule->pengemudi->pengguna_id,
+            'jenis' => 'perjalanan',
+            'judul' => 'Tugas perjalanan baru',
+        ]);
+    }
+
     // =========================================================================
     // Test: Booking ownership verification
     // =========================================================================

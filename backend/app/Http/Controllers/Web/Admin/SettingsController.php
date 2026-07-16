@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Throwable;
 
@@ -23,10 +24,10 @@ class SettingsController extends Controller
     public function index(Request $request): View
     {
         $groupLabels = [
+            'account' => 'Akun Admin',
             'general' => 'Umum',
             'booking' => 'Pemesanan',
             'payment' => 'Pembayaran',
-            'baggage' => 'Bagasi',
             'banner' => 'Banner Beranda',
         ];
 
@@ -41,6 +42,7 @@ class SettingsController extends Controller
             'activeTab' => $activeTab,
             'adminUser' => $request->user(),
             'banners' => HomeBanner::query()->orderBy('urutan')->latest('id')->get(),
+            'importantInformation' => $this->settingService->importantInformation(),
         ]);
     }
 
@@ -147,42 +149,55 @@ class SettingsController extends Controller
 
     public function updateBaggage(Request $request): RedirectResponse
     {
-        $this->mergeBooleans($request, [
-            'baggage_weight_enabled',
-            'baggage_size_enabled',
-            'baggage_item_enabled',
-            'baggage_photo_required',
-            'baggage_large_vehicle_enabled',
-        ]);
+        // Endpoint lama dipertahankan agar bookmark/form versi lama tidak error,
+        // tetapi tarif bagasi sudah tidak digunakan pada versi sistem saat ini.
+        return redirect()
+            ->route('admin.settings.index', ['tab' => 'general'])
+            ->with('status', 'Pengaturan tarif bagasi sudah tidak digunakan. Barang bawaan biasa dicatat tanpa biaya.');
+    }
 
+    public function storeImportantInformation(Request $request): RedirectResponse
+    {
         $validated = $request->validate([
-            'baggage_weight_enabled' => ['required', 'boolean'],
-            'baggage_size_enabled' => ['required', 'boolean'],
-            'baggage_item_enabled' => ['required', 'boolean'],
-            'baggage_photo_required' => ['required', 'boolean'],
-            'baggage_free_weight_kg' => ['required', 'numeric', 'min:0', 'lte:baggage_max_weight_per_person_kg'],
-            'baggage_max_weight_per_person_kg' => ['required', 'numeric', 'min:0'],
-            'baggage_extra_fee_per_kg' => ['required', 'numeric', 'min:0'],
-            'baggage_free_size_cm' => ['required', 'numeric', 'min:0', 'lte:baggage_max_size_per_person_cm'],
-            'baggage_max_size_per_person_cm' => ['required', 'numeric', 'min:0'],
-            'baggage_extra_fee_per_cm' => ['required', 'numeric', 'min:0'],
-            'baggage_free_item_count' => ['required', 'integer', 'min:0', 'lte:baggage_max_item_per_person'],
-            'baggage_max_item_per_person' => ['required', 'integer', 'min:0'],
-            'baggage_extra_fee_per_item' => ['required', 'numeric', 'min:0'],
-            'baggage_large_vehicle_enabled' => ['required', 'boolean'],
-            'baggage_bicycle_fee' => ['required', 'numeric', 'min:0'],
-            'baggage_motorcycle_fee' => ['required', 'numeric', 'min:0'],
-            'baggage_heavy_item_fee' => ['required', 'numeric', 'min:0'],
-            'baggage_max_total_weight_per_vehicle' => ['required', 'numeric', 'gt:0'],
+            'title' => ['required', 'string', 'max:100'],
+            'description' => ['required', 'string', 'max:1000'],
         ], [
-            ...$this->numericMessages(),
-            'baggage_free_weight_kg.lte' => 'Batas berat gratis tidak boleh melebihi batas maksimal.',
-            'baggage_free_size_cm.lte' => 'Batas ukuran gratis tidak boleh melebihi batas maksimal.',
-            'baggage_free_item_count.lte' => 'Jumlah item gratis tidak boleh melebihi jumlah maksimal.',
-            'baggage_max_total_weight_per_vehicle.gt' => 'Batas berat kendaraan harus lebih dari 0.',
+            'title.required' => 'Judul informasi penting wajib diisi.',
+            'title.max' => 'Judul informasi penting maksimal 100 karakter.',
+            'description.required' => 'Isi informasi penting wajib diisi.',
+            'description.max' => 'Isi informasi penting maksimal 1.000 karakter.',
         ]);
 
-        return $this->saveGroup('baggage', $validated, $request, 'Pengaturan bagasi berhasil disimpan.');
+        $items = $this->settingService->importantInformation();
+        $items[] = [
+            'id' => (string) Str::uuid(),
+            'title' => trim($validated['title']),
+            'description' => trim($validated['description']),
+        ];
+
+        $this->settingService->updateMany([
+            'important_information' => json_encode($items, JSON_UNESCAPED_UNICODE),
+        ], $request->user()?->id);
+
+        return redirect()
+            ->route('admin.settings.index', ['tab' => 'general'])
+            ->with('status', 'Informasi penting berhasil ditambahkan.');
+    }
+
+    public function destroyImportantInformation(Request $request, string $informationId): RedirectResponse
+    {
+        $items = collect($this->settingService->importantInformation())
+            ->reject(fn (array $item) => hash_equals($item['id'], $informationId))
+            ->values()
+            ->all();
+
+        $this->settingService->updateMany([
+            'important_information' => json_encode($items, JSON_UNESCAPED_UNICODE),
+        ], $request->user()?->id);
+
+        return redirect()
+            ->route('admin.settings.index', ['tab' => 'general'])
+            ->with('status', 'Informasi penting berhasil dihapus.');
     }
 
     public function updateNotification(Request $request): RedirectResponse

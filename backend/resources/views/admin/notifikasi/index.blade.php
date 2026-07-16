@@ -13,6 +13,12 @@
         <div class="travs-alert travs-alert-danger" role="alert">{{ $errors->first('period') }}</div>
     @endif
 
+    @foreach (['tanggal_mulai', 'tanggal_selesai'] as $dateErrorField)
+        @if ($errors->has($dateErrorField))
+            <div class="travs-alert travs-alert-danger" role="alert">{{ $errors->first($dateErrorField) }}</div>
+        @endif
+    @endforeach
+
     <section class="collapsible-section" data-collapsible-section>
         <div class="collapsible-section__header" data-collapse-header>
             <div class="travs-panel-title">
@@ -38,7 +44,7 @@
             <span>Terkait transaksi</span>
         </article>
             <article class="travs-summary-card">
-            <small>Booking Baru</small>
+            <small>Pemesanan Baru</small>
             <strong>{{ number_format($stats['pemesanan']) }}</strong>
             <span>Masuk ke admin</span>
             </article>
@@ -76,6 +82,14 @@
                     <option value="0" @selected(($filters['dibaca'] ?? '') === '0')>Belum dibaca</option>
                 </select>
             </div>
+            <div class="travs-field">
+                <label for="tanggal_mulai">Tanggal Mulai</label>
+                <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input" value="{{ $filters['tanggal_mulai'] ?? '' }}">
+            </div>
+            <div class="travs-field">
+                <label for="tanggal_selesai">Tanggal Selesai</label>
+                <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input" value="{{ $filters['tanggal_selesai'] ?? '' }}">
+            </div>
             <div class="travs-filter-actions">
                 <button type="submit" class="travs-button-secondary">Terapkan Filter</button>
                 <a href="{{ route($resetRoute ?? 'admin.notifikasi.index') }}" class="travs-button-secondary">Reset</a>
@@ -83,7 +97,7 @@
         </form>
     </article>
 
-    <article class="travs-section-card collapsible-section" data-collapsible-section style="margin-top: 18px;">
+    <article class="travs-section-card travs-notification-cleanup-card collapsible-section" data-collapsible-section style="margin-top: 18px;">
         <div class="travs-panel-header collapsible-section__header" data-collapse-header>
             <div class="travs-panel-title">
                 <h3>Bersihkan Notifikasi Lama</h3>
@@ -123,8 +137,39 @@
 
         <div id="notification-list-body" class="collapsible-section__body" data-collapse-body>
         <section class="travs-content" style="padding: 0; gap: 18px;">
-        @forelse ($notifikasi as $item)
+        @php
+            $newIds = array_map('intval', $newNotificationIds ?? []);
+            $pageNotifications = $notifikasi->getCollection();
+            $newNotifications = $pageNotifications->filter(
+                fn ($item) => ! $item->sudah_dibaca || in_array((int) $item->id, $newIds, true)
+            );
+            $oldNotifications = $pageNotifications->reject(
+                fn ($item) => ! $item->sudah_dibaca || in_array((int) $item->id, $newIds, true)
+            );
+            $notificationGroups = [
+                ['title' => 'Notifikasi Baru', 'description' => 'Pemberitahuan yang belum pernah dibuka sebelumnya.', 'items' => $newNotifications, 'new' => true],
+                ['title' => 'Notifikasi Lama', 'description' => 'Pemberitahuan yang sudah pernah dibuka.', 'items' => $oldNotifications, 'new' => false],
+            ];
+        @endphp
+
+        @if ($pageNotifications->isEmpty())
+            <article class="travs-section-card">
+                <div class="travs-table-empty">Belum ada log notifikasi.</div>
+            </article>
+        @else
+        @foreach ($notificationGroups as $group)
+        @if ($group['items']->isNotEmpty())
+            <div class="travs-notification-group-heading {{ $group['new'] ? 'is-new' : 'is-old' }}">
+                <div>
+                    <strong>{{ $group['title'] }}</strong>
+                    <span>{{ $group['description'] }}</span>
+                </div>
+                <b>{{ number_format($group['items']->count()) }}</b>
+            </div>
+
+        @foreach ($group['items'] as $item)
             @php
+                $isNewNotification = (bool) $group['new'];
                 $isBookingNotification = $item->judul === 'Pemesanan baru masuk';
                 $booking = $isBookingNotification ? $item->referensiBooking : null;
                 $routeLabel = $booking?->jadwal?->rute
@@ -136,18 +181,18 @@
                 $scheduleLabel = $booking?->jadwal?->waktu_berangkat?->translatedFormat('d M Y H:i');
             @endphp
 
-            <article class="travs-section-card {{ $isBookingNotification ? 'is-booking-notification' : '' }} {{ $item->sudah_dibaca ? '' : 'is-unread-notification' }}">
+            <article class="travs-section-card travs-notification-card {{ $isBookingNotification ? 'is-booking-notification' : '' }} {{ $isNewNotification ? 'is-new-notification' : 'is-old-notification' }}">
                 <div class="travs-panel-header">
                     <div class="travs-panel-title">
                         <h3 style="margin-bottom: 4px;">{{ $item->judul }}</h3>
-                        <p>{{ $item->created_at->translatedFormat('d M Y H:i') }} · {{ $item->pengguna->nama }}</p>
+                        <p>{{ $item->created_at->translatedFormat('d M Y H:i') }} - {{ $item->pengguna->nama }}</p>
                     </div>
                     <div class="travs-status-stack">
                         <span class="travs-status-pill travs-status-{{ $item->jenis }}">
                             {{ ucfirst($item->jenis) }}
                         </span>
-                        <span class="travs-status-pill travs-status-{{ $item->sudah_dibaca ? 'selesai' : 'menunggu' }}">
-                            {{ $item->sudah_dibaca ? 'Sudah dibaca' : 'Belum dibaca' }}
+                        <span class="travs-status-pill travs-status-{{ $isNewNotification ? 'menunggu' : 'selesai' }}">
+                            {{ $isNewNotification ? 'Baru' : 'Lama' }}
                         </span>
                     </div>
                 </div>
@@ -155,7 +200,7 @@
                 @if ($isBookingNotification)
                     <div class="travs-booking-notification-head">
                         <span class="travs-booking-notification-dot"></span>
-                        <strong style="color: var(--travs-accent-deep);">Booking Baru Masuk</strong>
+                        <strong style="color: var(--travs-accent-deep);">Pemesanan Baru Masuk</strong>
                     </div>
                 @endif
 
@@ -167,11 +212,11 @@
                 @if ($booking)
                     <div class="travs-form-grid-2" style="margin-top: 16px;">
                         <div class="travs-admin-booking-alert">
-                            <strong>Kode Booking</strong>
+                            <strong>Kode Pemesanan</strong>
                             <small>{{ $booking->kode_booking }}</small>
                         </div>
                         <div class="travs-admin-booking-alert">
-                            <strong>Status Booking</strong>
+                            <strong>Status Pemesanan</strong>
                             <small>{{ ucwords(str_replace('_', ' ', $booking->status_pemesanan)) }}</small>
                         </div>
                         <div class="travs-admin-booking-alert">
@@ -193,11 +238,10 @@
                     </div>
                 @endif
             </article>
-        @empty
-            <article class="travs-section-card">
-                <div class="travs-table-empty">Belum ada log notifikasi.</div>
-            </article>
-        @endforelse
+        @endforeach
+        @endif
+        @endforeach
+        @endif
 
         {{ $notifikasi->links() }}
         </section>

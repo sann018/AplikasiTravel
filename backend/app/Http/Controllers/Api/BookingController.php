@@ -67,26 +67,30 @@ class BookingController extends Controller
                     'cash' => (bool) $this->settingService->get('payment_cash_enabled', false),
                 ],
                 'bagasi' => [
-                    'weight_enabled' => (bool) $this->settingService->get('baggage_weight_enabled', false),
-                    'free_weight_kg' => (int) $this->settingService->get('baggage_free_weight_kg', 0),
-                    'max_weight_per_person_kg' => (int) $this->settingService->get('baggage_max_weight_per_person_kg', 0),
-                    'extra_fee_per_kg' => (float) $this->settingService->get('baggage_extra_fee_per_kg', 0),
-                    'size_enabled' => (bool) $this->settingService->get('baggage_size_enabled', false),
-                    'free_size_cm' => (int) $this->settingService->get('baggage_free_size_cm', 0),
-                    'max_size_per_person_cm' => (int) $this->settingService->get('baggage_max_size_per_person_cm', 0),
-                    'extra_fee_per_cm' => (float) $this->settingService->get('baggage_extra_fee_per_cm', 0),
-                    'item_enabled' => (bool) $this->settingService->get('baggage_item_enabled', false),
-                    'free_item_count' => (int) $this->settingService->get('baggage_free_item_count', 0),
-                    'max_item_per_person' => (int) $this->settingService->get('baggage_max_item_per_person', 0),
-                    'extra_fee_per_item' => (float) $this->settingService->get('baggage_extra_fee_per_item', 0),
-                    'small_item_fee' => (float) $this->settingService->get('baggage_small_item_fee', $this->settingService->get('baggage_extra_fee_per_item', 0)),
-                    'large_item_fee' => (float) $this->settingService->get('baggage_large_item_fee', $this->settingService->get('baggage_extra_fee_per_item', 0)),
-                    'large_vehicle_enabled' => (bool) $this->settingService->get('baggage_large_vehicle_enabled', false),
-                    'bicycle_fee' => (float) $this->settingService->get('baggage_bicycle_fee', 0),
-                    'motorcycle_fee' => (float) $this->settingService->get('baggage_motorcycle_fee', 0),
-                    'heavy_item_fee' => (float) $this->settingService->get('baggage_heavy_item_fee', 0),
-                    'other_large_item_fee' => (float) $this->settingService->get('baggage_other_large_item_fee', 0),
-                    'photo_required' => (bool) $this->settingService->get('baggage_photo_required', false),
+                    // Nilai legacy tetap dikirim agar aplikasi lama tidak gagal
+                    // parsing, tetapi seluruh tarif dinonaktifkan dan bernilai nol.
+                    'weight_enabled' => false,
+                    'free_weight_kg' => 0,
+                    'max_weight_per_person_kg' => 0,
+                    'extra_fee_per_kg' => 0,
+                    // Ukuran/cm sudah tidak dipakai di alur pemesanan versi ini.
+                    // Field tetap dikirim sebagai nilai aman agar aplikasi lama tidak error.
+                    'size_enabled' => false,
+                    'free_size_cm' => 0,
+                    'max_size_per_person_cm' => 0,
+                    'extra_fee_per_cm' => 0,
+                    'item_enabled' => false,
+                    'free_item_count' => 0,
+                    'max_item_per_person' => 0,
+                    'extra_fee_per_item' => 0,
+                    'small_item_fee' => 0,
+                    'large_item_fee' => 0,
+                    'large_vehicle_enabled' => false,
+                    'bicycle_fee' => 0,
+                    'motorcycle_fee' => 0,
+                    'heavy_item_fee' => 0,
+                    'other_large_item_fee' => 0,
+                    'photo_required' => false,
                 ],
             ],
         ]);
@@ -113,7 +117,6 @@ class BookingController extends Controller
             'baggage_items.*.foto_urls' => ['nullable', 'array', 'max:3'],
             'baggage_items.*.foto_urls.*' => ['nullable', 'string', 'max:255'],
         ]);
-
         $schedule = Jadwal::query()->with('rute')->findOrFail($validated['jadwal_id']);
         $this->scheduleLifecycleService->closeSingleIfPastBookingWindow($schedule);
 
@@ -151,6 +154,25 @@ class BookingController extends Controller
             'success' => true,
             'message' => 'Kursi berhasil dikunci untuk proses checkout.',
             'data' => $lock,
+        ]);
+    }
+
+    public function releaseFormLock(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'jadwal_id' => ['required', 'integer', 'exists:jadwal,id'],
+            'seat_numbers' => ['required', 'array', 'min:1'],
+            'seat_numbers.*' => ['required', 'integer', 'min:1'],
+        ]);
+
+        $released = $this->bookingService->releaseFormLocks($request->user(), $validated);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Kunci kursi pengisian form berhasil dilepas.',
+            'data' => [
+                'released' => $released,
+            ],
         ]);
     }
 
@@ -196,12 +218,11 @@ class BookingController extends Controller
             'passengers.*.nama_penumpang.required' => 'Nama penumpang wajib diisi.',
             'passengers.*.no_hp_penumpang.required' => 'Nomor HP penumpang wajib diisi.',
         ]);
-
         $booking = $this->bookingService->createDraft($request->user(), $validated);
 
         return response()->json([
             'success' => true,
-            'message' => 'Draft booking berhasil dibuat.',
+            'message' => 'Draft pemesanan berhasil dibuat.',
             'data' => $this->formatBooking($booking),
         ], 201);
     }
@@ -366,6 +387,8 @@ class BookingController extends Controller
                 'status' => $booking->pembayaran?->status_bayar,
                 'method' => $booking->pembayaran?->metode_bayar,
                 'expired_at' => $booking->pembayaran?->expired_at?->toIso8601String(),
+                // Waktu pembayaran berasal dari catatan backend, bukan perkiraan mobile.
+                'paid_at' => $booking->pembayaran?->dibayar_pada?->toIso8601String(),
                 'can_simulate' => app()->environment(['local', 'testing']),
                 'uses_gateway' => $this->pakasirService->handlesMethod((string) $booking->pembayaran?->metode_bayar) && $this->pakasirService->isConfigured(),
                 'provider' => data_get($gatewayMeta, 'provider'),

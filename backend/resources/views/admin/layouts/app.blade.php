@@ -39,7 +39,6 @@
                 'items' => [
                     ['label' => 'Pengaturan', 'route' => 'admin.settings.index', 'active' => 'admin.settings.*|admin.pengaturan.*|admin.banner.*', 'icon' => 'settings'],
                     ['label' => 'Notifikasi Admin', 'route' => 'admin.notifikasi.admin', 'active' => 'admin.notifikasi.admin*', 'icon' => 'bell'],
-                    ['label' => 'Log Notifikasi User', 'route' => 'admin.notifikasi.user', 'active' => 'admin.notifikasi.user*', 'icon' => 'message-square'],
                 ],
             ],
         ];
@@ -98,6 +97,17 @@
                                 </li>
                             @endforeach
                         @endforeach
+
+                        {{-- Tombol keluar dipindahkan ke sidebar agar aksi logout mudah ditemukan tanpa membuka dropdown profil. --}}
+                        <li class="travs-sidebar-item travs-sidebar-logout-item">
+                            <form method="POST" action="{{ route('admin.logout') }}">
+                                @csrf
+                                <button type="submit" class="travs-nav-link travs-sidebar-logout-link">
+                                    <i data-feather="log-out"></i>
+                                    <span>Keluar</span>
+                                </button>
+                            </form>
+                        </li>
                     </ul>
                 </nav>
         </aside>
@@ -135,14 +145,7 @@
                             <span>{{ now()->translatedFormat('d F Y') }}</span>
                         </div>
 
-                        <div class="dropdown">
-                            <a
-                                href="#"
-                                class="travs-user-pill"
-                                id="topbarUserDropdown"
-                                data-bs-toggle="dropdown"
-                                aria-expanded="false"
-                            >
+                        <div class="travs-user-pill" aria-label="Akun admin aktif">
                                 <div class="travs-user-avatar">
                                     @if (auth()->user()->foto_profil)
                                         <img src="/storage/{{ ltrim(auth()->user()->foto_profil, '/') }}" alt="Foto {{ auth()->user()->nama }}">
@@ -154,26 +157,6 @@
                                     <strong>{{ auth()->user()->nama }}</strong>
                                     <span>{{ ucfirst(auth()->user()->peran) }}</span>
                                 </div>
-                            </a>
-
-                            <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="topbarUserDropdown">
-                                <li>
-                                    <div class="dropdown-header">
-                                        <h6 class="mb-0">{{ auth()->user()->nama }}</h6>
-                                        <small class="text-muted">{{ ucfirst(auth()->user()->peran) }}</small>
-                                    </div>
-                                </li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li>
-                                    <form method="POST" action="{{ route('admin.logout') }}">
-                                        @csrf
-                                        <button type="submit" class="dropdown-item">
-                                            <i data-feather="log-out"></i>
-                                            <span>Keluar</span>
-                                        </button>
-                                    </form>
-                                </li>
-                            </ul>
                         </div>
                     </div>
                 </nav>

@@ -11,6 +11,83 @@ import '../../core/theme/travs_theme.dart';
 import '../../core/widgets/travs_async_state.dart';
 import '../payment/travs_payment_preview_page.dart';
 
+void _showScheduleImagePreview(
+  BuildContext context, {
+  required String imageUrl,
+  required String title,
+}) {
+  showDialog<void>(
+    context: context,
+    builder: (dialogContext) => Dialog(
+      insetPadding: const EdgeInsets.all(24),
+      backgroundColor: Colors.transparent,
+      child: Stack(
+        children: [
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ConstrainedBox(
+                  constraints: const BoxConstraints(
+                    maxWidth: 500,
+                    maxHeight: 500,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: InteractiveViewer(
+                      child: Image.network(
+                        imageUrl,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          padding: const EdgeInsets.all(20),
+                          color: Colors.white,
+                          child: const Text('Foto belum dapat ditampilkan.'),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: TravSTheme.navy,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: 8,
+            left: 8,
+            child: Material(
+              color: Colors.white,
+              shape: const CircleBorder(),
+              child: IconButton(
+                tooltip: 'Tutup preview',
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                icon: const Icon(Icons.arrow_back_rounded),
+              ),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 class TravSScheduleDetailPage extends StatefulWidget {
   const TravSScheduleDetailPage({
     required this.schedule,
@@ -35,9 +112,6 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
   late Future<TravSScheduleDetail> _future;
 
   int _seatCount = 0;
-  String _baggagePlacement = 'masuk_bagasi';
-  double _baggageWeight = 0;
-  int _baggageItems = 0;
   final Set<int> _selectedSeatNumbers = <int>{};
   bool _isPreparingCheckout = false;
 
@@ -80,7 +154,6 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
           _selectedSeatNumbers.remove(_selectedSeatNumbers.last);
         }
         _seatCount = _selectedSeatNumbers.length;
-        _syncBaggageLimits(detail);
       });
     }
 
@@ -103,36 +176,7 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
     return math.max(0, available);
   }
 
-  int get _registeredPassengerCount => _selectedSeatNumbers.length;
-
-  double _maxWeight(TravSScheduleDetail detail) {
-    if (!detail.baggageRules.weightEnabled) {
-      return 0;
-    }
-
-    final configured =
-        detail.baggageRules.maxWeightPerPersonKg * _registeredPassengerCount;
-    if (configured > 0) {
-      return configured.toDouble();
-    }
-
-    return (detail.baggageRules.freeWeightKg * _registeredPassengerCount + 20)
-        .toDouble();
-  }
-
-  int _maxItems(TravSScheduleDetail detail) {
-    if (!detail.baggageRules.itemEnabled) {
-      return 0;
-    }
-
-    final configured =
-        detail.baggageRules.maxItemPerPerson * _registeredPassengerCount;
-    if (configured > 0) {
-      return configured;
-    }
-
-    return detail.baggageRules.freeItemCount * _registeredPassengerCount + 3;
-  }
+  int get _registeredPassengerCount => math.max(1, _selectedSeatNumbers.length);
 
   void _toggleSeatSelection(TravSScheduleDetail detail, TravSSeatItem seat) {
     if (!_canUseBookingForm) {
@@ -160,7 +204,6 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
       }
 
       _seatCount = _selectedSeatNumbers.length;
-      _syncBaggageLimits(detail);
     });
   }
 
@@ -168,25 +211,6 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
     setState(() {
       _selectedSeatNumbers.clear();
       _seatCount = 0;
-      _syncBaggageLimits(detail);
-    });
-  }
-
-  void _syncBaggageLimits(TravSScheduleDetail detail) {
-    _baggageWeight = _baggageWeight.clamp(0, _maxWeight(detail)).toDouble();
-    _baggageItems = _clampInt(_baggageItems, 0, _maxItems(detail));
-  }
-
-  void _setBaggagePlacement(TravSScheduleDetail detail, String value) {
-    setState(() {
-      _baggagePlacement = value;
-      _syncBaggageLimits(detail);
-    });
-  }
-
-  void _setBaggageWeight(TravSScheduleDetail detail, double value) {
-    setState(() {
-      _baggageWeight = value.clamp(0, _maxWeight(detail)).toDouble();
     });
   }
 
@@ -199,7 +223,7 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Pemesanan Jadwal')),
+      appBar: AppBar(title: const Text('Detail Jadwal & Pilih Kursi')),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -266,24 +290,10 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
                       )
                     else
                       _CheckoutPreviewCard(
-                        detail: detail,
                         estimate: estimate,
                         selectedSeatNumbers: _selectedSeatNumbers.toList()
                           ..sort(),
-                        baggagePlacement: _baggagePlacement,
-                        baggageWeight: _baggageWeight,
-                        baggageItems: _baggageItems,
-                        onBaggagePlacementChanged: (value) =>
-                            _setBaggagePlacement(detail, value),
-                        onWeightChanged: detail.baggageRules.weightEnabled
-                            ? (value) => _setBaggageWeight(detail, value)
-                            : null,
-                        onItemsChanged: detail.baggageRules.itemEnabled
-                            ? (value) => setState(() => _baggageItems = value)
-                            : null,
                         maxSeatCount: _maxSeatCount(detail),
-                        maxWeight: _maxWeight(detail),
-                        maxItems: _maxItems(detail),
                         isSoldOut: isSoldOut,
                         canEditBooking: _canUseBookingForm,
                         lockMessage: _bookingLockedMessage,
@@ -300,7 +310,7 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
 
                           if (_selectedSeatNumbers.isEmpty) {
                             _showStageMessage(
-                              'Pilih minimal satu kursi dari denah sebelum lanjut checkout.',
+                              'Pilih minimal satu kursi dari denah sebelum lanjut ke konfirmasi pemesanan.',
                             );
                             return;
                           }
@@ -323,8 +333,8 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
                             }
 
                             final navigator = Navigator.of(context);
-                            final createdBooking = await navigator.push<bool>(
-                              MaterialPageRoute<bool>(
+                            final paymentResult = await navigator.push<Object>(
+                              MaterialPageRoute<Object>(
                                 builder: (_) => TravSPaymentPreviewPage(
                                   detail: detail,
                                   appSettings: widget.appSettings,
@@ -332,9 +342,9 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
                                   selectedRole: widget.selectedRole,
                                   session: widget.session!,
                                   selectedSeatNumbers: lockResult.seatNumbers,
-                                  baggagePlacement: _baggagePlacement,
-                                  baggageWeight: _baggageWeight,
-                                  baggageItems: _baggageItems,
+                                  baggagePlacement: 'masuk_bagasi',
+                                  baggageWeight: 0,
+                                  baggageItems: 0,
                                   lockExpiresAt: lockResult.lockExpiresAt,
                                 ),
                               ),
@@ -344,7 +354,11 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
                               return;
                             }
 
-                            if (createdBooking == true) {
+                            // Hasil khusus diteruskan agar beranda dapat membuka
+                            // menu Tiket tanpa menumpuk halaman baru.
+                            if (paymentResult == 'open_tickets') {
+                              navigator.pop('open_tickets');
+                            } else if (paymentResult == true) {
                               navigator.pop(true);
                             }
                           } on TravSApiException catch (error) {
@@ -370,42 +384,25 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
   }
 
   TravSCheckoutDraft _estimate(TravSScheduleDetail detail) {
-    final baggageRules = detail.baggageRules;
     final ticketSubtotal = detail.schedule.hargaTiket * _seatCount;
     final passengerCount = _registeredPassengerCount;
-    final effectiveWeight = baggageRules.weightEnabled ? _baggageWeight : 0.0;
-    final effectiveItems = baggageRules.itemEnabled ? _baggageItems : 0;
-
-    final freeWeight = baggageRules.freeWeightKg * passengerCount;
-    final freeItems = baggageRules.freeItemCount * passengerCount;
-    final isStoredInBaggage = _baggagePlacement == 'masuk_bagasi';
-    final itemFeeRate = baggageRules.extraFeePerItem;
-
-    // Estimasi di mobile hanya bantuan tampilan. Backend tetap menghitung
-    // ulang biaya final dari batas gratis dan tarif Pengaturan Sistem.
-    final weightFee = isStoredInBaggage && baggageRules.weightEnabled
-        ? math.max(0, effectiveWeight - freeWeight) * baggageRules.extraFeePerKg
-        : 0.0;
-    final itemFee = isStoredInBaggage && baggageRules.itemEnabled
-        ? math.max(0, effectiveItems - freeItems) * itemFeeRate
-        : 0.0;
 
     return TravSCheckoutDraft(
       seatCount: _seatCount,
       passengerCount: passengerCount,
       baggageMethod: 'berat',
-      baggagePlacement: _baggagePlacement,
+      baggagePlacement: 'masuk_bagasi',
       baggageSizeCategory: 'sederhana',
       largeBaggageType: 'tidak_ada',
-      baggageWeight: effectiveWeight,
+      baggageWeight: 0,
       baggageSize: 0,
       baggageLength: 0,
       baggageWidth: 0,
-      baggageItems: effectiveItems,
+      baggageItems: 0,
       ticketSubtotal: ticketSubtotal,
-      weightFee: weightFee.toDouble(),
+      weightFee: 0,
       sizeFee: 0,
-      itemFee: itemFee.toDouble(),
+      itemFee: 0,
     );
   }
 }
@@ -459,7 +456,7 @@ class _HeroCard extends StatelessWidget {
           const SizedBox(height: 18),
           Text(
             '${detail.schedule.asal} - ${detail.schedule.tujuan}',
-            style: theme.textTheme.headlineMedium?.copyWith(
+            style: theme.textTheme.headlineSmall?.copyWith(
               color: Colors.white,
               fontWeight: FontWeight.w800,
             ),
@@ -511,7 +508,7 @@ class _InfoGrid extends StatelessWidget {
           _MetricCardData(
             title: 'Harga Tiket',
             value: 'Rp${_formatCurrency(detail.schedule.hargaTiket)}',
-            subtitle: 'Belum termasuk bagasi tambahan',
+            subtitle: 'Barang bawaan biasa dicatat tanpa biaya tambahan',
             icon: Icons.payments_outlined,
           ),
           _MetricCardData(
@@ -527,12 +524,13 @@ class _InfoGrid extends StatelessWidget {
             value: detail.schedule.pengemudi,
             subtitle: detail.driverLicenseNumber,
             icon: Icons.badge_outlined,
+            imageUrl: detail.driverPhotoUrl,
           ),
           _MetricCardData(
             title: 'Metode Bayar',
             value: detail.paymentMethods.activeLabels.join(', '),
             subtitle:
-                'Lock form ${detail.bookingRules.seatLockFormMinutes} menit, bayar ${detail.bookingRules.seatLockPaymentMinutes} menit',
+                'Kunci form ${detail.bookingRules.seatLockFormMinutes} menit, bayar ${detail.bookingRules.seatLockPaymentMinutes} menit',
             icon: Icons.account_balance_wallet_outlined,
           ),
         ];
@@ -597,8 +595,6 @@ class _SeatMapCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _VehicleSummaryCard(detail: detail),
-            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
@@ -616,7 +612,7 @@ class _SeatMapCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               canSelectSeats
-                  ? 'Pilih kursi langsung dari denah mobil. Kursi akan dikunci saat lanjut ke checkout.'
+                  ? 'Pilih kursi langsung dari denah mobil. Kursi akan dikunci saat lanjut ke konfirmasi pemesanan.'
                   : lockMessage,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: TravSTheme.navyMuted,
@@ -672,18 +668,9 @@ class _SeatMapCard extends StatelessWidget {
 
 class _CheckoutPreviewCard extends StatelessWidget {
   const _CheckoutPreviewCard({
-    required this.detail,
     required this.estimate,
     required this.selectedSeatNumbers,
-    required this.baggagePlacement,
-    required this.baggageWeight,
-    required this.baggageItems,
-    required this.onBaggagePlacementChanged,
-    required this.onWeightChanged,
-    required this.onItemsChanged,
     required this.maxSeatCount,
-    required this.maxWeight,
-    required this.maxItems,
     required this.isSoldOut,
     required this.canEditBooking,
     required this.lockMessage,
@@ -692,18 +679,9 @@ class _CheckoutPreviewCard extends StatelessWidget {
     required this.onPrimaryAction,
   });
 
-  final TravSScheduleDetail detail;
   final TravSCheckoutDraft estimate;
   final List<int> selectedSeatNumbers;
-  final String baggagePlacement;
-  final double baggageWeight;
-  final int baggageItems;
-  final ValueChanged<String> onBaggagePlacementChanged;
-  final ValueChanged<double>? onWeightChanged;
-  final ValueChanged<int>? onItemsChanged;
   final int maxSeatCount;
-  final double maxWeight;
-  final int maxItems;
   final bool isSoldOut;
   final bool canEditBooking;
   final String lockMessage;
@@ -714,10 +692,6 @@ class _CheckoutPreviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final baggageRules = detail.baggageRules;
-    final isStoredInBaggage = baggagePlacement == 'masuk_bagasi';
-    final selectedItemFee = baggageRules.extraFeePerItem;
-    final canUseBaggageCalculation = baggageRules.mobileBaggageInputEnabled;
 
     return Card(
       child: Padding(
@@ -805,50 +779,6 @@ class _CheckoutPreviewCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (canUseBaggageCalculation) ...[
-              const SizedBox(height: 18),
-              _BaggagePlacementPicker(
-                selectedPlacement: baggagePlacement,
-                enabled: canEditBooking,
-                onChanged: onBaggagePlacementChanged,
-              ),
-            ] else ...[
-              const SizedBox(height: 18),
-              _BaggageCalculationDisabledNotice(
-                sizeEnabled: baggageRules.sizeEnabled,
-              ),
-            ],
-            if (isStoredInBaggage && baggageRules.weightEnabled) ...[
-              const SizedBox(height: 18),
-              _NumericBaggageField(
-                label: 'Berat bagasi',
-                helper:
-                    'Gratis sampai ${baggageRules.freeWeightKg} kg per penumpang. Biaya tambahan hanya untuk kelebihan berat.',
-                value: baggageWeight,
-                maxValue: maxWeight,
-                suffix: 'kg',
-                allowDecimal: true,
-                enabled: canEditBooking,
-                onChanged: onWeightChanged ?? (_) {},
-              ),
-            ],
-            if (isStoredInBaggage && baggageRules.itemEnabled) ...[
-              const SizedBox(height: 18),
-              _CounterField(
-                label: 'Jumlah item bagasi',
-                helper:
-                    'Gratis sampai ${baggageRules.freeItemCount} item per penumpang. Item tambahan dikenakan Rp${_formatCurrency(selectedItemFee)} per item.',
-                value: baggageItems,
-                minValue: 0,
-                maxValue: maxItems,
-                enabled: canEditBooking,
-                onChanged: onItemsChanged ?? (_) {},
-              ),
-            ],
-            if (canUseBaggageCalculation && !isStoredInBaggage) ...[
-              const SizedBox(height: 18),
-              _BaggageSelfHeldNotice(),
-            ],
             const SizedBox(height: 18),
             Container(
               padding: const EdgeInsets.all(18),
@@ -862,18 +792,6 @@ class _CheckoutPreviewCard extends StatelessWidget {
                     label: 'Subtotal tiket',
                     value: 'Rp${_formatCurrency(estimate.ticketSubtotal)}',
                   ),
-                  if (estimate.weightFee > 0)
-                    _PriceRow(
-                      label:
-                          'Tambahan berat (${_formatOverage(baggageWeight, baggageRules.freeWeightKg * estimate.passengerCount)} kg)',
-                      value: 'Rp${_formatCurrency(estimate.weightFee)}',
-                    ),
-                  if (estimate.itemFee > 0)
-                    _PriceRow(
-                      label:
-                          'Tambahan item (${math.max(0, baggageItems - baggageRules.freeItemCount * estimate.passengerCount)} item)',
-                      value: 'Rp${_formatCurrency(estimate.itemFee)}',
-                    ),
                   const Divider(height: 24),
                   _PriceRow(
                     label: 'Estimasi total',
@@ -883,15 +801,6 @@ class _CheckoutPreviewCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 14),
-            if (canUseBaggageCalculation && baggageRules.photoRequired)
-              Text(
-                'Catatan: foto bagasi wajib dilampirkan saat pemesanan.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: TravSTheme.orange,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
             const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
@@ -912,8 +821,8 @@ class _CheckoutPreviewCard extends StatelessWidget {
                       : isPreparingCheckout
                       ? 'Mengunci Kursi...'
                       : !canEditBooking
-                      ? 'Login Untuk Booking'
-                      : 'Lanjut ke Checkout',
+                      ? 'Masuk untuk Memesan'
+                      : 'Lanjut ke Konfirmasi',
                 ),
               ),
             ),
@@ -998,40 +907,50 @@ class _MetricCard extends StatelessWidget {
         padding: const EdgeInsets.all(18),
         child: Row(
           children: [
-            Container(
-              width: 50,
-              height: 50,
-              decoration: BoxDecoration(
-                color: TravSTheme.orangeSoft,
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: resolvedImageUrl == null
-                  ? Icon(data.icon, color: TravSTheme.orange)
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(18),
-                      child: Image.network(
-                        resolvedImageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) =>
-                            Icon(data.icon, color: TravSTheme.orange),
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) {
-                            return child;
-                          }
-
-                          return Center(
-                            child: SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: TravSTheme.orange,
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+            InkWell(
+              onTap: resolvedImageUrl == null
+                  ? null
+                  : () => _showScheduleImagePreview(
+                      context,
+                      imageUrl: resolvedImageUrl,
+                      title: data.value,
                     ),
+              borderRadius: BorderRadius.circular(18),
+              child: Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: TravSTheme.orangeSoft,
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: resolvedImageUrl == null
+                    ? Icon(data.icon, color: TravSTheme.orange)
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Image.network(
+                          resolvedImageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Icon(data.icon, color: TravSTheme.orange),
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) {
+                              return child;
+                            }
+
+                            return Center(
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: TravSTheme.orange,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -1047,7 +966,7 @@ class _MetricCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     data.value,
-                    style: theme.textTheme.titleMedium?.copyWith(
+                    style: theme.textTheme.titleSmall?.copyWith(
                       color: TravSTheme.navy,
                       fontWeight: FontWeight.w800,
                     ),
@@ -1064,107 +983,6 @@ class _MetricCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _VehicleSummaryCard extends StatelessWidget {
-  const _VehicleSummaryCard({required this.detail});
-
-  final TravSScheduleDetail detail;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final vehiclePhotoUrl =
-        TravSApiService.resolveMediaUrl(
-          detail.vehiclePhotoUrl ?? detail.schedule.kendaraanFotoUrl,
-        ) ??
-        '';
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: TravSTheme.line),
-        boxShadow: [
-          BoxShadow(
-            color: TravSTheme.navy.withValues(alpha: 0.04),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  detail.schedule.kendaraan,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: TravSTheme.navy,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${detail.vehicleType} | ${detail.schedule.kapasitas} Kursi',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: TravSTheme.navySoft,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 14),
-          Container(
-            width: 96,
-            height: 64,
-            decoration: BoxDecoration(
-              color: TravSTheme.surfaceSoft,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: TravSTheme.line),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: vehiclePhotoUrl.isEmpty
-                ? const Icon(
-                    Icons.directions_car_filled_rounded,
-                    color: TravSTheme.navy,
-                    size: 42,
-                  )
-                : Image.network(
-                    vehiclePhotoUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Icon(
-                      Icons.directions_car_filled_rounded,
-                      color: TravSTheme.navy,
-                      size: 42,
-                    ),
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) {
-                        return child;
-                      }
-
-                      return const Center(
-                        child: SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      );
-                    },
-                  ),
-          ),
-        ],
       ),
     );
   }
@@ -1386,6 +1204,40 @@ List<_VehicleSeatLayoutItem> _buildVehicleSeatLayout(
   List<TravSSeatItem> seats,
   List<int> seatLayout,
 ) {
+  final seatByNumber = <int, TravSSeatItem>{
+    for (final seat in seats) seat.seatNumber: seat,
+  };
+  final maxSeatNumber = seats.isEmpty
+      ? 0
+      : seats.map((seat) => seat.seatNumber).reduce(math.max);
+  final configuredSeatTotal = seatLayout.fold<int>(
+    0,
+    (total, rowSize) => total + rowSize,
+  );
+  final fixedSeatTotal = math.min(
+    6,
+    math.max(maxSeatNumber, configuredSeatTotal),
+  );
+
+  if (fixedSeatTotal > 0 && fixedSeatTotal <= 6) {
+    return List<_VehicleSeatLayoutItem>.generate(fixedSeatTotal, (index) {
+      final seatNumber = index + 1;
+      final position = _fixedVehicleSeatPosition(seatNumber);
+
+      return _VehicleSeatLayoutItem(
+        seat:
+            seatByNumber[seatNumber] ??
+            TravSSeatItem(
+              id: -seatNumber,
+              seatNumber: seatNumber,
+              status: 'nonaktif',
+            ),
+        x: position.dx,
+        y: position.dy,
+      );
+    });
+  }
+
   final rowPattern = seatLayout.isNotEmpty
       ? seatLayout
       : _seatRowPattern(seats.length);
@@ -1414,6 +1266,21 @@ List<_VehicleSeatLayoutItem> _buildVehicleSeatLayout(
   }
 
   return items;
+}
+
+Offset _fixedVehicleSeatPosition(int seatNumber) {
+  // Nomor kursi dibuat tetap mengikuti denah mobil agar kursi yang ditutup
+  // tetap terlihat di posisi aslinya, hanya berubah warna menjadi terkunci.
+  const positions = <int, Offset>{
+    1: Offset(0.38, 0.38),
+    2: Offset(0.70, 0.57),
+    3: Offset(0.50, 0.57),
+    4: Offset(0.30, 0.57),
+    5: Offset(0.38, 0.74),
+    6: Offset(0.62, 0.74),
+  };
+
+  return positions[seatNumber] ?? const Offset(0.50, 0.55);
 }
 
 List<int> _seatRowPattern(int count) {
@@ -1667,360 +1534,6 @@ class _VehicleSeatButton extends StatelessWidget {
   }
 }
 
-class _CounterField extends StatelessWidget {
-  const _CounterField({
-    required this.label,
-    required this.helper,
-    required this.value,
-    required this.minValue,
-    required this.maxValue,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String helper;
-  final int value;
-  final int minValue;
-  final int maxValue;
-  final bool enabled;
-  final ValueChanged<int> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: TravSTheme.surfaceSoft,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: TravSTheme.navy,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            helper,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: TravSTheme.navyMuted,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              _RoundIconButton(
-                icon: Icons.remove_rounded,
-                enabled: enabled && value > minValue,
-                onTap: () => onChanged(value - 1),
-              ),
-              Expanded(
-                child: Center(
-                  child: Text(
-                    '$value',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      color: TravSTheme.navy,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-              _RoundIconButton(
-                icon: Icons.add_rounded,
-                enabled: enabled && value < maxValue,
-                onTap: () => onChanged(value + 1),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BaggagePlacementPicker extends StatelessWidget {
-  const _BaggagePlacementPicker({
-    required this.selectedPlacement,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final String selectedPlacement;
-  final bool enabled;
-  final ValueChanged<String> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: TravSTheme.surfaceSoft,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Posisi barang bawaan',
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: TravSTheme.navy,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Barang yang dipegang sendiri dicatat saja dan tidak masuk hitungan biaya bagasi.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: TravSTheme.navyMuted,
-            ),
-          ),
-          const SizedBox(height: 14),
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment<String>(
-                value: 'dipegang_sendiri',
-                icon: Icon(Icons.backpack_outlined),
-                label: Text('Dipegang sendiri'),
-              ),
-              ButtonSegment<String>(
-                value: 'masuk_bagasi',
-                icon: Icon(Icons.inventory_2_outlined),
-                label: Text('Masuk bagasi'),
-              ),
-            ],
-            selected: {selectedPlacement},
-            onSelectionChanged: enabled
-                ? (values) {
-                    if (values.isNotEmpty) {
-                      onChanged(values.first);
-                    }
-                  }
-                : null,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BaggageCalculationDisabledNotice extends StatelessWidget {
-  const _BaggageCalculationDisabledNotice({required this.sizeEnabled});
-
-  final bool sizeEnabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final helper = sizeEnabled
-        ? 'Perhitungan ukuran masih aktif di admin, tetapi form mobile versi ini hanya memakai aturan berat dan item.'
-        : 'Perhitungan berat dan item sedang dinonaktifkan oleh admin.';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: TravSTheme.surfaceSoft,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: TravSTheme.line),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: TravSTheme.orangeSoft,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: const Icon(
-              Icons.inventory_2_outlined,
-              color: TravSTheme.orange,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Biaya bagasi tidak dihitung di form ini',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: TravSTheme.navy,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$helper Jika ada barang bawaan, biaya final tetap mengikuti validasi backend.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: TravSTheme.navyMuted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BaggageSelfHeldNotice extends StatelessWidget {
-  const _BaggageSelfHeldNotice();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: TravSTheme.orangeSoft,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        'Barang akan dicatat sebagai barang yang dipegang penumpang. Biaya bagasi tetap Rp0 karena barang tidak masuk bagasi kendaraan.',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: TravSTheme.navy,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _NumericBaggageField extends StatelessWidget {
-  const _NumericBaggageField({
-    required this.label,
-    required this.helper,
-    required this.value,
-    required this.maxValue,
-    required this.suffix,
-    required this.allowDecimal,
-    required this.enabled,
-    required this.onChanged,
-  });
-
-  final String label;
-  final String helper;
-  final double value;
-  final double maxValue;
-  final String suffix;
-  final bool allowDecimal;
-  final bool enabled;
-  final ValueChanged<double> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: TravSTheme.surfaceSoft,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: TravSTheme.navy,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-              Text(
-                '${value.toStringAsFixed(0)} $suffix',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: TravSTheme.orange,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            helper,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: TravSTheme.navyMuted,
-            ),
-          ),
-          const SizedBox(height: 14),
-          TextFormField(
-            initialValue: value > 0
-                ? (allowDecimal
-                      ? value.toStringAsFixed(1)
-                      : value.toStringAsFixed(0))
-                : '',
-            enabled: enabled && maxValue > 0,
-            style: const TextStyle(
-              color: TravSTheme.navy,
-              fontWeight: FontWeight.w800,
-            ),
-            keyboardType: TextInputType.numberWithOptions(
-              decimal: allowDecimal,
-            ),
-            decoration: InputDecoration(hintText: '0', suffixText: suffix),
-            onChanged: (raw) {
-              final parsed = double.tryParse(raw.replaceAll(',', '.')) ?? 0;
-              onChanged(parsed);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RoundIconButton extends StatelessWidget {
-  const _RoundIconButton({
-    required this.icon,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: enabled ? Colors.white : const Color(0xFFF1F4F8),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFD9E2EC)),
-        ),
-        child: Icon(
-          icon,
-          color: enabled ? TravSTheme.navy : TravSTheme.navyMuted,
-        ),
-      ),
-    );
-  }
-}
-
 class _BadgePill extends StatelessWidget {
   const _BadgePill({
     required this.label,
@@ -2195,10 +1708,6 @@ class _MetricCardData {
   final String? imageUrl;
 }
 
-int _clampInt(int value, int min, int max) {
-  return math.min(math.max(value, min), max);
-}
-
 String _formatDate(String iso) {
   if (iso.isEmpty) {
     return '-';
@@ -2210,10 +1719,6 @@ String _formatDate(String iso) {
   }
 
   return DateFormat('EEEE, dd MMM yyyy - HH:mm', 'id_ID').format(date);
-}
-
-String _formatOverage(double value, int freeLimit) {
-  return math.max(0, value - freeLimit).toStringAsFixed(0);
 }
 
 String _formatDurationMinutes(int minutes) {

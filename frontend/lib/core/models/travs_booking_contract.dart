@@ -149,6 +149,7 @@ class TravSBookingPaymentInfo {
     required this.status,
     required this.method,
     required this.expiredAt,
+    this.paidAt = '',
     required this.canSimulate,
     required this.usesGateway,
     required this.provider,
@@ -164,6 +165,7 @@ class TravSBookingPaymentInfo {
   final String status;
   final String method;
   final String expiredAt;
+  final String paidAt;
   final bool canSimulate;
   final bool usesGateway;
   final String provider;
@@ -188,6 +190,7 @@ class TravSBookingPaymentInfo {
       status: json['status'] as String? ?? '-',
       method: json['method'] as String? ?? '-',
       expiredAt: json['expired_at'] as String? ?? '',
+      paidAt: json['paid_at'] as String? ?? '',
       canSimulate: json['can_simulate'] as bool? ?? false,
       usesGateway: json['uses_gateway'] as bool? ?? false,
       provider: json['provider'] as String? ?? '',

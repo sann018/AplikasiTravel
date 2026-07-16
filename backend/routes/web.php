@@ -77,7 +77,9 @@ Route::prefix('admin')->group(function () {
         Route::post('/pembayaran/{pemesanan}/confirm-cash', [PembayaranController::class, 'confirmCash'])->middleware('throttle:travs-admin-action')->name('admin.pembayaran.confirm-cash');
 
         Route::get('/biaya-operasional', [BiayaOperasionalController::class, 'index'])->name('admin.biaya.index');
+        Route::get('/biaya-operasional/create', [BiayaOperasionalController::class, 'create'])->name('admin.biaya.create');
         Route::get('/biaya-operasional/export', [BiayaOperasionalController::class, 'export'])->name('admin.biaya.export');
+        Route::get('/biaya-operasional/{biayaOperasional}/edit', [BiayaOperasionalController::class, 'edit'])->name('admin.biaya.edit');
         Route::post('/biaya-operasional', [BiayaOperasionalController::class, 'store'])->middleware('throttle:travs-admin-action')->name('admin.biaya.store');
         Route::put('/biaya-operasional/{biayaOperasional}', [BiayaOperasionalController::class, 'update'])->middleware('throttle:travs-admin-action')->name('admin.biaya.update');
         Route::patch('/biaya-operasional/{biayaOperasional}/verifikasi', [BiayaOperasionalController::class, 'verify'])->middleware('throttle:travs-admin-action')->name('admin.biaya.verify');
@@ -98,6 +100,8 @@ Route::prefix('admin')->group(function () {
 
         Route::get('/settings', [SettingsController::class, 'index'])->name('admin.settings.index');
         Route::post('/settings/general', [SettingsController::class, 'updateGeneral'])->middleware('throttle:travs-admin-action')->name('admin.settings.general.update');
+        Route::post('/settings/important-information', [SettingsController::class, 'storeImportantInformation'])->middleware('throttle:travs-admin-action')->name('admin.settings.important-information.store');
+        Route::delete('/settings/important-information/{informationId}', [SettingsController::class, 'destroyImportantInformation'])->middleware('throttle:travs-admin-action')->name('admin.settings.important-information.destroy');
         Route::post('/settings/booking', [SettingsController::class, 'updateBooking'])->middleware('throttle:travs-admin-action')->name('admin.settings.booking.update');
         Route::post('/settings/payment', [SettingsController::class, 'updatePayment'])->middleware('throttle:travs-admin-action')->name('admin.settings.payment.update');
         Route::post('/settings/baggage', [SettingsController::class, 'updateBaggage'])->middleware('throttle:travs-admin-action')->name('admin.settings.baggage.update');

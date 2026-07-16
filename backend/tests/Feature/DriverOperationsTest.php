@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\Jadwal;
 use App\Models\BiayaOperasionalPerjalanan;
 use App\Models\DetailPemesanan;
+use App\Models\Jadwal;
 use App\Models\KursiJadwal;
 use App\Models\Pembayaran;
 use App\Models\Pemesanan;
@@ -43,6 +43,11 @@ class DriverOperationsTest extends TestCase
             'bujur_turun' => 111.4986,
             'alamat_turun' => 'Terminal Sintang, Kalimantan Barat',
         ]);
+        $booking->itemBagasi()->create([
+            'deskripsi_item' => 'Koper hitam dan tas kerja',
+            'berat_kg' => 8,
+            'jumlah_item' => 2,
+        ]);
 
         Sanctum::actingAs($driver);
 
@@ -71,6 +76,7 @@ class DriverOperationsTest extends TestCase
 
         $response
             ->assertJsonPath('data.manifest.0.dropoff.address', 'Terminal Sintang, Kalimantan Barat')
+            ->assertJsonPath('data.manifest.0.baggage.label', 'Koper hitam dan tas kerja')
             ->assertJsonPath('data.manifest.0.dropoff.is_dropped_off', false);
     }
 
@@ -111,6 +117,50 @@ class DriverOperationsTest extends TestCase
             ]);
     }
 
+    public function test_driver_can_start_owned_trip_and_status_is_saved_for_admin(): void
+    {
+        $driver = User::query()->where('email', 'pengemudi@travs.com')->firstOrFail();
+        $jadwal = Jadwal::query()
+            ->whereHas('pengemudi.pengguna', fn ($query) => $query->whereKey($driver->id))
+            ->firstOrFail();
+        $jadwal->update(['status' => 'dibuka']);
+
+        Sanctum::actingAs($driver);
+
+        $this->postJson("/api/pengemudi/trips/{$jadwal->id}/status", [
+            'status' => 'berangkat',
+        ])
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.status', 'berangkat');
+
+        // Web admin membaca tabel jadwal yang sama, sehingga status langsung
+        // sinkron setelah halaman daftar jadwal dimuat ulang.
+        $this->assertDatabaseHas('jadwal', [
+            'id' => $jadwal->id,
+            'status' => 'berangkat',
+        ]);
+    }
+
+    public function test_driver_cannot_start_trip_assigned_to_another_driver(): void
+    {
+        $driver = User::query()->where('email', 'pengemudi2@travs.com')->firstOrFail();
+        $jadwal = Jadwal::query()
+            ->whereHas('pengemudi.pengguna', fn ($query) => $query->where('email', 'pengemudi@travs.com'))
+            ->firstOrFail();
+        $jadwal->update(['status' => 'dibuka']);
+
+        Sanctum::actingAs($driver);
+
+        $this->postJson("/api/pengemudi/trips/{$jadwal->id}/status", [
+            'status' => 'berangkat',
+        ])
+            ->assertForbidden()
+            ->assertJsonPath('success', false);
+
+        $this->assertSame('dibuka', $jadwal->fresh()->status);
+    }
+
     public function test_driver_cannot_update_photo_of_assigned_vehicle(): void
     {
         Storage::fake('public');
@@ -146,39 +196,90 @@ class DriverOperationsTest extends TestCase
         ])->assertForbidden();
     }
 
-    public function test_driver_can_submit_operational_expense_waiting_for_admin_verification(): void
+    public function test_driver_can_record_operational_expense_without_admin_verification(): void
     {
+        Storage::fake('public');
         $driver = User::query()->where('email', 'pengemudi@travs.com')->firstOrFail();
         $jadwal = Jadwal::query()
             ->whereHas('pengemudi.pengguna', fn ($query) => $query->whereKey($driver->id))
             ->firstOrFail();
+        $jadwal->update(['status' => 'dibuka']);
 
         Sanctum::actingAs($driver);
 
-        $response = $this->postJson("/api/pengemudi/trips/{$jadwal->id}/expenses", [
+        $response = $this->post("/api/pengemudi/trips/{$jadwal->id}/expenses", [
             'jenis_biaya' => 'BBM perjalanan',
             'nominal' => 125000,
             'tanggal' => now()->toDateString(),
             'keterangan' => 'Pengisian BBM sebelum keberangkatan.',
+            'foto_bukti_nota' => UploadedFile::fake()->image('nota-bbm.jpg'),
+        ], [
+            'Accept' => 'application/json',
         ]);
 
         $response
             ->assertCreated()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.status_verifikasi', 'menunggu_verifikasi');
+            ->assertJsonPath('message', 'Biaya operasional berhasil dicatat.')
+            ->assertJsonPath('data.status', 'tercatat')
+            ->assertJsonPath('data.status_verifikasi', 'disetujui');
 
         $this->assertDatabaseHas('biaya_operasional_perjalanan', [
             'jadwal_id' => $jadwal->id,
             'jenis_biaya' => 'BBM perjalanan',
             'nominal' => 125000,
-            'status_verifikasi' => 'menunggu_verifikasi',
+            'status_verifikasi' => 'disetujui',
             'created_by' => $driver->id,
         ]);
 
-        $this->assertSame(0.0, (float) BiayaOperasionalPerjalanan::query()
-            ->where('status_verifikasi', 'disetujui')
+        $this->assertSame(125000.0, (float) BiayaOperasionalPerjalanan::query()
+            ->finalized()
             ->where('jadwal_id', $jadwal->id)
             ->sum('nominal'));
+    }
+
+    public function test_driver_expense_requires_receipt_and_clear_description(): void
+    {
+        $driver = User::query()->where('email', 'pengemudi@travs.com')->firstOrFail();
+        $jadwal = Jadwal::query()
+            ->whereHas('pengemudi.pengguna', fn ($query) => $query->whereKey($driver->id))
+            ->firstOrFail();
+        $jadwal->update(['status' => 'dibuka']);
+
+        Sanctum::actingAs($driver);
+
+        $this->postJson("/api/pengemudi/trips/{$jadwal->id}/expenses", [
+            'jenis_biaya' => 'Parkir',
+            'nominal' => 10000,
+            'tanggal' => now()->toDateString(),
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['keterangan', 'foto_bukti_nota']);
+
+        $this->assertDatabaseMissing('biaya_operasional_perjalanan', [
+            'jadwal_id' => $jadwal->id,
+            'jenis_biaya' => 'Parkir',
+        ]);
+    }
+
+    public function test_driver_cannot_record_expense_for_inactive_trip(): void
+    {
+        $driver = User::query()->where('email', 'pengemudi@travs.com')->firstOrFail();
+        $jadwal = Jadwal::query()
+            ->whereHas('pengemudi.pengguna', fn ($query) => $query->whereKey($driver->id))
+            ->firstOrFail();
+        $jadwal->update(['status' => 'selesai']);
+
+        Sanctum::actingAs($driver);
+
+        $this->postJson("/api/pengemudi/trips/{$jadwal->id}/expenses", [
+            'jenis_biaya' => 'Parkir',
+            'nominal' => 10000,
+            'tanggal' => now()->toDateString(),
+            'keterangan' => 'Biaya parkir kendaraan.',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Biaya hanya dapat dicatat pada jadwal tugas yang sedang aktif.');
     }
 
     public function test_driver_can_confirm_cash_payment_and_issue_ticket(): void
