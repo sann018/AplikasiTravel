@@ -5,24 +5,6 @@
 @section('page-description', 'Kelola jalur lintas kota, harga tiket, estimasi durasi, dan status aktif rute.')
 
 @section('content')
-    <section class="travs-summary-grid">
-        <article class="travs-summary-card">
-            <small>Total Rute</small>
-            <strong>{{ number_format($stats['total']) }}</strong>
-            <span>Seluruh jalur terdaftar</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Rute Aktif</small>
-            <strong>{{ number_format($stats['aktif']) }}</strong>
-            <span>Siap digunakan untuk pemesanan</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Rute Nonaktif</small>
-            <strong>{{ number_format($stats['nonaktif']) }}</strong>
-            <span>Tidak tampil ke pengguna</span>
-        </article>
-    </section>
-
     <section class="travs-section-card">
         <div class="travs-panel-header">
             <div class="travs-panel-title">

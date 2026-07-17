@@ -7,7 +7,6 @@ import 'core/services/travs_auth_service.dart';
 import 'core/theme/travs_theme.dart';
 import 'features/auth/travs_auth_page.dart';
 import 'features/home/travs_home_page.dart';
-import 'features/launch/travs_splash_page.dart';
 
 class TravSApp extends StatefulWidget {
   const TravSApp({super.key});
@@ -102,7 +101,9 @@ class _TravSAppState extends State<TravSApp> {
 
   Widget _buildHome() {
     if (_isBooting) {
-      return TravSSplashPage(appSettings: _appSettings);
+      // Splash native menangani layar awal. Flutter cukup menunggu pemulihan
+      // sesi tanpa menampilkan splash kedua.
+      return const Scaffold(body: ColoredBox(color: Color(0xFFF7F9FC)));
     }
 
     if (_session != null || _isGuestMode) {
@@ -115,7 +116,6 @@ class _TravSAppState extends State<TravSApp> {
     }
 
     return TravSAuthPage(
-      appSettings: _appSettings,
       authService: _authService,
       onAuthenticated: _handleAuthenticated,
       onContinueAsGuest: _continueAsGuest,

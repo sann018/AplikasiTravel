@@ -8,15 +8,31 @@ import 'travs_api_service.dart';
 import 'travs_validation_message.dart';
 
 class TravSAuthException implements Exception {
-  const TravSAuthException(this.message);
+  const TravSAuthException(
+    this.message, {
+    this.requiresEmailVerification = false,
+    this.verificationEmail,
+  });
 
   final String message;
+  final bool requiresEmailVerification;
+  final String? verificationEmail;
 
   @override
   String toString() => message;
 }
 
+class TravSRegistrationResult {
+  const TravSRegistrationResult({required this.email, required this.message});
+
+  final String email;
+  final String message;
+}
+
 class TravSAuthService {
+  // Pengiriman OTP melalui SMTP dapat lebih lama daripada request API biasa.
+  static const Duration _emailRequestTimeout = Duration(seconds: 20);
+
   static const String _sessionKey = 'travs_user_session';
 
   Future<TravSUserSession?> restoreSession() async {
@@ -58,7 +74,7 @@ class TravSAuthService {
     return _handleAuthResponse(response);
   }
 
-  Future<TravSUserSession> register({
+  Future<TravSRegistrationResult> register({
     required String nama,
     required String email,
     required String noHp,
@@ -68,6 +84,7 @@ class TravSAuthService {
     final response = await TravSApiService.postWithFallback(
       '/api/auth/register',
       headers: TravSApiService.jsonHeaders(),
+      timeout: _emailRequestTimeout,
       body: jsonEncode({
         'nama': nama.trim(),
         'email': email.trim(),
@@ -78,7 +95,68 @@ class TravSAuthService {
       }),
     );
 
+    final decoded = _decodeBody(response.body);
+    final data =
+        decoded['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
+    final registeredEmail = data['email']?.toString().trim() ?? '';
+    final requiresVerification =
+        data['requires_email_verification'] == true &&
+        registeredEmail.isNotEmpty;
+
+    // Akun bisa sudah tersimpan walaupun layanan email sedang gagal.
+    // Pengguna tetap diarahkan ke halaman verifikasi agar dapat mengirim ulang.
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (!requiresVerification) {
+        throw TravSAuthException(_extractErrorMessage(decoded));
+      }
+    }
+
+    if (registeredEmail.isEmpty) {
+      throw const TravSAuthException(
+        'Email akun tidak diterima dari server. Silakan coba lagi.',
+      );
+    }
+
+    return TravSRegistrationResult(
+      email: registeredEmail,
+      message:
+          decoded['message']?.toString() ??
+          'Kode verifikasi telah dikirim ke email Anda.',
+    );
+  }
+
+  Future<TravSUserSession> verifyEmail({
+    required String email,
+    required String code,
+  }) async {
+    final response = await TravSApiService.postWithFallback(
+      '/api/auth/verify-email',
+      headers: TravSApiService.jsonHeaders(),
+      body: jsonEncode({
+        'email': email.trim(),
+        'code': code.trim(),
+        'device_name': 'travelku-mobile',
+      }),
+    );
+
     return _handleAuthResponse(response);
+  }
+
+  Future<String> resendVerificationCode({required String email}) async {
+    final response = await TravSApiService.postWithFallback(
+      '/api/auth/resend-verification-code',
+      headers: TravSApiService.jsonHeaders(),
+      timeout: _emailRequestTimeout,
+      body: jsonEncode({'email': email.trim()}),
+    );
+    final decoded = _decodeBody(response.body);
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw TravSAuthException(_extractErrorMessage(decoded));
+    }
+
+    return decoded['message']?.toString() ??
+        'Jika email terdaftar, kode verifikasi telah dikirim.';
   }
 
   Future<void> clearSession() async {
@@ -108,7 +186,13 @@ class TravSAuthService {
   Future<TravSUserSession> _handleAuthResponse(http.Response response) async {
     final decoded = _decodeBody(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw TravSAuthException(_extractErrorMessage(decoded));
+      final data =
+          decoded['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
+      throw TravSAuthException(
+        _extractErrorMessage(decoded),
+        requiresEmailVerification: data['requires_email_verification'] == true,
+        verificationEmail: data['email']?.toString(),
+      );
     }
 
     final data =

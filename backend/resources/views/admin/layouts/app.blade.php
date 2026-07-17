@@ -28,7 +28,6 @@
             [
                 'label' => 'Keuangan & Laporan',
                 'items' => [
-                    ['label' => 'Pembayaran', 'route' => 'admin.pembayaran.index', 'active' => 'admin.pembayaran.*', 'icon' => 'dollar-sign'],
                     ['label' => 'Biaya Operasional', 'route' => 'admin.biaya.index', 'active' => 'admin.biaya.index|admin.biaya.store|admin.biaya.update|admin.biaya.destroy', 'icon' => 'credit-card'],
                     ['label' => 'Laporan Pemesanan', 'route' => 'admin.laporan.pemesanan', 'active' => 'admin.laporan.pemesanan*', 'icon' => 'clipboard'],
                     ['label' => 'Laporan Transaksi', 'route' => 'admin.laporan.transaksi', 'active' => 'admin.laporan.transaksi*', 'icon' => 'file-text'],

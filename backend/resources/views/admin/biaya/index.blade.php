@@ -5,31 +5,6 @@
 @section('page-description', 'Catat pengeluaran setiap perjalanan tanpa proses persetujuan terpisah.')
 
 @section('content')
-    <section data-static-cost-summary>
-        <div class="travs-panel-title mb-3">
-            <h3>Ringkasan Biaya</h3>
-            <p>Ikhtisar pengeluaran yang sudah tercatat.</p>
-        </div>
-
-        <div class="travs-summary-grid">
-            <article class="travs-summary-card">
-                <small>Biaya Hari Ini</small>
-                <strong>Rp{{ number_format($stats['hari_ini'], 0, ',', '.') }}</strong>
-                <span>Pengeluaran tercatat hari ini</span>
-            </article>
-            <article class="travs-summary-card">
-                <small>Biaya Bulan Ini</small>
-                <strong>Rp{{ number_format($stats['bulan_ini'], 0, ',', '.') }}</strong>
-                <span>Akumulasi bulan berjalan</span>
-            </article>
-            <article class="travs-summary-card">
-                <small>Total Item Biaya</small>
-                <strong>{{ number_format($stats['total_item']) }}</strong>
-                <span>Jumlah pencatatan biaya</span>
-            </article>
-        </div>
-    </section>
-
     <article class="travs-section-card collapsible-section" data-collapsible-section>
         <div class="travs-panel-header collapsible-section__header" data-collapse-header>
             <div class="travs-panel-title">
@@ -43,7 +18,6 @@
                     <div class="travs-export-menu__list">
                         <a href="{{ route('admin.biaya.export', array_merge(request()->query(), ['format' => 'csv'])) }}">CSV</a>
                         <a href="{{ route('admin.biaya.export', array_merge(request()->query(), ['format' => 'xls'])) }}">Excel (.xls)</a>
-                        <a href="{{ route('admin.biaya.export', array_merge(request()->query(), ['format' => 'xlsx'])) }}">XLSX</a>
                     </div>
                 </details>
                 @include('admin.partials.collapsible-toggle', ['targetId' => 'cost-list-body'])

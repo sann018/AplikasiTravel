@@ -229,7 +229,9 @@ class BookingService
 
             Pembayaran::query()->create([
                 'pemesanan_id' => $booking->id,
-                'order_id_gateway' => 'DRAFT-'.Str::upper(Str::random(12)),
+                // Kode transaksi dipisahkan dari kode pemesanan agar identitas
+                // perjalanan dan pembayaran tidak membingungkan saat diaudit.
+                'order_id_gateway' => $this->generatePaymentTransactionCode(),
                 'metode_bayar' => $paymentMethod,
                 'jumlah_bayar' => $totals['total_harga'],
                 'status_bayar' => 'menunggu',
@@ -344,7 +346,7 @@ class BookingService
             $this->pakasirService->usesRemoteSimulation()
         ) {
             $this->pakasirService->simulatePayment(
-                $booking->kode_booking,
+                $this->paymentOrderId($booking),
                 $booking->total_harga,
             );
 
@@ -467,7 +469,7 @@ class BookingService
                 && ! Str::startsWith((string) $payment->order_id_gateway, 'DRAFT-')
             )
                 ? $payment->order_id_gateway
-                : $cashReference;
+                : $this->generatePaymentTransactionCode();
 
             $payment->update([
                 'order_id_gateway' => $orderIdGateway,
@@ -552,10 +554,20 @@ class BookingService
             ]);
         }
 
-        $booking = Pemesanan::query()
-            ->with(['pembayaran'])
-            ->where('kode_booking', $payload['order_id'])
+        // Transaksi baru dicari memakai kode transaksi. Pencarian melalui kode
+        // pemesanan tetap dipertahankan untuk callback transaksi lama.
+        $payment = Pembayaran::query()
+            ->with('pemesanan.pembayaran')
+            ->where('order_id_gateway', $payload['order_id'])
             ->first();
+        $booking = $payment?->pemesanan;
+
+        if (! $booking) {
+            $booking = Pemesanan::query()
+                ->with(['pembayaran'])
+                ->where('kode_booking', $payload['order_id'])
+                ->first();
+        }
 
         if (! $booking || ! $booking->pembayaran) {
             return null;
@@ -568,7 +580,7 @@ class BookingService
         }
 
         $transaction = $this->pakasirService->transactionDetail(
-            $booking->kode_booking,
+            $this->paymentOrderId($booking),
             $booking->total_harga,
         );
 
@@ -597,9 +609,11 @@ class BookingService
 
     private function activatePakasirPayment(Pemesanan $booking, string $paymentMethod): Pemesanan
     {
+        $booking->loadMissing('pembayaran');
+        $gatewayOrderId = $this->paymentOrderId($booking);
         $qrisOnly = $paymentMethod === 'qris';
         $checkoutUrl = $this->pakasirService->checkoutUrl(
-            $booking->kode_booking,
+            $gatewayOrderId,
             $booking->total_harga,
             $qrisOnly,
             $this->pakasirService->merchantReturnUrl(),
@@ -609,12 +623,12 @@ class BookingService
         if ($qrisOnly) {
             $paymentPayload = $this->pakasirService->createTransaction(
                 'qris',
-                $booking->kode_booking,
+                $gatewayOrderId,
                 $booking->total_harga,
             );
         }
 
-        return DB::transaction(function () use ($booking, $paymentPayload, $checkoutUrl, $paymentMethod) {
+        return DB::transaction(function () use ($booking, $paymentPayload, $checkoutUrl, $paymentMethod, $gatewayOrderId) {
             $lockedBooking = Pemesanan::query()
                 ->lockForUpdate()
                 ->with([
@@ -636,7 +650,7 @@ class BookingService
                 ?? $this->resolvePaymentLockDeadline(now(), $lockedBooking->jadwal, $paymentMethod);
 
             $payment->update([
-                'order_id_gateway' => (string) data_get($paymentPayload, 'order_id', $lockedBooking->kode_booking),
+                'order_id_gateway' => (string) data_get($paymentPayload, 'order_id', $gatewayOrderId),
                 'gateway_reference' => (string) data_get($paymentPayload, 'payment_number', ''),
                 'paid_channel' => (string) data_get($paymentPayload, 'payment_method', $paymentMethod),
                 'jumlah_bayar' => (float) data_get($paymentPayload, 'total_payment', $lockedBooking->total_harga),
@@ -908,7 +922,7 @@ class BookingService
         }
 
         $transaction = $this->pakasirService->transactionDetail(
-            $booking->kode_booking,
+            $this->paymentOrderId($booking),
             $booking->total_harga,
         );
 
@@ -980,7 +994,9 @@ class BookingService
         }
 
         try {
-            return Carbon::parse($value);
+            // Waktu dari gateway dapat memakai UTC. Konversi sebelum disimpan
+            // agar batas dan waktu pembayaran tampil sesuai zona waktu aplikasi.
+            return Carbon::parse($value)->setTimezone(config('app.timezone'));
         } catch (Throwable) {
             return null;
         }
@@ -1296,5 +1312,25 @@ class BookingService
         } while (Pemesanan::query()->where('kode_booking', $code)->exists());
 
         return $code;
+    }
+
+    private function generatePaymentTransactionCode(): string
+    {
+        do {
+            $code = sprintf(
+                'TRX-%s-%s',
+                now()->format('Ymd'),
+                Str::upper(Str::random(5)),
+            );
+        } while (Pembayaran::query()->where('order_id_gateway', $code)->exists());
+
+        return $code;
+    }
+
+    private function paymentOrderId(Pemesanan $booking): string
+    {
+        return filled($booking->pembayaran?->order_id_gateway)
+            ? (string) $booking->pembayaran->order_id_gateway
+            : $booking->kode_booking;
     }
 }

@@ -92,11 +92,16 @@
                 </div>
                 <div class="travs-field">
                     <label for="status">Status Jadwal</label>
-                    <select id="status" name="status" class="travs-select @error('status') is-invalid @enderror" required>
-                        @foreach (['draft' => 'Draft', 'dibuka' => 'Dibuka', 'ditutup' => 'Ditutup', 'berangkat' => 'Berangkat', 'selesai' => 'Selesai', 'dibatalkan' => 'Dibatalkan'] as $value => $label)
-                            <option value="{{ $value }}" @selected(old('status', $jadwal->status) === $value)>{{ $label }}</option>
+                    @php($statusSelesaiTerkunci = $jadwal->status === 'selesai')
+                    <select id="status" name="status" class="travs-select @error('status') is-invalid @enderror" required @disabled($statusSelesaiTerkunci)>
+                        @foreach (['draft' => 'Draft', 'dibuka' => 'Dibuka', 'ditutup' => 'Ditutup', 'berangkat' => 'Berangkat', 'selesai' => 'Selesai'] as $value => $label)
+                            <option value="{{ $value }}" @selected($statusSelesaiTerkunci ? $value === 'selesai' : old('status', $jadwal->status) === $value)>{{ $label }}</option>
                         @endforeach
                     </select>
+                    @if ($statusSelesaiTerkunci)
+                        <input type="hidden" name="status" value="selesai">
+                        <small style="color:#64748b;">Jadwal telah selesai sehingga statusnya tidak dapat diubah kembali.</small>
+                    @endif
                     @include('admin.partials.field-error', ['name' => 'status'])
                 </div>
                 <div class="travs-field">

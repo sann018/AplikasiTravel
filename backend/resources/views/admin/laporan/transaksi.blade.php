@@ -5,24 +5,6 @@
 @section('page-description', 'Pantau pembayaran berdasarkan status, metode bayar, dan periode untuk kebutuhan rekap transaksi.')
 
 @section('content')
-    <section class="travs-summary-grid">
-        <article class="travs-summary-card">
-            <small>Total Transaksi</small>
-            <strong>{{ number_format($summary['total_transaksi']) }}</strong>
-            <span>Pada hasil filter</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Transaksi Berhasil</small>
-            <strong>{{ number_format($summary['berhasil']) }}</strong>
-            <span>Status pembayaran berhasil</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Nilai Berhasil</small>
-            <strong>Rp{{ number_format($summary['nilai_berhasil'], 0, ',', '.') }}</strong>
-            <span>Akumulasi pembayaran berhasil</span>
-        </article>
-    </section>
-
     <article class="travs-section-card">
         <div class="travs-panel-header">
             <div class="travs-panel-title">
@@ -76,7 +58,7 @@
             <table class="travs-table">
                 <thead>
                     <tr>
-                        <th>Order Gateway</th>
+                        <th>Kode Transaksi</th>
                         <th>Kode Pemesanan</th>
                         <th>Metode</th>
                         <th>Status</th>

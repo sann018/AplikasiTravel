@@ -10,6 +10,7 @@ use App\Models\Pembayaran;
 use App\Models\Pemesanan;
 use App\Models\Pengemudi;
 use App\Models\Rute;
+use Carbon\Carbon;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -17,21 +18,24 @@ class DashboardController extends Controller
     public function index(): View
     {
         $today = today();
-        $chartStartDate = $today->copy()->subDays(6);
+        // Rekap mingguan memakai periode tetap Senin-Minggu agar mudah dibandingkan antarpekan.
+        $weekStartDate = $today->copy()->startOfWeek(Carbon::MONDAY);
         $pendapatanRaw = Pembayaran::query()
             ->selectRaw('DATE(dibayar_pada) as tanggal, SUM(jumlah_bayar) as total')
             ->where('status_bayar', 'berhasil')
-            ->whereDate('dibayar_pada', '>=', $chartStartDate)
+            ->whereDate('dibayar_pada', '>=', $weekStartDate)
+            ->whereDate('dibayar_pada', '<=', $today)
             ->groupByRaw('DATE(dibayar_pada)')
             ->pluck('total', 'tanggal');
 
-        $pendapatanHarian = collect(range(0, 6))->map(function (int $offset) use ($chartStartDate, $pendapatanRaw) {
-            $tanggal = $chartStartDate->copy()->addDays($offset);
+        $pendapatanHarian = collect(range(0, 6))->map(function (int $offset) use ($weekStartDate, $today, $pendapatanRaw) {
+            $tanggal = $weekStartDate->copy()->addDays($offset);
 
             return [
                 'date' => $tanggal,
                 'label' => $tanggal->translatedFormat('D'),
                 'total' => (float) ($pendapatanRaw[$tanggal->toDateString()] ?? 0),
+                'is_future' => $tanggal->isAfter($today),
             ];
         });
 

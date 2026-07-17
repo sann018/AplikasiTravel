@@ -54,7 +54,7 @@ class AdminNotificationTest extends TestCase
             ->assertOk()
             ->assertSee('Notifikasi Admin')
             ->assertSee('Notifikasi Baru')
-            ->assertSee('is-new-notification', false)
+            ->assertSee('travs-notification-simple-row is-new', false)
             ->assertSee('Notifikasi khusus admin')
             ->assertDontSee('Notifikasi penumpang');
 
@@ -64,7 +64,7 @@ class AdminNotificationTest extends TestCase
             ->get(route('admin.notifikasi.admin'))
             ->assertOk()
             ->assertSee('Notifikasi Lama')
-            ->assertSee('is-old-notification', false);
+            ->assertSee('travs-notification-simple-row is-old', false);
     }
 
     public function test_user_notification_log_only_shows_passenger_and_driver_notifications(): void

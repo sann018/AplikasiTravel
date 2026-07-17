@@ -213,7 +213,12 @@ class NotifikasiController extends Controller
      */
     private function filteredQuery(array $filters)
     {
-        $query = Notifikasi::query()->with('pengguna');
+        $query = Notifikasi::query()->with([
+            'pengguna',
+            'referensiBooking.pengguna',
+            'referensiBooking.jadwal.rute',
+            'referensiBooking.jadwal.kendaraan',
+        ]);
 
         if (filled($filters['search'] ?? null)) {
             $search = $this->escapeLikeValue((string) $filters['search']);

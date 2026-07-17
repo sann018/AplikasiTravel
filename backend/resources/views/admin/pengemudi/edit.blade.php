@@ -90,7 +90,13 @@
                 </div>
                 <div class="travs-field travs-field-span-2">
                     <label for="password">Password Baru (opsional)</label>
-                    <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror" placeholder="Kosongkan jika tidak diubah">
+                    <div class="travs-password-control">
+                        <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror" placeholder="Kosongkan jika tidak diubah">
+                        <button type="button" class="travs-password-toggle" data-password-toggle data-password-target="password" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
+                            <span data-password-show-icon><i data-feather="eye"></i></span>
+                            <span class="d-none" data-password-hide-icon><i data-feather="eye-off"></i></span>
+                        </button>
+                    </div>
                     @include('admin.partials.field-error', ['name' => 'password'])
                 </div>
             </div>

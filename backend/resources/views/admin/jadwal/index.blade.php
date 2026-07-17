@@ -5,34 +5,6 @@
 @section('page-description', 'Susun jadwal keberangkatan, hubungkan rute, armada, pengemudi, dan bangun denah kursi otomatis untuk setiap trip.')
 
 @section('content')
-    <section class="travs-summary-grid">
-        <article class="travs-summary-card">
-            <small>Total Jadwal</small>
-            <strong>{{ number_format($stats['total']) }}</strong>
-            <span>Seluruh jadwal tercatat</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Status Dibuka</small>
-            <strong>{{ number_format($stats['dibuka']) }}</strong>
-            <span>Siap dipesan penumpang</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Ditutup</small>
-            <strong>{{ number_format($stats['ditutup']) }}</strong>
-            <span>Tidak tampil di aplikasi</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Sedang Berangkat</small>
-            <strong>{{ number_format($stats['berangkat']) }}</strong>
-            <span>Trip dalam operasional</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Selesai</small>
-            <strong>{{ number_format($stats['selesai']) }}</strong>
-            <span>Trip telah rampung</span>
-        </article>
-    </section>
-
     <section class="travs-section-card">
         <div class="travs-panel-header">
             <div class="travs-panel-title">
@@ -51,7 +23,7 @@
                 <label for="status">Status</label>
                 <select id="status" name="status" class="travs-select">
                     <option value="">Semua status</option>
-                    @foreach (['draft' => 'Draft', 'dibuka' => 'Dibuka', 'ditutup' => 'Ditutup', 'berangkat' => 'Berangkat', 'selesai' => 'Selesai', 'dibatalkan' => 'Dibatalkan'] as $value => $label)
+                    @foreach (['draft' => 'Draft', 'dibuka' => 'Dibuka', 'ditutup' => 'Ditutup', 'berangkat' => 'Berangkat', 'selesai' => 'Selesai'] as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['status'] ?? '') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>

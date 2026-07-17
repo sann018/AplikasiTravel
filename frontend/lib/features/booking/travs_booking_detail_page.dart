@@ -22,23 +22,64 @@ class TravSBookingDetailPage extends StatefulWidget {
   State<TravSBookingDetailPage> createState() => _TravSBookingDetailPageState();
 }
 
-class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
+class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
+    with WidgetsBindingObserver {
   final TravSApiService _apiService = TravSApiService();
 
   late Future<TravSBookingResult> _future;
   bool _shouldRefreshParent = false;
+  bool _paymentCheckoutOpened = false;
+  bool _isRefreshingPayment = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _future = _loadBooking();
   }
 
-  Future<TravSBookingResult> _loadBooking() {
-    return _apiService.loadPassengerBookingDetail(
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !_paymentCheckoutOpened) {
+      return;
+    }
+
+    _paymentCheckoutOpened = false;
+    Future<void>.delayed(const Duration(milliseconds: 800), () {
+      if (mounted) {
+        _refreshPaymentStatus(showMessage: true);
+      }
+    });
+  }
+
+  Future<TravSBookingResult> _loadBooking() async {
+    final booking = await _apiService.loadPassengerBookingDetail(
       token: widget.session.token,
       bookingId: widget.bookingId,
     );
+
+    if (!_shouldSynchronizeGatewayPayment(booking)) {
+      return booking;
+    }
+
+    try {
+      final refreshedBooking = await _apiService.refreshPaymentStatus(
+        token: widget.session.token,
+        bookingId: widget.bookingId,
+      );
+      if (refreshedBooking.isPaid) {
+        _shouldRefreshParent = true;
+      }
+      return refreshedBooking;
+    } catch (_) {
+      return booking;
+    }
   }
 
   Future<void> _refresh() async {
@@ -84,6 +125,113 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
     }
   }
 
+  Future<void> _continuePayment(TravSBookingResult booking) async {
+    final uri = Uri.tryParse(booking.payment.checkoutUrl);
+    if (uri == null || !uri.hasScheme) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tautan pembayaran belum tersedia.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    _paymentCheckoutOpened = true;
+    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!opened && mounted) {
+      _paymentCheckoutOpened = false;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Halaman pembayaran belum dapat dibuka.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  bool _shouldSynchronizeGatewayPayment(TravSBookingResult booking) {
+    return !booking.isPaid &&
+        booking.status == 'menunggu_pembayaran' &&
+        booking.payment.usesGateway;
+  }
+
+  Future<void> _refreshPaymentStatus({bool showMessage = false}) async {
+    if (_isRefreshingPayment) {
+      return;
+    }
+
+    setState(() {
+      _isRefreshingPayment = true;
+    });
+
+    try {
+      final refreshedBooking = await _apiService.refreshPaymentStatus(
+        token: widget.session.token,
+        bookingId: widget.bookingId,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _future = Future<TravSBookingResult>.value(refreshedBooking);
+        if (refreshedBooking.isPaid) {
+          _shouldRefreshParent = true;
+        }
+      });
+
+      if (showMessage) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              refreshedBooking.isPaid
+                  ? 'Pembayaran berhasil dikonfirmasi. Tiket sudah aktif.'
+                  : 'Pembayaran masih menunggu konfirmasi. Silakan periksa kembali beberapa saat lagi.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } on TravSApiException catch (error) {
+      if (mounted && showMessage) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.message),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (_) {
+      if (mounted && showMessage) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Status pembayaran belum dapat diperbarui. Silakan coba lagi.',
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshingPayment = false;
+        });
+      }
+    }
+  }
+
+  bool _canContinuePayment(TravSBookingResult booking) {
+    return !booking.isPaid &&
+        booking.status == 'menunggu_pembayaran' &&
+        booking.payment.hasCheckoutUrl;
+  }
+
   void _closePage() {
     Navigator.of(context).pop(_shouldRefreshParent);
   }
@@ -121,6 +269,11 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                 }
 
                 final booking = snapshot.data!;
+                // Detail penumpang memakai deadline pembayaran yang sama dengan
+                // transaksi. Field pemesanan tetap menjadi fallback data lama.
+                final paymentDeadline = booking.payment.expiredAt.isNotEmpty
+                    ? booking.payment.expiredAt
+                    : booking.batasPembayaran;
                 return RefreshIndicator(
                   color: TravSTheme.orange,
                   onRefresh: _refresh,
@@ -153,7 +306,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                             ),
                             _DetailRow(
                               label: 'Batas pembayaran',
-                              value: _formatDateTime(booking.batasPembayaran),
+                              value: _formatDateTime(paymentDeadline),
                             ),
                             if (booking.payment.paidAt.isNotEmpty)
                               _DetailRow(
@@ -166,6 +319,43 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                               value: 'Rp${_formatCurrency(booking.totalHarga)}',
                               emphasize: true,
                             ),
+                            if (_canContinuePayment(booking)) ...[
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: _isRefreshingPayment
+                                      ? null
+                                      : () => _continuePayment(booking),
+                                  icon: const Icon(Icons.payment_rounded),
+                                  label: const Text('Lanjutkan Pembayaran'),
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: _isRefreshingPayment
+                                      ? null
+                                      : () => _refreshPaymentStatus(
+                                          showMessage: true,
+                                        ),
+                                  icon: _isRefreshingPayment
+                                      ? const SizedBox.square(
+                                          dimension: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(Icons.sync_rounded),
+                                  label: Text(
+                                    _isRefreshingPayment
+                                        ? 'Memeriksa Pembayaran'
+                                        : 'Periksa Status Pembayaran',
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -211,6 +401,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                                 label: 'Koordinat',
                                 value:
                                     '${booking.pickup!.latitude.toStringAsFixed(6)}, ${booking.pickup!.longitude.toStringAsFixed(6)}',
+                                stacked: true,
                               ),
                               const SizedBox(height: 8),
                               Text(
@@ -225,6 +416,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                                 _DetailRow(
                                   label: 'Patokan jemput',
                                   value: booking.pickup!.note!.trim(),
+                                  stacked: true,
                                 ),
                               ],
                               const SizedBox(height: 14),
@@ -249,6 +441,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                                 label: 'Koordinat',
                                 value:
                                     '${booking.dropoff!.latitude.toStringAsFixed(6)}, ${booking.dropoff!.longitude.toStringAsFixed(6)}',
+                                stacked: true,
                               ),
                               const SizedBox(height: 8),
                               Text(
@@ -263,6 +456,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage> {
                                 _DetailRow(
                                   label: 'Patokan turun',
                                   value: booking.dropoff!.note!.trim(),
+                                  stacked: true,
                                 ),
                               ],
                               const SizedBox(height: 14),
@@ -619,42 +813,51 @@ class _DetailRow extends StatelessWidget {
     required this.label,
     required this.value,
     this.emphasize = false,
+    this.stacked = false,
   });
 
   final String label;
   final String value;
   final bool emphasize;
+  final bool stacked;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    final labelStyle = theme.textTheme.labelLarge?.copyWith(
+      color: emphasize ? TravSTheme.navy : TravSTheme.navyMuted,
+      fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
+    );
+    final valueStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: TravSTheme.navy,
+      fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
+    );
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: emphasize ? TravSTheme.navy : TravSTheme.navyMuted,
-                fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
-              ),
+      child: stacked
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: labelStyle),
+                const SizedBox(height: 6),
+                Text(value, style: valueStyle),
+              ],
+            )
+          : Row(
+              children: [
+                Expanded(child: Text(label, style: labelStyle)),
+                const SizedBox(width: 14),
+                Flexible(
+                  child: Text(
+                    value,
+                    textAlign: TextAlign.end,
+                    style: valueStyle,
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(width: 14),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.end,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: TravSTheme.navy,
-                fontWeight: emphasize ? FontWeight.w800 : FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

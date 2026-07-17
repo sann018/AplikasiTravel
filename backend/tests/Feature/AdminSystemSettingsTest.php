@@ -52,16 +52,17 @@ class AdminSystemSettingsTest extends TestCase
             ->assertDontSee('Simpan Semua Pengaturan');
     }
 
-    public function test_settings_main_sections_can_be_opened_and_closed_locally(): void
+    public function test_settings_main_sections_are_visible_without_collapse_buttons(): void
     {
         $this->actingAs($this->admin())
             ->get(route('admin.settings.index'))
             ->assertOk()
-            ->assertSee('aria-controls="settings-admin-account-body"', false)
-            ->assertSee('aria-controls="settings-control-center-body"', false)
-            ->assertSee('aria-controls="settings-general-body"', false)
+            ->assertSee('settings-admin-account-body', false)
+            ->assertSee('settings-control-center-body', false)
+            ->assertSee('settings-general-body', false)
             ->assertSee('data-collapsible-section', false)
-            ->assertSee('data-collapse-body', false);
+            ->assertSee('data-collapse-body', false)
+            ->assertDontSee('class="collapsible-section__toggle"', false);
     }
 
     public function test_general_tab_only_updates_general_settings(): void
@@ -106,6 +107,8 @@ class AdminSystemSettingsTest extends TestCase
             ->get(route('admin.settings.index'))
             ->assertOk()
             ->assertSee('/storage/'.$logoPath, false)
+            ->assertSee('travs-settings-logo-preview travs-photo-preview-trigger', false)
+            ->assertSee('data-preview-src=', false)
             ->assertSee('travs-brand-logo', false);
     }
 
@@ -140,22 +143,46 @@ class AdminSystemSettingsTest extends TestCase
             ]);
     }
 
-    public function test_payment_tab_requires_bank_and_cash_information_when_enabled(): void
+    public function test_payment_tab_only_updates_visible_payment_note_and_preserves_legacy_settings(): void
     {
+        SystemSetting::query()->where('key', 'payment_cash_enabled')->update(['value' => 'true']);
+        SystemSetting::query()->where('key', 'bank_account_number')->update(['value' => '1234567890']);
+
         $this->actingAs($this->admin())
             ->post(route('admin.settings.payment.update'), [
                 'payment_transfer_enabled' => '1',
                 'payment_qris_enabled' => '1',
-                'payment_cash_enabled' => '1',
-                'bank_account_number' => '',
-                'bank_account_name' => '',
-                'bank_name' => '',
-                'payment_cash_note' => '',
+                'payment_cash_note' => 'Bayarkan langsung kepada pengemudi sebelum keberangkatan.',
             ])
-            ->assertSessionHasErrors([
-                'bank_account_number',
-                'payment_cash_note',
-            ]);
+            ->assertRedirect(route('admin.settings.index', ['tab' => 'payment']))
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('system_settings', [
+            'key' => 'payment_cash_note',
+            'value' => 'Bayarkan langsung kepada pengemudi sebelum keberangkatan.',
+        ]);
+        $this->assertDatabaseHas('system_settings', [
+            'key' => 'payment_cash_enabled',
+            'value' => 'true',
+        ]);
+        $this->assertDatabaseHas('system_settings', [
+            'key' => 'bank_account_number',
+            'value' => '1234567890',
+        ]);
+    }
+
+    public function test_payment_tab_hides_cash_toggle_and_transfer_account_fields(): void
+    {
+        $this->actingAs($this->admin())
+            ->get(route('admin.settings.index', ['tab' => 'payment']))
+            ->assertOk()
+            ->assertSee('Catatan Pembayaran Tunai')
+            ->assertDontSee('Metode tunai hanya muncul di mobile saat status ini aktif.')
+            ->assertDontSee('Rekening Transfer')
+            ->assertDontSee('name="payment_cash_enabled"', false)
+            ->assertDontSee('name="bank_account_number"', false)
+            ->assertDontSee('name="bank_account_name"', false)
+            ->assertDontSee('name="bank_name"', false);
     }
 
     public function test_legacy_baggage_endpoint_no_longer_changes_tariffs(): void

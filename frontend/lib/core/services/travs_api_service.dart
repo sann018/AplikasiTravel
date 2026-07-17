@@ -93,10 +93,12 @@ class TravSApiService {
     String path, {
     Map<String, String>? headers,
     Object? body,
+    Duration timeout = _requestTimeout,
   }) {
     return _sendWithFallback(
       (baseUrl) =>
           http.post(Uri.parse('$baseUrl$path'), headers: headers, body: body),
+      timeout: timeout,
     );
   }
 
@@ -776,12 +778,12 @@ class TravSApiService {
     );
   }
 
-  /// Meminta token reset password ke backend.
-  /// Pada mode demo, token bisa dikembalikan agar alur reset mudah diuji.
-  Future<String?> forgotPassword({required String email}) async {
+  /// Meminta tautan reset tanpa membuka token sensitif ke aplikasi mobile.
+  Future<String> forgotPassword({required String email}) async {
     final response = await postWithFallback(
       '/api/auth/forgot-password',
       headers: jsonHeaders(),
+      timeout: const Duration(seconds: 20),
       body: jsonEncode({'email': email}),
     );
 
@@ -790,8 +792,8 @@ class TravSApiService {
       throw TravSApiException(_extractErrorMessage(body));
     }
 
-    final data = body['data'] as Map<String, dynamic>?;
-    return data?['reset_token'] as String?;
+    return body['message']?.toString() ??
+        'Jika email terdaftar, tautan reset kata sandi telah dikirim.';
   }
 
   /// Mengirim token dan password baru untuk mengganti password akun.
@@ -897,12 +899,13 @@ class TravSApiService {
   }
 
   static Future<http.Response> _sendWithFallback(
-    Future<http.Response> Function(String baseUrl) request,
-  ) async {
+    Future<http.Response> Function(String baseUrl) request, {
+    Duration timeout = _requestTimeout,
+  }) async {
     Object? lastError;
     for (final candidate in _orderedBaseUrls()) {
       try {
-        final response = await request(candidate).timeout(_requestTimeout);
+        final response = await request(candidate).timeout(timeout);
         _lastSuccessfulBaseUrl = candidate;
         return response;
       } catch (error) {

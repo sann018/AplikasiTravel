@@ -33,6 +33,8 @@ Route::post('/payments/pakasir/webhook', [PaymentGatewayController::class, 'paka
 Route::prefix('auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:travs-auth');
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:travs-auth');
+    Route::post('/verify-email', [AuthController::class, 'verifyEmail'])->middleware('throttle:travs-verification-code');
+    Route::post('/resend-verification-code', [AuthController::class, 'resendVerificationCode'])->middleware('throttle:travs-verification-resend');
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:travs-auth');
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:travs-auth');
 

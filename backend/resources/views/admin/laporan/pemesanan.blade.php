@@ -5,24 +5,6 @@
 @section('page-description', 'Pantau pemesanan berdasarkan periode.')
 
 @section('content')
-    <section class="travs-summary-grid">
-        <article class="travs-summary-card">
-            <small>Total Pemesanan</small>
-            <strong>{{ number_format($summary['total_booking']) }}</strong>
-            <span>Pada hasil filter saat ini</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Total Kursi</small>
-            <strong>{{ number_format($summary['total_kursi']) }}</strong>
-            <span>Kursi terjual / dipesan</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Total Nilai</small>
-            <strong>Rp{{ number_format($summary['total_nilai'], 0, ',', '.') }}</strong>
-            <span>Akumulasi nominal pemesanan</span>
-        </article>
-    </section>
-
     <article class="travs-section-card">
         <div class="travs-panel-header">
             <div class="travs-panel-title">

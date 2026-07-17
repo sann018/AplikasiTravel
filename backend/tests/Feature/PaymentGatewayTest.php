@@ -33,18 +33,16 @@ class PaymentGatewayTest extends TestCase
 
     public function test_configured_qris_booking_creates_real_pakasir_invoice_metadata(): void
     {
-        Http::fake([
-            'app.pakasir.test/api/transactioncreate/qris' => Http::response([
+        Http::fake(fn ($request) => Http::response([
                 'payment' => [
-                    'order_id' => 'TRAVS-REAL-001',
+                    'order_id' => $request['order_id'],
                     'payment_number' => 'QRIS-REAL-001',
                     'payment_method' => 'qris',
                     'amount' => 230000,
                     'total_payment' => 231500,
                     'expired_at' => now()->addMinutes(15)->toIso8601String(),
                 ],
-            ]),
-        ]);
+            ]));
 
         $user = User::query()->where('email', 'fitri@travs.com')->firstOrFail();
         $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
@@ -63,11 +61,13 @@ class PaymentGatewayTest extends TestCase
                 'latitude' => -0.0225,
                 'longitude' => 109.3425,
                 'address' => 'Jalan Ahmad Yani, Pontianak',
+                'note' => 'Depan gerbang utama',
             ],
             'dropoff' => [
                 'latitude' => 0.1285,
                 'longitude' => 111.4986,
                 'address' => 'Terminal tujuan',
+                'note' => 'Pintu masuk terminal',
             ],
             'payment_method' => 'qris',
             'passengers' => [
@@ -98,10 +98,11 @@ class PaymentGatewayTest extends TestCase
         $this->assertSame('menunggu', $payment->status_bayar);
         $this->assertSame('QRIS-REAL-001', $payment->gateway_reference);
         $this->assertSame('231500.00', $payment->jumlah_bayar);
+        $this->assertMatchesRegularExpression('/^TRX-\d{8}-[A-Z0-9]{5}$/', $payment->order_id_gateway);
 
         Http::assertSent(fn ($request) => $request->url() === 'https://app.pakasir.test/api/transactioncreate/qris'
             && $request['project'] === 'travs-test'
-            && $request['order_id'] === $booking->kode_booking
+            && $request['order_id'] === $payment->order_id_gateway
             && $request['api_key'] === 'secret-test-key');
     }
 
@@ -126,11 +127,13 @@ class PaymentGatewayTest extends TestCase
                 'latitude' => -0.0225,
                 'longitude' => 109.3425,
                 'address' => 'Jalan Ahmad Yani, Pontianak',
+                'note' => 'Depan gerbang utama',
             ],
             'dropoff' => [
                 'latitude' => 0.1285,
                 'longitude' => 111.4986,
                 'address' => 'Terminal tujuan',
+                'note' => 'Pintu masuk terminal',
             ],
             'payment_method' => 'transfer',
             'passengers' => [
@@ -160,7 +163,7 @@ class PaymentGatewayTest extends TestCase
 
         $this->assertSame('transfer', $payment->metode_bayar);
         $this->assertSame('transfer', $payment->paid_channel);
-        $this->assertSame($booking->kode_booking, $payment->order_id_gateway);
+        $this->assertMatchesRegularExpression('/^TRX-\d{8}-[A-Z0-9]{5}$/', $payment->order_id_gateway);
         $this->assertSame('transfer', $gatewayResponse['checkout_method']);
         $this->assertSame([], $gatewayResponse['create_payment']);
 
@@ -207,6 +210,38 @@ class PaymentGatewayTest extends TestCase
             'detail_pemesanan_id' => $booking->detailPemesanan()->firstOrFail()->id,
             'sudah_dipindai' => false,
         ]);
+    }
+
+    public function test_gateway_paid_time_is_converted_to_application_timezone(): void
+    {
+        $booking = $this->makePendingQrisBooking();
+        $completedAtUtc = '2026-07-16T11:14:00Z';
+
+        Http::fake([
+            'app.pakasir.test/api/transactiondetail*' => Http::response([
+                'transaction' => [
+                    'order_id' => $booking->kode_booking,
+                    'status' => 'completed',
+                    'payment_method' => 'qris',
+                    'amount' => 230000,
+                    'total_payment' => 231500,
+                    'completed_at' => $completedAtUtc,
+                ],
+            ]),
+        ]);
+
+        $this->postJson('/api/payments/pakasir/webhook', [
+            'project' => 'travs-test',
+            'order_id' => $booking->kode_booking,
+            'amount' => 230000,
+            'status' => 'completed',
+            'payment_method' => 'qris',
+            'completed_at' => $completedAtUtc,
+        ])->assertOk();
+
+        $paidAt = $booking->pembayaran()->firstOrFail()->dibayar_pada;
+
+        $this->assertSame('2026-07-16 18:14:00', $paidAt?->format('Y-m-d H:i:s'));
     }
 
     public function test_duplicate_pakasir_webhook_is_idempotent(): void

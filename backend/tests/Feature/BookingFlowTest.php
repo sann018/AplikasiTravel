@@ -216,6 +216,89 @@ class BookingFlowTest extends TestCase
         ]);
     }
 
+    public function test_released_form_seat_can_be_locked_by_another_passenger_immediately(): void
+    {
+        $firstPassenger = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $secondPassenger = User::factory()->create([
+            'email' => 'second-seat-passenger@example.com',
+            'peran' => 'penumpang',
+        ]);
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        [$seatNumber] = $this->availableSeatNumbers($jadwal, 1);
+
+        Sanctum::actingAs($firstPassenger);
+        $this->postJson('/api/penumpang/bookings/lock-form', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seatNumber],
+        ])->assertOk();
+
+        $this->postJson('/api/penumpang/bookings/release-form-lock', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seatNumber],
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.released', 1);
+
+        Sanctum::actingAs($secondPassenger);
+        $this->postJson('/api/penumpang/bookings/lock-form', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seatNumber],
+        ])->assertOk();
+
+        $this->assertDatabaseHas('kursi_jadwal', [
+            'jadwal_id' => $jadwal->id,
+            'nomor_kursi' => $seatNumber,
+            'status_kursi' => 'terkunci',
+            'dikunci_oleh' => $secondPassenger->id,
+        ]);
+    }
+
+    public function test_booking_requires_pickup_and_dropoff_landmarks(): void
+    {
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        [$seatNumber] = $this->availableSeatNumbers($jadwal, 1);
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/penumpang/bookings', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seatNumber],
+            'pickup' => [
+                'latitude' => -0.0225,
+                'longitude' => 109.3425,
+                'address' => 'Jalan Ahmad Yani, Pontianak',
+            ],
+            'dropoff' => [
+                'latitude' => 0.1285,
+                'longitude' => 111.4986,
+                'address' => 'Terminal tujuan',
+            ],
+            'payment_method' => 'qris',
+            'passengers' => [
+                [
+                    'seat_number' => $seatNumber,
+                    'nama_penumpang' => 'Penumpang Validasi',
+                    'no_hp_penumpang' => '081200001234',
+                ],
+            ],
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['pickup.note', 'dropoff.note']);
+
+        $errors = $response->json('errors');
+        $this->assertSame(
+            'Catatan atau patokan titik jemput wajib diisi.',
+            $errors['pickup.note'][0] ?? null,
+        );
+        $this->assertSame(
+            'Catatan atau patokan titik turun wajib diisi.',
+            $errors['dropoff.note'][0] ?? null,
+        );
+    }
+
     public function test_closed_schedule_seat_is_visible_and_cannot_be_locked(): void
     {
         $user = User::query()->where('peran', 'penumpang')->firstOrFail();
@@ -286,11 +369,13 @@ class BookingFlowTest extends TestCase
                 'latitude' => -0.0225,
                 'longitude' => 109.3425,
                 'address' => 'Jalan Ahmad Yani, Pontianak',
+                'note' => 'Depan gerbang utama',
             ],
             'dropoff' => [
                 'latitude' => 0.1285,
                 'longitude' => 111.4986,
                 'address' => 'Terminal Sintang, Kalimantan Barat',
+                'note' => 'Pintu masuk terminal',
             ],
             'payment_method' => 'qris',
             'passengers' => [
@@ -406,11 +491,13 @@ class BookingFlowTest extends TestCase
                 'latitude' => -0.0225,
                 'longitude' => 109.3425,
                 'address' => 'Jalan Ahmad Yani, Pontianak',
+                'note' => 'Depan gerbang utama',
             ],
             'dropoff' => [
                 'latitude' => 0.1285,
                 'longitude' => 111.4986,
                 'address' => 'Terminal tujuan',
+                'note' => 'Pintu masuk terminal',
             ],
             'payment_method' => 'qris',
             'passengers' => [
@@ -461,11 +548,13 @@ class BookingFlowTest extends TestCase
                 'latitude' => -0.0225,
                 'longitude' => 109.3425,
                 'address' => 'Jalan Ahmad Yani, Pontianak',
+                'note' => 'Depan gerbang utama',
             ],
             'dropoff' => [
                 'latitude' => 0.1285,
                 'longitude' => 111.4986,
                 'address' => 'Terminal tujuan',
+                'note' => 'Pintu masuk terminal',
             ],
             'payment_method' => 'qris',
             'passengers' => [
@@ -527,11 +616,13 @@ class BookingFlowTest extends TestCase
                 'latitude' => -0.0225,
                 'longitude' => 109.3425,
                 'address' => 'Jalan Ahmad Yani, Pontianak',
+                'note' => 'Depan gerbang utama',
             ],
             'dropoff' => [
                 'latitude' => 0.1285,
                 'longitude' => 111.4986,
                 'address' => 'Terminal tujuan',
+                'note' => 'Pintu masuk terminal',
             ],
             'payment_method' => 'qris',
             'passengers' => [
@@ -585,11 +676,13 @@ class BookingFlowTest extends TestCase
                 'latitude' => -0.0225,
                 'longitude' => 109.3425,
                 'address' => 'Jalan Ahmad Yani, Pontianak',
+                'note' => 'Depan gerbang utama',
             ],
             'dropoff' => [
                 'latitude' => 0.1285,
                 'longitude' => 111.4986,
                 'address' => 'Terminal tujuan',
+                'note' => 'Pintu masuk terminal',
             ],
             'payment_method' => 'qris',
             'passengers' => [
@@ -649,11 +742,13 @@ class BookingFlowTest extends TestCase
                 'latitude' => -0.0225,
                 'longitude' => 109.3425,
                 'address' => 'Jalan Ahmad Yani, Pontianak',
+                'note' => 'Depan gerbang utama',
             ],
             'dropoff' => [
                 'latitude' => 0.1285,
                 'longitude' => 111.4986,
                 'address' => 'Terminal tujuan',
+                'note' => 'Pintu masuk terminal',
             ],
             'payment_method' => 'qris',
             'passengers' => [
@@ -721,11 +816,13 @@ class BookingFlowTest extends TestCase
                 'latitude' => -0.0225,
                 'longitude' => 109.3425,
                 'address' => 'Jalan Ahmad Yani, Pontianak',
+                'note' => 'Depan gerbang utama',
             ],
             'dropoff' => [
                 'latitude' => 0.1285,
                 'longitude' => 111.4986,
                 'address' => 'Terminal tujuan',
+                'note' => 'Pintu masuk terminal',
             ],
             'payment_method' => 'qris',
             'passengers' => [
@@ -813,11 +910,13 @@ class BookingFlowTest extends TestCase
                 'latitude' => -0.0225,
                 'longitude' => 109.3425,
                 'address' => 'Jalan Baru, Pontianak',
+                'note' => 'Depan gerbang utama',
             ],
             'dropoff' => [
                 'latitude' => 0.1285,
                 'longitude' => 111.4986,
                 'address' => 'Terminal tujuan',
+                'note' => 'Pintu masuk terminal',
             ],
             'payment_method' => 'qris',
             'passengers' => [

@@ -5,29 +5,6 @@
 @section('page-description', 'Pantau pemesanan yang masuk, status pembayaran, dan arahkan admin ke detail pemesanan untuk tindak lanjut operasional.')
 
 @section('content')
-    <section class="travs-summary-grid">
-        <article class="travs-summary-card">
-            <small>Total Pemesanan</small>
-            <strong>{{ number_format($stats['total']) }}</strong>
-            <span>Seluruh transaksi</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Menunggu Pembayaran</small>
-            <strong>{{ number_format($stats['menunggu']) }}</strong>
-            <span>Perlu dipantau admin</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Terbayar</small>
-            <strong>{{ number_format($stats['terbayar']) }}</strong>
-            <span>Tiket telah valid</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Selesai</small>
-            <strong>{{ number_format($stats['selesai']) }}</strong>
-            <span>Trip sudah tuntas</span>
-        </article>
-    </section>
-
     <article class="travs-section-card">
         <div class="travs-panel-title">
             <h3>Filter Pemesanan</h3>

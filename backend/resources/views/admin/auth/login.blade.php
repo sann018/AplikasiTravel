@@ -26,10 +26,7 @@
                                 <small class="text-muted">Admin</small>
                             </div>
                         </div>
-                        <h2 class="mb-2">Masuk Admin</h2>
-                        <p class="text-muted mb-0">
-                            Kelola jadwal, pemesanan, dan laporan travel.
-                        </p>
+                        <h3 class="mb-2">Masuk Dasbor Admin</h3>
                     </div>
 
                     @if ($errors->any())
@@ -56,7 +53,7 @@
                             </div>
                         </div>
 
-                        <div class="form-group position-relative has-icon-left mb-4">
+                        <div class="form-group position-relative has-icon-left travs-password-control mb-4">
                             <input
                                 id="password"
                                 name="password"
@@ -68,15 +65,11 @@
                             <div class="form-control-icon">
                                 <i data-feather="lock"></i>
                             </div>
+                            <button type="button" class="travs-password-toggle" data-password-toggle data-password-target="password" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
+                                <span data-password-show-icon><i data-feather="eye"></i></span>
+                                <span class="d-none" data-password-hide-icon><i data-feather="eye-off"></i></span>
+                            </button>
                         </div>
-
-                        <div class="form-check form-check-lg d-flex align-items-center mb-4">
-                            <input class="form-check-input me-2" type="checkbox" name="remember" value="1" id="remember">
-                            <label class="form-check-label text-gray-600" for="remember">
-                                Ingat sesi login pada perangkat ini
-                            </label>
-                        </div>
-
                         <button type="submit" class="btn btn-primary btn-block btn-lg shadow-lg mt-2">
                             Masuk
                         </button>

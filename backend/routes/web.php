@@ -14,8 +14,19 @@ use App\Http\Controllers\Web\Admin\PengemudiController;
 use App\Http\Controllers\Web\Admin\PengaturanController;
 use App\Http\Controllers\Web\Admin\RuteController;
 use App\Http\Controllers\Web\Admin\SettingsController;
+use App\Http\Controllers\Web\PasswordResetController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+
+Route::middleware('guest')->group(function () {
+    Route::get('/reset-password/{token}', [PasswordResetController::class, 'show'])
+        ->name('password.reset');
+    Route::post('/reset-password', [PasswordResetController::class, 'update'])
+        ->middleware('throttle:travs-auth')
+        ->name('password.update');
+    Route::get('/reset-password-selesai', [PasswordResetController::class, 'complete'])
+        ->name('password.reset.complete');
+});
 
 Route::get('/', function () {
     return Auth::check() && Auth::user()?->isAdmin()

@@ -92,7 +92,7 @@
                 <div class="travs-field">
                     <label for="status">Status Jadwal</label>
                     <select id="status" name="status" class="travs-select @error('status') is-invalid @enderror" required>
-                        @foreach (['draft' => 'Draft', 'dibuka' => 'Dibuka', 'ditutup' => 'Ditutup', 'berangkat' => 'Berangkat', 'selesai' => 'Selesai', 'dibatalkan' => 'Dibatalkan'] as $value => $label)
+                        @foreach (['draft' => 'Draft', 'dibuka' => 'Dibuka', 'ditutup' => 'Ditutup', 'berangkat' => 'Berangkat', 'selesai' => 'Selesai'] as $value => $label)
                             <option value="{{ $value }}" @selected(old('status', 'dibuka') === $value)>{{ $label }}</option>
                         @endforeach
                     </select>

@@ -186,6 +186,7 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
           ),
           const SizedBox(height: 12),
           Expanded(
+            flex: 6,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: ClipRRect(
@@ -307,69 +308,74 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
-            child: Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: TravSTheme.line),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Koordinat Terpilih',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: TravSTheme.navy,
-                      fontWeight: FontWeight.w800,
+          Flexible(
+            flex: 4,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 24),
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: TravSTheme.line),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Koordinat Terpilih',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: TravSTheme.navy,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    '${_selectedPoint.latitude.toStringAsFixed(6)}, ${_selectedPoint.longitude.toStringAsFixed(6)}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: TravSTheme.navy,
-                      fontWeight: FontWeight.w700,
+                    const SizedBox(height: 10),
+                    Text(
+                      '${_selectedPoint.latitude.toStringAsFixed(6)}, ${_selectedPoint.longitude.toStringAsFixed(6)}',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: TravSTheme.navy,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _isResolvingAddress
-                        ? 'Sedang mengambil alamat...'
-                        : _selectedAddress,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: TravSTheme.navyMuted,
+                    const SizedBox(height: 8),
+                    Text(
+                      _isResolvingAddress
+                          ? 'Sedang mengambil alamat...'
+                          : _selectedAddress,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: TravSTheme.navyMuted,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      if (widget.showCurrentLocationButton) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        if (widget.showCurrentLocationButton) ...[
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _isResolvingAddress
+                                  ? null
+                                  : _useCurrentLocation,
+                              icon: const Icon(Icons.my_location_rounded),
+                              label: const Text('Lokasi Saya'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                        ],
                         Expanded(
-                          child: OutlinedButton.icon(
+                          child: ElevatedButton.icon(
                             onPressed: _isResolvingAddress
                                 ? null
-                                : _useCurrentLocation,
-                            icon: const Icon(Icons.my_location_rounded),
-                            label: const Text('Lokasi Saya'),
+                                : _confirmSelection,
+                            icon: const Icon(
+                              Icons.check_circle_outline_rounded,
+                            ),
+                            label: const Text('Gunakan Titik Ini'),
                           ),
                         ),
-                        const SizedBox(width: 12),
                       ],
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _isResolvingAddress
-                              ? null
-                              : _confirmSelection,
-                          icon: const Icon(Icons.check_circle_outline_rounded),
-                          label: const Text('Gunakan Titik Ini'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

@@ -28,22 +28,23 @@ class AdminCollapsibleSectionTest extends TestCase
         );
     }
 
-    public function test_targeted_admin_pages_render_local_collapsible_sections(): void
+    public function test_admin_pages_keep_sections_visible_without_collapse_buttons(): void
     {
         $admin = User::query()->where('peran', 'admin')->firstOrFail();
-        $routes = [
-            route('admin.dashboard'),
-            route('admin.notifikasi.index'),
-        ];
 
-        foreach ($routes as $route) {
-            $this->actingAs($admin)
-                ->get($route)
-                ->assertOk()
-                ->assertSee('data-collapsible-section', false)
-                ->assertSee('data-collapse-toggle', false)
-                ->assertSee('data-collapse-body', false);
-        }
+        $this->actingAs($admin)
+            ->get(route('admin.dashboard'))
+            ->assertOk()
+            ->assertSee('data-collapse-body', false)
+            ->assertDontSee('class="collapsible-section__toggle"', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.notifikasi.index'))
+            ->assertOk()
+            ->assertSee('travs-admin-simple-page', false)
+            ->assertSee('notification-list-body', false)
+            ->assertDontSee('data-collapsible-section', false)
+            ->assertDontSee('class="collapsible-section__toggle"', false);
     }
 
     public function test_filter_pages_keep_explicit_apply_filter_button(): void
@@ -69,14 +70,14 @@ class AdminCollapsibleSectionTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.dashboard'))
             ->assertOk()
-            ->assertSee('dashboard-summary-body', false)
+            ->assertDontSee('dashboard-summary-body', false)
             ->assertSee('dashboard-revenue-body', false)
             ->assertSee('dashboard-schedule-body', false);
 
         $this->actingAs($admin)
             ->get(route('admin.biaya.index'))
             ->assertOk()
-            ->assertSee('data-static-cost-summary', false)
+            ->assertDontSee('data-static-cost-summary', false)
             ->assertSee('cost-list-body', false);
 
         $this->actingAs($admin)
@@ -88,7 +89,7 @@ class AdminCollapsibleSectionTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.notifikasi.index'))
             ->assertOk()
-            ->assertSee('notification-summary-body', false)
+            ->assertDontSee('notification-summary-body', false)
             ->assertSee('notification-filter-body', false)
             ->assertSee('notification-cleanup-body', false)
             ->assertSee('notification-list-body', false);
@@ -124,20 +125,21 @@ class AdminCollapsibleSectionTest extends TestCase
             ->assertRedirect(route('admin.biaya.index'));
     }
 
-    public function test_operational_cost_uses_static_summary_and_collapsible_vertical_sections(): void
+    public function test_operational_cost_hides_statistics_and_keeps_visible_vertical_sections(): void
     {
         $admin = User::query()->where('peran', 'admin')->firstOrFail();
 
         $this->actingAs($admin)
             ->get(route('admin.biaya.index'))
             ->assertOk()
-            ->assertSee('data-static-cost-summary', false)
-            ->assertSee('aria-controls="cost-list-body"', false)
-            ->assertSee('aria-controls="cost-recap-route-body"', false)
+            ->assertDontSee('data-static-cost-summary', false)
+            ->assertDontSee('Ringkasan Biaya')
+            ->assertSee('cost-list-body', false)
+            ->assertSee('cost-recap-route-body', false)
+            ->assertDontSee('class="collapsible-section__toggle"', false)
             ->assertDontSee('data-cost-summary-toggle', false)
             ->assertDontSee('data-cost-filter-toggle', false)
             ->assertSeeInOrder([
-                'Ringkasan Biaya',
                 'Daftar Biaya',
                 'Akumulasi per Rute',
             ]);

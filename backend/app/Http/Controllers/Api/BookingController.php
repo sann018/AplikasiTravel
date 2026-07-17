@@ -186,12 +186,12 @@ class BookingController extends Controller
             'pickup.latitude' => ['required', 'numeric', 'between:-90,90'],
             'pickup.longitude' => ['required', 'numeric', 'between:-180,180'],
             'pickup.address' => ['required', 'string', 'max:1000'],
-            'pickup.note' => ['nullable', 'string', 'max:500'],
+            'pickup.note' => ['required', 'string', 'max:500'],
             'dropoff' => ['required', 'array'],
             'dropoff.latitude' => ['required', 'numeric', 'between:-90,90'],
             'dropoff.longitude' => ['required', 'numeric', 'between:-180,180'],
             'dropoff.address' => ['required', 'string', 'max:1000'],
-            'dropoff.note' => ['nullable', 'string', 'max:500'],
+            'dropoff.note' => ['required', 'string', 'max:500'],
             'payment_method' => ['required', 'string', 'in:transfer,qris,cash'],
             'passengers' => ['required', 'array', 'min:1'],
             'passengers.*.seat_number' => ['required', 'integer', 'min:1'],
@@ -214,7 +214,9 @@ class BookingController extends Controller
         ], [
             'baggage_items.*.foto_urls.max' => 'Foto barang bawaan maksimal 3 foto untuk setiap pemesanan.',
             'pickup.address.required' => 'Alamat titik jemput wajib diisi.',
+            'pickup.note.required' => 'Catatan atau patokan titik jemput wajib diisi.',
             'dropoff.address.required' => 'Alamat titik turun wajib diisi.',
+            'dropoff.note.required' => 'Catatan atau patokan titik turun wajib diisi.',
             'passengers.*.nama_penumpang.required' => 'Nama penumpang wajib diisi.',
             'passengers.*.no_hp_penumpang.required' => 'Nomor HP penumpang wajib diisi.',
         ]);
@@ -348,7 +350,7 @@ class BookingController extends Controller
             && $this->pakasirService->isConfigured()
         ) {
             $checkoutUrl = $this->pakasirService->checkoutUrl(
-                $booking->kode_booking,
+                $booking->pembayaran?->order_id_gateway ?: $booking->kode_booking,
                 $booking->total_harga,
                 $booking->pembayaran?->metode_bayar === 'qris',
                 $this->pakasirService->merchantReturnUrl(),

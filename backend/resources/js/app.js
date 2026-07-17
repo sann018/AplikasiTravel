@@ -6,6 +6,28 @@ window.bootstrap = bootstrap;
 document.addEventListener('DOMContentLoaded', () => {
     feather.replace();
 
+    // Toggle hanya mengubah visibilitas input; nilai dan proses submit tetap sama.
+    document.querySelectorAll('[data-password-toggle]').forEach((button) => {
+        const targetId = button.dataset.passwordTarget;
+        const input = targetId ? document.getElementById(targetId) : null;
+
+        if (!input) {
+            return;
+        }
+
+        button.addEventListener('click', () => {
+            const shouldShow = input.type === 'password';
+            input.type = shouldShow ? 'text' : 'password';
+
+            const label = shouldShow ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi';
+            button.setAttribute('aria-label', label);
+            button.setAttribute('title', label);
+            button.setAttribute('aria-pressed', String(shouldShow));
+            button.querySelector('[data-password-show-icon]')?.classList.toggle('d-none', shouldShow);
+            button.querySelector('[data-password-hide-icon]')?.classList.toggle('d-none', !shouldShow);
+        });
+    });
+
     const sidebar = document.querySelector('[data-admin-sidebar]');
     const backdrop = document.querySelector('[data-sidebar-backdrop]');
 

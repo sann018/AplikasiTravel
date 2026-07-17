@@ -173,6 +173,14 @@ class JadwalController extends Controller
                 ->lockForUpdate()
                 ->findOrFail($jadwal->id);
 
+            // Status selesai adalah kondisi akhir perjalanan. Penguncian di
+            // backend mencegah status diputar balik melalui request manual.
+            if ($lockedJadwal->status === 'selesai' && $payload['status'] !== 'selesai') {
+                throw ValidationException::withMessages([
+                    'status' => 'Jadwal yang sudah selesai tidak dapat diubah ke status lain.',
+                ]);
+            }
+
             $vehicleChanged = (int) $lockedJadwal->kendaraan_id !== (int) $payload['kendaraan_id'];
             $driverChanged = (int) $lockedJadwal->pengemudi_id !== (int) $payload['pengemudi_id'];
             $timeChanged = $lockedJadwal->waktu_berangkat?->format('Y-m-d H:i') !==
@@ -211,9 +219,10 @@ class JadwalController extends Controller
 
     private function validatedPayload(Request $request, ?Jadwal $currentJadwal = null): array
     {
-        // Status berangkat tersedia untuk admin dan juga dipakai endpoint
-        // Mulai Perjalanan agar status web dan aplikasi pengemudi tetap sama.
-        $allowedStatuses = ['draft', 'dibuka', 'ditutup', 'berangkat', 'selesai', 'dibatalkan'];
+        // Status berangkat dipakai bersama tombol Mulai Perjalanan. Status
+        // dibatalkan tidak lagi dipilih dari form, tetapi enum lama tetap ada
+        // di database agar data dan migration sebelumnya tetap kompatibel.
+        $allowedStatuses = ['draft', 'dibuka', 'ditutup', 'berangkat', 'selesai'];
 
         $validated = $request->validate([
             'kendaraan_id' => ['required', 'exists:kendaraan,id'],
@@ -323,7 +332,7 @@ class JadwalController extends Controller
         $route = $this->routeLabel($schedule);
         $status = ucfirst((string) $schedule->status);
 
-        return "Kendaraan ini sudah digunakan pada jadwal aktif {$departure} ({$route}, status {$status}). Selesaikan atau batalkan jadwal itu dulu sebelum memakai kendaraan yang sama.";
+        return "Kendaraan ini sudah digunakan pada jadwal aktif {$departure} ({$route}, status {$status}). Tutup atau selesaikan jadwal itu dulu sebelum memakai kendaraan yang sama.";
     }
 
     private function parseAvailabilityDeparture(?string $value): ?Carbon

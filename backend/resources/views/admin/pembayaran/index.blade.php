@@ -5,29 +5,6 @@
 @section('page-description', 'Pantau pembayaran tunai, QRIS, dan transfer.')
 
 @section('content')
-    <section class="travs-summary-grid">
-        <article class="travs-summary-card">
-            <small>Total Pembayaran</small>
-            <strong>{{ number_format($summary['total']) }}</strong>
-            <span>Semua metode bayar</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Menunggu</small>
-            <strong>{{ number_format($summary['menunggu']) }}</strong>
-            <span>Belum selesai diproses</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Verifikasi Cash</small>
-            <strong>{{ number_format($summary['cash_pending']) }}</strong>
-            <span>Butuh konfirmasi admin</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Perlu Dicek</small>
-            <strong>{{ number_format($summary['exceptions']) }}</strong>
-            <span>Status belum normal</span>
-        </article>
-    </section>
-
     <article class="travs-section-card">
         <div class="travs-panel-title">
             <h3>Filter Pembayaran</h3>
@@ -92,7 +69,9 @@
                         <tr>
                             <td>
                                 <strong>{{ $booking?->kode_booking ?: '-' }}</strong>
-                                <div class="travs-table-subcopy">{{ $payment->order_id_gateway ?: 'Tanpa order gateway' }}</div>
+                                <div class="travs-table-subcopy">
+                                    Kode transaksi: {{ $payment->order_id_gateway ?: 'Belum tersedia' }}
+                                </div>
                             </td>
                             <td>
                                 {{ $booking?->pengguna?->nama ?: 'Tanpa penumpang' }}

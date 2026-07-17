@@ -5,29 +5,6 @@
 @section('page-description', 'Pantau status scan tiket QR penumpang.')
 
 @section('content')
-    <section class="travs-summary-grid">
-        <article class="travs-summary-card">
-            <small>Total Tiket</small>
-            <strong>{{ number_format($summary['total']) }}</strong>
-            <span>Semua tiket diterbitkan</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Sudah Dipindai</small>
-            <strong>{{ number_format($summary['sudah_dipindai']) }}</strong>
-            <span>Tiket sudah digunakan</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Belum Dipindai</small>
-            <strong>{{ number_format($summary['belum_dipindai']) }}</strong>
-            <span>Menunggu boarding</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Tingkat Scan</small>
-            <strong>{{ $summary['total'] > 0 ? number_format(($summary['sudah_dipindai'] / $summary['total']) * 100, 1) : 0 }}%</strong>
-            <span>Rasio scan keseluruhan</span>
-        </article>
-    </section>
-
     <article class="travs-section-card">
         <div class="travs-panel-title">
             <h3>Filter Tiket</h3>

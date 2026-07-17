@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -114,6 +115,8 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
   int _seatCount = 0;
   final Set<int> _selectedSeatNumbers = <int>{};
   bool _isPreparingCheckout = false;
+  bool _isRefreshingSeatAvailability = false;
+  Timer? _seatRefreshTimer;
 
   bool get _canUseBookingForm =>
       widget.selectedRole == AppRolePreview.passenger && widget.session != null;
@@ -134,6 +137,18 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
   void initState() {
     super.initState();
     _future = _loadDetail();
+    // Status kursi disegarkan berkala agar lock dari perangkat lain segera
+    // terlihat dan kursi yang dilepas dapat dipilih kembali tanpa buka ulang halaman.
+    _seatRefreshTimer = Timer.periodic(
+      const Duration(seconds: 3),
+      (_) => _refreshSeatAvailability(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _seatRefreshTimer?.cancel();
+    super.dispose();
   }
 
   Future<TravSScheduleDetail> _loadDetail() async {
@@ -166,6 +181,43 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
       _future = future;
     });
     await future;
+  }
+
+  Future<void> _refreshSeatAvailability() async {
+    if (!mounted || _isPreparingCheckout || _isRefreshingSeatAvailability) {
+      return;
+    }
+
+    _isRefreshingSeatAvailability = true;
+    try {
+      final detail = await _apiService.loadScheduleDetail(widget.schedule);
+      if (!mounted) {
+        return;
+      }
+
+      final maxSeat = _maxSeatCount(detail);
+      final availableSeatNumbers = detail.seatMap
+          .where((seat) => seat.status == 'tersedia')
+          .map((seat) => seat.seatNumber)
+          .toSet();
+
+      setState(() {
+        _selectedSeatNumbers.removeWhere(
+          (seatNumber) => !availableSeatNumbers.contains(seatNumber),
+        );
+        while (_selectedSeatNumbers.length > maxSeat &&
+            _selectedSeatNumbers.isNotEmpty) {
+          _selectedSeatNumbers.remove(_selectedSeatNumbers.last);
+        }
+        _seatCount = _selectedSeatNumbers.length;
+        _future = Future<TravSScheduleDetail>.value(detail);
+      });
+    } catch (_) {
+      // Kegagalan refresh otomatis tidak menutup halaman. Refresh manual tetap
+      // tersedia untuk menampilkan pesan API secara jelas kepada pengguna.
+    } finally {
+      _isRefreshingSeatAvailability = false;
+    }
   }
 
   int _maxSeatCount(TravSScheduleDetail detail) {
@@ -360,6 +412,12 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
                               navigator.pop('open_tickets');
                             } else if (paymentResult == true) {
                               navigator.pop(true);
+                            } else {
+                              setState(() {
+                                _selectedSeatNumbers.clear();
+                                _seatCount = 0;
+                              });
+                              await _refresh();
                             }
                           } on TravSApiException catch (error) {
                             _showStageMessage(error.message);

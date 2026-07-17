@@ -1030,6 +1030,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
           const SizedBox(height: 16),
           _ImportantInformationSection(
             items: bundle.payload.importantInformation,
+            onShowMore: _openPassengerInfoPage,
           ),
         ],
         const SizedBox(height: 18),
@@ -1332,7 +1333,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
       children: [
         _PageTopBar(
-          title: 'Halo, $_displayName!',
+          title: bundle.appSettings.appName,
           subtitle: 'Pantau perjalanan yang ditugaskan hari ini.',
           trailing: _notificationButton(bundle),
         ),
@@ -1527,7 +1528,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
       children: [
         _PageTopBar(
-          title: 'Halo, Tamu!',
+          title: bundle.appSettings.appName,
           subtitle: 'Mau cek rute mana hari ini?',
           trailing: IconButton(
             onPressed: widget.onOpenAuth,
@@ -1547,6 +1548,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
           const SizedBox(height: 16),
           _ImportantInformationSection(
             items: bundle.payload.importantInformation,
+            onShowMore: () => setState(() => _selectedTabIndex = 2),
           ),
         ],
         if (bundle.payload.featuredSchedules.isEmpty) ...[
@@ -2338,9 +2340,10 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _ImportantInformationSection extends StatelessWidget {
-  const _ImportantInformationSection({required this.items});
+  const _ImportantInformationSection({required this.items, this.onShowMore});
 
   final List<TravSImportantInformation> items;
+  final VoidCallback? onShowMore;
 
   @override
   Widget build(BuildContext context) {
@@ -2393,13 +2396,40 @@ class _ImportantInformationSection extends StatelessWidget {
               const SizedBox(height: 12),
             ],
           ],
+          if (onShowMore != null) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: onShowMore,
+                style: TextButton.styleFrom(
+                  foregroundColor: TravSTheme.navy,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 6,
+                  ),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Info lainnya',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_rounded, size: 18),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-class _PassengerDashboardHero extends StatelessWidget {
+class _PassengerDashboardHero extends StatefulWidget {
   const _PassengerDashboardHero({
     required this.name,
     required this.stats,
@@ -2413,6 +2443,54 @@ class _PassengerDashboardHero extends StatelessWidget {
   final String? profileImageUrl;
   final List<TravSHomeBanner> banners;
   final String subtitle;
+
+  @override
+  State<_PassengerDashboardHero> createState() =>
+      _PassengerDashboardHeroState();
+}
+
+class _PassengerDashboardHeroState extends State<_PassengerDashboardHero> {
+  final PageController _pageController = PageController();
+  int _currentBannerIndex = 0;
+
+  @override
+  void didUpdateWidget(covariant _PassengerDashboardHero oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.banners.isEmpty) {
+      _currentBannerIndex = 0;
+      return;
+    }
+
+    if (_currentBannerIndex >= widget.banners.length) {
+      _currentBannerIndex = 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _pageController.hasClients) {
+          _pageController.jumpToPage(0);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _moveBanner(int direction) {
+    if (widget.banners.length < 2 || !_pageController.hasClients) {
+      return;
+    }
+
+    final target =
+        (_currentBannerIndex + direction + widget.banners.length) %
+        widget.banners.length;
+    _pageController.animateToPage(
+      target,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -2437,14 +2515,17 @@ class _PassengerDashboardHero extends StatelessWidget {
         children: [
           Row(
             children: [
-              _PassengerHomeAvatar(name: name, imageUrl: profileImageUrl),
+              _PassengerHomeAvatar(
+                name: widget.name,
+                imageUrl: widget.profileImageUrl,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Halo, $name',
+                      'Halo, ${widget.name}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
@@ -2453,7 +2534,7 @@ class _PassengerDashboardHero extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      subtitle,
+                      widget.subtitle,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -2469,26 +2550,90 @@ class _PassengerDashboardHero extends StatelessWidget {
           SizedBox(
             height: 124,
             width: double.infinity,
-            child: banners.isEmpty
+            child: widget.banners.isEmpty
                 ? const _PassengerBannerFallback()
-                : PageView.builder(
-                    itemCount: banners.length,
-                    itemBuilder: (context, index) =>
-                        _PassengerBannerSlide(banner: banners[index]),
+                : Stack(
+                    children: [
+                      PageView.builder(
+                        controller: _pageController,
+                        itemCount: widget.banners.length,
+                        onPageChanged: (index) {
+                          setState(() => _currentBannerIndex = index);
+                        },
+                        itemBuilder: (context, index) => _PassengerBannerSlide(
+                          banner: widget.banners[index],
+                        ),
+                      ),
+                      if (widget.banners.length > 1) ...[
+                        Positioned(
+                          left: 8,
+                          top: 0,
+                          bottom: 0,
+                          child: _BannerNavigationButton(
+                            tooltip: 'Banner sebelumnya',
+                            icon: Icons.chevron_left_rounded,
+                            onPressed: () => _moveBanner(-1),
+                          ),
+                        ),
+                        Positioned(
+                          right: 8,
+                          top: 0,
+                          bottom: 0,
+                          child: _BannerNavigationButton(
+                            tooltip: 'Banner berikutnya',
+                            icon: Icons.chevron_right_rounded,
+                            onPressed: () => _moveBanner(1),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
           ),
-          const SizedBox(height: 8),
-          const Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _HeroDot(active: false),
-                _HeroDot(active: true),
-                _HeroDot(active: false),
-              ],
+          if (widget.banners.length > 1) ...[
+            const SizedBox(height: 8),
+            Center(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(
+                  widget.banners.length,
+                  (index) => _HeroDot(active: index == _currentBannerIndex),
+                ),
+              ),
             ),
-          ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+class _BannerNavigationButton extends StatelessWidget {
+  const _BannerNavigationButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Tooltip(
+        message: tooltip,
+        child: Material(
+          color: TravSTheme.navy.withValues(alpha: 0.72),
+          shape: const CircleBorder(),
+          child: IconButton(
+            onPressed: onPressed,
+            icon: Icon(icon, color: Colors.white),
+            iconSize: 22,
+            constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+            padding: EdgeInsets.zero,
+          ),
+        ),
       ),
     );
   }
@@ -7852,13 +7997,13 @@ class _InfoCard extends StatelessWidget {
   const _InfoCard({
     required this.title,
     required this.description,
-    required this.icon,
+    this.icon,
     this.justifyDescription = false,
   });
 
   final String title;
   final String description;
-  final IconData icon;
+  final IconData? icon;
   final bool justifyDescription;
 
   @override
@@ -7874,16 +8019,18 @@ class _InfoCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: TravSTheme.orangeSoft,
-              borderRadius: BorderRadius.circular(14),
+          if (icon != null) ...[
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: TravSTheme.orangeSoft,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(icon, color: TravSTheme.orange),
             ),
-            child: Icon(icon, color: TravSTheme.orange),
-          ),
-          const SizedBox(width: 12),
+            const SizedBox(width: 12),
+          ],
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -7976,7 +8123,6 @@ class _DriverInfoPage extends StatelessWidget {
                   '1. Jadwal aktif muncul setelah admin membuat penugasan.\n'
                   '2. Kendaraan mengikuti data jadwal, bukan data profil.\n'
                   '3. Jika jadwal tidak sesuai, hubungi admin sebelum berangkat.',
-              icon: Icons.event_available_outlined,
               justifyDescription: true,
             ),
             const SizedBox(height: 12),
@@ -7987,7 +8133,6 @@ class _DriverInfoPage extends StatelessWidget {
                   '1. Pastikan nama dan kursi sesuai daftar.\n'
                   '2. Periksa catatan patokan jemput dan turun.\n'
                   '3. Lihat foto barang jika penumpang mengunggah bukti barang bawaan.',
-              icon: Icons.assignment_outlined,
               justifyDescription: true,
             ),
             const SizedBox(height: 12),
@@ -7998,7 +8143,6 @@ class _DriverInfoPage extends StatelessWidget {
                   '1. Nomor penumpang hanya digunakan untuk kebutuhan perjalanan.\n'
                   '2. Pastikan titik jemput sesuai data aplikasi.\n'
                   '3. Konfirmasi ulang jika lokasi sulit ditemukan.',
-              icon: Icons.phone_in_talk_outlined,
               justifyDescription: true,
             ),
             const SizedBox(height: 12),
@@ -8009,7 +8153,6 @@ class _DriverInfoPage extends StatelessWidget {
                   '1. Jangan memindai tiket milik penumpang lain.\n'
                   '2. Jika QR tidak terbaca, periksa kembali data manifest.\n'
                   '3. Laporkan kendala tiket kepada admin.',
-              icon: Icons.qr_code_scanner_rounded,
               justifyDescription: true,
             ),
             const SizedBox(height: 22),
@@ -8026,7 +8169,6 @@ class _DriverInfoPage extends StatelessWidget {
                   '1. Kendaraan ditentukan dari jadwal.\n'
                   '2. Perubahan rute atau jadwal dilakukan oleh admin.\n'
                   '3. Jika ada kendala kendaraan, segera konfirmasi ke admin.',
-              icon: Icons.directions_car_filled_outlined,
               justifyDescription: true,
             ),
             const SizedBox(height: 12),
@@ -8037,7 +8179,6 @@ class _DriverInfoPage extends StatelessWidget {
                   '1. QR tiket bersifat bukti perjalanan.\n'
                   '2. Data lokasi dipakai untuk operasional jemput dan turun.\n'
                   '3. Komunikasi dilakukan secara sopan dan seperlunya.',
-              icon: Icons.privacy_tip_outlined,
               justifyDescription: true,
             ),
             const SizedBox(height: 12),
@@ -8048,7 +8189,6 @@ class _DriverInfoPage extends StatelessWidget {
                   '1. Jangan mengonfirmasi tunai sebelum uang diterima.\n'
                   '2. Pembayaran digital tidak diubah manual oleh pengemudi.\n'
                   '3. Laporkan selisih pembayaran kepada admin.',
-              icon: Icons.payments_outlined,
               justifyDescription: true,
             ),
           ],
@@ -8078,7 +8218,6 @@ class _BookingInfoSections extends StatelessWidget {
               '1. Nama penumpang dipakai pada tiket dan manifest.\n'
               '2. Nomor HP dipakai untuk komunikasi keberangkatan.\n'
               '3. Data yang salah dapat menyulitkan proses penjemputan.',
-          icon: Icons.badge_outlined,
           justifyDescription: true,
         ),
         const SizedBox(height: 12),
@@ -8089,7 +8228,6 @@ class _BookingInfoSections extends StatelessWidget {
               '1. Pilih kursi sesuai jumlah penumpang.\n'
               '2. Jangan menutup proses pemesanan sebelum data selesai dikirim.\n'
               '3. Kursi baru dianggap aman setelah pemesanan berhasil dibuat.',
-          icon: Icons.event_seat_outlined,
           justifyDescription: true,
         ),
         const SizedBox(height: 12),
@@ -8100,7 +8238,6 @@ class _BookingInfoSections extends StatelessWidget {
               '1. QRIS atau transfer gateway mengikuti status dari sistem pembayaran.\n'
               '2. Pembayaran tunai dikonfirmasi oleh pengemudi atau admin.\n'
               '3. Tiket QR hanya valid setelah pembayaran dinyatakan lunas.',
-          icon: Icons.timer_outlined,
           justifyDescription: true,
         ),
         const SizedBox(height: 12),
@@ -8113,7 +8250,6 @@ class _BookingInfoSections extends StatelessWidget {
               '3. Foto barang bersifat opsional dan membantu pengecekan.\n'
               '4. Sepeda, sepeda motor, dan barang berukuran besar wajib dikonfirmasi langsung kepada admin.\n'
               '5. Barang besar tidak dihitung atau diterima otomatis oleh aplikasi.',
-          icon: Icons.location_on_outlined,
           justifyDescription: true,
         ),
         const SizedBox(height: 22),
@@ -8127,7 +8263,6 @@ class _BookingInfoSections extends StatelessWidget {
           title: '1. Pilih rute dan jadwal',
           description:
               'Buka menu Rute, pilih tujuan perjalanan, lalu lihat jadwal yang tersedia. Perhatikan tanggal, jam berangkat, armada, harga tiket, dan jumlah kursi kosong sebelum melanjutkan.',
-          icon: Icons.route_rounded,
           justifyDescription: true,
         ),
         const SizedBox(height: 12),
@@ -8135,7 +8270,6 @@ class _BookingInfoSections extends StatelessWidget {
           title: '2. Pilih kursi dan isi data perjalanan',
           description:
               'Pilih kursi yang masih tersedia, lalu isi data penumpang. Setelah itu lengkapi titik jemput dan titik turun dengan alamat serta patokan lokasi yang mudah dipahami pengemudi.',
-          icon: Icons.fact_check_outlined,
           justifyDescription: true,
         ),
         const SizedBox(height: 12),
@@ -8143,7 +8277,6 @@ class _BookingInfoSections extends StatelessWidget {
           title: '3. Isi barang bawaan',
           description:
               'Pilih apakah Anda membawa barang, lalu isi nama atau keterangan barang yang dibawa. Foto dapat ditambahkan untuk membantu pengemudi mengenali barang. Untuk sepeda, sepeda motor, atau barang berukuran besar, hubungi admin terlebih dahulu sebelum membuat pemesanan.',
-          icon: Icons.luggage_rounded,
           justifyDescription: true,
         ),
         const SizedBox(height: 12),
@@ -8151,7 +8284,6 @@ class _BookingInfoSections extends StatelessWidget {
           title: '4. Selesaikan pembayaran',
           description:
               'Pilih metode pembayaran yang tersedia. Untuk QRIS atau transfer gateway, ikuti instruksi pembayaran sampai berhasil. Untuk tunai, siapkan pembayaran saat bertemu pengemudi sesuai ketentuan.',
-          icon: Icons.payments_rounded,
           justifyDescription: true,
         ),
         const SizedBox(height: 12),
@@ -8159,7 +8291,6 @@ class _BookingInfoSections extends StatelessWidget {
           title: '5. Gunakan tiket digital saat keberangkatan',
           description:
               'Setelah pembayaran berhasil, tiket digital dan QR akan tersedia di menu Tiket. Tunjukkan QR kepada pengemudi saat keberangkatan agar tiket dapat dipindai dan status kehadiran tercatat.',
-          icon: Icons.qr_code_2_rounded,
           justifyDescription: true,
         ),
         const SizedBox(height: 22),
@@ -8173,7 +8304,6 @@ class _BookingInfoSections extends StatelessWidget {
           title: 'Isi data sesuai kondisi sebenarnya',
           description:
               'Gunakan data penumpang, titik jemput, titik turun, dan barang bawaan yang benar. Data ini dipakai admin dan pengemudi untuk menyiapkan perjalanan, menghubungi penumpang, dan memastikan kapasitas kendaraan tetap aman.',
-          icon: Icons.assignment_ind_outlined,
           justifyDescription: true,
         ),
         const SizedBox(height: 12),
@@ -8181,7 +8311,6 @@ class _BookingInfoSections extends StatelessWidget {
           title: 'Simpan dan jaga tiket QR',
           description:
               'Tiket QR adalah bukti pemesanan yang dipakai saat keberangkatan. Jangan membagikan tiket kepada orang lain, karena QR digunakan pengemudi untuk mencatat kehadiran penumpang.',
-          icon: Icons.security_rounded,
           justifyDescription: true,
         ),
         const SizedBox(height: 12),
@@ -8189,7 +8318,6 @@ class _BookingInfoSections extends StatelessWidget {
           title: 'Ikuti waktu dan titik keberangkatan',
           description:
               'Datang sesuai jadwal yang tertera pada tiket. Jika titik jemput atau titik turun sulit ditemukan, isi patokan lokasi seperti nama toko, simpang, gang, warna rumah, atau bangunan terdekat.',
-          icon: Icons.schedule_rounded,
           justifyDescription: true,
         ),
         const SizedBox(height: 12),
@@ -8197,7 +8325,6 @@ class _BookingInfoSections extends StatelessWidget {
           title: 'Pahami batas waktu dan pembatalan',
           description:
               'Kursi hanya dikunci sementara saat pemesanan dan pembayaran. Jika waktu habis atau pembayaran belum selesai, pemesanan dapat dibatalkan oleh sistem agar kursi tersedia kembali untuk penumpang lain.',
-          icon: Icons.event_busy_rounded,
           justifyDescription: true,
         ),
       ],

@@ -17,6 +17,7 @@ import '../../core/services/travs_api_service.dart';
 import '../../core/services/travs_location_service.dart';
 import '../../core/theme/travs_theme.dart';
 import '../pickup/travs_pickup_map_picker_page.dart';
+import '../ticket/travs_ticket_detail_page.dart';
 
 class TravSCheckoutDraft {
   const TravSCheckoutDraft({
@@ -119,6 +120,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
   bool _isUploadingBaggagePhoto = false;
   bool _isPickingBaggagePhoto = false;
   bool _isRefreshingPayment = false;
+  bool _isLeavingPage = false;
   bool _showLeaveWarningOnResume = false;
   bool _hasBaggage = false;
   String? _errorMessage;
@@ -341,7 +343,11 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     }
 
     if (_createdBooking != null) {
-      _refreshCreatedBookingStatus(showSuccessMessage: true);
+      Future<void>.delayed(const Duration(milliseconds: 800), () {
+        if (mounted) {
+          _refreshCreatedBookingStatus(showSuccessMessage: true);
+        }
+      });
       return;
     }
 
@@ -728,17 +734,13 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
           pickupLatitude: double.parse(_pickupLatitudeController.text.trim()),
           pickupLongitude: double.parse(_pickupLongitudeController.text.trim()),
           pickupAddress: _pickupAddressController.text.trim(),
-          pickupNote: _pickupNoteController.text.trim().isEmpty
-              ? null
-              : _pickupNoteController.text.trim(),
+          pickupNote: _pickupNoteController.text.trim(),
           dropoffLatitude: double.parse(_dropoffLatitudeController.text.trim()),
           dropoffLongitude: double.parse(
             _dropoffLongitudeController.text.trim(),
           ),
           dropoffAddress: _dropoffAddressController.text.trim(),
-          dropoffNote: _dropoffNoteController.text.trim().isEmpty
-              ? null
-              : _dropoffNoteController.text.trim(),
+          dropoffNote: _dropoffNoteController.text.trim(),
           paymentMethod: _selectedMethod!,
           passengers: _passengerForms
               .map(
@@ -878,6 +880,38 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     }
   }
 
+  Future<void> _openRelatedTicket(TravSBookingResult booking) async {
+    if (!booking.isPaid) {
+      await _refreshCreatedBookingStatus(showSuccessMessage: true);
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    final refreshedBooking = _createdBooking ?? booking;
+    if (!refreshedBooking.isPaid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Pembayaran masih menunggu konfirmasi. Periksa kembali beberapa saat lagi.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => TravSTicketDetailPage(
+          session: widget.session,
+          bookingId: refreshedBooking.id,
+        ),
+      ),
+    );
+  }
+
   List<TravSBaggagePayload> _buildBaggagePayload(
     List<String> baggagePhotoUrls,
   ) {
@@ -986,15 +1020,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
   Future<void> _handleFormSessionExpired() async {
     if (_createdBooking != null || !mounted) return;
 
-    try {
-      await _apiService.releaseFormSeatLocks(
-        token: widget.session.token,
-        scheduleId: widget.detail.schedule.id,
-        seatNumbers: widget.selectedSeatNumbers,
-      );
-    } catch (_) {
-      // Jika jaringan gagal, backend tetap membersihkan lock saat jadwal dibuka ulang.
-    }
+    await _releaseFormSeatLocks();
 
     await _clearFormDraft();
     if (!mounted) return;
@@ -1062,6 +1088,10 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
   }
 
   Future<void> _confirmLeaveFlow() async {
+    if (_isLeavingPage) {
+      return;
+    }
+
     final isPaymentStep = _createdBooking != null;
     final title = isPaymentStep
         ? 'Keluar dari pembayaran?'
@@ -1112,7 +1142,30 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     );
 
     if (shouldLeave == true && mounted) {
+      if (!isPaymentStep) {
+        setState(() {
+          _isLeavingPage = true;
+        });
+        await _releaseFormSeatLocks();
+        await _clearFormDraft();
+      }
+      if (!mounted) {
+        return;
+      }
       Navigator.of(context).pop(false);
+    }
+  }
+
+  Future<void> _releaseFormSeatLocks() async {
+    try {
+      await _apiService.releaseFormSeatLocks(
+        token: widget.session.token,
+        scheduleId: widget.detail.schedule.id,
+        seatNumbers: widget.selectedSeatNumbers,
+      );
+    } catch (_) {
+      // Jika perangkat sedang offline, backend tetap melepaskan lock saat
+      // batas sesi berakhir agar kursi tidak terkunci permanen.
     }
   }
 
@@ -1392,6 +1445,10 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
               labelText: 'Catatan / Patokan Jemput',
               hintText: 'Contoh: depan toko atau rumah pagar hijau',
             ),
+            validator: (value) => _validateRequiredText(
+              value,
+              'Catatan atau patokan titik jemput',
+            ),
           ),
         ],
       ),
@@ -1459,9 +1516,18 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Koordinat: ${_dropoffLatitudeController.text.trim()}, ${_dropoffLongitudeController.text.trim()}',
+                    'Koordinat',
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: TravSTheme.navyMuted,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_dropoffLatitudeController.text.trim()}, ${_dropoffLongitudeController.text.trim()}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: TravSTheme.navy,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
@@ -1537,6 +1603,10 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
             decoration: const InputDecoration(
               labelText: 'Catatan / Patokan Turun',
               hintText: 'Contoh: depan minimarket atau gerbang kampus',
+            ),
+            validator: (value) => _validateRequiredText(
+              value,
+              'Catatan atau patokan titik turun',
             ),
           ),
         ],
@@ -1892,13 +1962,18 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
   ) {
     final payment = booking.payment;
     final isPaid = payment.status == 'berhasil';
+    // Deadline pembayaran mengikuti record pembayaran dari backend. Nilai pada
+    // pemesanan hanya dipakai sebagai fallback untuk data lama.
+    final paymentDeadline = payment.expiredAt.isNotEmpty
+        ? payment.expiredAt
+        : booking.batasPembayaran;
     final helperText = isPaid
         ? 'Pembayaran sudah terkonfirmasi. Tiket elektronik siap dibuka dari daftar tiket penumpang.'
         : payment.method == 'cash'
         ? 'Pemesanan berhasil tersimpan. Pembayaran tunai masih perlu dilunasi dan diverifikasi admin.'
         : payment.method == 'transfer'
-        ? 'Pemesanan berhasil tersimpan. Lanjutkan transfer melalui Pakasir sebelum ${_formatDateTime(payment.expiredAt)}.'
-        : 'Pemesanan berhasil tersimpan. Lanjutkan pembayaran gateway sebelum ${_formatDateTime(payment.expiredAt)}.';
+        ? 'Pemesanan berhasil tersimpan. Lanjutkan transfer melalui Pakasir sebelum ${_formatDateTime(paymentDeadline)}.'
+        : 'Pemesanan berhasil tersimpan. Lanjutkan pembayaran gateway sebelum ${_formatDateTime(paymentDeadline)}.';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
@@ -1961,7 +2036,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
         _buildGatewayPaymentCard(context, booking),
         if (!isPaid &&
             payment.method != 'cash' &&
-            payment.expiredAt.isNotEmpty) ...[
+            paymentDeadline.isNotEmpty) ...[
           const SizedBox(height: 16),
           _SectionCard(
             title: 'Waktu Pembayaran',
@@ -1969,7 +2044,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
                 'Batas pembayaran mengikuti aturan ${widget.detail.bookingRules.seatLockPaymentMinutes} menit setelah pemesanan dibuat.',
             child: _CountdownPanel(
               title: 'Sisa waktu pembayaran',
-              deadlineIso: payment.expiredAt,
+              deadlineIso: paymentDeadline,
               maxDurationMinutes:
                   widget.detail.bookingRules.seatLockPaymentMinutes,
               icon: Icons.payments_outlined,
@@ -2004,7 +2079,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
               ),
               _SummaryRow(
                 label: 'Batas pembayaran',
-                value: _formatDateTime(booking.batasPembayaran),
+                value: _formatDateTime(paymentDeadline),
               ),
               if (payment.paidAt.isNotEmpty)
                 _SummaryRow(
@@ -2026,10 +2101,18 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
         ],
         const SizedBox(height: 16),
         OutlinedButton.icon(
-          onPressed: () =>
-              Navigator.of(context).pop(isPaid ? 'open_tickets' : true),
-          icon: const Icon(Icons.check_circle_outline_rounded),
-          label: Text(isPaid ? 'Ke Halaman Tiket' : 'Simpan dan Kembali'),
+          onPressed: _isRefreshingPayment
+              ? null
+              : () => _openRelatedTicket(booking),
+          icon: _isRefreshingPayment
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.confirmation_number_outlined),
+          label: Text(
+            _isRefreshingPayment ? 'Memeriksa Pembayaran' : 'Ke Halaman Tiket',
+          ),
         ),
       ],
     );

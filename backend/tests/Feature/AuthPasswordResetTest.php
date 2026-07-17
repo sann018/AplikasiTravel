@@ -3,35 +3,21 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use Database\Seeders\DatabaseSeeder;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
-/**
- * Test TDD untuk fitur forgot/reset password end-to-end.
- * Memastikan alur lupa password aman, token sekali pakai,
- * dan tidak membocorkan informasi sensitif (rules #26).
- */
 class AuthPasswordResetTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function setUp(): void
+    public function test_forgot_password_sends_laravel_reset_link_without_exposing_token(): void
     {
-        parent::setUp();
-
-        $this->seed(DatabaseSeeder::class);
-    }
-
-    // =========================================================================
-    // Test: Forgot password dengan email terdaftar menghasilkan token
-    // =========================================================================
-
-    public function test_forgot_password_with_valid_email_returns_reset_token(): void
-    {
-        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        Notification::fake();
+        $user = User::factory()->create();
 
         $response = $this->postJson('/api/auth/forgot-password', [
             'email' => $user->email,
@@ -40,46 +26,44 @@ class AuthPasswordResetTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonStructure(['data' => ['reset_token', 'expires_in_minutes']]);
+            ->assertJsonPath(
+                'message',
+                'Jika email terdaftar, tautan reset kata sandi telah dikirim.',
+            )
+            ->assertJsonMissingPath('data.reset_token');
 
-        // Token harus tersimpan di database (hashed)
+        Notification::assertSentTo($user, ResetPassword::class);
         $this->assertDatabaseHas('password_reset_tokens', [
             'email' => $user->email,
         ]);
     }
 
-    // =========================================================================
-    // Test: Forgot password dengan email tidak terdaftar tetap sukses (tidak bocor)
-    // =========================================================================
-
-    public function test_forgot_password_with_unknown_email_does_not_leak_info(): void
+    public function test_forgot_password_unknown_email_uses_same_generic_response(): void
     {
+        Notification::fake();
+
         $response = $this->postJson('/api/auth/forgot-password', [
             'email' => 'tidakada@example.com',
         ]);
 
-        // Harus tetap 200 OK agar tidak membocorkan apakah email terdaftar
         $response
             ->assertOk()
-            ->assertJsonPath('success', true);
+            ->assertJsonPath('success', true)
+            ->assertJsonPath(
+                'message',
+                'Jika email terdaftar, tautan reset kata sandi telah dikirim.',
+            )
+            ->assertJsonMissingPath('data.reset_token');
+
+        Notification::assertNothingSent();
     }
 
-    // =========================================================================
-    // Test: Reset password dengan token valid berhasil mengubah password
-    // =========================================================================
-
-    public function test_reset_password_with_valid_token_changes_password(): void
+    public function test_reset_password_with_valid_laravel_token_changes_password(): void
     {
-        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        Notification::fake();
+        $user = User::factory()->create();
+        $token = $this->requestResetToken($user);
 
-        // Step 1: Request forgot password
-        $forgotResponse = $this->postJson('/api/auth/forgot-password', [
-            'email' => $user->email,
-        ]);
-
-        $token = $forgotResponse->json('data.reset_token');
-
-        // Step 2: Reset password dengan token
         $response = $this->postJson('/api/auth/reset-password', [
             'email' => $user->email,
             'token' => $token,
@@ -90,172 +74,125 @@ class AuthPasswordResetTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('message', 'Password berhasil direset. Silakan login dengan password baru.');
+            ->assertJsonPath(
+                'message',
+                'Kata sandi berhasil diubah. Silakan masuk dengan kata sandi baru.',
+            );
 
-        // Step 3: Token harus sudah dihapus (sekali pakai)
         $this->assertDatabaseMissing('password_reset_tokens', [
             'email' => $user->email,
         ]);
-
-        // Step 4: Login dengan password baru harus berhasil
-        $loginResponse = $this->postJson('/api/auth/login', [
-            'login' => $user->email,
-            'password' => 'PasswordBaru123',
-        ]);
-
-        $loginResponse->assertOk()->assertJsonPath('success', true);
+        $this->assertTrue(Hash::check(
+            'PasswordBaru123',
+            $user->fresh()->password,
+        ));
     }
-
-    // =========================================================================
-    // Test: Reset password dengan token salah ditolak
-    // =========================================================================
 
     public function test_reset_password_with_invalid_token_is_rejected(): void
     {
-        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $user = User::factory()->create();
 
-        // Request forgot password dulu agar ada record
-        $this->postJson('/api/auth/forgot-password', [
-            'email' => $user->email,
-        ]);
-
-        // Coba reset dengan token palsu
-        $response = $this->postJson('/api/auth/reset-password', [
+        $this->postJson('/api/auth/reset-password', [
             'email' => $user->email,
             'token' => 'token-palsu-yang-tidak-valid',
             'password' => 'PasswordBaru123',
             'password_confirmation' => 'PasswordBaru123',
-        ]);
-
-        $response
-            ->assertStatus(422)
-            ->assertJsonPath('success', false);
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath(
+                'errors.token.0',
+                'Tautan reset tidak valid atau sudah kedaluwarsa.',
+            );
     }
-
-    // =========================================================================
-    // Test: Reset password dengan token kedaluwarsa ditolak
-    // =========================================================================
 
     public function test_reset_password_with_expired_token_is_rejected(): void
     {
-        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $user = User::factory()->create();
         $token = 'test-expired-token-123';
 
-        // Sisipkan token yang sudah kedaluwarsa (dibuat 2 jam lalu)
         DB::table('password_reset_tokens')->insert([
             'email' => $user->email,
             'token' => Hash::make($token),
-            'created_at' => now()->subHours(2),
+            'created_at' => now()->subMinutes(61),
         ]);
 
-        $response = $this->postJson('/api/auth/reset-password', [
-            'email' => $user->email,
-            'token' => $token,
-            'password' => 'PasswordBaru123',
-            'password_confirmation' => 'PasswordBaru123',
-        ]);
-
-        $response
-            ->assertStatus(422)
-            ->assertJsonPath('success', false);
-
-        // Token kedaluwarsa harus dihapus
-        $this->assertDatabaseMissing('password_reset_tokens', [
-            'email' => $user->email,
-        ]);
-    }
-
-    // =========================================================================
-    // Test: Token tidak bisa digunakan dua kali
-    // =========================================================================
-
-    public function test_reset_token_cannot_be_used_twice(): void
-    {
-        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
-
-        // Request token
-        $forgotResponse = $this->postJson('/api/auth/forgot-password', [
-            'email' => $user->email,
-        ]);
-
-        $token = $forgotResponse->json('data.reset_token');
-
-        // Reset pertama — harus berhasil
         $this->postJson('/api/auth/reset-password', [
             'email' => $user->email,
             'token' => $token,
             'password' => 'PasswordBaru123',
             'password_confirmation' => 'PasswordBaru123',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_reset_token_cannot_be_used_twice(): void
+    {
+        Notification::fake();
+        $user = User::factory()->create();
+        $token = $this->requestResetToken($user);
+
+        $payload = [
+            'email' => $user->email,
+            'token' => $token,
+            'password' => 'PasswordBaru123',
+            'password_confirmation' => 'PasswordBaru123',
+        ];
+
+        $this->postJson('/api/auth/reset-password', $payload)->assertOk();
+        $this->postJson('/api/auth/reset-password', $payload)
+            ->assertUnprocessable();
+    }
+
+    public function test_forgot_and_reset_password_validate_input(): void
+    {
+        $this->postJson('/api/auth/forgot-password', [
+            'email' => 'bukan-email',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonStructure(['errors' => ['email']]);
+
+        $this->postJson('/api/auth/reset-password', [])
+            ->assertUnprocessable()
+            ->assertJsonStructure([
+                'errors' => ['email', 'token', 'password'],
+            ]);
+    }
+
+    public function test_reset_password_web_page_is_available_from_email_link(): void
+    {
+        $user = User::factory()->create();
+
+        $this->get(route('password.reset', [
+            'token' => 'contoh-token',
+            'email' => $user->email,
+        ]))
+            ->assertOk()
+            ->assertSee('Atur Ulang Kata Sandi')
+            ->assertSee($user->email);
+    }
+
+    private function requestResetToken(User $user): string
+    {
+        $token = null;
+
+        $this->postJson('/api/auth/forgot-password', [
+            'email' => $user->email,
         ])->assertOk();
 
-        // Reset kedua dengan token yang sama — harus ditolak
-        $response = $this->postJson('/api/auth/reset-password', [
-            'email' => $user->email,
-            'token' => $token,
-            'password' => 'PasswordLain456',
-            'password_confirmation' => 'PasswordLain456',
-        ]);
+        Notification::assertSentTo(
+            $user,
+            ResetPassword::class,
+            function (ResetPassword $notification) use (&$token): bool {
+                $token = $notification->token;
 
-        $response->assertStatus(422);
-    }
+                return true;
+            },
+        );
 
-    // =========================================================================
-    // Test: Validasi input forgot password
-    // =========================================================================
+        $this->assertIsString($token);
 
-    public function test_forgot_password_validates_email_format(): void
-    {
-        $response = $this->postJson('/api/auth/forgot-password', [
-            'email' => 'bukan-email',
-        ]);
-
-        $response
-            ->assertStatus(422)
-            ->assertJsonPath('success', false)
-            ->assertJsonStructure(['errors' => ['email']]);
-    }
-
-    // =========================================================================
-    // Test: Validasi input reset password
-    // =========================================================================
-
-    public function test_reset_password_validates_required_fields(): void
-    {
-        $response = $this->postJson('/api/auth/reset-password', []);
-
-        $response
-            ->assertStatus(422)
-            ->assertJsonPath('success', false);
-
-        $errors = $response->json('errors');
-        $this->assertArrayHasKey('email', $errors);
-        $this->assertArrayHasKey('token', $errors);
-        $this->assertArrayHasKey('password', $errors);
-    }
-
-    // =========================================================================
-    // Test: Reset password membutuhkan password minimal 8 karakter
-    // =========================================================================
-
-    public function test_reset_password_requires_minimum_password_length(): void
-    {
-        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
-
-        $forgotResponse = $this->postJson('/api/auth/forgot-password', [
-            'email' => $user->email,
-        ]);
-
-        $token = $forgotResponse->json('data.reset_token');
-
-        $response = $this->postJson('/api/auth/reset-password', [
-            'email' => $user->email,
-            'token' => $token,
-            'password' => '123',
-            'password_confirmation' => '123',
-        ]);
-
-        $response
-            ->assertStatus(422)
-            ->assertJsonStructure(['errors' => ['password']]);
+        return $token;
     }
 }

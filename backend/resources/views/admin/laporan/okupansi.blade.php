@@ -5,29 +5,6 @@
 @section('page-description', 'Pantau tingkat keterisian kursi per jadwal untuk analisis performa rute dan perencanaan armada.')
 
 @section('content')
-    <section class="travs-summary-grid">
-        <article class="travs-summary-card">
-            <small>Total Jadwal</small>
-            <strong>{{ number_format($summary['total_jadwal']) }}</strong>
-            <span>Semua jadwal tercatat</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Total Kursi</small>
-            <strong>{{ number_format($summary['total_kursi']) }}</strong>
-            <span>Keseluruhan kursi</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Kursi Terisi</small>
-            <strong>{{ number_format($summary['kursi_terisi']) }}</strong>
-            <span>Sudah dipesan</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Rata-rata Okupansi</small>
-            <strong>{{ number_format($summary['rata_okupansi'], 1) }}%</strong>
-            <span>Keseluruhan jadwal</span>
-        </article>
-    </section>
-
     <article class="travs-section-card">
         <div class="travs-panel-header">
             <div class="travs-panel-title">

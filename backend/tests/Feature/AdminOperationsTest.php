@@ -40,19 +40,14 @@ class AdminOperationsTest extends TestCase
             ->get(route('admin.dashboard'));
 
         $response->assertOk();
-        $response->assertSee('Total Armada');
-        $response->assertSee('Ringkasan Pendapatan 7 Hari');
+        $response->assertDontSee('Ringkasan Operasional');
+        $response->assertDontSee('Total Armada');
+        $response->assertSee('Ringkasan Pendapatan Minggu Ini');
         $response->assertSee('Jadwal Keberangkatan Hari Ini');
         $response->assertDontSee('data-dashboard-tab=', false);
         $response->assertDontSee('Fokus Operasional');
         $response->assertDontSee('Biaya Operasional Terbaru');
         $response->assertDontSee('Pemesanan Terbaru');
-        $response->assertSee(route('admin.kendaraan.index'), false);
-        $response->assertSee(route('admin.rute.index', ['status' => 'aktif']), false);
-        $response->assertSee(
-            route('admin.pemesanan.index', ['status' => 'menunggu_pembayaran']),
-            false,
-        );
     }
 
     public function test_admin_can_update_own_email_from_settings_page(): void
@@ -176,7 +171,7 @@ class AdminOperationsTest extends TestCase
             'status_aktif' => true,
         ]);
 
-        foreach (['csv', 'xls', 'xlsx'] as $format) {
+        foreach (['csv', 'xls'] as $format) {
             $response = $this
                 ->actingAs($admin)
                 ->get(route('admin.biaya.export', ['format' => $format]));
@@ -447,10 +442,9 @@ class AdminOperationsTest extends TestCase
             ->get(route('admin.pemesanan.show', $booking));
 
         $detailResponse->assertOk();
-        $this->assertMatchesRegularExpression(
-            '/<option\s+value="menunggu_pembayaran"[^>]*disabled/s',
-            $detailResponse->getContent(),
-        );
+        $detailResponse->assertSee('Status Pemesanan');
+        $detailResponse->assertSee('Terbayar');
+        $detailResponse->assertDontSee('<select', false);
 
         $reverseResponse = $this
             ->actingAs($admin)

@@ -271,6 +271,52 @@ class ApiErrorResponseTest extends TestCase
         );
     }
 
+    public function test_mobile_registration_always_creates_passenger_account(): void
+    {
+        $response = $this->postJson('/api/auth/register', [
+            'nama' => 'Penumpang Registrasi',
+            'email' => 'penumpang-registrasi@example.com',
+            'no_hp' => '081234567899',
+            'password' => 'Password123',
+            'password_confirmation' => 'Password123',
+            'peran' => 'pengemudi',
+        ]);
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.user.peran', 'penumpang');
+
+        $this->assertDatabaseHas('pengguna', [
+            'email' => 'penumpang-registrasi@example.com',
+            'peran' => 'penumpang',
+        ]);
+    }
+
+    public function test_admin_account_cannot_login_through_mobile_api(): void
+    {
+        $admin = User::factory()->create([
+            'email' => 'admin-mobile@example.com',
+            'peran' => 'admin',
+            'password' => 'Password123',
+        ]);
+
+        $response = $this->postJson('/api/auth/login', [
+            'login' => $admin->email,
+            'password' => 'Password123',
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonPath(
+                'errors.login.0',
+                'Akun admin hanya dapat digunakan melalui web admin.',
+            );
+
+        $this->assertDatabaseMissing('personal_access_tokens', [
+            'tokenable_id' => $admin->id,
+        ]);
+    }
+
     // =========================================================================
     // Test: Booking dengan jadwal tidak valid
     // =========================================================================

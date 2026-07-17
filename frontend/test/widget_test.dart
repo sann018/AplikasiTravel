@@ -19,8 +19,16 @@ void main() {
     await tester.pumpWidget(const TravSApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('RuslyTravel'), findsOneWidget);
-    expect(find.text('Masuk ke RuslyTravel'), findsOneWidget);
+    expect(find.text('Masuk ke Aplikasi Rusly Travel'), findsOneWidget);
     expect(find.text('Lanjut Sebagai Tamu'), findsOneWidget);
+    expect(find.text('Penumpang'), findsNothing);
+    expect(find.text('Pengemudi'), findsNothing);
+
+    await tester.tap(find.text('Daftar Akun Penumpang'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Daftar Akun Penumpang'), findsOneWidget);
+    expect(find.text('Lanjut Sebagai Tamu'), findsNothing);
+    expect(find.textContaining('Akun pengemudi dibuat admin'), findsNothing);
   });
 }

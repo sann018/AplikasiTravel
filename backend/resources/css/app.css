@@ -138,6 +138,16 @@ svg {
     text-transform: uppercase;
 }
 
+.travs-settings-label {
+    display: inline-block;
+    color: var(--travs-primary);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
 .travs-form-title {
     margin: 14px 0 8px;
     font-size: 1.9rem;
@@ -176,6 +186,46 @@ svg {
     color: var(--travs-text);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
     outline: none;
+}
+
+.travs-password-control {
+    position: relative;
+}
+
+.travs-password-control > .form-control,
+.travs-password-control > .travs-input {
+    padding-right: 3rem;
+}
+
+.travs-password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 0.5rem;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0.25rem;
+    background: transparent;
+    color: var(--travs-navy, #102a4c);
+    transform: translateY(-50%);
+    cursor: pointer;
+}
+
+.travs-password-toggle:hover,
+.travs-password-toggle:focus-visible {
+    background: #edf2f7;
+    color: var(--travs-navy, #102a4c);
+    outline: none;
+}
+
+.travs-password-toggle svg {
+    width: 1rem;
+    height: 1rem;
 }
 
 .travs-input::placeholder,
@@ -983,6 +1033,10 @@ svg {
     border: 1px solid #d9e0ea;
     text-align: right;
     min-width: 128px;
+}
+
+.travs-dashboard-panel-chip.travs-dashboard-panel-chip--square {
+    border-radius: 0;
 }
 
 .travs-dashboard-panel-chip strong {
@@ -1866,8 +1920,10 @@ svg {
     border-radius: 12px;
     background: #f8fafc;
     color: var(--travs-text-soft);
+    font-family: inherit;
     font-size: 0.82rem;
     font-weight: 700;
+    text-align: left;
 }
 
 .travs-settings-page .travs-settings-logo-preview img {
@@ -3769,11 +3825,14 @@ body.travs-sidebar-open {
     color: #e8eef7;
     background: #0f2747;
     border-right-color: #0a1c35;
+    /* Header sticky dimulai dari tepi atas agar tidak meninggalkan celah saat menu di-scroll. */
+    padding: 0 16px 20px;
 }
 
 .travs-admin-body .travs-sidebar-head {
     background: #0f2747;
     border-bottom-color: rgba(255, 255, 255, 0.14);
+    margin: 0 -16px 12px;
 }
 
 .travs-admin-body .travs-brand-copy h3,
@@ -3940,4 +3999,295 @@ body.travs-sidebar-open {
 .travs-admin-body .travs-notification-card.is-old-notification .travs-panel-title,
 .travs-admin-body .travs-notification-card.is-old-notification .travs-admin-booking-alert {
     opacity: .86;
+}
+
+/* Notifikasi admin dibuat sebagai daftar sederhana tanpa card berlapis. */
+.travs-admin-body .travs-admin-simple-page {
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #d8e0e8;
+    border-radius: 0.375rem;
+}
+
+.travs-admin-body .travs-admin-simple-block {
+    padding: 20px;
+    border-bottom: 1px solid #d8e0e8;
+}
+
+.travs-admin-body .travs-admin-simple-block:last-child {
+    border-bottom: 0;
+}
+
+.travs-admin-body .travs-notification-statistics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 16px;
+    border: 1px solid #d8e0e8;
+}
+
+.travs-admin-body .travs-notification-statistics > div {
+    display: grid;
+    gap: 4px;
+    padding: 14px;
+    border-right: 1px solid #d8e0e8;
+}
+
+.travs-admin-body .travs-notification-statistics > div:last-child {
+    border-right: 0;
+}
+
+.travs-admin-body .travs-notification-statistics span,
+.travs-admin-body .travs-notification-simple-details dt {
+    color: #64748b;
+    font-size: var(--travs-font-caption);
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.travs-admin-body .travs-notification-statistics strong {
+    color: #0f2747;
+    font-size: 1.25rem;
+}
+
+.travs-admin-body .travs-notification-statistics small {
+    color: #64748b;
+}
+
+.travs-admin-body .travs-notification-cleanup-form {
+    display: flex;
+    align-items: end;
+    gap: 10px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.travs-admin-body .travs-notification-cleanup-form .travs-field {
+    min-width: 220px;
+}
+
+.travs-admin-body .travs-notification-list {
+    margin-top: 18px;
+    border: 1px solid #d8e0e8;
+}
+
+.travs-admin-body .travs-notification-simple-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 14px;
+    background: #eef2f6;
+    border-bottom: 1px solid #d8e0e8;
+}
+
+.travs-admin-body .travs-notification-simple-heading > div {
+    display: grid;
+    gap: 2px;
+}
+
+.travs-admin-body .travs-notification-simple-heading strong {
+    color: #0f2747;
+}
+
+.travs-admin-body .travs-notification-simple-heading span {
+    color: #64748b;
+    font-size: var(--travs-font-caption);
+}
+
+.travs-admin-body .travs-notification-simple-heading b {
+    min-width: 28px;
+    color: #0f2747;
+    text-align: center;
+}
+
+.travs-admin-body .travs-notification-simple-heading.is-new {
+    border-left: 4px solid #f58a2a;
+}
+
+.travs-admin-body .travs-notification-simple-heading.is-old {
+    border-left: 4px solid #94a3b8;
+}
+
+.travs-admin-body .travs-notification-simple-row {
+    padding: 16px;
+    border-bottom: 1px solid #d8e0e8;
+}
+
+.travs-admin-body .travs-notification-simple-row:last-child {
+    border-bottom: 0;
+}
+
+.travs-admin-body .travs-notification-simple-row.is-new {
+    border-left: 4px solid #f58a2a;
+}
+
+.travs-admin-body .travs-notification-simple-row.is-old {
+    border-left: 4px solid #94a3b8;
+}
+
+.travs-admin-body .travs-notification-simple-row__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.travs-admin-body .travs-notification-simple-row__header h4 {
+    margin: 0 0 4px;
+    color: #0f2747;
+    font-size: var(--travs-font-subtitle);
+}
+
+.travs-admin-body .travs-notification-simple-row__header p,
+.travs-admin-body .travs-notification-simple-message {
+    margin: 0;
+    color: #64748b;
+}
+
+.travs-admin-body .travs-notification-simple-message {
+    margin-top: 12px;
+}
+
+.travs-admin-body .travs-notification-simple-details {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 14px 0 0;
+    border-top: 1px solid #d8e0e8;
+    border-left: 1px solid #d8e0e8;
+}
+
+.travs-admin-body .travs-notification-simple-details > div {
+    padding: 10px 12px;
+    border-right: 1px solid #d8e0e8;
+    border-bottom: 1px solid #d8e0e8;
+}
+
+.travs-admin-body .travs-notification-simple-details dd {
+    margin: 4px 0 0;
+    color: #0f2747;
+}
+
+.travs-admin-body .travs-notification-simple-actions {
+    justify-content: flex-start;
+    margin-top: 14px;
+}
+
+.travs-admin-body .travs-notification-simple-row__header p strong,
+.travs-admin-body .travs-notification-simple-message strong,
+.travs-admin-body .travs-notification-simple-details dd strong {
+    color: #0f2747;
+    font-weight: 700;
+}
+
+/* Detail pemesanan dibuat seperti satu lembar data agar lebih sederhana dibaca admin. */
+.travs-admin-body .travs-booking-detail-simple {
+    padding: 20px;
+    border: 1px solid #d8e0e8;
+    border-radius: 4px;
+    background: #ffffff;
+}
+
+.travs-admin-body .travs-booking-detail-simple .travs-detail-grid,
+.travs-admin-body .travs-booking-detail-simple .travs-detail-stack {
+    display: block;
+}
+
+.travs-admin-body .travs-booking-detail-simple .travs-section-card {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.travs-admin-body .travs-booking-detail-simple .travs-section-card + .travs-section-card,
+.travs-admin-body .travs-booking-detail-simple > .travs-detail-stack {
+    padding-top: 24px;
+    margin-top: 24px;
+    border-top: 1px solid #d8e0e8;
+}
+
+.travs-admin-body .travs-booking-detail-simple .travs-description-list,
+.travs-admin-body .travs-booking-detail-simple .travs-operational-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    border-top: 1px solid #d8e0e8;
+    border-left: 1px solid #d8e0e8;
+}
+
+.travs-admin-body .travs-booking-detail-simple .travs-description-list > div,
+.travs-admin-body .travs-booking-detail-simple .travs-operational-summary > div {
+    min-height: auto;
+    padding: 12px;
+    border: 0;
+    border-right: 1px solid #d8e0e8;
+    border-bottom: 1px solid #d8e0e8;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.travs-admin-body .travs-booking-detail-simple .travs-description-list > .travs-status-card.is-paid {
+    background: #ecfdf5;
+}
+
+.travs-admin-body .travs-booking-detail-simple .travs-description-list > .travs-status-card.is-unpaid {
+    background: #fef2f2;
+}
+
+.travs-admin-body .travs-booking-detail-simple .travs-bagasi-item {
+    padding: 14px 0;
+    border: 0;
+    border-bottom: 1px solid #d8e0e8;
+    border-radius: 0;
+    background: transparent;
+}
+
+@media (max-width: 900px) {
+    .travs-admin-body .travs-notification-statistics,
+    .travs-admin-body .travs-notification-simple-details {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .travs-admin-body .travs-notification-statistics > div:nth-child(2) {
+        border-right: 0;
+    }
+
+    .travs-admin-body .travs-notification-statistics > div:nth-child(-n + 2) {
+        border-bottom: 1px solid #d8e0e8;
+    }
+}
+
+@media (max-width: 600px) {
+    .travs-admin-body .travs-admin-simple-block {
+        padding: 16px;
+    }
+
+    .travs-admin-body .travs-notification-statistics,
+    .travs-admin-body .travs-notification-simple-details {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-admin-body .travs-notification-statistics > div {
+        border-right: 0;
+        border-bottom: 1px solid #d8e0e8;
+    }
+
+    .travs-admin-body .travs-notification-statistics > div:last-child {
+        border-bottom: 0;
+    }
+
+    .travs-admin-body .travs-notification-simple-row__header {
+        display: grid;
+    }
+
+    .travs-admin-body .travs-booking-detail-simple {
+        padding: 16px;
+    }
+
+    .travs-admin-body .travs-booking-detail-simple .travs-description-list,
+    .travs-admin-body .travs-booking-detail-simple .travs-operational-summary {
+        grid-template-columns: 1fr;
+    }
 }

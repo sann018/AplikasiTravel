@@ -70,7 +70,7 @@ class DriverAvailabilityService
         $route = $this->routeLabel($schedule);
         $status = ucfirst((string) $schedule->status);
 
-        return "Pengemudi masih memiliki jadwal aktif pada {$departure} ({$route}, status {$status}). Selesaikan atau batalkan jadwal itu dulu sebelum menambah jadwal baru di tanggal yang sama.";
+        return "Pengemudi masih memiliki jadwal aktif pada {$departure} ({$route}, status {$status}). Tutup atau selesaikan jadwal itu dulu sebelum menambah jadwal baru di tanggal yang sama.";
     }
 
     private function routeLabel(Jadwal $schedule): string

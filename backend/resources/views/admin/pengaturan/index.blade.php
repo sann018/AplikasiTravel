@@ -40,7 +40,7 @@
         <section class="travs-settings-tabs collapsible-section mb-3" data-collapsible-section>
             <div class="collapsible-section__header" data-collapse-header>
                 <div class="travs-settings-tabs-copy">
-                    <span class="travs-eyebrow">Control Center</span>
+                    <span class="travs-settings-label">Control Center</span>
                 </div>
                 @include('admin.partials.collapsible-toggle', ['targetId' => 'settings-control-center-body'])
             </div>
@@ -64,7 +64,7 @@
                 <div class="collapsible-section__header" data-collapse-header>
                     <div class="travs-admin-account-head flex-grow-1">
                         <div>
-                            <span class="travs-eyebrow">Akun Admin</span>
+                            <span class="travs-settings-label">Akun Admin</span>
                             <h3>Email dan Password</h3>
                             <p>Perbarui email login atau ganti password dashboard admin.</p>
                         </div>
@@ -87,7 +87,13 @@
                             </div>
                             <div class="travs-field">
                                 <label for="current_password">Password Lama</label>
-                                <input id="current_password" name="current_password" type="password" class="travs-input @error('current_password') is-invalid @enderror" required autocomplete="current-password" placeholder="Masukkan password lama">
+                                <div class="travs-password-control">
+                                    <input id="current_password" name="current_password" type="password" class="travs-input @error('current_password') is-invalid @enderror" required autocomplete="current-password" placeholder="Masukkan password lama">
+                                    <button type="button" class="travs-password-toggle" data-password-toggle data-password-target="current_password" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
+                                        <span data-password-show-icon><i data-feather="eye"></i></span>
+                                        <span class="d-none" data-password-hide-icon><i data-feather="eye-off"></i></span>
+                                    </button>
+                                </div>
                                 @include('admin.partials.field-error', ['name' => 'current_password'])
                             </div>
                         </div>
@@ -99,12 +105,24 @@
                             <div class="travs-form-grid-2">
                                 <div class="travs-field">
                                     <label for="password">Password Baru</label>
-                                    <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror" autocomplete="new-password" placeholder="Minimal 8 karakter">
+                                    <div class="travs-password-control">
+                                        <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror" autocomplete="new-password" placeholder="Minimal 8 karakter">
+                                        <button type="button" class="travs-password-toggle" data-password-toggle data-password-target="password" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
+                                            <span data-password-show-icon><i data-feather="eye"></i></span>
+                                            <span class="d-none" data-password-hide-icon><i data-feather="eye-off"></i></span>
+                                        </button>
+                                    </div>
                                     @include('admin.partials.field-error', ['name' => 'password'])
                                 </div>
                                 <div class="travs-field">
                                     <label for="password_confirmation">Konfirmasi Password Baru</label>
-                                    <input id="password_confirmation" name="password_confirmation" type="password" class="travs-input" autocomplete="new-password" placeholder="Ulangi password baru">
+                                    <div class="travs-password-control">
+                                        <input id="password_confirmation" name="password_confirmation" type="password" class="travs-input" autocomplete="new-password" placeholder="Ulangi password baru">
+                                        <button type="button" class="travs-password-toggle" data-password-toggle data-password-target="password_confirmation" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
+                                            <span data-password-show-icon><i data-feather="eye"></i></span>
+                                            <span class="d-none" data-password-hide-icon><i data-feather="eye-off"></i></span>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -119,7 +137,7 @@
                 @csrf
                 <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
                     <div>
-                        <span class="travs-eyebrow">Umum</span>
+                        <span class="travs-settings-label">Umum</span>
                         <h3>Identitas dan Kontak Aplikasi</h3>
                         <p>Informasi utama yang digunakan pada web admin dan aplikasi mobile.</p>
                     </div>
@@ -141,10 +159,17 @@
                         @include('admin.partials.field-error', ['name' => 'app_logo'])
                     </div>
                     <div class="col-12">
-                        <div class="travs-settings-logo-preview" data-logo-preview-wrapper @if (! $logoPreviewUrl) hidden @endif>
+                        <button
+                            type="button"
+                            class="travs-settings-logo-preview travs-photo-preview-trigger"
+                            data-logo-preview-wrapper
+                            data-preview-src="{{ $logoPreviewUrl ?? '' }}"
+                            aria-label="Lihat logo aplikasi"
+                            @if (! $logoPreviewUrl) hidden @endif
+                        >
                             <span>Preview logo</span>
                             <img src="{{ $logoPreviewUrl ?? '' }}" alt="Preview logo aplikasi" data-logo-preview>
-                        </div>
+                        </button>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label" for="admin_contact">Kontak Admin</label>
@@ -175,7 +200,7 @@
             <section id="settings-important-information" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="general" data-collapsible-section @if ($activeTab !== 'general') hidden @endif>
                 <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
                     <div>
-                        <span class="travs-eyebrow">Informasi Penting</span>
+                        <span class="travs-settings-label">Informasi Penting</span>
                         <h3>Informasi Beranda Aplikasi</h3>
                         <p>Tambahkan pengumuman singkat yang perlu dibaca tamu dan penumpang.</p>
                     </div>
@@ -230,7 +255,7 @@
                 @csrf
                 <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
                     <div>
-                        <span class="travs-eyebrow">Pemesanan</span>
+                        <span class="travs-settings-label">Pemesanan</span>
                         <h3>Aturan Kursi dan Waktu Pemesanan</h3>
                         <p>Atur jumlah kursi dan lama penguncian selama proses pemesanan.</p>
                     </div>
@@ -239,20 +264,8 @@
 
                 <div id="settings-booking-body" class="collapsible-section__body" data-collapse-body>
                 <div class="row g-3">
-                    <div class="col-12">
-                        {{-- Switch dipakai karena pengaturan ini hanya memiliki kondisi aktif atau nonaktif. --}}
-                        <div class="travs-settings-switch-row">
-                            <div>
-                                <strong>Pembatalan Pemesanan Otomatis</strong>
-                                <p>Pemesanan dibatalkan otomatis setelah batas waktunya habis.</p>
-                            </div>
-                            <div class="form-check form-switch m-0">
-                                <input type="hidden" name="auto_cancel_booking" value="0">
-                                <input id="auto_cancel_booking" class="form-check-input" type="checkbox" name="auto_cancel_booking" value="1" {{ $settingEnabled('auto_cancel_booking') ? 'checked' : '' }}>
-                                <label class="form-check-label" for="auto_cancel_booking">Aktif</label>
-                            </div>
-                        </div>
-                    </div>
+                    {{-- Nilai lama tetap dikirim agar penyederhanaan UI tidak mengubah proses kedaluwarsa di backend. --}}
+                    <input type="hidden" name="auto_cancel_booking" value="{{ $settingEnabled('auto_cancel_booking') ? '1' : '0' }}">
                     <div class="col-md-4">
                         <label class="form-label" for="max_seat_per_booking">Maksimal Kursi per Pemesanan</label>
                         <div class="input-group">
@@ -296,55 +309,16 @@
                 <input type="hidden" name="payment_qris_enabled" value="{{ $settingEnabled('payment_qris_enabled', true) ? '1' : '0' }}">
                 <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
                     <div>
-                        <span class="travs-eyebrow">Pembayaran</span>
-                        <h3>Metode dan Informasi Pembayaran</h3>
-                        <p>Kelola rekening transfer dan pilihan pembayaran tunai. Biaya kanal mengikuti Pakasir.</p>
+                        <span class="travs-settings-label">Pembayaran</span>
+                        <h3>Catatan Pembayaran</h3>
+                        <p>Kelola petunjuk pembayaran tunai yang ditampilkan kepada penumpang.</p>
                     </div>
                     @include('admin.partials.collapsible-toggle', ['targetId' => 'settings-payment-body'])
                 </div>
 
                 <div id="settings-payment-body" class="collapsible-section__body" data-collapse-body>
-                <div class="row g-3">
-                    <div class="col-12">
-                        <div class="travs-settings-switch-row h-100">
-                            <div>
-                                <strong>Pembayaran Tunai</strong>
-                                <p>Metode tunai hanya muncul di mobile saat status ini aktif.</p>
-                            </div>
-                            <div class="form-check form-switch m-0">
-                                <input type="hidden" name="payment_cash_enabled" value="0">
-                                <input id="payment_cash_enabled" class="form-check-input" type="checkbox" name="payment_cash_enabled" value="1" {{ $settingEnabled('payment_cash_enabled') ? 'checked' : '' }} data-cash-toggle>
-                                <label class="form-check-label" for="payment_cash_enabled">Aktif</label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <section class="travs-settings-subsection mt-4">
-                    <div class="travs-settings-subsection-head">
-                        <h4>Rekening Transfer</h4>
-                        <p>Informasi rekening yang ditampilkan sebagai tujuan pembayaran transfer.</p>
-                    </div>
-                    <div class="row g-3">
-                        <div class="col-md-4">
-                            <label class="form-label" for="bank_name">Nama Bank</label>
-                            <input id="bank_name" name="bank_name" type="text" maxlength="100" class="form-control @error('bank_name') is-invalid @enderror" value="{{ $settingValue('bank_name') }}">
-                            @include('admin.partials.field-error', ['name' => 'bank_name'])
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label" for="bank_account_number">Nomor Rekening</label>
-                            <input id="bank_account_number" name="bank_account_number" type="text" inputmode="numeric" maxlength="20" class="form-control @error('bank_account_number') is-invalid @enderror" value="{{ $settingValue('bank_account_number') }}">
-                            @include('admin.partials.field-error', ['name' => 'bank_account_number'])
-                        </div>
-                        <div class="col-md-4">
-                            <label class="form-label" for="bank_account_name">Nama Pemilik Rekening</label>
-                            <input id="bank_account_name" name="bank_account_name" type="text" maxlength="100" class="form-control @error('bank_account_name') is-invalid @enderror" value="{{ $settingValue('bank_account_name') }}">
-                            @include('admin.partials.field-error', ['name' => 'bank_account_name'])
-                        </div>
-                    </div>
-                </section>
-
-                <div class="mt-3">
+                {{-- Toggle tunai dan rekening transfer lama tidak diedit lagi dari admin agar sumber pembayaran tetap mengikuti Pakasir. --}}
+                <div>
                     <label class="form-label" for="payment_cash_note">Catatan Pembayaran Tunai</label>
                     <textarea id="payment_cash_note" name="payment_cash_note" rows="3" maxlength="1000" class="form-control @error('payment_cash_note') is-invalid @enderror" data-cash-note>{{ $settingValue('payment_cash_note') }}</textarea>
                     <div class="form-text">Petunjuk yang dibaca penumpang ketika memilih pembayaran tunai.</div>
@@ -362,7 +336,7 @@
                 @csrf
                 <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
                     <div>
-                        <span class="travs-eyebrow">Bagasi</span>
+                        <span class="travs-settings-label">Bagasi</span>
                         <h3>Aturan Barang Bawaan</h3>
                         <p>Atur metode hitung, batas gratis, biaya tambahan, dan kapasitas kendaraan.</p>
                     </div>
@@ -531,7 +505,7 @@
             <section id="settings-banner" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="banner" data-collapsible-section @if ($activeTab !== 'banner') hidden @endif>
                 <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
                     <div>
-                        <span class="travs-eyebrow">Banner Beranda</span>
+                        <span class="travs-settings-label">Banner Beranda</span>
                         <h3>Informasi Beranda Aplikasi</h3>
                         <p>Kelola gambar promo atau informasi yang tampil di beranda tamu dan penumpang.</p>
                     </div>
@@ -639,14 +613,6 @@
                 });
             });
 
-            const cashToggle = document.querySelector('[data-cash-toggle]');
-            const cashNote = document.querySelector('[data-cash-note]');
-            const syncCashNote = () => {
-                if (cashNote && cashToggle) cashNote.disabled = !cashToggle.checked;
-            };
-            cashToggle?.addEventListener('change', syncCashNote);
-            syncCashNote();
-
             // Field yang redup diaktifkan sesaat sebelum submit agar nilainya tetap diterima backend.
             document.querySelectorAll('.travs-settings-pane').forEach((form) => {
                 form.addEventListener('submit', () => form.querySelectorAll(':disabled').forEach((field) => field.disabled = false));
@@ -663,6 +629,7 @@
                 if (temporaryLogoUrl) URL.revokeObjectURL(temporaryLogoUrl);
                 temporaryLogoUrl = URL.createObjectURL(file);
                 wrapper.hidden = false;
+                wrapper.dataset.previewSrc = temporaryLogoUrl;
                 image.src = temporaryLogoUrl;
             });
 

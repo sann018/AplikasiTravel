@@ -82,7 +82,7 @@ class BiayaOperasionalController extends Controller
     public function export(Request $request)
     {
         $format = strtolower((string) $request->query('format', 'csv'));
-        $format = in_array($format, ['csv', 'xls', 'xlsx'], true) ? $format : 'csv';
+        $format = in_array($format, ['csv', 'xls'], true) ? $format : 'csv';
 
         // Export memakai filter yang sama dengan daftar biaya agar data yang diunduh sesuai tampilan admin.
         $records = $this->filteredQuery($request)
@@ -92,8 +92,13 @@ class BiayaOperasionalController extends Controller
         $filename = 'biaya-operasional-'.now()->format('Ymd-His');
 
         return match ($format) {
-            'xlsx' => $this->downloadXlsx($rows, "{$filename}.xlsx"),
-            'xls' => $this->downloadHtmlExcel($rows, "{$filename}.xls"),
+            'xls' => $this->downloadHtmlExcel(
+                $rows,
+                "{$filename}.xls",
+                $request,
+                $records->count(),
+                (float) $records->sum('nominal'),
+            ),
             default => $this->downloadCsv($rows, "{$filename}.csv"),
         };
     }
@@ -225,7 +230,7 @@ class BiayaOperasionalController extends Controller
                 $item->tanggal_biaya?->format('d/m/Y H:i') ?? '-',
                 $route,
                 $item->jenis_biaya,
-                'Rp'.number_format((float) $item->nominal, 0, ',', '.'),
+                (float) $item->nominal,
                 $item->pencatat?->nama ?? '-',
                 $item->keterangan ?: '-',
             ];
@@ -241,7 +246,7 @@ class BiayaOperasionalController extends Controller
             echo "\xEF\xBB\xBF";
 
             foreach ($rows as $row) {
-                fputcsv($handle, $row);
+                fputcsv($handle, $row, ';');
             }
 
             fclose($handle);
@@ -250,32 +255,111 @@ class BiayaOperasionalController extends Controller
         ]);
     }
 
-    private function downloadHtmlExcel(array $rows, string $filename): StreamedResponse
-    {
-        return response()->streamDownload(function () use ($rows) {
-            echo '<html><head><meta charset="UTF-8"></head><body>';
-            echo '<h2>Laporan Biaya Operasional</h2>';
-            echo '<p>Dicetak pada '.e(now()->translatedFormat('d F Y H:i')).'</p>';
-            echo '<table border="1" cellspacing="0" cellpadding="8" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:12px;">';
+    private function downloadHtmlExcel(
+        array $rows,
+        string $filename,
+        ?Request $request = null,
+        int $recordCount = 0,
+        float $totalCost = 0,
+    ): StreamedResponse {
+        return response()->streamDownload(function () use ($rows, $request, $recordCount, $totalCost) {
+            $headers = $rows[0] ?? [];
+            $printedBy = $request?->user()?->nama ?? 'Admin';
+            $period = $request ? $this->periodLabel($request) : 'Semua periode';
+            $recordCount = $recordCount > 0 ? $recordCount : max(count($rows) - 1, 0);
+
+            echo '<html><head><meta charset="UTF-8">';
+            echo '<style>
+                body{font-family:Arial,sans-serif;color:#10233f;font-size:12px}
+                .brand{font-size:18px;font-weight:bold;text-align:center}
+                .title{font-size:16px;font-weight:bold;text-align:center;margin-top:4px}
+                .meta{margin:14px 0 18px;line-height:1.6}
+                table{border-collapse:collapse;width:100%;table-layout:fixed}
+                th,td{border:1px solid #94a3b8;padding:8px;vertical-align:top;white-space:normal;word-wrap:break-word}
+                th{background:#10233f;color:#fff;font-weight:bold;text-align:center}
+                .center{text-align:center}
+                .right{text-align:right}
+                .summary{background:#e8eef5;font-weight:bold}
+            </style></head><body>';
+            echo '<div class="brand">RUSLY TRAVEL</div>';
+            echo '<div class="title">LAPORAN BIAYA OPERASIONAL</div>';
+            echo '<div class="meta">';
+            echo 'Periode: '.e($period).'<br>';
+            echo 'Dicetak oleh: '.e($printedBy).'<br>';
+            echo 'Tanggal cetak: '.e(now()->translatedFormat('d F Y H:i'));
+            echo '</div>';
+            echo '<table><colgroup>';
+
+            foreach ($headers as $header) {
+                $width = match ($header) {
+                    'No' => 48,
+                    'Tanggal Biaya' => 125,
+                    'Rute' => 180,
+                    'Jenis Biaya' => 150,
+                    'Nominal' => 110,
+                    'Pencatat' => 140,
+                    default => 220,
+                };
+                echo '<col style="width:'.$width.'px">';
+            }
+
+            echo '</colgroup>';
 
             foreach ($rows as $rowIndex => $row) {
                 echo '<tr>';
 
                 foreach ($row as $cellIndex => $cell) {
-                    $tag = $rowIndex === 0 ? 'th' : 'td';
-                    $style = $rowIndex === 0
-                        ? ' style="font-weight:bold;background:#10233f;color:#ffffff;text-align:center;"'
-                        : ' style="text-align:'.($cellIndex === 0 ? 'center' : 'left').';"';
-                    echo "<{$tag}{$style}>".e((string) $cell)."</{$tag}>";
+                    if ($rowIndex === 0) {
+                        echo '<th>'.e((string) $cell).'</th>';
+
+                        continue;
+                    }
+
+                    $header = $headers[$cellIndex] ?? '';
+                    $class = $header === 'No' ? 'center' : ($header === 'Nominal' ? 'right' : '');
+                    $displayValue = $header === 'Nominal'
+                        ? $this->formatRupiah((float) $cell)
+                        : (string) $cell;
+                    echo '<td class="'.$class.'">'.e($displayValue).'</td>';
                 }
 
                 echo '</tr>';
             }
 
+            echo '<tr class="summary">';
+            echo '<td colspan="4" class="right">TOTAL BIAYA</td>';
+            echo '<td class="right">'.e($this->formatRupiah($totalCost)).'</td>';
+            echo '<td colspan="2">Jumlah data: '.e((string) $recordCount).'</td>';
+            echo '</tr>';
             echo '</table></body></html>';
         }, $filename, [
             'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
         ]);
+    }
+
+    private function periodLabel(Request $request): string
+    {
+        $startDate = $request->date('tanggal_mulai');
+        $endDate = $request->date('tanggal_selesai');
+
+        if ($startDate && $endDate) {
+            return $startDate->translatedFormat('d F Y').' sampai '.$endDate->translatedFormat('d F Y');
+        }
+
+        if ($startDate) {
+            return 'Mulai '.$startDate->translatedFormat('d F Y');
+        }
+
+        if ($endDate) {
+            return 'Sampai '.$endDate->translatedFormat('d F Y');
+        }
+
+        return 'Semua periode';
+    }
+
+    private function formatRupiah(float $value): string
+    {
+        return 'Rp'.number_format($value, 0, ',', '.');
     }
 
     private function downloadXlsx(array $rows, string $filename)

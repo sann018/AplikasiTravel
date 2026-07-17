@@ -101,7 +101,7 @@ class LaporanController extends Controller
             ->get();
         $rows = [[
             'No',
-            'Order Gateway',
+            'Kode Transaksi',
             'Kode Pemesanan',
             'Penumpang',
             'Rute',
@@ -251,7 +251,7 @@ class LaporanController extends Controller
                 $width = match ($header) {
                     'No' => 48,
                     'Rute' => 180,
-                    'Kode Pemesanan', 'Order Gateway' => 150,
+                    'Kode Pemesanan', 'Kode Transaksi' => 150,
                     'Penumpang' => 140,
                     default => 120,
                 };

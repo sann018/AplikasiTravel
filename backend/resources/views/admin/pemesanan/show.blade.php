@@ -11,7 +11,6 @@
         $metodeManualTransfer = ['transfer_manual', 'manual_transfer', 'bank_manual'];
         $isCashPayment = $metodeBayar === 'cash';
         $isGatewayPayment = $pembayaran && ! in_array($metodeBayar, array_merge(['cash'], $metodeManualTransfer), true);
-        $statusLockedByGateway = $isGatewayPayment;
         $cashVerificationReady = $isCashPayment
             && $pembayaran?->status_bayar === 'menunggu'
             && $pemesanan->status_pemesanan === 'menunggu_pembayaran';
@@ -69,6 +68,7 @@
         };
     @endphp
 
+    <div class="travs-booking-detail-simple">
     <section class="travs-detail-grid">
         <article class="travs-section-card">
             <div class="travs-panel-title">
@@ -172,69 +172,54 @@
         <article class="travs-section-card">
             <div class="travs-panel-title">
                 <h3>Status dan Pembayaran</h3>
-                <p>Status pemesanan dapat diperbarui sesuai proses perjalanan. Pembayaran digital diperbarui otomatis setelah konfirmasi layanan pembayaran.</p>
+                <p>Status pemesanan mengikuti pembayaran dan proses perjalanan. Pembayaran digital diperbarui otomatis oleh layanan pembayaran.</p>
             </div>
 
-            <form method="POST" action="{{ route('admin.pemesanan.update', $pemesanan) }}" class="travs-form-grid">
-                @csrf
-                @method('PUT')
+            <div class="travs-table-wrap">
+                <table class="travs-table">
+                    <tbody>
+                        <tr>
+                            <th>Status Pemesanan</th>
+                            <td>
+                                <span class="travs-status-pill travs-status-{{ $pemesanan->status_pemesanan }}">
+                                    {{ ucwords(str_replace('_', ' ', $pemesanan->status_pemesanan)) }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Subtotal Tiket</th>
+                            <td>{{ $formatRupiah($pemesanan->subtotal_tiket) }}</td>
+                        </tr>
+                        <tr>
+                            <th>Total</th>
+                            <td><strong>{{ $formatRupiah($pemesanan->total_harga) }}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-                <div class="travs-field">
-                    <label for="status_pemesanan">Status Pemesanan</label>
-                    <select id="status_pemesanan" name="status_pemesanan" class="travs-select @error('status_pemesanan') is-invalid @enderror" @disabled($statusLockedByGateway)>
-                        @foreach (['menunggu_pembayaran' => 'Menunggu Pembayaran', 'terbayar' => 'Terbayar', 'dibatalkan' => 'Dibatalkan', 'selesai' => 'Selesai'] as $value => $label)
-                            <option
-                                value="{{ $value }}"
-                                @selected($pemesanan->status_pemesanan === $value)
-                                @disabled(
-                                    ($paymentIsConfirmed && $value === 'menunggu_pembayaran')
-                                    || (($cashVerificationReady || ($isGatewayPayment && $pembayaran?->status_bayar !== 'berhasil')) && $value === 'terbayar')
-                                )
-                            >
-                                {{ $label }}
-                            </option>
-                        @endforeach
-                    </select>
-                    @if ($statusLockedByGateway)
-                        <small style="color:#64748b;">Status pembayaran digital diperbarui otomatis dari layanan pembayaran.</small>
-                    @endif
-                    @if ($isGatewayPayment && $pembayaran?->status_bayar !== 'berhasil')
-                        <small style="color:#64748b;">Untuk pembayaran digital, gunakan pengecekan status pembayaran yang tersedia.</small>
-                    @endif
-                    @include('admin.partials.field-error', ['name' => 'status_pemesanan'])
+            <div class="travs-operational-summary travs-operational-summary-neutral">
+                <div @class(['is-complete' => $kehadiranLengkap])>
+                    <small>Kehadiran</small>
+                    <strong>{{ $totalHadir }}/{{ $totalManifest }}</strong>
+                    <span>{{ $totalManifest > 0 && $totalHadir >= $totalManifest ? 'Semua hadir' : 'Belum lengkap' }}</span>
                 </div>
+                <div @class(['is-complete' => $turunLengkap])>
+                    <small>Status Turun</small>
+                    <strong>{{ $totalTurun }}/{{ $totalManifest }}</strong>
+                    <span>{{ $turunLengkap ? 'Semua turun' : 'Belum lengkap' }}</span>
+                </div>
+                <div>
+                    <small>Barang Bawaan</small>
+                    <strong>{{ $totalBagasi }} catatan</strong>
+                    <span>{{ $bagasiAman ? 'Aman' : 'Perlu cek saat turun' }}</span>
+                </div>
+            </div>
 
-                <div class="travs-detail-money">
-                    <div><span>Subtotal Tiket</span><strong>{{ $formatRupiah($pemesanan->subtotal_tiket) }}</strong></div>
-                    <div class="is-total"><span>Total</span><strong>{{ $formatRupiah($pemesanan->total_harga) }}</strong></div>
-                </div>
-
-                <div class="travs-operational-summary travs-operational-summary-neutral">
-                    <div @class(['is-complete' => $kehadiranLengkap])>
-                        <small>Kehadiran</small>
-                        <strong>{{ $totalHadir }}/{{ $totalManifest }}</strong>
-                        <span>{{ $totalManifest > 0 && $totalHadir >= $totalManifest ? 'Semua hadir' : 'Belum lengkap' }}</span>
-                    </div>
-                    <div @class(['is-complete' => $turunLengkap])>
-                        <small>Status Turun</small>
-                        <strong>{{ $totalTurun }}/{{ $totalManifest }}</strong>
-                        <span>{{ $turunLengkap ? 'Semua turun' : 'Belum lengkap' }}</span>
-                    </div>
-                    <div>
-                        <small>Barang Bawaan</small>
-                        <strong>{{ $totalBagasi }} catatan</strong>
-                        <span>{{ $bagasiAman ? 'Aman' : 'Perlu cek saat turun' }}</span>
-                    </div>
-                </div>
-
-                <div class="travs-form-actions travs-inline">
-                    <a href="{{ route('admin.pemesanan.index') }}" class="travs-button-secondary">Kembali ke Daftar</a>
-                    <a href="{{ $paymentDetailUrl }}" class="travs-button-secondary">{{ $paymentDetailLabel }}</a>
-                    @unless ($statusLockedByGateway)
-                        <button type="submit" class="travs-button">Simpan Status</button>
-                    @endunless
-                </div>
-            </form>
+            <div class="travs-form-actions travs-inline">
+                <a href="{{ route('admin.pemesanan.index') }}" class="travs-button-secondary">Kembali ke Daftar</a>
+                <a href="{{ $paymentDetailUrl }}" class="travs-button-secondary">{{ $paymentDetailLabel }}</a>
+            </div>
 
             @if ($cashVerificationReady)
                 <div class="travs-subsection">
@@ -389,4 +374,5 @@
             </div>
         </article>
     </section>
+    </div>
 @endsection

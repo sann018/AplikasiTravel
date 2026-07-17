@@ -24,87 +24,87 @@
             </div>
         @endif
 
-        <form method="POST" action="{{ route('admin.kendaraan.store') }}" enctype="multipart/form-data" class="travs-form-grid">
+        <form method="POST" action="{{ route('admin.kendaraan.store') }}" enctype="multipart/form-data">
             @csrf
 
-            <div class="travs-form-grid-2">
-                <div class="travs-field">
-                    <label for="nomor_plat">Nomor Plat</label>
-                    <input id="nomor_plat" name="nomor_plat" class="travs-input @error('nomor_plat') is-invalid @enderror" value="{{ old('nomor_plat') }}" required placeholder="Contoh: KB 1234 AB">
-                    @include('admin.partials.field-error', ['name' => 'nomor_plat'])
+            <div class="row g-3">
+                <div class="col-12 col-lg-6">
+                    <label for="nomor_plat" class="form-label">Nomor Plat</label>
+                    <input id="nomor_plat" name="nomor_plat" class="form-control @error('nomor_plat') is-invalid @enderror" value="{{ old('nomor_plat') }}" required placeholder="Contoh: KB 1234 AB">
+                    @include('admin.partials.field-error', ['name' => 'nomor_plat', 'bootstrap' => true])
                 </div>
-                <div class="travs-field">
-                    <label for="merk_kendaraan">Merk Kendaraan</label>
-                    <input id="merk_kendaraan" name="merk_kendaraan" class="travs-input @error('merk_kendaraan') is-invalid @enderror" value="{{ old('merk_kendaraan') }}" required placeholder="Contoh: Toyota Avanza">
-                    @include('admin.partials.field-error', ['name' => 'merk_kendaraan'])
+                <div class="col-12 col-lg-6">
+                    <label for="merk_kendaraan" class="form-label">Merk Kendaraan</label>
+                    <input id="merk_kendaraan" name="merk_kendaraan" class="form-control @error('merk_kendaraan') is-invalid @enderror" value="{{ old('merk_kendaraan') }}" required placeholder="Contoh: Toyota Avanza">
+                    @include('admin.partials.field-error', ['name' => 'merk_kendaraan', 'bootstrap' => true])
                 </div>
-                <div class="travs-field">
-                    <label for="warna">Warna</label>
-                    <input id="warna" name="warna" class="travs-input @error('warna') is-invalid @enderror" value="{{ old('warna') }}" required placeholder="Contoh: Putih">
-                    @include('admin.partials.field-error', ['name' => 'warna'])
+                <div class="col-12 col-lg-6">
+                    <label for="warna" class="form-label">Warna</label>
+                    <input id="warna" name="warna" class="form-control @error('warna') is-invalid @enderror" value="{{ old('warna') }}" required placeholder="Contoh: Putih">
+                    @include('admin.partials.field-error', ['name' => 'warna', 'bootstrap' => true])
                 </div>
-                <div class="travs-field">
-                    <label for="tahun_kendaraan">Tahun</label>
-                    <input id="tahun_kendaraan" name="tahun_kendaraan" type="number" class="travs-input @error('tahun_kendaraan') is-invalid @enderror" value="{{ old('tahun_kendaraan') }}" placeholder="Contoh: 2023">
-                    @include('admin.partials.field-error', ['name' => 'tahun_kendaraan'])
+                <div class="col-12 col-lg-6">
+                    <label for="tahun_kendaraan" class="form-label">Tahun</label>
+                    <input id="tahun_kendaraan" name="tahun_kendaraan" type="number" class="form-control @error('tahun_kendaraan') is-invalid @enderror" value="{{ old('tahun_kendaraan') }}" placeholder="Contoh: 2023">
+                    @include('admin.partials.field-error', ['name' => 'tahun_kendaraan', 'bootstrap' => true])
                 </div>
-                <div class="travs-field">
-                    <label for="tipe_kendaraan">Tipe Kendaraan</label>
-                    <input id="tipe_kendaraan" name="tipe_kendaraan" class="travs-input @error('tipe_kendaraan') is-invalid @enderror" value="{{ old('tipe_kendaraan') }}" placeholder="Contoh: MPV, Minibus, atau Travel Shuttle">
-                    @include('admin.partials.field-error', ['name' => 'tipe_kendaraan'])
+                <div class="col-12 col-lg-6">
+                    <label for="tipe_kendaraan" class="form-label">Tipe Kendaraan</label>
+                    <input id="tipe_kendaraan" name="tipe_kendaraan" class="form-control @error('tipe_kendaraan') is-invalid @enderror" value="{{ old('tipe_kendaraan') }}" placeholder="Contoh: MPV, Minibus, atau Travel Shuttle">
+                    @include('admin.partials.field-error', ['name' => 'tipe_kendaraan', 'bootstrap' => true])
                 </div>
-                <div class="travs-field">
-                    <label for="kapasitas_kursi">Kapasitas Kursi</label>
-                    <input id="kapasitas_kursi" name="kapasitas_kursi" type="number" min="5" max="6" class="travs-input @error('kapasitas_kursi') is-invalid @enderror" value="{{ old('kapasitas_kursi', 6) }}" required placeholder="Contoh: 6">
-                    <div class="travs-field-meta">Kapasitas kursi adalah jumlah kursi penumpang. Kursi sopir tidak dihitung.</div>
-                    @include('admin.partials.field-error', ['name' => 'kapasitas_kursi'])
+                <div class="col-12 col-lg-6">
+                    <label for="kapasitas_kursi" class="form-label">Kapasitas Kursi</label>
+                    <input id="kapasitas_kursi" name="kapasitas_kursi" type="number" min="5" max="6" class="form-control @error('kapasitas_kursi') is-invalid @enderror" value="{{ old('kapasitas_kursi', 6) }}" required placeholder="Contoh: 6">
+                    <div class="form-text">Kapasitas kursi adalah jumlah kursi penumpang. Kursi sopir tidak dihitung.</div>
+                    @include('admin.partials.field-error', ['name' => 'kapasitas_kursi', 'bootstrap' => true])
                 </div>
-                <div class="travs-field">
-                    <label for="seat_layout">Susunan Kursi Default</label>
-                    <input id="seat_layout" name="seat_layout" class="travs-input @error('seat_layout') is-invalid @enderror" value="{{ old('seat_layout') }}" placeholder="Contoh: 1,3,2">
-                    <div class="travs-field-meta">Gunakan 1,3,2 untuk 6 kursi. Kursi yang ditutup untuk ruang bagasi diatur pada saat membuat jadwal.</div>
-                    @include('admin.partials.field-error', ['name' => 'seat_layout'])
+                <div class="col-12 col-lg-6">
+                    <label for="seat_layout" class="form-label">Susunan Kursi Default</label>
+                    <input id="seat_layout" name="seat_layout" class="form-control @error('seat_layout') is-invalid @enderror" value="{{ old('seat_layout') }}" placeholder="Contoh: 1,3,2">
+                    <div class="form-text">Gunakan 1,3,2 untuk 6 kursi. Kursi yang ditutup untuk ruang bagasi diatur pada saat membuat jadwal.</div>
+                    @include('admin.partials.field-error', ['name' => 'seat_layout', 'bootstrap' => true])
                 </div>
-                <div class="travs-field">
-                    <label for="total_kilometer">Total Kilometer</label>
-                    <input id="total_kilometer" name="total_kilometer" type="number" class="travs-input @error('total_kilometer') is-invalid @enderror" value="{{ old('total_kilometer', 0) }}">
-                    @include('admin.partials.field-error', ['name' => 'total_kilometer'])
+                <div class="col-12 col-lg-6">
+                    <label for="total_kilometer" class="form-label">Total Kilometer</label>
+                    <input id="total_kilometer" name="total_kilometer" type="number" class="form-control @error('total_kilometer') is-invalid @enderror" value="{{ old('total_kilometer', 0) }}">
+                    @include('admin.partials.field-error', ['name' => 'total_kilometer', 'bootstrap' => true])
                 </div>
-                <div class="travs-field">
-                    <label for="km_servis_berikutnya">KM Servis Berikutnya</label>
-                    <input id="km_servis_berikutnya" name="km_servis_berikutnya" type="number" class="travs-input @error('km_servis_berikutnya') is-invalid @enderror" value="{{ old('km_servis_berikutnya') }}">
-                    @include('admin.partials.field-error', ['name' => 'km_servis_berikutnya'])
+                <div class="col-12 col-lg-6">
+                    <label for="km_servis_berikutnya" class="form-label">KM Servis Berikutnya</label>
+                    <input id="km_servis_berikutnya" name="km_servis_berikutnya" type="number" class="form-control @error('km_servis_berikutnya') is-invalid @enderror" value="{{ old('km_servis_berikutnya') }}">
+                    @include('admin.partials.field-error', ['name' => 'km_servis_berikutnya', 'bootstrap' => true])
                 </div>
-                <div class="travs-field">
-                    <label for="tgl_terakhir_servis">Tanggal Servis Terakhir</label>
-                    <input id="tgl_terakhir_servis" name="tgl_terakhir_servis" type="date" class="travs-input @error('tgl_terakhir_servis') is-invalid @enderror" value="{{ old('tgl_terakhir_servis') }}">
-                    @include('admin.partials.field-error', ['name' => 'tgl_terakhir_servis'])
+                <div class="col-12 col-lg-6">
+                    <label for="tgl_terakhir_servis" class="form-label">Tanggal Servis Terakhir</label>
+                    <input id="tgl_terakhir_servis" name="tgl_terakhir_servis" type="date" class="form-control @error('tgl_terakhir_servis') is-invalid @enderror" value="{{ old('tgl_terakhir_servis') }}">
+                    @include('admin.partials.field-error', ['name' => 'tgl_terakhir_servis', 'bootstrap' => true])
                 </div>
-                <div class="travs-field">
-                    <label for="tgl_pajak_tahunan">Tanggal Pajak Tahunan</label>
-                    <input id="tgl_pajak_tahunan" name="tgl_pajak_tahunan" type="date" class="travs-input @error('tgl_pajak_tahunan') is-invalid @enderror" value="{{ old('tgl_pajak_tahunan') }}">
-                    @include('admin.partials.field-error', ['name' => 'tgl_pajak_tahunan'])
+                <div class="col-12 col-lg-6">
+                    <label for="tgl_pajak_tahunan" class="form-label">Tanggal Pajak Tahunan</label>
+                    <input id="tgl_pajak_tahunan" name="tgl_pajak_tahunan" type="date" class="form-control @error('tgl_pajak_tahunan') is-invalid @enderror" value="{{ old('tgl_pajak_tahunan') }}">
+                    @include('admin.partials.field-error', ['name' => 'tgl_pajak_tahunan', 'bootstrap' => true])
                 </div>
-                <div class="travs-field travs-field-span-2">
-                    <label for="fasilitas">Fasilitas</label>
-                    <textarea id="fasilitas" name="fasilitas" class="travs-textarea @error('fasilitas') is-invalid @enderror" placeholder="Contoh: AC, WiFi, Charger, Bagasi Luas">{{ old('fasilitas') }}</textarea>
-                    @include('admin.partials.field-error', ['name' => 'fasilitas'])
+                <div class="col-12">
+                    <label for="fasilitas" class="form-label">Fasilitas</label>
+                    <textarea id="fasilitas" name="fasilitas" class="form-control @error('fasilitas') is-invalid @enderror" rows="4" placeholder="Contoh: AC, WiFi, Charger, Bagasi Luas">{{ old('fasilitas') }}</textarea>
+                    @include('admin.partials.field-error', ['name' => 'fasilitas', 'bootstrap' => true])
                 </div>
-                <div class="travs-field">
-                    <label for="status_kendaraan">Status Kendaraan</label>
-                    <select id="status_kendaraan" name="status_kendaraan" class="travs-select @error('status_kendaraan') is-invalid @enderror" required>
+                <div class="col-12 col-lg-6">
+                    <label for="status_kendaraan" class="form-label">Status Kendaraan</label>
+                    <select id="status_kendaraan" name="status_kendaraan" class="form-select @error('status_kendaraan') is-invalid @enderror" required>
                         @foreach (['aktif' => 'Aktif', 'perawatan' => 'Perawatan', 'nonaktif' => 'Nonaktif'] as $value => $label)
                             <option value="{{ $value }}" @selected(old('status_kendaraan', 'aktif') === $value)>{{ $label }}</option>
                         @endforeach
                     </select>
-                    <div class="travs-field-meta">Perawatan untuk armada yang sementara diservis. Nonaktif untuk armada yang tidak digunakan dalam operasional.</div>
-                    @include('admin.partials.field-error', ['name' => 'status_kendaraan'])
+                    <div class="form-text">Perawatan untuk armada yang sementara diservis. Nonaktif untuk armada yang tidak digunakan dalam operasional.</div>
+                    @include('admin.partials.field-error', ['name' => 'status_kendaraan', 'bootstrap' => true])
                 </div>
-                <div class="travs-field">
-                    <label for="foto_kendaraan">Foto Kendaraan</label>
-                    <input id="foto_kendaraan" name="foto_kendaraan" type="file" class="travs-input @error('foto_kendaraan') is-invalid @enderror" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
-                    <div class="travs-field-meta">Format: JPG, PNG, WEBP. Maks 3MB.</div>
-                    @include('admin.partials.field-error', ['name' => 'foto_kendaraan'])
+                <div class="col-12 col-lg-6">
+                    <label for="foto_kendaraan" class="form-label">Foto Kendaraan</label>
+                    <input id="foto_kendaraan" name="foto_kendaraan" type="file" class="form-control @error('foto_kendaraan') is-invalid @enderror" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp">
+                    <div class="form-text">Format: JPG, PNG, WEBP. Maks 3MB.</div>
+                    @include('admin.partials.field-error', ['name' => 'foto_kendaraan', 'bootstrap' => true])
                 </div>
             </div>
 

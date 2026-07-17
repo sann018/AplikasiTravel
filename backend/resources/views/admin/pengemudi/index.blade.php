@@ -5,24 +5,6 @@
 @section('page-description', 'Buat, aktifkan, dan perbarui akun pengemudi.')
 
 @section('content')
-    <section class="travs-summary-grid">
-        <article class="travs-summary-card">
-            <small>Total Pengemudi</small>
-            <strong>{{ number_format($stats['total']) }}</strong>
-            <span>Seluruh akun driver</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Aktif</small>
-            <strong>{{ number_format($stats['aktif']) }}</strong>
-            <span>Siap menerima tugas</span>
-        </article>
-        <article class="travs-summary-card">
-            <small>Nonaktif</small>
-            <strong>{{ number_format($stats['nonaktif']) }}</strong>
-            <span>Belum dijadwalkan</span>
-        </article>
-    </section>
-
     <section class="travs-section-card">
         <div class="travs-panel-header">
             <div class="travs-panel-title">

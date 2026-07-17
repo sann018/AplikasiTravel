@@ -105,11 +105,13 @@ class SecurityAndTDTest extends TestCase
                 'latitude' => -0.0225,
                 'longitude' => 109.3425,
                 'address' => 'Jalan Ahmad Yani, Pontianak',
+                'note' => 'Depan gerbang utama',
             ],
             'dropoff' => [
                 'latitude' => 0.1285,
                 'longitude' => 111.4986,
                 'address' => 'Terminal tujuan',
+                'note' => 'Pintu masuk terminal',
             ],
             'payment_method' => 'qris',
             'passengers' => [

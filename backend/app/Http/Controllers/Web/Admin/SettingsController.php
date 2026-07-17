@@ -124,26 +124,18 @@ class SettingsController extends Controller
         $this->mergeBooleans($request, [
             'payment_transfer_enabled',
             'payment_qris_enabled',
-            'payment_cash_enabled',
         ]);
 
         $validated = $request->validate([
             'payment_transfer_enabled' => ['required', 'boolean'],
             'payment_qris_enabled' => ['required', 'boolean'],
-            'payment_cash_enabled' => ['required', 'boolean'],
-            'bank_account_number' => ['required_if:payment_transfer_enabled,true', 'nullable', 'digits_between:8,20'],
-            'bank_account_name' => ['required_if:payment_transfer_enabled,true', 'nullable', 'string', 'max:100'],
-            'bank_name' => ['required_if:payment_transfer_enabled,true', 'nullable', 'string', 'max:100'],
-            'payment_cash_note' => ['required_if:payment_cash_enabled,true', 'nullable', 'string', 'max:1000'],
+            'payment_cash_note' => ['nullable', 'string', 'max:1000'],
         ], [
             ...$this->numericMessages(),
-            'bank_account_number.required_if' => 'Nomor rekening wajib diisi saat transfer bank aktif.',
-            'bank_account_number.digits_between' => 'Nomor rekening harus berisi 8 sampai 20 digit.',
-            'bank_account_name.required_if' => 'Nama pemilik rekening wajib diisi saat transfer bank aktif.',
-            'bank_name.required_if' => 'Nama bank wajib diisi saat transfer bank aktif.',
-            'payment_cash_note.required_if' => 'Petunjuk pembayaran tunai wajib diisi saat pembayaran tunai aktif.',
+            'payment_cash_note.max' => 'Catatan pembayaran tunai maksimal 1.000 karakter.',
         ]);
 
+        // Setting tunai dan rekening lama dipertahankan tanpa ditimpa agar API dan transaksi lama tetap kompatibel.
         return $this->saveGroup('payment', $validated, $request, 'Pengaturan pembayaran berhasil disimpan.');
     }
 

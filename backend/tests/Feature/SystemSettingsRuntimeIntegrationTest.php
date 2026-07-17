@@ -276,8 +276,18 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
         return [
             'jadwal_id' => $schedule->id,
             'seat_numbers' => [$seat],
-            'pickup' => ['latitude' => -0.0225, 'longitude' => 109.3425, 'address' => 'Pontianak'],
-            'dropoff' => ['latitude' => 1.365, 'longitude' => 109.31, 'address' => 'Sambas'],
+            'pickup' => [
+                'latitude' => -0.0225,
+                'longitude' => 109.3425,
+                'address' => 'Pontianak',
+                'note' => 'Depan gerbang utama',
+            ],
+            'dropoff' => [
+                'latitude' => 1.365,
+                'longitude' => 109.31,
+                'address' => 'Sambas',
+                'note' => 'Pintu masuk terminal',
+            ],
             'payment_method' => $paymentMethod,
             'passengers' => [[
                 'seat_number' => $seat,

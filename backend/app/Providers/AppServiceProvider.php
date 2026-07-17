@@ -40,6 +40,14 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(8)->by($this->rateLimitKey($request));
         });
 
+        RateLimiter::for('travs-verification-code', function (Request $request) {
+            return Limit::perMinute(6)->by($this->emailRateLimitKey($request));
+        });
+
+        RateLimiter::for('travs-verification-resend', function (Request $request) {
+            return Limit::perMinute(3)->by($this->emailRateLimitKey($request));
+        });
+
         RateLimiter::for('travs-action', function (Request $request) {
             return Limit::perMinute(20)->by($this->rateLimitKey($request));
         });
@@ -66,5 +74,12 @@ class AppServiceProvider extends ServiceProvider
         }
 
         return 'ip:'.$request->ip();
+    }
+
+    private function emailRateLimitKey(Request $request): string
+    {
+        $email = strtolower(trim((string) $request->input('email', '')));
+
+        return 'email:'.$email.'|ip:'.$request->ip();
     }
 }
