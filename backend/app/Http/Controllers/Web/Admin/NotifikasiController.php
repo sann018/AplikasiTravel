@@ -218,6 +218,9 @@ class NotifikasiController extends Controller
             'referensiBooking.pengguna',
             'referensiBooking.jadwal.rute',
             'referensiBooking.jadwal.kendaraan',
+            'referensiJadwal.rute',
+            'referensiJadwal.kendaraan',
+            'referensiJadwal.pengemudi.pengguna',
         ]);
 
         if (filled($filters['search'] ?? null)) {

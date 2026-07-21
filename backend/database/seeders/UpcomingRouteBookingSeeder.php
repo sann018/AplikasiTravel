@@ -296,8 +296,6 @@ class UpcomingRouteBookingSeeder extends Seeder
                 'bujur_turun' => 109.3300,
                 'alamat_turun' => "Pusat Kota {$route->kota_tujuan}",
                 'subtotal_tiket' => $ticketPrice,
-                'biaya_bagasi' => 0,
-                'diskon' => 0,
                 'total_harga' => $ticketPrice,
                 'status_pemesanan' => 'terbayar',
             ],

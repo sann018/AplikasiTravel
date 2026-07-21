@@ -261,6 +261,8 @@ class BookingFlowTest extends TestCase
 
         Sanctum::actingAs($user);
 
+        $this->lockFormSeats($jadwal, [$seatNumber]);
+
         $response = $this->postJson('/api/penumpang/bookings', [
             'jadwal_id' => $jadwal->id,
             'seat_numbers' => [$seatNumber],
@@ -361,6 +363,8 @@ class BookingFlowTest extends TestCase
         [$seatA, $seatB] = $this->availableSeatNumbers($jadwal, 2);
 
         Sanctum::actingAs($user);
+
+        $this->lockFormSeats($jadwal, [$seatA, $seatB]);
 
         $response = $this->postJson('/api/penumpang/bookings', [
             'jadwal_id' => $jadwal->id,
@@ -484,6 +488,8 @@ class BookingFlowTest extends TestCase
 
         Sanctum::actingAs($user);
 
+        $this->lockFormSeats($jadwal, [$seatNumber]);
+
         $response = $this->postJson('/api/penumpang/bookings', [
             'jadwal_id' => $jadwal->id,
             'seat_numbers' => [$seatNumber],
@@ -520,8 +526,7 @@ class BookingFlowTest extends TestCase
 
         $response
             ->assertCreated()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('data.biaya_bagasi', 0);
+            ->assertJsonPath('success', true);
 
         $booking = Pemesanan::query()->latest('id')->firstOrFail();
 
@@ -540,6 +545,8 @@ class BookingFlowTest extends TestCase
         [$seatNumber] = $this->availableSeatNumbers($jadwal, 1);
 
         Sanctum::actingAs($user);
+
+        $this->lockFormSeats($jadwal, [$seatNumber]);
 
         $response = $this->postJson('/api/penumpang/bookings', [
             'jadwal_id' => $jadwal->id,
@@ -578,8 +585,7 @@ class BookingFlowTest extends TestCase
 
         $response
             ->assertCreated()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('data.biaya_bagasi', 0);
+            ->assertJsonPath('success', true);
 
         $booking = Pemesanan::query()->latest('id')->firstOrFail();
 
@@ -608,6 +614,8 @@ class BookingFlowTest extends TestCase
         [$seatNumber] = $this->availableSeatNumbers($jadwal, 1);
 
         Sanctum::actingAs($user);
+
+        $this->lockFormSeats($jadwal, [$seatNumber]);
 
         $response = $this->postJson('/api/penumpang/bookings', [
             'jadwal_id' => $jadwal->id,
@@ -646,8 +654,7 @@ class BookingFlowTest extends TestCase
 
         $response
             ->assertCreated()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('data.biaya_bagasi', 0);
+            ->assertJsonPath('success', true);
     }
 
     public function test_legacy_free_item_limit_does_not_create_barang_fee(): void
@@ -668,6 +675,8 @@ class BookingFlowTest extends TestCase
         [$seatNumber] = $this->availableSeatNumbers($jadwal, 1);
 
         Sanctum::actingAs($user);
+
+        $this->lockFormSeats($jadwal, [$seatNumber]);
 
         $response = $this->postJson('/api/penumpang/bookings', [
             'jadwal_id' => $jadwal->id,
@@ -705,8 +714,7 @@ class BookingFlowTest extends TestCase
 
         $response
             ->assertCreated()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('data.biaya_bagasi', 0);
+            ->assertJsonPath('success', true);
 
         $booking = Pemesanan::query()->latest('id')->firstOrFail();
 
@@ -734,6 +742,8 @@ class BookingFlowTest extends TestCase
         [$seatNumber] = $this->availableSeatNumbers($jadwal, 1);
 
         Sanctum::actingAs($user);
+
+        $this->lockFormSeats($jadwal, [$seatNumber]);
 
         $response = $this->postJson('/api/penumpang/bookings', [
             'jadwal_id' => $jadwal->id,
@@ -772,8 +782,7 @@ class BookingFlowTest extends TestCase
 
         $response
             ->assertCreated()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('data.biaya_bagasi', 0);
+            ->assertJsonPath('success', true);
     }
 
     public function test_legacy_luggage_capacity_does_not_reject_barang_note(): void
@@ -791,11 +800,9 @@ class BookingFlowTest extends TestCase
             'batas_kunci_kursi' => now()->addMinutes(30),
             'batas_pembayaran' => now()->addMinutes(5),
             'alamat_jemput' => 'Pickup existing',
-            'subtotal_tiket' => 225000,
-            'biaya_bagasi' => 350000,
-            'diskon' => 0,
-            'total_harga' => 580000,
-            'status_pemesanan' => 'menunggu_pembayaran',
+                'subtotal_tiket' => 225000,
+                'total_harga' => 225000,
+                'status_pemesanan' => 'menunggu_pembayaran',
         ]);
 
         $existingBooking->itemBagasi()->create([
@@ -808,6 +815,8 @@ class BookingFlowTest extends TestCase
         ]);
 
         Sanctum::actingAs($userB);
+
+        $this->lockFormSeats($jadwal, [$seatNumber]);
 
         $response = $this->postJson('/api/penumpang/bookings', [
             'jadwal_id' => $jadwal->id,
@@ -845,8 +854,7 @@ class BookingFlowTest extends TestCase
 
         $response
             ->assertCreated()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('data.biaya_bagasi', 0);
+            ->assertJsonPath('success', true);
     }
 
     public function test_expired_pending_booking_is_released_before_new_booking_is_created(): void
@@ -867,11 +875,9 @@ class BookingFlowTest extends TestCase
             'kode_booking' => 'TRAVS-EXPIRED-001',
             'jumlah_kursi' => 1,
             'batas_kunci_kursi' => now()->subMinutes(20),
-            'batas_pembayaran' => now()->subMinutes(10),
+            'batas_pembayaran' => now()->subSeconds(30),
             'alamat_jemput' => 'Pickup lama',
             'subtotal_tiket' => 225000,
-            'biaya_bagasi' => 0,
-            'diskon' => 0,
             'total_harga' => 230000,
             'status_pemesanan' => 'menunggu_pembayaran',
         ]);
@@ -890,7 +896,7 @@ class BookingFlowTest extends TestCase
             'metode_bayar' => 'qris',
             'jumlah_bayar' => 230000,
             'status_bayar' => 'menunggu',
-            'expired_at' => now()->subMinutes(10),
+            'expired_at' => now()->subSeconds(30),
         ]);
 
         $seat->update([
@@ -902,6 +908,8 @@ class BookingFlowTest extends TestCase
         ]);
 
         Sanctum::actingAs($userB);
+
+        $this->lockFormSeats($jadwal, [$seatNumber]);
 
         $response = $this->postJson('/api/penumpang/bookings', [
             'jadwal_id' => $jadwal->id,
@@ -960,8 +968,6 @@ class BookingFlowTest extends TestCase
             'batas_pembayaran' => now()->addMinutes(5),
             'alamat_jemput' => 'Jalan Gajah Mada, Pontianak',
             'subtotal_tiket' => 225000,
-            'biaya_bagasi' => 0,
-            'diskon' => 0,
             'total_harga' => 230000,
             'status_pemesanan' => 'menunggu_pembayaran',
         ]);
@@ -1044,8 +1050,6 @@ class BookingFlowTest extends TestCase
             'bujur_jemput' => 109.3425,
             'alamat_jemput' => 'Jalan Ahmad Yani, Pontianak',
             'subtotal_tiket' => 230000,
-            'biaya_bagasi' => 0,
-            'diskon' => 0,
             'total_harga' => 230000,
             'status_pemesanan' => 'terbayar',
         ]);
@@ -1069,8 +1073,6 @@ class BookingFlowTest extends TestCase
             'bujur_jemput' => 109.3425,
             'alamat_jemput' => 'Jalan Ahmad Yani, Pontianak',
             'subtotal_tiket' => 230000,
-            'biaya_bagasi' => 0,
-            'diskon' => 0,
             'total_harga' => 230000,
             'status_pemesanan' => 'menunggu_pembayaran',
         ]);
@@ -1093,8 +1095,6 @@ class BookingFlowTest extends TestCase
             'bujur_jemput' => 109.3425,
             'alamat_jemput' => 'Jalan Ahmad Yani, Pontianak',
             'subtotal_tiket' => 230000,
-            'biaya_bagasi' => 0,
-            'diskon' => 0,
             'total_harga' => 230000,
             'status_pemesanan' => 'dibatalkan',
         ]);
@@ -1146,6 +1146,63 @@ class BookingFlowTest extends TestCase
         $this->assertNull($seat->lock_expires_at);
     }
 
+    public function test_expired_form_session_cannot_create_pending_payment_booking(): void
+    {
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        [$seatNumber] = $this->availableSeatNumbers($jadwal, 1);
+        $seat = KursiJadwal::query()
+            ->where('jadwal_id', $jadwal->id)
+            ->where('nomor_kursi', $seatNumber)
+            ->firstOrFail();
+
+        $seat->update([
+            'status_kursi' => 'terkunci',
+            'dikunci_oleh' => $user->id,
+            'locked_at' => now()->subMinutes(31),
+            'lock_expires_at' => now()->subSecond(),
+        ]);
+        $bookingCountBefore = Pemesanan::query()->count();
+
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/penumpang/bookings', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seatNumber],
+            'pickup' => [
+                'latitude' => -0.0225,
+                'longitude' => 109.3425,
+                'address' => 'Jalan Ahmad Yani, Pontianak',
+                'note' => 'Depan gerbang utama',
+            ],
+            'dropoff' => [
+                'latitude' => 0.1285,
+                'longitude' => 111.4986,
+                'address' => 'Terminal tujuan',
+                'note' => 'Pintu masuk terminal',
+            ],
+            'payment_method' => 'qris',
+            'passengers' => [[
+                'seat_number' => $seatNumber,
+                'nama_penumpang' => 'Penumpang Terlambat',
+                'no_hp_penumpang' => '081200001234',
+            ]],
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonPath(
+                'errors.seat_numbers.0',
+                'Sesi konfirmasi pemesanan telah berakhir. Kursi sudah dilepas, silakan pilih jadwal dan kursi kembali.',
+            );
+
+        $this->assertSame($bookingCountBefore, Pemesanan::query()->count());
+        $seat->refresh();
+        $this->assertSame('tersedia', $seat->status_kursi);
+        $this->assertNull($seat->dikunci_oleh);
+        $this->assertNull($seat->lock_expires_at);
+    }
+
     /**
      * @return array<int, int>
      */
@@ -1160,5 +1217,16 @@ class BookingFlowTest extends TestCase
             ->map(fn ($seatNumber) => (int) $seatNumber)
             ->values()
             ->all();
+    }
+
+    /**
+     * @param  array<int, int>  $seatNumbers
+     */
+    private function lockFormSeats(Jadwal $jadwal, array $seatNumbers): void
+    {
+        $this->postJson('/api/penumpang/bookings/lock-form', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => $seatNumbers,
+        ])->assertOk();
     }
 }

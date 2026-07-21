@@ -5,13 +5,13 @@
 @section('page-description', 'Kelola data kendaraan travel.')
 
 @section('content')
-    <section class="travs-section-card">
-        <div class="travs-panel-header">
+    <section class="travs-section-card card">
+        <div class="travs-panel-header d-flex align-items-start justify-content-between">
             <div class="travs-panel-title">
                 <h3>Daftar Armada</h3>
                 <p>Pakai filter untuk memantau unit aktif, riwayat pemakaian, dan kesiapan armada.</p>
             </div>
-            <a href="{{ route('admin.kendaraan.create') }}" class="travs-button">Tambah Armada</a>
+            <a href="{{ route('admin.kendaraan.create') }}" class="travs-button btn btn-primary">Tambah Armada</a>
         </div>
 
         <form method="GET" class="row g-3 align-items-end">
@@ -29,13 +29,13 @@
                 </select>
             </div>
             <div class="col-12 d-flex flex-wrap gap-2">
-                <button type="submit" class="travs-button-secondary">Terapkan Filter</button>
-                <a href="{{ route('admin.kendaraan.index') }}" class="travs-button-secondary">Reset</a>
+                <button type="submit" class="travs-button-secondary btn btn-secondary">Terapkan Filter</button>
+                <a href="{{ route('admin.kendaraan.index') }}" class="travs-button-secondary btn btn-secondary">Reset</a>
             </div>
         </form>
 
-        <div class="travs-table-wrap">
-            <table class="travs-table">
+        <div class="travs-table-wrap table-responsive">
+            <table class="travs-table table mb-0">
                 <thead>
                     <tr>
                         <th>Foto</th>
@@ -68,18 +68,18 @@
                             </td>
                             <td>{{ $item->kapasitas_kursi }} kursi</td>
                             <td>
-                                <span class="travs-status-pill travs-status-{{ $item->status_kendaraan }}">
+                                <span class="travs-status-pill travs-status-{{ $item->status_kendaraan }} badge rounded-pill">
                                     {{ ucfirst($item->status_kendaraan) }}
                                 </span>
                             </td>
                             <td>{{ number_format($item->jadwal_count) }} jadwal</td>
                             <td>
-                                <div class="travs-table-actions">
-                                    <a href="{{ route('admin.kendaraan.edit', $item) }}" class="travs-button-link">Edit</a>
+                                <div class="travs-table-actions d-flex align-items-center flex-wrap">
+                                    <a href="{{ route('admin.kendaraan.edit', $item) }}" class="travs-button-link btn btn-link">Edit</a>
                                     <form method="POST" action="{{ route('admin.kendaraan.destroy', $item) }}" onsubmit="return confirm('Hapus armada ini?')">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="travs-button-link travs-button-link-danger">Hapus</button>
+                                        <button type="submit" class="travs-button-link travs-button-link-danger btn btn-link">Hapus</button>
                                     </form>
                                 </div>
                             </td>

@@ -52,8 +52,8 @@ class SettingsController extends Controller
         $validated = $request->validate([
             'app_name' => ['required', 'string', 'max:100'],
             'app_logo' => ['nullable', 'file', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
-            'admin_contact' => ['required', 'regex:/^(?:\+62|62|0)8[1-9][0-9]{7,10}$/'],
-            'service_whatsapp' => ['required', 'regex:/^(?:\+62|62|0)8[1-9][0-9]{7,10}$/'],
+            'admin_contact' => ['required', 'regex:/^[0-9]{11,12}$/'],
+            'service_whatsapp' => ['required', 'regex:/^[0-9]{11,12}$/'],
             'system_email' => ['required', 'email:rfc', 'max:100'],
         ], $this->generalMessages());
 
@@ -241,8 +241,8 @@ class SettingsController extends Controller
             'app_logo.image' => 'Logo harus berupa file gambar.',
             'app_logo.mimes' => 'Logo hanya menerima format JPG, JPEG, PNG, atau WEBP.',
             'app_logo.max' => 'Ukuran logo maksimal 2 MB.',
-            'admin_contact.regex' => 'Nomor kontak admin belum sesuai format nomor HP Indonesia.',
-            'service_whatsapp.regex' => 'Nomor WhatsApp belum sesuai format nomor HP Indonesia.',
+            'admin_contact.regex' => 'Nomor kontak admin harus terdiri dari 11 sampai 12 digit angka.',
+            'service_whatsapp.regex' => 'Nomor WhatsApp harus terdiri dari 11 sampai 12 digit angka.',
             'system_email.email' => 'Format email sistem belum valid.',
         ];
     }

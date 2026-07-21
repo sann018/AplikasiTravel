@@ -41,25 +41,37 @@ class AuthController extends Controller
                 'required',
                 'email',
                 'max:100',
+                'regex:/^[^@\s]+@gmail\.com$/i',
                 Rule::unique('pengguna', 'email')->ignore($pendingUser?->id),
             ],
             'no_hp' => [
                 'required',
                 'string',
-                'max:20',
+                'regex:/^[0-9]{11,12}$/',
                 Rule::unique('pengguna', 'no_hp')->ignore($pendingUser?->id),
             ],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => [
+                'required',
+                'string',
+                'min:6',
+                'max:8',
+                'regex:/^(?=.*[A-Za-z])(?=.*(?:[0-9]|[^A-Za-z0-9\s]))\S+$/',
+                'confirmed',
+            ],
             'device_name' => ['nullable', 'string', 'max:100'],
         ], [
             'nama.required' => 'Nama lengkap wajib diisi.',
             'email.required' => 'Email wajib diisi.',
             'email.email' => 'Format email belum valid.',
+            'email.regex' => 'Email wajib menggunakan alamat @gmail.com.',
             'email.unique' => 'Email sudah terdaftar. Silakan masuk atau gunakan email lain.',
             'no_hp.required' => 'Nomor HP wajib diisi.',
+            'no_hp.regex' => 'Nomor HP harus terdiri dari 11 sampai 12 digit angka.',
             'no_hp.unique' => 'Nomor HP sudah terdaftar. Silakan masuk atau gunakan nomor lain.',
             'password.required' => 'Kata sandi wajib diisi.',
-            'password.min' => 'Kata sandi minimal 8 karakter.',
+            'password.min' => 'Kata sandi minimal 6 karakter.',
+            'password.max' => 'Kata sandi maksimal 8 karakter.',
+            'password.regex' => 'Kata sandi wajib mengandung huruf dan minimal satu angka atau simbol.',
             'password.confirmed' => 'Konfirmasi kata sandi belum sama.',
         ]);
 
@@ -251,11 +263,10 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // Aplikasi mobile hanya digunakan penumpang dan pengemudi.
-        // Akun admin tetap masuk melalui web admin agar pemisahan akses terjaga.
+        // Peran yang tidak didukung mobile ditolak tanpa membocorkan jenis akun.
         if (! in_array($user->peran, ['penumpang', 'pengemudi'], true)) {
             throw ValidationException::withMessages([
-                'login' => ['Akun admin hanya dapat digunakan melalui web admin.'],
+                'login' => ['Email, nomor HP, atau kata sandi tidak sesuai.'],
             ]);
         }
 
@@ -292,6 +303,14 @@ class AuthController extends Controller
     public function updateProfile(Request $request): JsonResponse
     {
         $user = $request->user()->load('pengemudiProfile');
+        $normalizedProfile = [];
+        if ($request->exists('email')) {
+            $normalizedProfile['email'] = Str::lower(trim((string) $request->input('email')));
+        }
+        if ($request->exists('no_hp')) {
+            $normalizedProfile['no_hp'] = trim((string) $request->input('no_hp'));
+        }
+        $request->merge($normalizedProfile);
         $photoField = $this->profilePhotoField($request);
         $driverProfile = $user->pengemudiProfile;
         $blockedVehicleFields = [
@@ -316,8 +335,8 @@ class AuthController extends Controller
 
         $validated = $request->validate([
             'nama' => ['sometimes', 'string', 'max:100'],
-            'email' => ['sometimes', 'email', 'max:100', 'unique:pengguna,email,'.$user->id],
-            'no_hp' => ['sometimes', 'string', 'max:20', 'unique:pengguna,no_hp,'.$user->id],
+            'email' => ['sometimes', 'email', 'max:100', 'regex:/^[^@\s]+@gmail\.com$/i', 'unique:pengguna,email,'.$user->id],
+            'no_hp' => ['sometimes', 'string', 'regex:/^[0-9]{11,12}$/', 'unique:pengguna,no_hp,'.$user->id],
             'nomor_sim' => [
                 'sometimes',
                 'required',
@@ -329,7 +348,9 @@ class AuthController extends Controller
             'foto' => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [
             'email.email' => 'Format email belum valid.',
+            'email.regex' => 'Email wajib menggunakan alamat @gmail.com.',
             'email.unique' => 'Email sudah dipakai akun lain.',
+            'no_hp.regex' => 'Nomor HP harus terdiri dari 11 sampai 12 digit angka.',
             'no_hp.unique' => 'Nomor HP sudah dipakai akun lain.',
             'nomor_sim.required' => 'Nomor SIM wajib diisi untuk akun pengemudi.',
             'nomor_sim.regex' => 'Nomor SIM harus menggunakan NIK KTP yang terdiri dari 16 digit angka.',
@@ -420,7 +441,21 @@ class AuthController extends Controller
 
         $validated = $request->validate([
             'current_password' => ['required', 'string'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => [
+                'required',
+                'string',
+                'min:6',
+                'max:8',
+                'different:current_password',
+                'regex:/^(?=.*[A-Za-z])(?=.*(?:[0-9]|[^A-Za-z0-9\s]))\S+$/',
+                'confirmed',
+            ],
+        ], [
+            'password.min' => 'Kata sandi baru minimal 6 karakter.',
+            'password.max' => 'Kata sandi baru maksimal 8 karakter.',
+            'password.different' => 'Kata sandi baru harus berbeda dari kata sandi saat ini.',
+            'password.regex' => 'Kata sandi baru wajib mengandung huruf dan minimal satu angka atau simbol.',
+            'password.confirmed' => 'Konfirmasi kata sandi baru belum sama.',
         ]);
 
         if (! Hash::check($validated['current_password'], $user->password)) {
@@ -536,7 +571,19 @@ class AuthController extends Controller
         $validated = $request->validate([
             'email' => ['required', 'email', 'max:100'],
             'token' => ['required', 'string', 'max:100'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password' => [
+                'required',
+                'string',
+                'min:6',
+                'max:8',
+                'regex:/^(?=.*[A-Za-z])(?=.*(?:[0-9]|[^A-Za-z0-9\s]))\S+$/',
+                'confirmed',
+            ],
+        ], [
+            'password.min' => 'Kata sandi baru minimal 6 karakter.',
+            'password.max' => 'Kata sandi baru maksimal 8 karakter.',
+            'password.regex' => 'Kata sandi baru wajib mengandung huruf dan minimal satu angka atau simbol.',
+            'password.confirmed' => 'Konfirmasi kata sandi baru belum sama.',
         ]);
 
         $status = Password::reset(

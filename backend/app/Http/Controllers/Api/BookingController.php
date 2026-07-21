@@ -130,8 +130,6 @@ class BookingController extends Controller
         $totals = $this->bookingCalculator->calculate(
             $schedule,
             (int) $validated['seat_count'],
-            $validated['baggage_items'] ?? [],
-            (int) ($validated['passenger_count'] ?? $validated['seat_count']),
         );
 
         return response()->json([
@@ -196,7 +194,7 @@ class BookingController extends Controller
             'passengers' => ['required', 'array', 'min:1'],
             'passengers.*.seat_number' => ['required', 'integer', 'min:1'],
             'passengers.*.nama_penumpang' => ['required', 'string', 'max:100'],
-            'passengers.*.no_hp_penumpang' => ['required', 'string', 'max:20'],
+            'passengers.*.no_hp_penumpang' => ['required', 'string', 'regex:/^[0-9]{11,12}$/'],
             'baggage_items' => ['nullable', 'array'],
             'baggage_items.*.deskripsi_item' => ['required_with:baggage_items', 'string', 'max:255'],
             'baggage_items.*.metode_hitung' => ['nullable', 'string', 'in:berat,ukuran'],
@@ -219,6 +217,7 @@ class BookingController extends Controller
             'dropoff.note.required' => 'Catatan atau patokan titik turun wajib diisi.',
             'passengers.*.nama_penumpang.required' => 'Nama penumpang wajib diisi.',
             'passengers.*.no_hp_penumpang.required' => 'Nomor HP penumpang wajib diisi.',
+            'passengers.*.no_hp_penumpang.regex' => 'Nomor HP penumpang harus terdiri dari 11 sampai 12 digit angka.',
         ]);
         $booking = $this->bookingService->createDraft($request->user(), $validated);
 
@@ -282,6 +281,9 @@ class BookingController extends Controller
         $this->bookingService->releaseExpiredResources($booking->jadwal_id);
         abort_unless($booking->pengguna_id === $request->user()->id, 404);
 
+        // Route model binding terjadi sebelum proses kedaluwarsa dijalankan.
+        // Muat ulang atribut supaya respons tidak membawa status lama.
+        $booking->refresh();
         $booking->load([
             'pengguna',
             'jadwal.rute',
@@ -370,8 +372,6 @@ class BookingController extends Controller
             'jumlah_kursi' => $booking->jumlah_kursi,
             'batas_pembayaran' => $booking->batas_pembayaran?->toIso8601String(),
             'subtotal_tiket' => (float) $booking->subtotal_tiket,
-            'biaya_bagasi' => (float) $booking->biaya_bagasi,
-            'diskon' => (float) $booking->diskon,
             'total_harga' => (float) $booking->total_harga,
             'pemesan' => [
                 'nama' => $booking->pengguna?->nama,

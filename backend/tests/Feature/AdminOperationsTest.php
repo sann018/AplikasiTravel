@@ -63,14 +63,14 @@ class AdminOperationsTest extends TestCase
             ->actingAs($admin)
             ->from(route('admin.settings.index', ['tab' => 'account']))
             ->put(route('admin.pengaturan.account.update'), [
-                'email' => 'adminbaru@travs.com',
+                'email' => 'adminbaru@gmail.com',
                 'current_password' => 'admin12345',
             ]);
 
         $response->assertRedirect(route('admin.settings.index', ['tab' => 'account']));
         $response->assertSessionHasNoErrors();
 
-        $this->assertSame('adminbaru@travs.com', $admin->fresh()->email);
+        $this->assertSame('adminbaru@gmail.com', $admin->fresh()->email);
     }
 
     public function test_admin_can_open_settings_page_with_account_form(): void
@@ -106,7 +106,7 @@ class AdminOperationsTest extends TestCase
             ->actingAs($admin)
             ->from(route('admin.settings.index', ['tab' => 'account']))
             ->put(route('admin.pengaturan.account.update'), [
-                'email' => 'adminrusak@travs.com',
+                'email' => 'adminrusak@gmail.com',
                 'current_password' => 'password-salah',
             ]);
 
@@ -119,7 +119,7 @@ class AdminOperationsTest extends TestCase
     public function test_admin_can_update_own_password_from_settings_page(): void
     {
         $admin = User::factory()->create([
-            'email' => 'adminpassword@travs.com',
+            'email' => 'adminpassword@gmail.com',
             'peran' => 'admin',
             'status_aktif' => true,
             'password' => Hash::make('admin12345'),
@@ -129,16 +129,16 @@ class AdminOperationsTest extends TestCase
             ->actingAs($admin)
             ->from(route('admin.settings.index', ['tab' => 'account']))
             ->put(route('admin.pengaturan.account.update'), [
-                'email' => 'adminpassword@travs.com',
+                'email' => 'adminpassword@gmail.com',
                 'current_password' => 'admin12345',
-                'password' => 'passwordbaru123',
-                'password_confirmation' => 'passwordbaru123',
+                'password' => 'Baru12!',
+                'password_confirmation' => 'Baru12!',
             ]);
 
         $response->assertRedirect(route('admin.settings.index', ['tab' => 'account']));
         $response->assertSessionHasNoErrors();
 
-        $this->assertTrue(Hash::check('passwordbaru123', $admin->fresh()->password));
+        $this->assertTrue(Hash::check('Baru12!', $admin->fresh()->password));
     }
 
     public function test_admin_can_export_booking_report_as_csv(): void
@@ -195,11 +195,11 @@ class AdminOperationsTest extends TestCase
             ->actingAs($admin)
             ->post(route('admin.pengemudi.store'), [
                 'nama' => 'Driver Uji',
-                'email' => 'driveruji@travs.com',
+                'email' => 'driveruji@gmail.com',
                 'no_hp' => '081111111111',
                 'nomor_sim' => '6102233435410001',
                 'status' => 'aktif',
-                'password' => 'driver12345',
+                'password' => 'Drv12!',
             ]);
 
         $response->assertRedirect(route('admin.pengemudi.index'));
@@ -227,11 +227,11 @@ class AdminOperationsTest extends TestCase
             ->actingAs($admin)
             ->post(route('admin.pengemudi.store'), [
                 'nama' => 'Driver Foto',
-                'email' => 'driverfoto@travs.com',
+                'email' => 'driverfoto@gmail.com',
                 'no_hp' => '081111111112',
                 'nomor_sim' => '6102233435420002',
                 'status' => 'aktif',
-                'password' => 'driver12345',
+                'password' => 'Drv34!',
                 'foto_profil' => UploadedFile::fake()->image('driver.jpg', 640, 640),
                 'foto_sim' => UploadedFile::fake()->image('sim.jpg', 900, 560),
             ]);
@@ -251,7 +251,7 @@ class AdminOperationsTest extends TestCase
         Storage::disk('public')->assertExists($pengemudi->foto_sim);
     }
 
-    public function test_admin_driver_form_rejects_invalid_phone_sim_and_document_file(): void
+    public function test_admin_driver_form_rejects_invalid_phone_password_sim_and_document_file(): void
     {
         Storage::fake('public');
 
@@ -264,15 +264,15 @@ class AdminOperationsTest extends TestCase
             ->actingAs($admin)
             ->post(route('admin.pengemudi.store'), [
                 'nama' => 'Driver Validasi',
-                'email' => 'drivervalidasi@travs.com',
+                'email' => 'drivervalidasi@gmail.com',
                 'no_hp' => '12345',
                 'nomor_sim' => 'SIM-SALAH',
                 'status' => 'aktif',
-                'password' => 'driver12345',
+                'password' => 'abcdef',
                 'foto_sim' => UploadedFile::fake()->create('sim.pdf', 120, 'application/pdf'),
             ]);
 
-        $response->assertSessionHasErrors(['no_hp', 'nomor_sim', 'foto_sim']);
+        $response->assertSessionHasErrors(['no_hp', 'password', 'nomor_sim', 'foto_sim']);
     }
 
     public function test_admin_cannot_jump_cancelled_booking_back_to_paid(): void

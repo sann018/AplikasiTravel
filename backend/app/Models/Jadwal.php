@@ -61,4 +61,9 @@ class Jadwal extends Model
     {
         return $this->hasMany(Pemesanan::class, 'jadwal_id');
     }
+
+    public function biayaOperasional(): HasMany
+    {
+        return $this->hasMany(BiayaOperasionalPerjalanan::class, 'jadwal_id');
+    }
 }

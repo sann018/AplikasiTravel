@@ -67,8 +67,8 @@ class AuthPasswordResetTest extends TestCase
         $response = $this->postJson('/api/auth/reset-password', [
             'email' => $user->email,
             'token' => $token,
-            'password' => 'PasswordBaru123',
-            'password_confirmation' => 'PasswordBaru123',
+            'password' => 'Baru12!',
+            'password_confirmation' => 'Baru12!',
         ]);
 
         $response
@@ -83,7 +83,7 @@ class AuthPasswordResetTest extends TestCase
             'email' => $user->email,
         ]);
         $this->assertTrue(Hash::check(
-            'PasswordBaru123',
+            'Baru12!',
             $user->fresh()->password,
         ));
     }
@@ -95,8 +95,8 @@ class AuthPasswordResetTest extends TestCase
         $this->postJson('/api/auth/reset-password', [
             'email' => $user->email,
             'token' => 'token-palsu-yang-tidak-valid',
-            'password' => 'PasswordBaru123',
-            'password_confirmation' => 'PasswordBaru123',
+            'password' => 'Baru12!',
+            'password_confirmation' => 'Baru12!',
         ])
             ->assertUnprocessable()
             ->assertJsonPath('success', false)
@@ -120,8 +120,8 @@ class AuthPasswordResetTest extends TestCase
         $this->postJson('/api/auth/reset-password', [
             'email' => $user->email,
             'token' => $token,
-            'password' => 'PasswordBaru123',
-            'password_confirmation' => 'PasswordBaru123',
+            'password' => 'Baru12!',
+            'password_confirmation' => 'Baru12!',
         ])
             ->assertUnprocessable()
             ->assertJsonPath('success', false);
@@ -136,8 +136,8 @@ class AuthPasswordResetTest extends TestCase
         $payload = [
             'email' => $user->email,
             'token' => $token,
-            'password' => 'PasswordBaru123',
-            'password_confirmation' => 'PasswordBaru123',
+            'password' => 'Baru12!',
+            'password_confirmation' => 'Baru12!',
         ];
 
         $this->postJson('/api/auth/reset-password', $payload)->assertOk();

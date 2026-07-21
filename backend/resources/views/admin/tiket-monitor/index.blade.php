@@ -5,28 +5,28 @@
 @section('page-description', 'Pantau status scan tiket QR penumpang.')
 
 @section('content')
-    <article class="travs-section-card">
+    <article class="travs-section-card card">
         <div class="travs-panel-title">
             <h3>Filter Tiket</h3>
             <p>Cari tiket berdasarkan kode, penumpang, jadwal, atau status.</p>
         </div>
 
-        <form method="GET" class="travs-filter-grid travs-filter-grid-wide">
+        <form method="GET" class="travs-filter-grid travs-filter-grid-wide d-grid">
             <div class="travs-field">
-                <label for="search">Cari</label>
-                <input id="search" name="search" class="travs-input" value="{{ $filters['search'] ?? '' }}" placeholder="Kode QR, kode pemesanan, nama penumpang">
+                <label for="search" class="form-label">Cari</label>
+                <input id="search" name="search" class="travs-input form-control" value="{{ $filters['search'] ?? '' }}" placeholder="Kode QR, kode pemesanan, nama penumpang">
             </div>
             <div class="travs-field">
-                <label for="status_scan">Status Scan</label>
-                <select id="status_scan" name="status_scan" class="travs-select">
+                <label for="status_scan" class="form-label">Status Scan</label>
+                <select id="status_scan" name="status_scan" class="travs-select form-select">
                     <option value="">Semua status</option>
                     <option value="sudah_dipindai" @selected(($filters['status_scan'] ?? '') === 'sudah_dipindai')>Sudah Dipindai</option>
                     <option value="belum_dipindai" @selected(($filters['status_scan'] ?? '') === 'belum_dipindai')>Belum Dipindai</option>
                 </select>
             </div>
             <div class="travs-field">
-                <label for="jadwal_id">Jadwal</label>
-                <select id="jadwal_id" name="jadwal_id" class="travs-select">
+                <label for="jadwal_id" class="form-label">Jadwal</label>
+                <select id="jadwal_id" name="jadwal_id" class="travs-select form-select">
                     <option value="">Semua jadwal</option>
                     @foreach ($jadwalOptions as $jadwal)
                         <option value="{{ $jadwal->id }}" @selected(($filters['jadwal_id'] ?? '') == $jadwal->id)>
@@ -37,21 +37,21 @@
                 </select>
             </div>
             <div class="travs-field">
-                <label for="tanggal_mulai">Tanggal Mulai</label>
-                <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input" value="{{ $filters['tanggal_mulai'] ?? '' }}">
+                <label for="tanggal_mulai" class="form-label">Tanggal Mulai</label>
+                <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_mulai'] ?? '' }}">
             </div>
             <div class="travs-field">
-                <label for="tanggal_selesai">Tanggal Selesai</label>
-                <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input" value="{{ $filters['tanggal_selesai'] ?? '' }}">
+                <label for="tanggal_selesai" class="form-label">Tanggal Selesai</label>
+                <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
             </div>
-            <div class="travs-filter-actions">
-                <button type="submit" class="travs-button-secondary">Terapkan Filter</button>
-                <a href="{{ route('admin.tiket-monitor.index') }}" class="travs-button-secondary">Reset</a>
+            <div class="travs-filter-actions d-flex align-items-end flex-wrap">
+                <button type="submit" class="travs-button-secondary btn btn-secondary">Terapkan Filter</button>
+                <a href="{{ route('admin.tiket-monitor.index') }}" class="travs-button-secondary btn btn-secondary">Reset</a>
             </div>
         </form>
 
-        <div class="travs-table-wrap">
-            <table class="travs-table">
+        <div class="travs-table-wrap table-responsive">
+            <table class="travs-table table mb-0">
                 <thead>
                     <tr>
                         <th>Kode QR</th>
@@ -86,7 +86,7 @@
                                 <div class="travs-table-subcopy">{{ $booking?->jadwal?->waktu_berangkat?->format('d/m/Y H:i') ?: '' }}</div>
                             </td>
                             <td>
-                                <span class="travs-status-pill travs-status-{{ $ticket->sudah_dipindai ? 'terbayar' : 'menunggu' }}">
+                                <span class="travs-status-pill travs-status-{{ $ticket->sudah_dipindai ? 'terbayar' : 'menunggu' }} badge rounded-pill">
                                     {{ $ticket->sudah_dipindai ? 'Sudah Dipindai' : 'Belum Dipindai' }}
                                 </span>
                             </td>

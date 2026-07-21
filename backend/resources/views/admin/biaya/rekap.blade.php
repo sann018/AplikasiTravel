@@ -5,30 +5,30 @@
 @section('page-description', 'Lihat akumulasi biaya per rute dan detail pengeluaran untuk mendukung evaluasi operasional travel.')
 
 @section('content')
-    <article class="travs-section-card travs-rekap-filter-card travs-rekap-filter-shelf" data-static-filter-section>
+    <article class="travs-section-card travs-rekap-filter-card travs-rekap-filter-shelf card" data-static-filter-section>
         <div class="travs-panel-title mb-3">
             <h3>Filter Rekap</h3>
             <p>Pilih rentang tanggal agar rekap biaya lebih fokus sesuai periode evaluasi.</p>
         </div>
 
-        <form id="cost-recap-filter-body" method="GET" class="travs-filter-grid">
+        <form id="cost-recap-filter-body" method="GET" class="travs-filter-grid d-grid">
             <div class="travs-field">
-                <label for="tanggal_mulai">Tanggal Mulai</label>
-                <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input" value="{{ $filters['tanggal_mulai'] ?? '' }}">
+                <label for="tanggal_mulai" class="form-label">Tanggal Mulai</label>
+                <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_mulai'] ?? '' }}">
             </div>
             <div class="travs-field">
-                <label for="tanggal_selesai">Tanggal Selesai</label>
-                <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input" value="{{ $filters['tanggal_selesai'] ?? '' }}">
+                <label for="tanggal_selesai" class="form-label">Tanggal Selesai</label>
+                <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
             </div>
-            <div class="travs-filter-actions">
-                <button type="submit" class="travs-button-secondary">Terapkan Filter</button>
-                <a href="{{ route('admin.biaya.rekap') }}" class="travs-button-secondary">Reset</a>
+            <div class="travs-filter-actions d-flex align-items-end flex-wrap">
+                <button type="submit" class="travs-button-secondary btn btn-secondary">Terapkan Filter</button>
+                <a href="{{ route('admin.biaya.rekap') }}" class="travs-button-secondary btn btn-secondary">Reset</a>
             </div>
         </form>
     </article>
 
     <section class="travs-panel-grid travs-rekap-panel-grid travs-rekap-shelf-grid">
-        <article class="travs-section-card travs-rekap-shelf-panel collapsible-section" data-collapsible-section>
+        <article class="travs-section-card travs-rekap-shelf-panel collapsible-section card" data-collapsible-section>
             <div class="collapsible-section__header" data-collapse-header>
                 <div class="travs-panel-title">
                     <h3>Akumulasi per Rute</h3>
@@ -37,8 +37,8 @@
                 @include('admin.partials.collapsible-toggle', ['targetId' => 'cost-recap-route-body'])
             </div>
 
-            <div id="cost-recap-route-body" class="travs-table-wrap collapsible-section__body" data-collapse-body>
-                <table class="travs-table">
+            <div id="cost-recap-route-body" class="travs-table-wrap collapsible-section__body table-responsive" data-collapse-body>
+                <table class="travs-table table mb-0">
                     <thead>
                         <tr>
                             <th>Rute</th>
@@ -65,7 +65,7 @@
             </div>
         </article>
 
-        <article class="travs-section-card travs-rekap-shelf-panel collapsible-section" data-collapsible-section>
+        <article class="travs-section-card travs-rekap-shelf-panel collapsible-section card" data-collapsible-section>
             <div class="collapsible-section__header" data-collapse-header>
                 <div class="travs-panel-title">
                     <h3>Detail Pencatatan</h3>
@@ -74,8 +74,8 @@
                 @include('admin.partials.collapsible-toggle', ['targetId' => 'cost-recap-detail-body'])
             </div>
 
-            <div id="cost-recap-detail-body" class="travs-table-wrap collapsible-section__body" data-collapse-body>
-                <table class="travs-table">
+            <div id="cost-recap-detail-body" class="travs-table-wrap collapsible-section__body table-responsive" data-collapse-body>
+                <table class="travs-table table mb-0">
                     <thead>
                         <tr>
                             <th>Tanggal</th>

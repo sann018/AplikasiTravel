@@ -5,22 +5,22 @@
 @section('page-description', 'Pantau tingkat keterisian kursi per jadwal untuk analisis performa rute dan perencanaan armada.')
 
 @section('content')
-    <article class="travs-section-card">
-        <div class="travs-panel-header">
+    <article class="travs-section-card card">
+        <div class="travs-panel-header d-flex align-items-start justify-content-between">
             <div class="travs-panel-title">
                 <h3>Filter Laporan</h3>
                 <p>Pilih status dan rentang tanggal untuk menampilkan data okupansi.</p>
             </div>
 
-            <a href="{{ route('admin.laporan.okupansi.export', request()->query()) }}" class="travs-button">
+            <a href="{{ route('admin.laporan.okupansi.export', request()->query()) }}" class="travs-button btn btn-primary">
                 Export CSV
             </a>
         </div>
 
-        <form method="GET" class="travs-filter-grid">
+        <form method="GET" class="travs-filter-grid d-grid">
             <div class="travs-field">
-                <label for="status">Status Jadwal</label>
-                <select id="status" name="status" class="travs-select">
+                <label for="status" class="form-label">Status Jadwal</label>
+                <select id="status" name="status" class="travs-select form-select">
                     <option value="">Semua status</option>
                     @foreach (['dibuka' => 'Dibuka', 'berangkat' => 'Berangkat', 'selesai' => 'Selesai', 'dibatalkan' => 'Dibatalkan'] as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['status'] ?? '') === $value)>{{ $label }}</option>
@@ -28,21 +28,21 @@
                 </select>
             </div>
             <div class="travs-field">
-                <label for="tanggal_mulai">Tanggal Mulai</label>
-                <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input" value="{{ $filters['tanggal_mulai'] ?? '' }}">
+                <label for="tanggal_mulai" class="form-label">Tanggal Mulai</label>
+                <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_mulai'] ?? '' }}">
             </div>
             <div class="travs-field">
-                <label for="tanggal_selesai">Tanggal Selesai</label>
-                <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input" value="{{ $filters['tanggal_selesai'] ?? '' }}">
+                <label for="tanggal_selesai" class="form-label">Tanggal Selesai</label>
+                <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
             </div>
-            <div class="travs-filter-actions">
-                <button type="submit" class="travs-button-secondary">Terapkan Filter</button>
-                <a href="{{ route('admin.laporan.okupansi') }}" class="travs-button-secondary">Reset</a>
+            <div class="travs-filter-actions d-flex align-items-end flex-wrap">
+                <button type="submit" class="travs-button-secondary btn btn-secondary">Terapkan Filter</button>
+                <a href="{{ route('admin.laporan.okupansi') }}" class="travs-button-secondary btn btn-secondary">Reset</a>
             </div>
         </form>
 
-        <div class="travs-table-wrap">
-            <table class="travs-table">
+        <div class="travs-table-wrap table-responsive">
+            <table class="travs-table table mb-0">
                 <thead>
                     <tr>
                         <th>Tanggal</th>
@@ -70,7 +70,7 @@
                             </td>
                             <td>{{ $jadwal->pengemudi?->pengguna?->nama ?: '-' }}</td>
                             <td>
-                                <span class="travs-status-pill travs-status-{{ $jadwal->status }}">
+                                <span class="travs-status-pill travs-status-{{ $jadwal->status }} badge rounded-pill">
                                     {{ ucwords(str_replace('_', ' ', $jadwal->status)) }}
                                 </span>
                             </td>
@@ -84,7 +84,7 @@
                                 @php
                                     $color = $jadwal->persen_okupansi >= 80 ? 'terbayar' : ($jadwal->persen_okupansi >= 50 ? 'menunggu' : 'kedaluwarsa');
                                 @endphp
-                                <span class="travs-status-pill travs-status-{{ $color }}">
+                                <span class="travs-status-pill travs-status-{{ $color }} badge rounded-pill">
                                     {{ number_format($jadwal->persen_okupansi, 1) }}%
                                 </span>
                             </td>

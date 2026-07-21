@@ -5,17 +5,17 @@
 @section('page-description', 'Perbarui data kendaraan untuk menjaga informasi armada tetap akurat.')
 
 @section('content')
-    <div class="travs-page-frame">
-        <div class="travs-panel-header">
+    <div class="travs-page-frame card">
+        <div class="travs-panel-header d-flex align-items-start justify-content-between">
             <div class="travs-panel-title">
                 <h3>Form Edit Armada</h3>
                 <p>Perbarui data kendaraan {{ $kendaraan->merk_kendaraan }} ({{ $kendaraan->nomor_plat }}).</p>
             </div>
-            <a href="{{ route('admin.kendaraan.index') }}" class="travs-button-secondary">Kembali</a>
+            <a href="{{ route('admin.kendaraan.index') }}" class="travs-button-secondary btn btn-secondary">Kembali</a>
         </div>
 
         @if ($errors->any())
-            <div class="travs-alert travs-alert-danger">
+            <div class="travs-alert travs-alert-danger alert alert-danger">
                 <ul style="margin: 0; padding-left: 18px;">
                     @foreach ($errors->all() as $error)
                         <li>{{ $error }}</li>
@@ -59,12 +59,6 @@
                     <input id="kapasitas_kursi" name="kapasitas_kursi" type="number" min="5" max="6" class="form-control @error('kapasitas_kursi') is-invalid @enderror" value="{{ old('kapasitas_kursi', min(6, max(5, (int) $kendaraan->kapasitas_kursi))) }}" required>
                     <div class="form-text">Kapasitas kursi adalah jumlah kursi penumpang. Kursi sopir tidak dihitung.</div>
                     @include('admin.partials.field-error', ['name' => 'kapasitas_kursi', 'bootstrap' => true])
-                </div>
-                <div class="col-12 col-lg-6">
-                    <label for="seat_layout" class="form-label">Susunan Kursi Default</label>
-                    <input id="seat_layout" name="seat_layout" class="form-control @error('seat_layout') is-invalid @enderror" value="{{ old('seat_layout', is_array($kendaraan->seat_layout) ? implode(',', $kendaraan->seat_layout) : '') }}" placeholder="Contoh: 1,3,2">
-                    <div class="form-text">Gunakan 1,3,2 untuk 6 kursi. Kursi yang ditutup untuk ruang bagasi diatur pada saat membuat jadwal.</div>
-                    @include('admin.partials.field-error', ['name' => 'seat_layout', 'bootstrap' => true])
                 </div>
                 <div class="col-12 col-lg-6">
                     <label for="total_kilometer" class="form-label">Total Kilometer</label>
@@ -115,9 +109,9 @@
                 </div>
             </div>
 
-            <div class="travs-form-actions travs-inline">
-                <a href="{{ route('admin.kendaraan.index') }}" class="travs-button-secondary">Batal</a>
-                <button type="submit" class="travs-button">Simpan Perubahan</button>
+            <div class="travs-form-actions travs-inline d-flex justify-content-end align-items-center flex-wrap">
+                <a href="{{ route('admin.kendaraan.index') }}" class="travs-button-secondary btn btn-secondary">Batal</a>
+                <button type="submit" class="travs-button btn btn-primary">Simpan Perubahan</button>
             </div>
         </form>
     </div>

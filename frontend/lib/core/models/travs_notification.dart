@@ -20,7 +20,7 @@ class TravSNotification {
   /// Dipakai untuk menentukan mana notifikasi yang "baru" vs "sudah pernah dilihat".
   final int id;
 
-  /// Judul singkat notifikasi, contoh: "Pembayaran Berhasil", "Manifest Baru".
+  /// Judul singkat notifikasi, contoh: "Pembayaran Berhasil", "Manifes Baru".
   final String judul;
 
   /// Isi lengkap yang ditampilkan pada notifikasi sistem Android.

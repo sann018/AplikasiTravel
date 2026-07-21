@@ -8,6 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -16,22 +17,38 @@ class PengaturanController extends Controller
     public function updateAccount(Request $request): RedirectResponse
     {
         $admin = $request->user();
+        $request->merge([
+            'email' => Str::lower(trim((string) $request->input('email'))),
+        ]);
 
         $validated = $request->validate([
             'email' => [
                 'required',
                 'email',
                 'max:100',
+                'regex:/^[^@\s]+@gmail\.com$/i',
                 Rule::unique('pengguna', 'email')->ignore($admin->id),
             ],
             'current_password' => ['required', 'string'],
-            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+            'password' => [
+                'nullable',
+                'string',
+                'min:6',
+                'max:8',
+                'different:current_password',
+                'regex:/^(?=.*[A-Za-z])(?=.*(?:[0-9]|[^A-Za-z0-9\s]))\S+$/',
+                'confirmed',
+            ],
         ], [
             'email.required' => 'Email admin wajib diisi.',
             'email.email' => 'Format email admin belum valid.',
+            'email.regex' => 'Email admin wajib menggunakan alamat @gmail.com.',
             'email.unique' => 'Email ini sudah dipakai akun lain.',
             'current_password.required' => 'Kata sandi lama wajib diisi untuk menyimpan perubahan akun.',
-            'password.min' => 'Kata sandi baru minimal 8 karakter.',
+            'password.min' => 'Kata sandi baru minimal 6 karakter.',
+            'password.max' => 'Kata sandi baru maksimal 8 karakter.',
+            'password.different' => 'Kata sandi baru harus berbeda dari kata sandi lama.',
+            'password.regex' => 'Kata sandi baru wajib mengandung huruf dan minimal satu angka atau simbol.',
             'password.confirmed' => 'Konfirmasi kata sandi baru belum sama.',
         ]);
 

@@ -141,20 +141,20 @@ class BookingService
             $this->ensureSeatRowsMatchSelection($selectedSeats, $seatNumbers);
             $this->ensureSeatsCanBeUsedByUser($selectedSeats, $user->id);
 
+            $now = now();
+            $this->ensureActiveFormLocksOwnedByUser($selectedSeats, $user->id, $now);
+
             $totals = $this->calculator->calculate(
                 $schedule,
                 $seatNumbers->count(),
-                $payload['baggage_items'] ?? [],
-                $passengers->count(),
             );
 
-            $now = now();
             $paymentDeadline = $this->resolvePaymentLockDeadline($now, $schedule, $paymentMethod);
             $formDeadline = $selectedSeats
                 ->pluck('lock_expires_at')
                 ->filter()
                 ->sort()
-                ->first() ?? $this->resolveFormLockDeadline($now);
+                ->first();
 
             $booking = Pemesanan::query()->create([
                 'pengguna_id' => $user->id,
@@ -172,8 +172,6 @@ class BookingService
                 'alamat_turun' => data_get($payload, 'dropoff.address'),
                 'catatan_turun' => data_get($payload, 'dropoff.note'),
                 'subtotal_tiket' => $totals['subtotal_tiket'],
-                'biaya_bagasi' => $totals['biaya_bagasi'],
-                'diskon' => $totals['diskon'],
                 'total_harga' => $totals['total_harga'],
                 'status_pemesanan' => 'menunggu_pembayaran',
             ]);
@@ -269,7 +267,6 @@ class BookingService
     public function releaseExpiredResources(?int $jadwalId = null): int
     {
         $now = now();
-        $paymentGraceDeadline = $now->copy()->subMinute();
         $released = 0;
 
         if ($this->settingService->get('auto_cancel_booking', true)) {
@@ -277,7 +274,7 @@ class BookingService
                 ->when($jadwalId !== null, fn ($query) => $query->where('jadwal_id', $jadwalId))
                 ->where('status_pemesanan', 'menunggu_pembayaran')
                 ->whereNotNull('batas_pembayaran')
-                ->where('batas_pembayaran', '<=', $paymentGraceDeadline)
+                ->where('batas_pembayaran', '<=', $now)
                 ->pluck('id');
 
             foreach ($expiredBookingIds as $bookingId) {
@@ -338,7 +335,14 @@ class BookingService
             return $this->freshBookingWithRelations($booking->id);
         }
 
+        $this->releaseExpiredResources($booking->jadwal_id);
         $booking = $this->freshBookingWithRelations($booking->id);
+
+        if ($booking->status_pemesanan !== 'menunggu_pembayaran') {
+            throw ValidationException::withMessages([
+                'booking' => 'Sesi pembayaran telah berakhir. Pemesanan ini sudah dibatalkan.',
+            ]);
+        }
 
         if (
             $booking->pembayaran &&
@@ -403,7 +407,7 @@ class BookingService
     {
         if (! $driver->isPengemudi()) {
             throw ValidationException::withMessages([
-                'payment' => 'Hanya pengemudi yang dapat mengonfirmasi pembayaran tunai di manifest.',
+                'payment' => 'Hanya pengemudi yang dapat mengonfirmasi pembayaran tunai di manifes.',
             ]);
         }
 
@@ -521,6 +525,13 @@ class BookingService
             throw ValidationException::withMessages([
                 'booking' => 'Pemesanan ini bukan milik akun Anda.',
             ]);
+        }
+
+        $this->releaseExpiredResources($booking->jadwal_id);
+        $booking = $this->freshBookingWithRelations($booking->id);
+
+        if ($booking->status_pemesanan !== 'menunggu_pembayaran') {
+            return $booking;
         }
 
         return $this->refreshGatewayPaymentStatusForBooking($booking, $strictPendingState);
@@ -782,6 +793,18 @@ class BookingService
                 ]);
             }
 
+            // Idempoten: pemesanan yang sudah dibayar atau selesai hanya perlu
+            // mencatat snapshot. Webhook terlambat tidak boleh menurunkan status
+            // selesai kembali menjadi terbayar atau mengulang finalisasi tiket.
+            if (in_array($lockedBooking->status_pemesanan, ['terbayar', 'selesai'], true)) {
+                $this->recordGatewaySnapshot($payment, [
+                    'transaction_detail' => $transaction,
+                    'duplicate_success_webhook' => true,
+                ]);
+
+                return $this->freshBookingWithRelations($lockedBooking->id);
+            }
+
             $gatewayResponse = $this->pakasirService->mergeGatewayResponse(
                 $payment->gateway_response,
                 ['transaction_detail' => $transaction],
@@ -795,6 +818,17 @@ class BookingService
                 'webhook_verified_at' => now(),
                 'dibayar_pada' => $this->resolveGatewayExpiredAt((string) data_get($transaction, 'completed_at')) ?? now(),
             ]);
+
+            // Pengaman: pembayaran berhasil bisa datang terlambat setelah pemesanan
+            // dibatalkan/kedaluwarsa (kursi dan detail penumpang sudah dilepas).
+            // Pada kondisi ini tiket tidak dapat diterbitkan, jadi status pemesanan
+            // tidak dipaksa menjadi terbayar dan admin diminta memproses refund.
+            if ($lockedBooking->status_pemesanan === 'dibatalkan'
+                || $lockedBooking->detailPemesanan->isEmpty()) {
+                $this->adminNotification->paymentReceivedAfterCancellation($lockedBooking);
+
+                return $this->freshBookingWithRelations($lockedBooking->id);
+            }
 
             $lockedBooking->update([
                 'status_pemesanan' => 'terbayar',
@@ -969,7 +1003,10 @@ class BookingService
             // tidak keliru dibatalkan hanya karena webhook/return terlambat.
             return $this->refreshGatewayPaymentStatusFromSystem($booking);
         } catch (Throwable) {
-            return null;
+            // Deadline lokal tetap harus dipatuhi walaupun gateway sedang tidak
+            // dapat dijangkau. Pembayaran terlambat tetap direkonsiliasi oleh
+            // webhook dan diarahkan ke penanganan refund oleh admin.
+            return $booking;
         }
     }
 
@@ -1196,6 +1233,34 @@ class BookingService
     }
 
     /**
+     * Draft hanya boleh dibuat dari kunci form yang masih aktif dan memang
+     * dimiliki pengguna. Status "tersedia" tidak cukup karena dapat berarti
+     * sesi form sebelumnya sudah kedaluwarsa atau sengaja dilepas.
+     *
+     * @param  Collection<int, KursiJadwal>  $selectedSeats
+     *
+     * @throws ValidationException
+     */
+    private function ensureActiveFormLocksOwnedByUser(
+        Collection $selectedSeats,
+        int $userId,
+        CarbonInterface $now,
+    ): void {
+        $hasInvalidLock = $selectedSeats->contains(function (KursiJadwal $seat) use ($userId, $now) {
+            return $seat->status_kursi !== 'terkunci'
+                || (int) $seat->dikunci_oleh !== $userId
+                || $seat->lock_expires_at === null
+                || $seat->lock_expires_at->lessThanOrEqualTo($now);
+        });
+
+        if ($hasInvalidLock) {
+            throw ValidationException::withMessages([
+                'seat_numbers' => 'Sesi konfirmasi pemesanan telah berakhir. Kursi sudah dilepas, silakan pilih jadwal dan kursi kembali.',
+            ]);
+        }
+    }
+
+    /**
      * Memastikan jadwal masih dibuka sebelum proses pemesanan dilanjutkan.
      *
      * @throws ValidationException
@@ -1292,10 +1357,6 @@ class BookingService
 
     private function resolvePaymentLockDeadline($now, ?Jadwal $schedule = null, ?string $paymentMethod = null)
     {
-        if ($paymentMethod === 'cash') {
-            return null;
-        }
-
         return $now->copy()->addMinutes(
             (int) $this->settingService->get('seat_lock_payment_minutes', 5),
         );

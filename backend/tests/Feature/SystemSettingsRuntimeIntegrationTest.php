@@ -102,7 +102,7 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
             ]],
         ])->assertOk()
             ->assertJsonMissingPath('data.biaya_admin')
-            ->assertJsonPath('data.biaya_bagasi', 0)
+            ->assertJsonMissingPath('data.biaya_bagasi')
             ->assertJsonPath(
                 'data.total_harga',
                 (int) $schedule->rute->harga_tiket,
@@ -125,6 +125,36 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
             ->assertJsonPath('errors.payment_method.0', 'Pembayaran tunai sedang tidak tersedia. Silakan pilih metode lain.');
     }
 
+    public function test_cash_booking_uses_configured_payment_deadline(): void
+    {
+        $this->setSettings([
+            'payment_cash_enabled' => true,
+            'seat_lock_payment_minutes' => 7,
+        ]);
+
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $schedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        $seat = $this->availableSeats($schedule, 1)[0];
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/penumpang/bookings/lock-form', [
+            'jadwal_id' => $schedule->id,
+            'seat_numbers' => [$seat],
+        ])->assertOk();
+
+        $response = $this->postJson(
+            '/api/penumpang/bookings',
+            $this->bookingPayload($schedule, $seat, 'cash'),
+        );
+
+        $response
+            ->assertCreated()
+            ->assertJsonPath('data.status', 'menunggu_pembayaran')
+            ->assertJsonPath('data.payment.method', 'cash')
+            ->assertJsonPath('data.batas_pembayaran', fn ($value) => is_string($value) && $value !== '')
+            ->assertJsonPath('data.payment.expired_at', fn ($value) => is_string($value) && $value !== '');
+    }
+
     public function test_expired_booking_is_not_cancelled_when_auto_cancel_is_disabled(): void
     {
         $this->setSettings(['auto_cancel_booking' => false]);
@@ -140,8 +170,6 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
             'batas_pembayaran' => now()->subMinutes(5),
             'alamat_jemput' => 'Pontianak',
             'subtotal_tiket' => 100000,
-            'biaya_bagasi' => 0,
-            'diskon' => 0,
             'total_harga' => 100000,
             'status_pemesanan' => 'menunggu_pembayaran',
         ]);
@@ -189,6 +217,11 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
         $schedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
         $seat = $this->availableSeats($schedule, 1)[0];
         Sanctum::actingAs($user);
+
+        $this->postJson('/api/penumpang/bookings/lock-form', [
+            'jadwal_id' => $schedule->id,
+            'seat_numbers' => [$seat],
+        ])->assertOk();
 
         $bookingId = $this->postJson(
             '/api/penumpang/bookings',
@@ -241,7 +274,7 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
                 'jumlah_item' => 5,
             ]],
         ])->assertOk()
-            ->assertJsonPath('data.biaya_bagasi', 0)
+            ->assertJsonMissingPath('data.biaya_bagasi')
             ->assertJsonPath(
                 'data.total_harga',
                 (int) $schedule->rute->harga_tiket * 2,

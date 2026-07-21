@@ -247,14 +247,18 @@ class ApiErrorResponseTest extends TestCase
 
     public function test_register_duplicate_account_returns_friendly_message(): void
     {
-        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $user = User::factory()->create([
+            'email' => 'duplikat@gmail.com',
+            'no_hp' => '081234567898',
+            'peran' => 'penumpang',
+        ]);
 
         $response = $this->postJson('/api/auth/register', [
             'nama' => 'Penumpang Baru',
             'email' => $user->email,
             'no_hp' => $user->no_hp,
-            'password' => 'Password123',
-            'password_confirmation' => 'Password123',
+            'password' => 'Pass12!',
+            'password_confirmation' => 'Pass12!',
         ]);
 
         $response
@@ -275,10 +279,10 @@ class ApiErrorResponseTest extends TestCase
     {
         $response = $this->postJson('/api/auth/register', [
             'nama' => 'Penumpang Registrasi',
-            'email' => 'penumpang-registrasi@example.com',
+            'email' => 'penumpang.registrasi@gmail.com',
             'no_hp' => '081234567899',
-            'password' => 'Password123',
-            'password_confirmation' => 'Password123',
+            'password' => 'Pass12!',
+            'password_confirmation' => 'Pass12!',
             'peran' => 'pengemudi',
         ]);
 
@@ -287,7 +291,7 @@ class ApiErrorResponseTest extends TestCase
             ->assertJsonPath('data.user.peran', 'penumpang');
 
         $this->assertDatabaseHas('pengguna', [
-            'email' => 'penumpang-registrasi@example.com',
+            'email' => 'penumpang.registrasi@gmail.com',
             'peran' => 'penumpang',
         ]);
     }
@@ -309,7 +313,7 @@ class ApiErrorResponseTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonPath(
                 'errors.login.0',
-                'Akun admin hanya dapat digunakan melalui web admin.',
+                'Email, nomor HP, atau kata sandi tidak sesuai.',
             );
 
         $this->assertDatabaseMissing('personal_access_tokens', [

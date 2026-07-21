@@ -19,10 +19,10 @@ class AuthEmailVerificationTest extends TestCase
 
         $response = $this->postJson('/api/auth/register', [
             'nama' => 'Penumpang Baru',
-            'email' => 'penumpang.baru@example.com',
+            'email' => 'penumpang.baru@gmail.com',
             'no_hp' => '081234567899',
-            'password' => 'Password123',
-            'password_confirmation' => 'Password123',
+            'password' => 'Pass12!',
+            'password_confirmation' => 'Pass12!',
             'device_name' => 'pengujian',
         ]);
 
@@ -33,7 +33,7 @@ class AuthEmailVerificationTest extends TestCase
             ->assertJsonMissingPath('data.token');
 
         $user = User::query()
-            ->where('email', 'penumpang.baru@example.com')
+            ->where('email', 'penumpang.baru@gmail.com')
             ->firstOrFail();
         $verificationCode = $this->verificationCodeSentTo($user);
 
@@ -43,7 +43,7 @@ class AuthEmailVerificationTest extends TestCase
 
         $this->postJson('/api/auth/login', [
             'login' => $user->email,
-            'password' => 'Password123',
+            'password' => 'Pass12!',
         ])
             ->assertForbidden()
             ->assertJsonPath('data.requires_email_verification', true);
@@ -136,10 +136,10 @@ class AuthEmailVerificationTest extends TestCase
 
         $payload = [
             'nama' => 'Penumpang Pending',
-            'email' => 'pending@example.com',
+            'email' => 'pending@gmail.com',
             'no_hp' => '081234567877',
-            'password' => 'Password123',
-            'password_confirmation' => 'Password123',
+            'password' => 'Pass12!',
+            'password_confirmation' => 'Pass12!',
         ];
 
         $this->postJson('/api/auth/register', $payload)->assertCreated();
@@ -147,20 +147,33 @@ class AuthEmailVerificationTest extends TestCase
         $this->postJson('/api/auth/register', [
             ...$payload,
             'nama' => 'Penumpang Diperbarui',
-            'password' => 'Password456',
-            'password_confirmation' => 'Password456',
+            'password' => 'Pass34!',
+            'password_confirmation' => 'Pass34!',
         ])->assertCreated();
 
         $this->assertSame(
             1,
-            User::query()->where('email', 'pending@example.com')->count(),
+            User::query()->where('email', 'pending@gmail.com')->count(),
         );
 
-        $user = User::query()->where('email', 'pending@example.com')->firstOrFail();
+        $user = User::query()->where('email', 'pending@gmail.com')->firstOrFail();
         $this->assertSame('Penumpang Diperbarui', $user->nama);
-        $this->assertTrue(Hash::check('Password456', $user->password));
+        $this->assertTrue(Hash::check('Pass34!', $user->password));
         $this->assertNull($user->email_verified_at);
         Mail::assertSent(AccountVerificationCodeMail::class, 2);
+    }
+
+    public function test_registration_rejects_non_gmail_phone_outside_limit_and_weak_password(): void
+    {
+        $this->postJson('/api/auth/register', [
+            'nama' => 'Penumpang Tidak Valid',
+            'email' => 'penumpang@example.com',
+            'no_hp' => '08123abc',
+            'password' => 'abcdef',
+            'password_confirmation' => 'abcdef',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['email', 'no_hp', 'password']);
     }
 
     private function verificationCodeSentTo(User $user): string

@@ -26,6 +26,36 @@ class TravSPickupPoint {
 }
 
 class TravSLocationService {
+  Future<TravSPickupPoint> resolvePickupFromAddress(String address) async {
+    final query = address.trim();
+    if (query.isEmpty) {
+      throw const TravSLocationException(
+        'Nama tujuan perjalanan belum tersedia.',
+      );
+    }
+
+    try {
+      final locations = await locationFromAddress(query);
+      if (locations.isNotEmpty) {
+        return resolvePickupFromCoordinates(
+          latitude: locations.first.latitude,
+          longitude: locations.first.longitude,
+        );
+      }
+    } catch (_) {
+      // Lanjutkan ke mekanisme OpenStreetMap yang juga dipakai reverse geocoding.
+    }
+
+    final openStreetMapPoint = await _geocodeWithOpenStreetMap(query);
+    if (openStreetMapPoint != null) {
+      return openStreetMapPoint;
+    }
+
+    throw TravSLocationException(
+      'Koordinat tujuan $query belum dapat ditemukan.',
+    );
+  }
+
   Future<TravSPickupPoint> resolveCurrentPickup() async {
     final hasPermission = await _ensurePermission();
     if (!hasPermission) {
@@ -212,6 +242,54 @@ class TravSLocationService {
     }
 
     return null;
+  }
+
+  Future<TravSPickupPoint?> _geocodeWithOpenStreetMap(String query) async {
+    final uri = Uri.https('nominatim.openstreetmap.org', '/search', {
+      'format': 'jsonv2',
+      'q': query,
+      'limit': '1',
+      'countrycodes': 'id',
+    });
+
+    try {
+      final response = await http
+          .get(
+            uri,
+            headers: const {
+              'Accept': 'application/json',
+              'User-Agent': 'RuslyTravel Mobile App',
+            },
+          )
+          .timeout(const Duration(seconds: 8));
+
+      if (response.statusCode != 200) {
+        return null;
+      }
+
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List || decoded.isEmpty || decoded.first is! Map) {
+        return null;
+      }
+
+      final result = Map<String, dynamic>.from(decoded.first as Map);
+      final latitude = double.tryParse(result['lat']?.toString() ?? '');
+      final longitude = double.tryParse(result['lon']?.toString() ?? '');
+      if (latitude == null || longitude == null) {
+        return null;
+      }
+
+      final displayName = result['display_name']?.toString().trim();
+      return TravSPickupPoint(
+        latitude: latitude,
+        longitude: longitude,
+        address: displayName == null || displayName.isEmpty
+            ? query
+            : displayName,
+      );
+    } catch (_) {
+      return null;
+    }
   }
 
   String _fallbackAddress() {

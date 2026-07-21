@@ -98,6 +98,11 @@ class SecurityAndTDTest extends TestCase
 
         Sanctum::actingAs($user);
 
+        $this->postJson('/api/penumpang/bookings/lock-form', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seatNumber],
+        ])->assertOk();
+
         $payload = [
             'jadwal_id' => $jadwal->id,
             'seat_numbers' => [$seatNumber],
@@ -197,8 +202,6 @@ class SecurityAndTDTest extends TestCase
             'batas_pembayaran' => now()->addMinutes(5),
             'alamat_jemput' => 'Test notifikasi',
             'subtotal_tiket' => 225000,
-            'biaya_bagasi' => 0,
-            'diskon' => 0,
             'total_harga' => 230000,
             'status_pemesanan' => 'terbayar',
         ]);
@@ -353,8 +356,6 @@ class SecurityAndTDTest extends TestCase
             'batas_pembayaran' => now()->addMinutes(5),
             'alamat_jemput' => 'Ownership test',
             'subtotal_tiket' => 225000,
-            'biaya_bagasi' => 0,
-            'diskon' => 0,
             'total_harga' => 230000,
             'status_pemesanan' => 'terbayar',
         ]);

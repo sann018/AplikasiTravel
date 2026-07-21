@@ -43,3 +43,8 @@ backend/storage/framework/views/
 
 # Generated local run artifacts
 .runlogs/
+
+# Local audit/tooling artifacts and database backups
+.codex-targets.txt
+database_backups/
+backend/database_backups/

@@ -9,6 +9,7 @@ use App\Models\Jadwal;
 use App\Models\Pemesanan;
 use App\Models\Pengemudi;
 use App\Models\TiketElektronik;
+use App\Services\AdminOperationalNotificationService;
 use App\Services\BookingService;
 use App\Services\ScheduleLifecycleService;
 use Illuminate\Http\JsonResponse;
@@ -23,6 +24,7 @@ class DriverController extends Controller
     public function __construct(
         private readonly BookingService $bookingService,
         private readonly ScheduleLifecycleService $scheduleLifecycleService,
+        private readonly AdminOperationalNotificationService $adminNotification,
     ) {}
 
     public function dashboard(Request $request): JsonResponse
@@ -134,8 +136,17 @@ class DriverController extends Controller
             if (! $booking || ! $jadwal || (int) $jadwal->pengemudi_id !== (int) $pengemudi->id) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Tiket ini bukan bagian dari manifest pengemudi aktif.',
+                    'message' => 'Tiket ini bukan bagian dari manifes pengemudi aktif.',
                 ], 403);
+            }
+
+            // Validasi final: tiket jadwal yang sudah selesai tidak boleh dipindai,
+            // termasuk ketika endpoint dipanggil langsung tanpa aplikasi Flutter.
+            if ($jadwal->status === 'selesai') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Maaf, pemindaian tidak dapat dilakukan karena jadwal perjalanan ini sudah selesai.',
+                ], 422);
             }
 
             if ($booking->status_pemesanan !== 'terbayar') {
@@ -205,14 +216,26 @@ class DriverController extends Controller
             if (! $lockedDetail || ! $lockedDetail->pemesanan) {
                 abort(response()->json([
                     'success' => false,
-                    'message' => 'Penumpang tidak ditemukan pada manifest aktif.',
+                    'message' => 'Penumpang tidak ditemukan pada manifes aktif.',
                 ], 404));
             }
 
-            if ($lockedDetail->status_kehadiran !== 'menunggu') {
+            // Penandaan dijemput hanya mencatat waktu jemput dan tidak bergantung
+            // pada urutan scan tiket. Baik penumpang yang dijemput lebih dulu
+            // (status masih menunggu) maupun yang sudah scan/boarding (hadir)
+            // tetap dapat ditandai dijemput. Yang ditolak hanya penumpang yang
+            // sudah turun atau ditandai tidak hadir.
+            if ($lockedDetail->status_kehadiran === 'tidak_hadir') {
                 abort(response()->json([
                     'success' => false,
-                    'message' => 'Penumpang sudah boarding atau tidak dapat ditandai pickup.',
+                    'message' => 'Penumpang sudah ditandai tidak hadir sehingga tidak dapat ditandai dijemput.',
+                ], 422));
+            }
+
+            if ($lockedDetail->diturunkan_pada) {
+                abort(response()->json([
+                    'success' => false,
+                    'message' => 'Penumpang sudah turun sehingga tidak dapat ditandai dijemput.',
                 ], 422));
             }
 
@@ -243,7 +266,7 @@ class DriverController extends Controller
         if (! $booking || (int) $booking->jadwal_id !== (int) $jadwal->id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Penumpang tidak ditemukan pada manifest pengemudi.',
+                'message' => 'Penumpang tidak ditemukan pada manifes pengemudi.',
             ], 404);
         }
 
@@ -288,7 +311,7 @@ class DriverController extends Controller
             if (! $lockedDetail || ! $lockedDetail->pemesanan) {
                 abort(response()->json([
                     'success' => false,
-                    'message' => 'Penumpang tidak ditemukan pada manifest aktif.',
+                    'message' => 'Penumpang tidak ditemukan pada manifes aktif.',
                 ], 404));
             }
 
@@ -316,12 +339,20 @@ class DriverController extends Controller
                 $booking->update(['status_pemesanan' => 'selesai']);
             }
 
-            $hasActivePaidBooking = Pemesanan::query()
+            // Sisa pemesanan yang masih perlu dilayani mencakup pemesanan terbayar
+            // yang belum selesai maupun pemesanan tunai yang masih menunggu
+            // konfirmasi pada manifes, agar jadwal tidak keburu ditutup ketika
+            // masih ada penumpang tunai yang belum naik.
+            $hasRemainingActiveBooking = Pemesanan::query()
                 ->where('jadwal_id', $jadwal->id)
-                ->where('status_pemesanan', 'terbayar')
+                ->where(fn ($bookingQuery) => $this->scopeManifestVisibleBookings($bookingQuery))
+                ->where('status_pemesanan', '!=', 'selesai')
                 ->exists();
 
-            if (! $hasActivePaidBooking && in_array($jadwal->status, ['dibuka', 'ditutup', 'berangkat'], true)) {
+            // Jadwal hanya diselesaikan otomatis bila perjalanan sudah berangkat,
+            // konsisten dengan aturan transisi pada updateTripStatus (status selesai
+            // hanya boleh dicapai dari status berangkat, tidak boleh diloncati).
+            if (! $hasRemainingActiveBooking && $jadwal->status === 'berangkat') {
                 Jadwal::query()
                     ->whereKey($jadwal->id)
                     ->update(['status' => 'selesai']);
@@ -369,11 +400,20 @@ class DriverController extends Controller
 
             $lockedTrip->update(['status' => $target]);
 
+            if ($target === 'berangkat') {
+                $this->adminNotification->scheduleDeparted($lockedTrip);
+            }
+
             if ($target === 'selesai') {
                 Pemesanan::query()
                     ->where('jadwal_id', $lockedTrip->id)
                     ->where('status_pemesanan', 'terbayar')
                     ->update(['status_pemesanan' => 'selesai']);
+
+                // Pemesanan tunai yang tidak pernah dikonfirmasi sampai perjalanan
+                // selesai diperlakukan sebagai no-show: kursi dilepas kembali dan
+                // pemesanan dibatalkan agar tidak menggantung permanen di database.
+                $this->releaseUnconfirmedCashBookings($lockedTrip);
             }
 
             return $lockedTrip->fresh($this->tripRelations());
@@ -384,6 +424,44 @@ class DriverController extends Controller
             'message' => 'Status perjalanan berhasil diperbarui.',
             'data' => $this->formatTrip($jadwal),
         ]);
+    }
+
+    /**
+     * Melepas kursi dan membatalkan pemesanan tunai yang belum dikonfirmasi
+     * sampai perjalanan selesai (no-show), agar kursi tidak terkunci permanen.
+     */
+    private function releaseUnconfirmedCashBookings(Jadwal $jadwal): void
+    {
+        $unconfirmedCashBookings = Pemesanan::query()
+            ->with('detailPemesanan.kursiJadwal', 'pembayaran')
+            ->where('jadwal_id', $jadwal->id)
+            ->where('status_pemesanan', 'menunggu_pembayaran')
+            ->whereHas('pembayaran', fn ($paymentQuery) => $paymentQuery
+                ->where('metode_bayar', 'cash')
+                ->where('status_bayar', 'menunggu'))
+            ->get();
+
+        foreach ($unconfirmedCashBookings as $booking) {
+            foreach ($booking->detailPemesanan as $detail) {
+                $detail->kursiJadwal?->update([
+                    'status_kursi' => 'tersedia',
+                    'dikunci_oleh' => null,
+                    'locked_at' => null,
+                    'lock_expires_at' => null,
+                    'updated_at' => now(),
+                ]);
+            }
+
+            $booking->detailPemesanan()->delete();
+
+            $booking->pembayaran?->update([
+                'status_bayar' => 'kedaluwarsa',
+            ]);
+
+            $booking->update([
+                'status_pemesanan' => 'dibatalkan',
+            ]);
+        }
     }
 
     private function activeDriverFor(Request $request): Pengemudi
@@ -548,7 +626,7 @@ class DriverController extends Controller
         $baggageItems = $storedBaggageItems->sum('jumlah_item');
         $heldItems = $heldBaggageItems->sum('jumlah_item');
         $baggageWeight = $storedBaggageItems->sum(fn ($item) => (float) $item->berat_kg);
-        // Manifest menampilkan nama barang; jumlah dan berat legacy tidak lagi dipakai pada UI pengemudi.
+        // Manifes menampilkan nama barang; jumlah dan berat legacy tidak lagi dipakai pada UI pengemudi.
         $baggageLabel = $baggageCollection
             ->pluck('deskripsi_item')
             ->map(fn ($description) => trim((string) $description))

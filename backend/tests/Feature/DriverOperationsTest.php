@@ -140,6 +140,11 @@ class DriverOperationsTest extends TestCase
             'id' => $jadwal->id,
             'status' => 'berangkat',
         ]);
+        $this->assertDatabaseHas('notifikasi', [
+            'judul' => 'Armada telah berangkat',
+            'jenis' => 'perjalanan',
+            'referensi_id' => $jadwal->id,
+        ]);
     }
 
     public function test_driver_cannot_start_trip_assigned_to_another_driver(): void
@@ -444,6 +449,35 @@ class DriverOperationsTest extends TestCase
             ->assertJsonPath('success', false);
     }
 
+    public function test_driver_cannot_scan_ticket_after_trip_is_finished(): void
+    {
+        $driver = User::query()->where('email', 'pengemudi@travs.com')->firstOrFail();
+        $ticket = TiketElektronik::query()
+            ->whereHas('detailPemesanan.pemesanan.jadwal.pengemudi.pengguna', fn ($query) => $query->whereKey($driver->id))
+            ->where('sudah_dipindai', false)
+            ->firstOrFail();
+        $detail = $ticket->detailPemesanan;
+        $jadwal = $detail->pemesanan->jadwal;
+        $originalAttendanceStatus = $detail->status_kehadiran;
+        $jadwal->update(['status' => 'selesai']);
+
+        Sanctum::actingAs($driver);
+
+        $this->postJson('/api/pengemudi/tickets/scan', [
+            'token' => $ticket->token_unik_qr,
+        ])
+            ->assertStatus(422)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath(
+                'message',
+                'Maaf, pemindaian tidak dapat dilakukan karena jadwal perjalanan ini sudah selesai.',
+            );
+
+        $this->assertFalse($ticket->fresh()->sudah_dipindai);
+        $this->assertNull($ticket->fresh()->dipindai_pada);
+        $this->assertSame($originalAttendanceStatus, $detail->fresh()->status_kehadiran);
+    }
+
     public function test_driver_cannot_scan_ticket_from_other_trip(): void
     {
         $otherDriver = User::query()->where('email', 'pengemudi2@travs.com')->firstOrFail();
@@ -493,8 +527,6 @@ class DriverOperationsTest extends TestCase
             'bujur_jemput' => 109.400901,
             'alamat_jemput' => 'Jalan Ampera Raya, Pontianak',
             'subtotal_tiket' => 150000,
-            'biaya_bagasi' => 0,
-            'diskon' => 0,
             'total_harga' => 150000,
             'status_pemesanan' => 'menunggu_pembayaran',
         ]);

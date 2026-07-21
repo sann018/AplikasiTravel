@@ -75,6 +75,7 @@ Route::prefix('admin')->group(function () {
         Route::get('/jadwal', [JadwalController::class, 'index'])->name('admin.jadwal.index');
         Route::get('/jadwal/create', [JadwalController::class, 'create'])->name('admin.jadwal.create');
         Route::post('/jadwal', [JadwalController::class, 'store'])->middleware('throttle:travs-admin-action')->name('admin.jadwal.store');
+        Route::get('/jadwal/{jadwal}', [JadwalController::class, 'show'])->name('admin.jadwal.show');
         Route::get('/jadwal/{jadwal}/edit', [JadwalController::class, 'edit'])->name('admin.jadwal.edit');
         Route::put('/jadwal/{jadwal}', [JadwalController::class, 'update'])->middleware('throttle:travs-admin-action')->name('admin.jadwal.update');
         Route::delete('/jadwal/{jadwal}', [JadwalController::class, 'destroy'])->middleware('throttle:travs-admin-action')->name('admin.jadwal.destroy');

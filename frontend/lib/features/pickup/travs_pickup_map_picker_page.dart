@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -10,6 +12,7 @@ enum _TravSMapLayer { standard, satellite }
 class TravSPickupMapPickerPage extends StatefulWidget {
   const TravSPickupMapPickerPage({
     this.initialPickup,
+    this.initialLocationQuery,
     this.title = 'Pilih Titik Jemput',
     this.locationLabel = 'titik jemput',
     this.showCurrentLocationButton = true,
@@ -17,6 +20,7 @@ class TravSPickupMapPickerPage extends StatefulWidget {
   });
 
   final TravSPickupPoint? initialPickup;
+  final String? initialLocationQuery;
   final String title;
   final String locationLabel;
   final bool showCurrentLocationButton;
@@ -35,8 +39,10 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
   late LatLng _selectedPoint;
   late String _selectedAddress;
   bool _isResolvingAddress = false;
+  bool _isResolvingInitialPoint = false;
   _TravSMapLayer _mapLayer = _TravSMapLayer.standard;
   int _lookupToken = 0;
+  Timer? _mapMoveDebounce;
 
   @override
   void initState() {
@@ -48,8 +54,80 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
       _selectedPoint = LatLng(initialPickup.latitude, initialPickup.longitude);
       _selectedAddress = initialPickup.address;
     } else {
+      // Fallback aman memakai pusat peta existing; bukan koordinat hardcode per kota.
       _selectedPoint = _pontianakCenter;
+      final initialLocationQuery = widget.initialLocationQuery?.trim() ?? '';
+      if (initialLocationQuery.isNotEmpty) {
+        _isResolvingInitialPoint = true;
+        _resolveInitialPoint(initialLocationQuery);
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    _mapMoveDebounce?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _resolveInitialPoint(String destination) async {
+    try {
+      // Posisi awal titik turun ditentukan dari tujuan rute, bukan GPS penumpang.
+      final destinationPoint = await _locationService.resolvePickupFromAddress(
+        destination,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _selectedPoint = LatLng(
+          destinationPoint.latitude,
+          destinationPoint.longitude,
+        );
+        _selectedAddress = destinationPoint.address;
+        _isResolvingInitialPoint = false;
+      });
+    } on TravSLocationException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _isResolvingInitialPoint = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${error.message} Peta dibuka pada lokasi fallback; silakan pilih titik turun secara manual.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isResolvingInitialPoint = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Koordinat tujuan belum dapat dimuat. Peta dibuka pada lokasi fallback; silakan pilih titik turun secara manual.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _handleMapPositionChanged(MapCamera camera, bool hasGesture) {
+    if (!hasGesture) return;
+
+    final point = camera.center;
+    setState(() {
+      _selectedPoint = point;
+    });
+
+    _mapMoveDebounce?.cancel();
+    _mapMoveDebounce = Timer(
+      const Duration(milliseconds: 500),
+      () => _resolveAddress(point),
+    );
   }
 
   Future<void> _selectPoint(LatLng point) async {
@@ -193,60 +271,64 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
                 borderRadius: BorderRadius.circular(28),
                 child: Stack(
                   children: [
-                    FlutterMap(
-                      mapController: _mapController,
-                      options: MapOptions(
-                        initialCenter: _selectedPoint,
-                        initialZoom: 15,
-                        minZoom: 3,
-                        maxZoom: 19,
-                        onTap: (_, point) => _selectPoint(point),
-                      ),
-                      children: [
-                        TileLayer(
-                          urlTemplate: _mapLayer == _TravSMapLayer.satellite
-                              ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
-                              : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                          userAgentPackageName: 'com.ruslytravel.app',
+                    if (_isResolvingInitialPoint)
+                      const Center(child: CircularProgressIndicator())
+                    else
+                      FlutterMap(
+                        mapController: _mapController,
+                        options: MapOptions(
+                          initialCenter: _selectedPoint,
+                          initialZoom: 15,
+                          minZoom: 3,
+                          maxZoom: 19,
+                          onTap: (_, point) => _selectPoint(point),
+                          onPositionChanged: _handleMapPositionChanged,
                         ),
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              point: _selectedPoint,
-                              width: 54,
-                              height: 54,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(999),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0x26000000),
-                                      blurRadius: 12,
-                                      offset: Offset(0, 6),
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.location_pin,
-                                  color: TravSTheme.orange,
-                                  size: 34,
+                        children: [
+                          TileLayer(
+                            urlTemplate: _mapLayer == _TravSMapLayer.satellite
+                                ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                                : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            userAgentPackageName: 'com.ruslytravel.app',
+                          ),
+                          MarkerLayer(
+                            markers: [
+                              Marker(
+                                point: _selectedPoint,
+                                width: 54,
+                                height: 54,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(999),
+                                    boxShadow: const [
+                                      BoxShadow(
+                                        color: Color(0x26000000),
+                                        blurRadius: 12,
+                                        offset: Offset(0, 6),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.location_pin,
+                                    color: TravSTheme.orange,
+                                    size: 34,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                        RichAttributionWidget(
-                          attributions: [
-                            TextSourceAttribution(
-                              _mapLayer == _TravSMapLayer.satellite
-                                  ? 'Esri World Imagery'
-                                  : 'OpenStreetMap contributors',
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                            ],
+                          ),
+                          RichAttributionWidget(
+                            attributions: [
+                              TextSourceAttribution(
+                                _mapLayer == _TravSMapLayer.satellite
+                                    ? 'Esri World Imagery'
+                                    : 'OpenStreetMap contributors',
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     Positioned(
                       top: 12,
                       right: 12,

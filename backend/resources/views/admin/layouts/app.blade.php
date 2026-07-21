@@ -153,8 +153,7 @@
                                     @endif
                                 </div>
                                 <div class="travs-user-copy">
-                                    <strong>{{ auth()->user()->nama }}</strong>
-                                    <span>{{ ucfirst(auth()->user()->peran) }}</span>
+                                    <strong>Admin Rusly Travel</strong>
                                 </div>
                         </div>
                     </div>
@@ -163,13 +162,13 @@
 
             <div id="main-content">
                 @if (session('status'))
-                    <div class="travs-alert travs-alert-success mb-4">
+                    <div class="travs-alert travs-alert-success mb-4 alert alert-success">
                         {{ session('status') }}
                     </div>
                 @endif
 
                 @if (session('error'))
-                    <div class="travs-alert travs-alert-danger mb-4">
+                    <div class="travs-alert travs-alert-danger mb-4 alert alert-danger">
                         {{ session('error') }}
                     </div>
                 @endif

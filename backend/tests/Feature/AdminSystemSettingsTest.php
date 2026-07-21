@@ -49,6 +49,7 @@ class AdminSystemSettingsTest extends TestCase
             ->assertDontSee('name="admin_fee"', false)
             ->assertDontSee('data-settings-tab="notification"', false)
             ->assertDontSee('Simpan Pengaturan Notifikasi')
+            ->assertDontSee('Tampilkan di aplikasi')
             ->assertDontSee('Simpan Semua Pengaturan');
     }
 
@@ -76,7 +77,7 @@ class AdminSystemSettingsTest extends TestCase
                 'app_name' => 'RuslyTravel Baru',
                 'app_logo' => $logo,
                 'admin_contact' => '081234567890',
-                'service_whatsapp' => '6281234567890',
+                'service_whatsapp' => '081234567891',
                 'system_email' => 'sistem@ruslytravel.test',
             ])
             ->assertRedirect(route('admin.settings.index', ['tab' => 'general']))
@@ -97,7 +98,10 @@ class AdminSystemSettingsTest extends TestCase
             ->value('value');
         $this->assertStringStartsWith('app-logos/', $logoPath);
         $this->assertStringEndsWith('.webp', $logoPath);
-        Storage::disk('public')->assertExists($logoPath);
+        $this->assertTrue(
+            Storage::disk('public')->exists($logoPath),
+            "Logo pengaturan sistem tidak ditemukan pada disk public: {$logoPath}",
+        );
 
         [$logoWidth, $logoHeight] = getimagesize(Storage::disk('public')->path($logoPath));
         $this->assertLessThanOrEqual(512, $logoWidth);
@@ -121,7 +125,7 @@ class AdminSystemSettingsTest extends TestCase
                 'app_name' => 'RuslyTravel',
                 'app_logo' => UploadedFile::fake()->create('logo.txt', 20, 'text/plain'),
                 'admin_contact' => '081234567890',
-                'service_whatsapp' => '6281234567890',
+                'service_whatsapp' => '081234567891',
                 'system_email' => 'sistem@ruslytravel.test',
             ])
             ->assertSessionHasErrors('app_logo');

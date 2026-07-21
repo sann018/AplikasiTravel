@@ -280,9 +280,7 @@ class TravSDemoSeeder extends Seeder
                 'bujur_jemput' => 109.3425,
                 'alamat_jemput' => 'Jalan Ampera Raya, Pontianak',
                 'subtotal_tiket' => 450000,
-                'biaya_bagasi' => 10000,
-                'diskon' => 0,
-                'total_harga' => 465000,
+                'total_harga' => 450000,
                 'status_pemesanan' => 'terbayar',
             ],
         );
@@ -356,9 +354,7 @@ class TravSDemoSeeder extends Seeder
                 'bujur_jemput' => 109.3271,
                 'alamat_jemput' => 'Terminal Batu Layang, Pontianak',
                 'subtotal_tiket' => 175000,
-                'biaya_bagasi' => 15000,
-                'diskon' => 0,
-                'total_harga' => 195000,
+                'total_harga' => 175000,
                 'status_pemesanan' => 'menunggu_pembayaran',
             ],
         );
@@ -411,9 +407,7 @@ class TravSDemoSeeder extends Seeder
                 'bujur_jemput' => 109.3389,
                 'alamat_jemput' => 'Jalan Ahmad Yani, Pontianak',
                 'subtotal_tiket' => 240000,
-                'biaya_bagasi' => 0,
-                'diskon' => 10000,
-                'total_harga' => 235000,
+                'total_harga' => 240000,
                 'status_pemesanan' => 'selesai',
             ],
         );

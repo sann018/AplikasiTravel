@@ -68,9 +68,9 @@
         };
     @endphp
 
-    <div class="travs-booking-detail-simple">
+    <div class="travs-admin-detail-simple">
     <section class="travs-detail-grid">
-        <article class="travs-section-card">
+        <article class="travs-section-card card">
             <div class="travs-panel-title">
                 <h3>Ringkasan Pemesanan</h3>
                 <p>Kode pemesanan {{ $pemesanan->kode_booking }} untuk rute {{ $bookingRoute }}.</p>
@@ -80,7 +80,7 @@
                 <div>
                     <dt>Penumpang Pemesan</dt>
                     <dd>
-                        <div class="travs-person-cell">
+                        <div class="travs-person-cell d-flex align-items-center">
                             <div class="travs-avatar">
                                 @if ($pemesanan->pengguna->foto_profil)
                                     <img class="travs-avatar-image travs-photo-preview-trigger" src="{{ $storageUrl($pemesanan->pengguna->foto_profil) }}" alt="Foto {{ $pemesanan->pengguna->nama }}">
@@ -109,7 +109,7 @@
                 <div>
                     <dt>Pengemudi</dt>
                     <dd>
-                        <div class="travs-person-cell">
+                        <div class="travs-person-cell d-flex align-items-center">
                             <div class="travs-avatar">
                                 @if ($pemesanan->jadwal->pengemudi->pengguna->foto_profil)
                                     <img
@@ -131,7 +131,7 @@
                 <div>
                     <dt>Kendaraan</dt>
                     <dd>
-                        <div class="travs-person-cell">
+                        <div class="travs-person-cell d-flex align-items-center">
                             <div class="travs-avatar travs-avatar-vehicle">
                                 @if ($pemesanan->jadwal->kendaraan->foto_kendaraan)
                                     <img
@@ -169,19 +169,19 @@
             </dl>
         </article>
 
-        <article class="travs-section-card">
+        <article class="travs-section-card card">
             <div class="travs-panel-title">
                 <h3>Status dan Pembayaran</h3>
                 <p>Status pemesanan mengikuti pembayaran dan proses perjalanan. Pembayaran digital diperbarui otomatis oleh layanan pembayaran.</p>
             </div>
 
-            <div class="travs-table-wrap">
-                <table class="travs-table">
+            <div class="travs-table-wrap table-responsive">
+                <table class="travs-table table mb-0">
                     <tbody>
                         <tr>
                             <th>Status Pemesanan</th>
                             <td>
-                                <span class="travs-status-pill travs-status-{{ $pemesanan->status_pemesanan }}">
+                                <span class="travs-status-pill travs-status-{{ $pemesanan->status_pemesanan }} badge rounded-pill">
                                     {{ ucwords(str_replace('_', ' ', $pemesanan->status_pemesanan)) }}
                                 </span>
                             </td>
@@ -216,9 +216,9 @@
                 </div>
             </div>
 
-            <div class="travs-form-actions travs-inline">
-                <a href="{{ route('admin.pemesanan.index') }}" class="travs-button-secondary">Kembali ke Daftar</a>
-                <a href="{{ $paymentDetailUrl }}" class="travs-button-secondary">{{ $paymentDetailLabel }}</a>
+            <div class="travs-form-actions travs-inline d-flex justify-content-end align-items-center flex-wrap">
+                <a href="{{ route('admin.pemesanan.index') }}" class="travs-button-secondary btn btn-secondary">Kembali ke Daftar</a>
+                <a href="{{ $paymentDetailUrl }}" class="travs-button-secondary btn btn-secondary">{{ $paymentDetailLabel }}</a>
             </div>
 
             @if ($cashVerificationReady)
@@ -227,7 +227,7 @@
                     <p class="travs-empty-inline">Pemesanan ini menunggu pembayaran tunai dari penumpang.</p>
                     <form method="POST" action="{{ route('admin.pembayaran.confirm-cash', $pemesanan) }}">
                         @csrf
-                        <button type="submit" class="travs-button">Konfirmasi Pembayaran Tunai</button>
+                        <button type="submit" class="travs-button btn btn-primary">Konfirmasi Pembayaran Tunai</button>
                     </form>
                 </div>
             @endif
@@ -235,7 +235,7 @@
     </section>
 
     <section class="travs-detail-stack">
-        <article class="travs-section-card collapsible-section" data-collapsible-section data-collapse-id="pemesanan-penumpang-kursi">
+        <article class="travs-section-card collapsible-section card" data-collapsible-section data-collapse-id="pemesanan-penumpang-kursi">
             <div class="collapsible-section__header" data-collapse-header>
                 <div class="travs-panel-title">
                     <h3>Penumpang per Kursi</h3>
@@ -245,8 +245,8 @@
             </div>
 
             <div id="pemesanan-penumpang-kursi-body" class="collapsible-section__body" data-collapse-body>
-                <div class="travs-table-wrap">
-                    <table class="travs-table">
+                <div class="travs-table-wrap table-responsive">
+                    <table class="travs-table table mb-0">
                         <thead>
                             <tr>
                                 <th>Kursi</th>
@@ -273,10 +273,10 @@
                                         @endif
                                     </td>
                                     <td>
-                                        <span class="travs-status-pill travs-status-{{ $detail->status_kehadiran }}">
+                                        <span class="travs-status-pill travs-status-{{ $detail->status_kehadiran }} badge rounded-pill">
                                             {{ ucfirst(str_replace('_', ' ', $detail->status_kehadiran)) }}
                                         </span>
-                                        <span class="travs-status-pill travs-status-{{ $detail->diturunkan_pada ? 'selesai' : 'menunggu' }}">
+                                        <span class="travs-status-pill travs-status-{{ $detail->diturunkan_pada ? 'selesai' : 'menunggu' }} badge rounded-pill">
                                             {{ $detail->diturunkan_pada ? 'Sudah turun' : 'Belum turun' }}
                                         </span>
                                         <div class="travs-table-subcopy">
@@ -298,7 +298,7 @@
             </div>
         </article>
 
-        <article class="travs-section-card collapsible-section" data-collapsible-section data-collapse-id="pemesanan-pembayaran-bagasi">
+        <article class="travs-section-card collapsible-section card" data-collapsible-section data-collapse-id="pemesanan-pembayaran-bagasi">
             <div class="collapsible-section__header" data-collapse-header>
                 <div class="travs-panel-title">
                     <h3>Pembayaran dan Barang Bawaan</h3>

@@ -22,7 +22,6 @@ class HomeBannerController extends Controller
             'subjudul' => ['nullable', 'string', 'max:255'],
             'gambar' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:3072'],
             'urutan' => ['required', 'integer', 'min:0', 'max:999'],
-            'aktif' => ['nullable', 'boolean'],
         ], [
             'gambar.image' => 'File banner harus berupa gambar.',
             'gambar.mimes' => 'Format banner harus JPG, JPEG, PNG, atau WEBP.',
@@ -39,7 +38,8 @@ class HomeBannerController extends Controller
             'subjudul' => $validated['subjudul'] ?? null,
             'gambar_path' => $path,
             'urutan' => $validated['urutan'],
-            'aktif' => $request->boolean('aktif'),
+            // Kontrol aktif/nonaktif sudah dihapus; banner baru langsung tampil.
+            'aktif' => true,
             'dibuat_oleh' => $request->user()?->id,
         ]);
 

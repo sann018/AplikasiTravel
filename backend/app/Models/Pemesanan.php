@@ -37,8 +37,6 @@ class Pemesanan extends Model
         'alamat_turun',
         'catatan_turun',
         'subtotal_tiket',
-        'biaya_bagasi',
-        'diskon',
         'total_harga',
         'status_pemesanan',
     ];
@@ -49,8 +47,6 @@ class Pemesanan extends Model
             'batas_kunci_kursi' => 'datetime',
             'batas_pembayaran' => 'datetime',
             'subtotal_tiket' => 'decimal:2',
-            'biaya_bagasi' => 'decimal:2',
-            'diskon' => 'decimal:2',
             'total_harga' => 'decimal:2',
         ];
     }

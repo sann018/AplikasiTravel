@@ -5,7 +5,7 @@
 @section('content')
 <div class="row g-4">
     <div class="col-xl-4">
-        <section class="travs-panel p-4">
+        <section class="travs-panel p-4 card">
             <h4 class="mb-1">Tambah Banner</h4>
             <p class="text-muted mb-4">Gambar aktif akan tampil pada carousel beranda penumpang dan tamu.</p>
 
@@ -32,18 +32,13 @@
                     <label class="form-label" for="urutan">Urutan tampil</label>
                     <input class="form-control" type="number" id="urutan" name="urutan" value="{{ old('urutan', 0) }}" min="0" max="999" required>
                 </div>
-                <div class="form-check form-switch mb-4">
-                    <input type="hidden" name="aktif" value="0">
-                    <input class="form-check-input" type="checkbox" id="aktif" name="aktif" value="1" @checked(old('aktif', true))>
-                    <label class="form-check-label" for="aktif">Tampilkan di aplikasi</label>
-                </div>
                 <button class="btn btn-primary w-100" type="submit">Simpan Banner</button>
             </form>
         </section>
     </div>
 
     <div class="col-xl-8">
-        <section class="travs-panel p-4">
+        <section class="travs-panel p-4 card">
             <h4 class="mb-1">Daftar Banner</h4>
             <p class="text-muted mb-4">Banner disusun berdasarkan nomor urutan terkecil.</p>
             <div class="row g-3">

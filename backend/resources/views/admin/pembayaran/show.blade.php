@@ -14,7 +14,7 @@
     @endphp
 
     <section class="travs-detail-stack">
-        <article class="travs-section-card">
+        <article class="travs-section-card card">
             <div class="travs-panel-title">
                 <h3>Ringkasan Transaksi</h3>
                 <p>Data ini dipakai admin untuk audit pembayaran, bukan untuk mengubah status gateway.</p>
@@ -44,7 +44,7 @@
                 <div>
                     <dt>Status Bayar</dt>
                     <dd>
-                        <span class="travs-status-pill travs-status-{{ $payment->status_bayar }}">
+                        <span class="travs-status-pill travs-status-{{ $payment->status_bayar }} badge rounded-pill">
                             {{ ucwords(str_replace('_', ' ', $payment->status_bayar)) }}
                         </span>
                     </dd>
@@ -56,7 +56,7 @@
             </dl>
         </article>
 
-        <article class="travs-section-card">
+        <article class="travs-section-card card">
             <div class="travs-panel-title">
                 <h3>Nominal dan Waktu</h3>
                 <p>Informasi nominal, batas pembayaran, dan waktu pembayaran yang tercatat.</p>
@@ -90,16 +90,16 @@
             </dl>
         </article>
 
-        <div class="travs-form-actions travs-inline">
+        <div class="travs-form-actions travs-inline d-flex justify-content-end align-items-center flex-wrap">
             @if ($booking)
-                <a href="{{ route('admin.pemesanan.show', $booking) }}" class="travs-button-secondary">Kembali ke Pemesanan</a>
+                <a href="{{ route('admin.pemesanan.show', $booking) }}" class="travs-button-secondary btn btn-secondary">Kembali ke Pemesanan</a>
             @endif
-            <a href="{{ route('admin.pembayaran.index') }}" class="travs-button-secondary">Daftar Pembayaran</a>
+            <a href="{{ route('admin.pembayaran.index') }}" class="travs-button-secondary btn btn-secondary">Daftar Pembayaran</a>
 
             @if ($payment->can_confirm_cash && $booking)
                 <form method="POST" action="{{ route('admin.pembayaran.confirm-cash', $booking) }}">
                     @csrf
-                    <button type="submit" class="travs-button">Konfirmasi Pembayaran Tunai</button>
+                    <button type="submit" class="travs-button btn btn-primary">Konfirmasi Pembayaran Tunai</button>
                 </form>
             @endif
         </div>

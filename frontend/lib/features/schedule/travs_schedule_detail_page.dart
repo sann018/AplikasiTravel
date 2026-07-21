@@ -127,7 +127,7 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
     }
 
     if (widget.selectedRole == AppRolePreview.driver) {
-      return 'Mode pengemudi hanya bisa melihat informasi kursi untuk kebutuhan manifest.';
+      return 'Mode pengemudi hanya bisa melihat informasi kursi untuk kebutuhan manifes.';
     }
 
     return 'Sesi penumpang belum aktif. Silakan masuk ulang sebelum memilih kursi.';
@@ -337,7 +337,7 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
                       _DriverBriefCard(
                         detail: detail,
                         onPrimaryAction: () => _showStageMessage(
-                          'Fitur manifest detail akan segera tersedia.',
+                          'Fitur manifes detail akan segera tersedia.',
                         ),
                       )
                     else
@@ -916,7 +916,7 @@ class _DriverBriefCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Ringkasan perjalanan dan informasi manifest penumpang.',
+              'Ringkasan perjalanan dan informasi manifes penumpang.',
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: TravSTheme.navyMuted,
               ),
@@ -940,7 +940,7 @@ class _DriverBriefCard extends StatelessWidget {
               child: ElevatedButton.icon(
                 onPressed: onPrimaryAction,
                 icon: const Icon(Icons.qr_code_scanner_outlined),
-                label: const Text('Buka Manifest'),
+                label: const Text('Buka Manifes'),
               ),
             ),
           ],

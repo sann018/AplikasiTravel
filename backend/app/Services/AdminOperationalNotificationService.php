@@ -25,7 +25,7 @@ class AdminOperationalNotificationService
             $booking->id,
         );
 
-        if ($booking->pembayaran?->metode_bayar === 'tunai') {
+        if ($booking->pembayaran?->metode_bayar === 'cash') {
             $this->notifyAdmins(
                 'Pembayaran tunai menunggu konfirmasi',
                 "Pemesanan {$booking->kode_booking} memilih pembayaran tunai dan perlu dikonfirmasi setelah uang diterima.",
@@ -57,6 +57,24 @@ class AdminOperationalNotificationService
         $this->notifyAdmins($title, $message, 'pembayaran', $booking->id);
     }
 
+    /**
+     * Peringatan saat pembayaran gateway berhasil tetapi pemesanan sudah
+     * dibatalkan/kedaluwarsa, sehingga dana perlu dikembalikan secara manual.
+     */
+    public function paymentReceivedAfterCancellation(Pemesanan $booking): void
+    {
+        $booking->loadMissing(['pengguna', 'jadwal.rute']);
+
+        $this->notifyAdmins(
+            'Pembayaran masuk pada pemesanan yang sudah batal',
+            "Pembayaran untuk pemesanan {$booking->kode_booking} milik {$booking->pengguna?->nama} berhasil, "
+                .'tetapi pemesanan sudah dibatalkan/kedaluwarsa sehingga tiket tidak dapat diterbitkan. '
+                .'Periksa transaksi dan proses pengembalian dana secara manual.',
+            'pembayaran',
+            $booking->id,
+        );
+    }
+
     public function scheduleNearDeparture(Jadwal $schedule): void
     {
         $schedule->loadMissing(['rute', 'kendaraan']);
@@ -65,7 +83,22 @@ class AdminOperationalNotificationService
 
         $this->notifyAdmins(
             'Jadwal mendekati keberangkatan',
-            "Jadwal {$route} akan berangkat pada {$departure}. Pastikan armada, pengemudi, dan manifest sudah siap.",
+            "Jadwal {$route} akan berangkat pada {$departure}. Pastikan armada, pengemudi, dan manifes sudah siap.",
+            'perjalanan',
+            $schedule->id,
+        );
+    }
+
+    public function scheduleDeparted(Jadwal $schedule): void
+    {
+        $schedule->loadMissing(['rute', 'kendaraan', 'pengemudi.pengguna']);
+        $route = $this->routeLabel($schedule);
+        $vehicle = $schedule->kendaraan?->label_armada ?? 'Armada';
+        $driver = $schedule->pengemudi?->pengguna?->nama ?? 'pengemudi terjadwal';
+
+        $this->notifyAdmins(
+            'Armada telah berangkat',
+            "{$vehicle} pada jadwal {$route} telah berangkat pukul ".now()->format('H:i')." bersama {$driver}.",
             'perjalanan',
             $schedule->id,
         );
@@ -134,10 +167,7 @@ class AdminOperationalNotificationService
                     'jenis' => $type,
                     'referensi_id' => $referenceId,
                 ],
-                [
-                    'pesan' => $message,
-                    'sudah_dibaca' => false,
-                ],
+                ['pesan' => $message],
             );
         }
     }

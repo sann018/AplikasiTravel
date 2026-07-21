@@ -14,10 +14,7 @@ class DepartureReminderService
 
     public function sendUpcomingReminders(): int
     {
-        if (! $this->notificationTemplate->enabled('notif_departure_reminder', true)) {
-            return 0;
-        }
-
+        $passengerReminderEnabled = $this->notificationTemplate->enabled('notif_departure_reminder', true);
         $sent = 0;
         $schedules = Jadwal::query()
             ->with(['rute', 'pemesanan.pengguna'])
@@ -26,7 +23,13 @@ class DepartureReminderService
             ->get();
 
         foreach ($schedules as $schedule) {
+            // Pengingat operasional admin tetap aktif meskipun pengguna memilih
+            // mematikan pengingat keberangkatan untuk aplikasi penumpang.
             $this->adminNotification->scheduleNearDeparture($schedule);
+
+            if (! $passengerReminderEnabled) {
+                continue;
+            }
 
             $route = $schedule->rute
                 ? $schedule->rute->kota_asal.' - '.$schedule->rute->kota_tujuan

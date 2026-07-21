@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -30,6 +32,10 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
   bool _shouldRefreshParent = false;
   bool _paymentCheckoutOpened = false;
   bool _isRefreshingPayment = false;
+  // Penjaga agar tombol buka tiket tidak bisa dispam sehingga halaman tiket
+  // tidak menumpuk berlapis (double-push).
+  bool _isOpeningTicketPage = false;
+  Timer? _paymentDeadlineTimer;
 
   @override
   void initState() {
@@ -41,6 +47,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _paymentDeadlineTimer?.cancel();
     super.dispose();
   }
 
@@ -65,6 +72,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
     );
 
     if (!_shouldSynchronizeGatewayPayment(booking)) {
+      _schedulePaymentDeadlineRefresh(booking);
       return booking;
     }
 
@@ -76,10 +84,31 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
       if (refreshedBooking.isPaid) {
         _shouldRefreshParent = true;
       }
+      _schedulePaymentDeadlineRefresh(refreshedBooking);
       return refreshedBooking;
     } catch (_) {
+      _schedulePaymentDeadlineRefresh(booking);
       return booking;
     }
+  }
+
+  void _schedulePaymentDeadlineRefresh(TravSBookingResult booking) {
+    _paymentDeadlineTimer?.cancel();
+    final deadline = _paymentDeadline(booking);
+    if (!_isPaymentPending(booking) || deadline == null) {
+      return;
+    }
+
+    final remaining = deadline.difference(DateTime.now());
+    if (remaining <= Duration.zero) {
+      return;
+    }
+
+    _paymentDeadlineTimer = Timer(remaining + const Duration(seconds: 1), () {
+      if (mounted) {
+        _refresh();
+      }
+    });
   }
 
   Future<void> _refresh() async {
@@ -110,14 +139,25 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
   }
 
   Future<void> _openTicketPage(TravSBookingResult booking) async {
-    final shouldRefresh = await Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (_) => TravSTicketDetailPage(
-          session: widget.session,
-          bookingId: booking.id,
+    // Cegah klik berulang membuka halaman tiket berlapis-lapis.
+    if (_isOpeningTicketPage) {
+      return;
+    }
+
+    _isOpeningTicketPage = true;
+    bool? shouldRefresh;
+    try {
+      shouldRefresh = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (_) => TravSTicketDetailPage(
+            session: widget.session,
+            bookingId: booking.id,
+          ),
         ),
-      ),
-    );
+      );
+    } finally {
+      _isOpeningTicketPage = false;
+    }
 
     if (shouldRefresh == true && mounted) {
       _shouldRefreshParent = true;
@@ -191,6 +231,8 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
             content: Text(
               refreshedBooking.isPaid
                   ? 'Pembayaran berhasil dikonfirmasi. Tiket sudah aktif.'
+                  : refreshedBooking.status == 'dibatalkan'
+                  ? 'Waktu pembayaran berakhir. Pemesanan sudah dibatalkan.'
                   : 'Pembayaran masih menunggu konfirmasi. Silakan periksa kembali beberapa saat lagi.',
             ),
             behavior: SnackBarBehavior.floating,
@@ -229,7 +271,28 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
   bool _canContinuePayment(TravSBookingResult booking) {
     return !booking.isPaid &&
         booking.status == 'menunggu_pembayaran' &&
-        booking.payment.hasCheckoutUrl;
+        booking.payment.hasCheckoutUrl &&
+        _hasActivePaymentDeadline(booking);
+  }
+
+  bool _isPaymentPending(TravSBookingResult booking) {
+    return !booking.isPaid &&
+        booking.status == 'menunggu_pembayaran' &&
+        booking.payment.status == 'menunggu';
+  }
+
+  DateTime? _paymentDeadline(TravSBookingResult booking) {
+    final raw = booking.payment.expiredAt.isNotEmpty
+        ? booking.payment.expiredAt
+        : booking.batasPembayaran;
+    return DateTime.tryParse(raw)?.toLocal();
+  }
+
+  bool _hasActivePaymentDeadline(TravSBookingResult booking) {
+    final deadline = _paymentDeadline(booking);
+    return _isPaymentPending(booking) &&
+        deadline != null &&
+        deadline.isAfter(DateTime.now());
   }
 
   void _closePage() {
@@ -304,10 +367,11 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
                               label: 'Metode bayar',
                               value: booking.payment.method.toUpperCase(),
                             ),
-                            _DetailRow(
-                              label: 'Batas pembayaran',
-                              value: _formatDateTime(paymentDeadline),
-                            ),
+                            if (_hasActivePaymentDeadline(booking))
+                              _DetailRow(
+                                label: 'Batas pembayaran',
+                                value: _formatDateTime(paymentDeadline),
+                              ),
                             if (booking.payment.paidAt.isNotEmpty)
                               _DetailRow(
                                 label: 'Dibayarkan pada',
@@ -393,7 +457,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
                         _DetailSectionCard(
                           title: 'Titik Jemput',
                           subtitle:
-                              'Koordinat dan alamat jemput ini akan dipakai admin dan pengemudi sebagai referensi pickup.',
+                              'Lokasi yang dipilih sebagai titik awal perjalanan.',
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -433,7 +497,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
                         _DetailSectionCard(
                           title: 'Titik Tujuan / Turun',
                           subtitle:
-                              'Lokasi ini membantu pengemudi mengantar penumpang ke tujuan yang sudah disepakati.',
+                              'Lokasi yang dipilih sebagai tujuan akhir perjalanan.',
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -472,7 +536,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
                       _DetailSectionCard(
                         title: 'Penumpang & Kursi',
                         subtitle:
-                            'Data ini akan muncul juga di manifest admin dan pengemudi.',
+                            'Informasi penumpang dan nomor kursi yang telah dipesan.',
                         child: Column(
                           children: booking.passengers.isEmpty
                               ? const [
@@ -499,7 +563,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
                         title: 'Barang Bawaan',
                         initiallyExpanded: false,
                         subtitle:
-                            'Barang yang dicatat saat pemesanan tampil di bagian ini tanpa perhitungan biaya otomatis.',
+                            'Barang yang dicatat saat pemesanan tampil di bagian ini.',
                         child: Column(
                           children: booking.baggageItems.isEmpty
                               ? const [

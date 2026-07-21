@@ -5,16 +5,16 @@
 @section('page-description', 'Catat pengeluaran setiap perjalanan tanpa proses persetujuan terpisah.')
 
 @section('content')
-    <article class="travs-section-card collapsible-section" data-collapsible-section>
-        <div class="travs-panel-header collapsible-section__header" data-collapse-header>
+    <article class="travs-section-card collapsible-section card" data-collapsible-section>
+        <div class="travs-panel-header collapsible-section__header d-flex align-items-start justify-content-between" data-collapse-header>
             <div class="travs-panel-title">
                 <h3>Daftar Biaya</h3>
                 <p>Filter dan pencatatan biaya ditampilkan dalam satu bagian agar lebih mudah diperiksa.</p>
             </div>
             <div class="collapsible-section__header-actions">
-                <a href="{{ route('admin.biaya.create') }}" class="travs-button">Tambah Biaya</a>
+                <a href="{{ route('admin.biaya.create') }}" class="travs-button btn btn-primary">Tambah Biaya</a>
                 <details class="travs-export-menu">
-                    <summary>Export Data</summary>
+                    <summary class="travs-button btn btn-primary">Export Data</summary>
                     <div class="travs-export-menu__list">
                         <a href="{{ route('admin.biaya.export', array_merge(request()->query(), ['format' => 'csv'])) }}">CSV</a>
                         <a href="{{ route('admin.biaya.export', array_merge(request()->query(), ['format' => 'xls'])) }}">Excel (.xls)</a>
@@ -25,14 +25,14 @@
         </div>
 
         <div id="cost-list-body" class="collapsible-section__body" data-collapse-body>
-            <form method="GET" class="travs-filter-grid">
+            <form method="GET" class="travs-filter-grid d-grid">
                 <div class="travs-field">
-                    <label for="search">Cari</label>
-                    <input id="search" name="search" class="travs-input" value="{{ $filters['search'] ?? '' }}" placeholder="Jenis biaya, keterangan, atau rute">
+                    <label for="search" class="form-label">Cari</label>
+                    <input id="search" name="search" class="travs-input form-control" value="{{ $filters['search'] ?? '' }}" placeholder="Jenis biaya, keterangan, atau rute">
                 </div>
                 <div class="travs-field">
-                    <label for="rute_id">Rute</label>
-                    <select id="rute_id" name="rute_id" class="travs-select">
+                    <label for="rute_id" class="form-label">Rute</label>
+                    <select id="rute_id" name="rute_id" class="travs-select form-select">
                         <option value="">Semua rute</option>
                         @foreach ($routeOptions as $rute)
                             <option value="{{ $rute->id }}" @selected((string) ($filters['rute_id'] ?? '') === (string) $rute->id)>
@@ -42,21 +42,21 @@
                     </select>
                 </div>
                 <div class="travs-field">
-                    <label for="tanggal_mulai">Tanggal Mulai</label>
-                    <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input" value="{{ $filters['tanggal_mulai'] ?? '' }}">
+                    <label for="tanggal_mulai" class="form-label">Tanggal Mulai</label>
+                    <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_mulai'] ?? '' }}">
                 </div>
                 <div class="travs-field">
-                    <label for="tanggal_selesai">Tanggal Selesai</label>
-                    <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input" value="{{ $filters['tanggal_selesai'] ?? '' }}">
+                    <label for="tanggal_selesai" class="form-label">Tanggal Selesai</label>
+                    <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
                 </div>
-                <div class="travs-filter-actions">
-                    <button type="submit" class="travs-button-secondary">Terapkan Filter</button>
-                    <a href="{{ route('admin.biaya.index') }}" class="travs-button-secondary">Tampilkan Semua</a>
+                <div class="travs-filter-actions d-flex align-items-end flex-wrap">
+                    <button type="submit" class="travs-button-secondary btn btn-secondary">Terapkan Filter</button>
+                    <a href="{{ route('admin.biaya.index') }}" class="travs-button-secondary btn btn-secondary">Tampilkan Semua</a>
                 </div>
             </form>
 
-            <div class="travs-table-wrap travs-cost-table-section">
-                <table class="travs-table">
+            <div class="travs-table-wrap travs-cost-table-section table-responsive">
+                <table class="travs-table table mb-0">
                     <thead>
                         <tr>
                             <th>Tanggal</th>
@@ -84,18 +84,18 @@
                                 </td>
                                 <td>
                                     @if ($item->bukti_url)
-                                        <button type="button" class="travs-button-link travs-photo-preview-trigger" data-preview-src="{{ asset('storage/'.ltrim($item->bukti_url, '/')) }}" aria-label="Lihat bukti {{ $item->jenis_biaya }}">Lihat Bukti</button>
+                                        <button type="button" class="travs-button-link travs-photo-preview-trigger btn btn-link" data-preview-src="{{ asset('storage/'.ltrim($item->bukti_url, '/')) }}" aria-label="Lihat bukti {{ $item->jenis_biaya }}">Lihat Bukti</button>
                                     @else
                                         <span class="travs-table-subcopy">Bukti lama tidak tersedia</span>
                                     @endif
                                 </td>
                                 <td>
-                                    <div class="travs-table-actions">
-                                        <a href="{{ route('admin.biaya.edit', $item) }}" class="travs-button-link">Edit</a>
+                                    <div class="travs-table-actions d-flex align-items-center flex-wrap">
+                                        <a href="{{ route('admin.biaya.edit', $item) }}" class="travs-button-link btn btn-link">Edit</a>
                                         <form method="POST" action="{{ route('admin.biaya.destroy', $item) }}" onsubmit="return confirm('Hapus biaya ini?')">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="travs-button-link travs-button-link-danger">Hapus</button>
+                                            <button type="submit" class="travs-button-link travs-button-link-danger btn btn-link">Hapus</button>
                                         </form>
                                     </div>
                                 </td>
@@ -113,7 +113,7 @@
         </div>
     </article>
 
-    <article class="travs-section-card collapsible-section" data-collapsible-section>
+    <article class="travs-section-card collapsible-section card" data-collapsible-section>
         <div class="collapsible-section__header" data-collapse-header>
             <div class="travs-panel-title">
                 <h3>Akumulasi per Rute</h3>
@@ -122,8 +122,8 @@
             @include('admin.partials.collapsible-toggle', ['targetId' => 'cost-recap-route-body'])
         </div>
 
-        <div id="cost-recap-route-body" class="travs-table-wrap collapsible-section__body" data-collapse-body>
-            <table class="travs-table">
+        <div id="cost-recap-route-body" class="travs-table-wrap collapsible-section__body table-responsive" data-collapse-body>
+            <table class="travs-table table mb-0">
                 <thead>
                     <tr>
                         <th>Rute</th>

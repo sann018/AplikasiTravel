@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Jadwal;
 use App\Models\Notifikasi;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
@@ -83,6 +84,8 @@ class AdminNotificationTest extends TestCase
             ->assertSee('Log Notifikasi User')
             ->assertSee('Notifikasi Baru')
             ->assertSee('Notifikasi Lama')
+            ->assertSee('travs-notification-group is-new', false)
+            ->assertSee('travs-notification-group is-old', false)
             ->assertSee('Notifikasi penumpang')
             ->assertSee('Notifikasi pengemudi')
             ->assertDontSee('Pesan rahasia admin');
@@ -117,6 +120,29 @@ class AdminNotificationTest extends TestCase
             ->assertSee('href="'.route('admin.notifikasi.admin').'"', false)
             ->assertSee('aria-label="Buka notifikasi, 1 belum dibaca"', false)
             ->assertSee('travs-topbar-notification-badge', false);
+    }
+
+    public function test_schedule_notification_uses_schedule_detail_even_when_reference_id_matches_booking(): void
+    {
+        $admin = User::query()->where('peran', 'admin')->firstOrFail();
+        $schedule = Jadwal::query()->whereHas('pemesanan')->firstOrFail();
+        Notifikasi::query()->delete();
+        Notifikasi::query()->create([
+            'pengguna_id' => $admin->id,
+            'judul' => 'Jadwal mendekati keberangkatan',
+            'pesan' => 'Jadwal akan segera berangkat.',
+            'jenis' => 'perjalanan',
+            'referensi_id' => $schedule->id,
+            'sudah_dibaca' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.notifikasi.admin'))
+            ->assertOk()
+            ->assertSee('Notifikasi Lama')
+            ->assertSee('Buka Detail Jadwal')
+            ->assertSee('href="'.route('admin.jadwal.show', $schedule).'"', false)
+            ->assertDontSee('href="'.route('admin.pemesanan.show', $schedule->id).'"', false);
     }
 
     public function test_admin_inbox_cleanup_only_deletes_admin_read_notifications(): void

@@ -109,6 +109,77 @@ class JadwalController extends Controller
         ]);
     }
 
+    public function show(Jadwal $jadwal): View
+    {
+        $jadwal->load([
+            'rute',
+            'kendaraan',
+            'pengemudi.pengguna',
+            'kursi',
+            'pemesanan' => fn ($query) => $query
+                ->with([
+                    'pengguna',
+                    'pembayaran',
+                    'detailPemesanan.kursiJadwal',
+                ])
+                ->latest(),
+            'biayaOperasional' => fn ($query) => $query
+                ->finalized()
+                ->with('pencatat')
+                ->latest('tanggal_biaya'),
+        ]);
+
+        $activeBookings = $jadwal->pemesanan
+            ->whereIn('status_pemesanan', ['menunggu_pembayaran', 'terbayar', 'selesai']);
+        $activePassengers = $activeBookings->flatMap->detailPemesanan;
+        $confirmedBookings = $jadwal->pemesanan
+            ->whereIn('status_pemesanan', ['terbayar', 'selesai'])
+            ->filter(fn ($booking) => $booking->pembayaran?->status_bayar === 'berhasil');
+        $confirmedRevenue = (float) $confirmedBookings
+            ->sum(fn ($booking) => (float) $booking->pembayaran->jumlah_bayar);
+        $pendingValue = (float) $jadwal->pemesanan
+            ->where('status_pemesanan', 'menunggu_pembayaran')
+            ->filter(fn ($booking) => $booking->pembayaran?->status_bayar === 'menunggu')
+            ->sum(fn ($booking) => (float) $booking->total_harga);
+        $operationalCost = (float) $jadwal->biayaOperasional->sum('nominal');
+
+        return view('admin.jadwal.show', [
+            'jadwal' => $jadwal,
+            'summary' => [
+                'bookings' => [
+                    'total' => $jadwal->pemesanan->count(),
+                    'menunggu_pembayaran' => $jadwal->pemesanan->where('status_pemesanan', 'menunggu_pembayaran')->count(),
+                    'terbayar' => $jadwal->pemesanan->where('status_pemesanan', 'terbayar')->count(),
+                    'selesai' => $jadwal->pemesanan->where('status_pemesanan', 'selesai')->count(),
+                    'dibatalkan' => $jadwal->pemesanan->where('status_pemesanan', 'dibatalkan')->count(),
+                ],
+                'passengers' => [
+                    'total' => $activePassengers->count(),
+                    'menunggu' => $activePassengers
+                        ->where('status_kehadiran', 'menunggu')
+                        ->whereNull('diturunkan_pada')
+                        ->count(),
+                    'hadir' => $activePassengers
+                        ->where('status_kehadiran', 'hadir')
+                        ->whereNull('diturunkan_pada')
+                        ->count(),
+                    'tidak_hadir' => $activePassengers->where('status_kehadiran', 'tidak_hadir')->count(),
+                    'turun' => $activePassengers->whereNotNull('diturunkan_pada')->count(),
+                ],
+                'seats' => [
+                    'total' => $jadwal->kursi->count(),
+                    'tersedia' => $jadwal->kursi->where('status_kursi', 'tersedia')->count(),
+                    'dipesan' => $jadwal->kursi->where('status_kursi', 'dipesan')->count(),
+                    'nonaktif' => $jadwal->kursi->where('status_kursi', 'nonaktif')->count(),
+                ],
+                'confirmed_revenue' => $confirmedRevenue,
+                'pending_value' => $pendingValue,
+                'operational_cost' => $operationalCost,
+                'recorded_balance' => $confirmedRevenue - $operationalCost,
+            ],
+        ]);
+    }
+
     public function edit(Request $request, Jadwal $jadwal): View
     {
         $this->scheduleLifecycleService->closeSingleIfPastBookingWindow($jadwal);

@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -162,20 +163,24 @@ class PengemudiController extends Controller
     {
         $user = $pengemudi?->pengguna;
 
+        $request->merge([
+            'email' => Str::lower(trim((string) $request->input('email'))),
+            'no_hp' => trim((string) $request->input('no_hp')),
+        ]);
+
         return $request->validate([
             'nama' => ['required', 'string', 'max:100'],
             'email' => [
                 'required',
                 'email',
                 'max:100',
+                'regex:/^[^@\s]+@gmail\.com$/i',
                 Rule::unique('pengguna', 'email')->ignore($user?->id),
             ],
             'no_hp' => [
                 'required',
                 'string',
-                'min:10',
-                'max:16',
-                'regex:/^(?:\+62|62|0)8[1-9][0-9]{7,10}$/',
+                'regex:/^[0-9]{11,12}$/',
                 Rule::unique('pengguna', 'no_hp')->ignore($user?->id),
             ],
             'nomor_sim' => [
@@ -187,19 +192,24 @@ class PengemudiController extends Controller
             ],
             'foto_sim' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'status' => ['required', Rule::in(['aktif', 'nonaktif'])],
-            'password' => [$pengemudi ? 'nullable' : 'required', 'string', 'min:8', 'max:100'],
+            'password' => [
+                $pengemudi ? 'nullable' : 'required',
+                'string',
+                'min:6',
+                'max:8',
+                'regex:/^(?=.*[A-Za-z])(?=.*(?:[0-9]|[^A-Za-z0-9\s]))\S+$/',
+            ],
             'foto_profil' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ], [
             'nama.required' => 'Nama pengemudi wajib diisi.',
             'nama.max' => 'Nama pengemudi maksimal 100 karakter.',
             'email.required' => 'Email pengemudi wajib diisi.',
             'email.email' => 'Format email pengemudi belum valid.',
+            'email.regex' => 'Email pengemudi wajib menggunakan alamat @gmail.com.',
             'email.max' => 'Email pengemudi maksimal 100 karakter.',
             'email.unique' => 'Email ini sudah digunakan akun lain. Gunakan email berbeda.',
             'no_hp.required' => 'Nomor HP pengemudi wajib diisi.',
-            'no_hp.min' => 'Nomor HP terlalu pendek.',
-            'no_hp.max' => 'Nomor HP maksimal 16 karakter.',
-            'no_hp.regex' => 'Nomor HP harus memakai format Indonesia, contoh 081234567890.',
+            'no_hp.regex' => 'Nomor HP pengemudi harus terdiri dari 11 sampai 12 digit angka.',
             'no_hp.unique' => 'Nomor HP ini sudah digunakan akun lain.',
             'nomor_sim.required' => 'Nomor SIM/NIK KTP wajib diisi.',
             'nomor_sim.size' => 'Nomor SIM harus menggunakan NIK KTP yang terdiri dari 16 digit.',
@@ -211,8 +221,9 @@ class PengemudiController extends Controller
             'status.required' => 'Status akun wajib dipilih.',
             'status.in' => 'Status akun yang dipilih tidak valid.',
             'password.required' => 'Kata sandi awal wajib diisi.',
-            'password.min' => 'Kata sandi minimal 8 karakter.',
-            'password.max' => 'Kata sandi maksimal 100 karakter.',
+            'password.min' => 'Kata sandi minimal 6 karakter.',
+            'password.max' => 'Kata sandi maksimal 8 karakter.',
+            'password.regex' => 'Kata sandi wajib mengandung huruf dan minimal satu angka atau simbol.',
             'foto_profil.image' => 'Foto profil harus berupa file gambar.',
             'foto_profil.mimes' => 'Foto profil hanya menerima format JPG, JPEG, PNG, atau WEBP.',
             'foto_profil.max' => 'Ukuran foto profil maksimal 2 MB.',

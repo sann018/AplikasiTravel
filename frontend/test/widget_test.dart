@@ -24,7 +24,9 @@ void main() {
     expect(find.text('Penumpang'), findsNothing);
     expect(find.text('Pengemudi'), findsNothing);
 
-    await tester.tap(find.text('Daftar Akun Penumpang'));
+    final registerButton = find.text('Daftar Akun Penumpang');
+    await tester.ensureVisible(registerButton);
+    await tester.tap(registerButton);
     await tester.pumpAndSettle();
 
     expect(find.text('Daftar Akun Penumpang'), findsOneWidget);

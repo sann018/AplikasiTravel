@@ -433,9 +433,7 @@ class TravSBookingResult {
     required this.jumlahKursi,
     required this.batasPembayaran,
     required this.subtotalTiket,
-    required this.biayaBagasi,
     required this.biayaAdmin,
-    required this.diskon,
     required this.totalHarga,
     required this.rute,
     required this.waktuBerangkat,
@@ -455,9 +453,7 @@ class TravSBookingResult {
   final int jumlahKursi;
   final String batasPembayaran;
   final double subtotalTiket;
-  final double biayaBagasi;
   final double biayaAdmin;
-  final double diskon;
   final double totalHarga;
   final String rute;
   final String waktuBerangkat;
@@ -488,9 +484,7 @@ class TravSBookingResult {
       jumlahKursi: _readInt(json['jumlah_kursi']),
       batasPembayaran: json['batas_pembayaran'] as String? ?? '',
       subtotalTiket: _readDouble(json['subtotal_tiket']),
-      biayaBagasi: _readDouble(json['biaya_bagasi']),
       biayaAdmin: _readDouble(json['biaya_admin']),
-      diskon: _readDouble(json['diskon']),
       totalHarga: _readDouble(json['total_harga']),
       rute: json['rute'] as String? ?? '-',
       waktuBerangkat: json['waktu_berangkat'] as String? ?? '',

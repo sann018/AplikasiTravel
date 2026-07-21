@@ -51,14 +51,14 @@
 
             <label for="password">Kata Sandi Baru</label>
             <div class="password-field">
-                <input id="password" type="password" name="password" required autocomplete="new-password">
+                <input id="password" type="password" name="password" required minlength="6" maxlength="8" autocomplete="new-password" placeholder="6-8 karakter, huruf + angka/simbol">
                 <button type="button" class="password-toggle" data-password-toggle data-password-target="password" aria-label="Tampilkan kata sandi" aria-pressed="false">Lihat</button>
             </div>
             @error('password') <div class="error">{{ $message }}</div> @enderror
 
             <label for="password_confirmation">Konfirmasi Kata Sandi</label>
             <div class="password-field">
-                <input id="password_confirmation" type="password" name="password_confirmation" required autocomplete="new-password">
+                <input id="password_confirmation" type="password" name="password_confirmation" required minlength="6" maxlength="8" autocomplete="new-password" placeholder="Ulangi kata sandi baru">
                 <button type="button" class="password-toggle" data-password-toggle data-password-target="password_confirmation" aria-label="Tampilkan kata sandi" aria-pressed="false">Lihat</button>
             </div>
 

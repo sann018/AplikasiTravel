@@ -58,7 +58,7 @@
         </section>
 
         <div class="travs-settings-grid">
-            <form id="settings-account" method="POST" action="{{ route('admin.pengaturan.account.update') }}" class="travs-card travs-admin-account-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="account" data-collapsible-section @if ($activeTab !== 'account') hidden @endif>
+            <form id="settings-account" method="POST" action="{{ route('admin.pengaturan.account.update') }}" class="travs-card travs-admin-account-card travs-settings-group travs-settings-pane collapsible-section card" data-settings-pane="account" data-collapsible-section @if ($activeTab !== 'account') hidden @endif>
                 @csrf
                 @method('PUT')
                 <div class="collapsible-section__header" data-collapse-header>
@@ -81,14 +81,15 @@
                     <div class="travs-admin-account-form">
                         <div class="travs-admin-account-primary">
                             <div class="travs-field">
-                                <label for="admin_email">Email Admin</label>
-                                <input id="admin_email" name="email" type="email" class="travs-input @error('email') is-invalid @enderror" value="{{ old('email', $adminUser->email) }}" required autocomplete="email">
+                                <label for="admin_email" class="form-label">Email Admin</label>
+                                <input id="admin_email" name="email" type="email" class="travs-input @error('email') is-invalid @enderror form-control" value="{{ old('email', $adminUser->email) }}" required autocomplete="email" pattern="[A-Za-z0-9._%+-]+@gmail\.com">
+                                <div class="travs-field-meta">Gunakan alamat email @gmail.com.</div>
                                 @include('admin.partials.field-error', ['name' => 'email'])
                             </div>
                             <div class="travs-field">
-                                <label for="current_password">Password Lama</label>
+                                <label for="current_password" class="form-label">Password Lama</label>
                                 <div class="travs-password-control">
-                                    <input id="current_password" name="current_password" type="password" class="travs-input @error('current_password') is-invalid @enderror" required autocomplete="current-password" placeholder="Masukkan password lama">
+                                    <input id="current_password" name="current_password" type="password" class="travs-input @error('current_password') is-invalid @enderror form-control" required autocomplete="current-password" placeholder="Masukkan password lama">
                                     <button type="button" class="travs-password-toggle" data-password-toggle data-password-target="current_password" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
                                         <span data-password-show-icon><i data-feather="eye"></i></span>
                                         <span class="d-none" data-password-hide-icon><i data-feather="eye-off"></i></span>
@@ -100,13 +101,13 @@
                         <div class="travs-admin-password-panel">
                             <div class="travs-admin-password-copy">
                                 <h4>Ganti Password</h4>
-                                <p>Isi dua kolom ini hanya jika ingin mengganti password.</p>
+                                <p>Gunakan 6-8 karakter berisi huruf dan minimal satu angka atau simbol.</p>
                             </div>
-                            <div class="travs-form-grid-2">
+                            <div class="travs-form-grid-2 d-grid">
                                 <div class="travs-field">
-                                    <label for="password">Password Baru</label>
+                                    <label for="password" class="form-label">Password Baru</label>
                                     <div class="travs-password-control">
-                                        <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror" autocomplete="new-password" placeholder="Minimal 8 karakter">
+                                        <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror form-control" autocomplete="new-password" minlength="6" maxlength="8" placeholder="6-8 karakter">
                                         <button type="button" class="travs-password-toggle" data-password-toggle data-password-target="password" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
                                             <span data-password-show-icon><i data-feather="eye"></i></span>
                                             <span class="d-none" data-password-hide-icon><i data-feather="eye-off"></i></span>
@@ -115,9 +116,9 @@
                                     @include('admin.partials.field-error', ['name' => 'password'])
                                 </div>
                                 <div class="travs-field">
-                                    <label for="password_confirmation">Konfirmasi Password Baru</label>
+                                    <label for="password_confirmation" class="form-label">Konfirmasi Password Baru</label>
                                     <div class="travs-password-control">
-                                        <input id="password_confirmation" name="password_confirmation" type="password" class="travs-input" autocomplete="new-password" placeholder="Ulangi password baru">
+                                        <input id="password_confirmation" name="password_confirmation" type="password" class="travs-input form-control" autocomplete="new-password" minlength="6" maxlength="8" placeholder="Ulangi password baru">
                                         <button type="button" class="travs-password-toggle" data-password-toggle data-password-target="password_confirmation" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
                                             <span data-password-show-icon><i data-feather="eye"></i></span>
                                             <span class="d-none" data-password-hide-icon><i data-feather="eye-off"></i></span>
@@ -126,14 +127,14 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="travs-form-actions travs-admin-account-actions">
-                            <button type="submit" class="travs-button">Simpan Perubahan Akun</button>
+                        <div class="travs-form-actions travs-admin-account-actions d-flex justify-content-end">
+                            <button type="submit" class="travs-button btn btn-primary">Simpan Perubahan Akun</button>
                         </div>
                     </div>
                 </div>
             </form>
 
-            <form id="settings-general" method="POST" action="{{ route('admin.settings.general.update') }}" enctype="multipart/form-data" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="general" data-collapsible-section @if ($activeTab !== 'general') hidden @endif>
+            <form id="settings-general" method="POST" action="{{ route('admin.settings.general.update') }}" enctype="multipart/form-data" class="travs-card travs-settings-group travs-settings-pane collapsible-section card" data-settings-pane="general" data-collapsible-section @if ($activeTab !== 'general') hidden @endif>
                 @csrf
                 <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
                     <div>
@@ -173,14 +174,14 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label" for="admin_contact">Kontak Admin</label>
-                        <input id="admin_contact" name="admin_contact" type="tel" class="form-control @error('admin_contact') is-invalid @enderror" value="{{ $settingValue('admin_contact') }}" required>
-                        <div class="form-text">Nomor yang dapat dihubungi untuk kebutuhan operasional.</div>
+                        <input id="admin_contact" name="admin_contact" type="text" inputmode="numeric" minlength="11" maxlength="12" pattern="[0-9]{11,12}" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 12)" class="form-control @error('admin_contact') is-invalid @enderror" value="{{ $settingValue('admin_contact') }}" required>
+                        <div class="form-text">Masukkan 11 sampai 12 digit angka.</div>
                         @include('admin.partials.field-error', ['name' => 'admin_contact'])
                     </div>
                     <div class="col-md-6">
                         <label class="form-label" for="service_whatsapp">WhatsApp Layanan</label>
-                        <input id="service_whatsapp" name="service_whatsapp" type="tel" class="form-control @error('service_whatsapp') is-invalid @enderror" value="{{ $settingValue('service_whatsapp') }}" required>
-                        <div class="form-text">Nomor WhatsApp layanan pelanggan.</div>
+                        <input id="service_whatsapp" name="service_whatsapp" type="text" inputmode="numeric" minlength="11" maxlength="12" pattern="[0-9]{11,12}" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 12)" class="form-control @error('service_whatsapp') is-invalid @enderror" value="{{ $settingValue('service_whatsapp') }}" required>
+                        <div class="form-text">Masukkan 11 sampai 12 digit angka.</div>
                         @include('admin.partials.field-error', ['name' => 'service_whatsapp'])
                     </div>
                     <div class="col-md-6">
@@ -191,13 +192,13 @@
                     </div>
                 </div>
 
-                <div class="travs-form-actions mt-4">
-                    <button type="submit" class="travs-button">Simpan Pengaturan Umum</button>
+                <div class="travs-form-actions mt-4 d-flex justify-content-end">
+                    <button type="submit" class="travs-button btn btn-primary">Simpan Pengaturan Umum</button>
                 </div>
                 </div>
             </form>
 
-            <section id="settings-important-information" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="general" data-collapsible-section @if ($activeTab !== 'general') hidden @endif>
+            <section id="settings-important-information" class="travs-card travs-settings-group travs-settings-pane collapsible-section card" data-settings-pane="general" data-collapsible-section @if ($activeTab !== 'general') hidden @endif>
                 <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
                     <div>
                         <span class="travs-settings-label">Informasi Penting</span>
@@ -222,8 +223,8 @@
                                 @include('admin.partials.field-error', ['name' => 'description'])
                             </div>
                         </div>
-                        <div class="travs-form-actions mt-3">
-                            <button type="submit" class="travs-button">Tambah Informasi</button>
+                        <div class="travs-form-actions mt-3 d-flex justify-content-end">
+                            <button type="submit" class="travs-button btn btn-primary">Tambah Informasi</button>
                         </div>
                     </form>
 
@@ -251,7 +252,7 @@
                 </div>
             </section>
 
-            <form id="settings-booking" method="POST" action="{{ route('admin.settings.booking.update') }}" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="booking" data-collapsible-section @if ($activeTab !== 'booking') hidden @endif>
+            <form id="settings-booking" method="POST" action="{{ route('admin.settings.booking.update') }}" class="travs-card travs-settings-group travs-settings-pane collapsible-section card" data-settings-pane="booking" data-collapsible-section @if ($activeTab !== 'booking') hidden @endif>
                 @csrf
                 <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
                     <div>
@@ -297,13 +298,13 @@
                 <div class="alert alert-info mt-3 mb-0" role="alert">
                     Timer pada aplikasi mobile membantu pengguna melihat sisa waktu. Keputusan akhir masa berlaku tetap diperiksa backend.
                 </div>
-                <div class="travs-form-actions mt-4">
-                    <button type="submit" class="travs-button">Simpan Pengaturan Pemesanan</button>
+                <div class="travs-form-actions mt-4 d-flex justify-content-end">
+                    <button type="submit" class="travs-button btn btn-primary">Simpan Pengaturan Pemesanan</button>
                 </div>
                 </div>
             </form>
 
-            <form id="settings-payment" method="POST" action="{{ route('admin.settings.payment.update') }}" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="payment" data-collapsible-section @if ($activeTab !== 'payment') hidden @endif>
+            <form id="settings-payment" method="POST" action="{{ route('admin.settings.payment.update') }}" class="travs-card travs-settings-group travs-settings-pane collapsible-section card" data-settings-pane="payment" data-collapsible-section @if ($activeTab !== 'payment') hidden @endif>
                 @csrf
                 <input type="hidden" name="payment_transfer_enabled" value="{{ $settingEnabled('payment_transfer_enabled', true) ? '1' : '0' }}">
                 <input type="hidden" name="payment_qris_enabled" value="{{ $settingEnabled('payment_qris_enabled', true) ? '1' : '0' }}">
@@ -324,15 +325,15 @@
                     <div class="form-text">Petunjuk yang dibaca penumpang ketika memilih pembayaran tunai.</div>
                     @include('admin.partials.field-error', ['name' => 'payment_cash_note'])
                 </div>
-                <div class="travs-form-actions mt-4">
-                    <button type="submit" class="travs-button">Simpan Pengaturan Pembayaran</button>
+                <div class="travs-form-actions mt-4 d-flex justify-content-end">
+                    <button type="submit" class="travs-button btn btn-primary">Simpan Pengaturan Pembayaran</button>
                 </div>
                 </div>
             </form>
 
             {{-- Form tarif bagasi lama tidak dirender. Key database dipertahankan agar transaksi lama tetap kompatibel. --}}
             @if (false)
-            <form id="settings-baggage" method="POST" action="{{ route('admin.settings.baggage.update') }}" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="baggage" data-collapsible-section hidden>
+            <form id="settings-baggage" method="POST" action="{{ route('admin.settings.baggage.update') }}" class="travs-card travs-settings-group travs-settings-pane collapsible-section card" data-settings-pane="baggage" data-collapsible-section hidden>
                 @csrf
                 <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
                     <div>
@@ -494,15 +495,15 @@
                     <div class="form-text mt-2">Simulasi ini hanya bantuan tampilan admin. Perhitungan final tetap dilakukan backend.</div>
                 </section>
 
-                <div class="travs-form-actions mt-4">
-                    <button type="submit" class="travs-button">Simpan Pengaturan Bagasi</button>
+                <div class="travs-form-actions mt-4 d-flex justify-content-end">
+                    <button type="submit" class="travs-button btn btn-primary">Simpan Pengaturan Bagasi</button>
                 </div>
                 </div>
             </form>
 
             @endif
 
-            <section id="settings-banner" class="travs-card travs-settings-group travs-settings-pane collapsible-section" data-settings-pane="banner" data-collapsible-section @if ($activeTab !== 'banner') hidden @endif>
+            <section id="settings-banner" class="travs-card travs-settings-group travs-settings-pane collapsible-section card" data-settings-pane="banner" data-collapsible-section @if ($activeTab !== 'banner') hidden @endif>
                 <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
                     <div>
                         <span class="travs-settings-label">Banner Beranda</span>
@@ -543,12 +544,7 @@
                                     <input id="banner_urutan" name="urutan" type="number" min="0" max="999" class="form-control @error('urutan') is-invalid @enderror" value="{{ old('urutan', 0) }}" required>
                                     @include('admin.partials.field-error', ['name' => 'urutan'])
                                 </div>
-                                <div class="form-check form-switch travs-switch-inline travs-banner-switch mb-4">
-                                    <input type="hidden" name="aktif" value="0">
-                                    <input class="form-check-input" type="checkbox" id="banner_aktif" name="aktif" value="1" @checked((bool) old('aktif', true))>
-                                    <label class="form-check-label" for="banner_aktif">Tampilkan di aplikasi</label>
-                                </div>
-                                <button class="travs-button w-100" type="submit">Simpan Banner</button>
+                                <button class="travs-button w-100 btn btn-primary" type="submit">Simpan Banner</button>
                             </form>
                         </div>
 
@@ -568,12 +564,12 @@
                                                         <strong>{{ $banner->judul }}</strong>
                                                         <p>{{ $banner->subjudul ?: 'Tanpa keterangan' }}</p>
                                                     </div>
-                                                    <span class="travs-status-pill travs-status-{{ $banner->aktif ? 'aktif' : 'nonaktif' }}">{{ $banner->aktif ? 'Aktif' : 'Nonaktif' }}</span>
+                                                    <span class="travs-status-pill travs-status-{{ $banner->aktif ? 'aktif' : 'nonaktif' }} badge rounded-pill">{{ $banner->aktif ? 'Aktif' : 'Nonaktif' }}</span>
                                                 </div>
                                                 <form method="POST" action="{{ route('admin.banner.destroy', $banner) }}" onsubmit="return confirm('Hapus banner ini?')">
                                                     @csrf
                                                     @method('DELETE')
-                                                    <button class="travs-button-link travs-button-link-danger" type="submit">Hapus</button>
+                                                    <button class="travs-button-link travs-button-link-danger btn btn-link" type="submit">Hapus</button>
                                                 </form>
                                             </article>
                                         </div>
@@ -614,8 +610,12 @@
             });
 
             // Field yang redup diaktifkan sesaat sebelum submit agar nilainya tetap diterima backend.
+            // Hanya field data (input/select/textarea) yang diaktifkan kembali. Tombol submit
+            // sengaja tidak disentuh agar penguncian anti klik-ganda dari app.js tetap berlaku.
             document.querySelectorAll('.travs-settings-pane').forEach((form) => {
-                form.addEventListener('submit', () => form.querySelectorAll(':disabled').forEach((field) => field.disabled = false));
+                form.addEventListener('submit', () => form
+                    .querySelectorAll('input:disabled, select:disabled, textarea:disabled')
+                    .forEach((field) => field.disabled = false));
             });
 
             const logoInput = document.querySelector('#app_logo');

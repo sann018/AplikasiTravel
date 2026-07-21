@@ -54,6 +54,11 @@ class PaymentGatewayTest extends TestCase
 
         Sanctum::actingAs($user);
 
+        $this->postJson('/api/penumpang/bookings/lock-form', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seat->nomor_kursi],
+        ])->assertOk();
+
         $response = $this->postJson('/api/penumpang/bookings', [
             'jadwal_id' => $jadwal->id,
             'seat_numbers' => [$seat->nomor_kursi],
@@ -119,6 +124,11 @@ class PaymentGatewayTest extends TestCase
             ->firstOrFail();
 
         Sanctum::actingAs($user);
+
+        $this->postJson('/api/penumpang/bookings/lock-form', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seat->nomor_kursi],
+        ])->assertOk();
 
         $response = $this->postJson('/api/penumpang/bookings', [
             'jadwal_id' => $jadwal->id,
@@ -275,7 +285,45 @@ class PaymentGatewayTest extends TestCase
 
         $detailIds = $booking->detailPemesanan()->pluck('id');
         $this->assertSame(1, TiketElektronik::query()->whereIn('detail_pemesanan_id', $detailIds)->count());
+        $this->assertSame(1, $booking->pembayaran()->count());
         $this->assertSame('terbayar', $booking->fresh()->status_pemesanan);
+    }
+
+    public function test_late_success_webhook_does_not_reopen_completed_booking(): void
+    {
+        $booking = $this->makePendingQrisBooking();
+
+        Http::fake([
+            'app.pakasir.test/api/transactiondetail*' => Http::response([
+                'transaction' => [
+                    'order_id' => $booking->kode_booking,
+                    'status' => 'completed',
+                    'payment_method' => 'qris',
+                    'amount' => 230000,
+                    'total_payment' => 231500,
+                    'completed_at' => now()->toIso8601String(),
+                ],
+            ]),
+        ]);
+
+        $payload = [
+            'project' => 'travs-test',
+            'order_id' => $booking->kode_booking,
+            'amount' => 230000,
+            'status' => 'completed',
+            'payment_method' => 'qris',
+            'completed_at' => now()->toIso8601String(),
+        ];
+
+        $this->postJson('/api/payments/pakasir/webhook', $payload)->assertOk();
+        $booking->update(['status_pemesanan' => 'selesai']);
+
+        $this->postJson('/api/payments/pakasir/webhook', $payload)->assertOk();
+
+        $detailIds = $booking->detailPemesanan()->pluck('id');
+        $this->assertSame('selesai', $booking->fresh()->status_pemesanan);
+        $this->assertSame(1, $booking->pembayaran()->count());
+        $this->assertSame(1, TiketElektronik::query()->whereIn('detail_pemesanan_id', $detailIds)->count());
     }
 
     public function test_passenger_can_refresh_qris_payment_after_pakasir_simulation(): void
@@ -493,8 +541,6 @@ class PaymentGatewayTest extends TestCase
             'bujur_jemput' => 109.3425,
             'alamat_jemput' => 'Jalan Ahmad Yani, Pontianak',
             'subtotal_tiket' => 225000,
-            'biaya_bagasi' => 0,
-            'diskon' => 0,
             'total_harga' => 230000,
             'status_pemesanan' => 'menunggu_pembayaran',
         ]);

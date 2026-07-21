@@ -149,6 +149,15 @@ class _TravSHomePageState extends State<TravSHomePage> {
   DateTime? _appliedDriverHistoryEndDate;
   bool _hasSyncedSessionProfile = false;
   bool _notificationsEnabled = false;
+  // Waktu terakhir membuka halaman. Dipakai untuk mengabaikan klik beruntun
+  // yang terlalu cepat agar halaman tidak terbuka berlapis (double-push),
+  // tetapi jedanya singkat sehingga membuka halaman lain dari dalam halaman
+  // yang baru dibuka (misalnya scanner dari detail perjalanan) tetap berfungsi.
+  DateTime? _lastPagePushedAt;
+  // Penjaga khusus tombol notifikasi karena ada proses memuat data (jaringan)
+  // sebelum halaman notifikasi dibuka, sehingga tombol masih bisa ditekan
+  // berkali-kali selama menunggu.
+  bool _isOpeningNotifications = false;
   AppSettings _appSettings = AppSettings.defaults;
 
   AppRolePreview get _role =>
@@ -312,8 +321,26 @@ class _TravSHomePageState extends State<TravSHomePage> {
     );
   }
 
+  // Membuka halaman baru dengan penjaga anti-spam klik berbasis jeda waktu.
+  // Dua klik yang terjadi sangat berdekatan (< 600 ms) hanya membuka satu
+  // halaman, sehingga tombol yang ditekan berulang cepat tidak menumpuk
+  // halaman berlapis (double-push). Jeda dibuat singkat agar membuka halaman
+  // lain dari dalam halaman yang baru dibuka (misalnya tombol Pindai Tiket di
+  // halaman detail perjalanan) tetap berfungsi normal.
+  Future<T?> _pushPage<T>(Route<T> route) async {
+    final now = DateTime.now();
+    final lastPush = _lastPagePushedAt;
+    if (lastPush != null &&
+        now.difference(lastPush) < const Duration(milliseconds: 600)) {
+      return null;
+    }
+
+    _lastPagePushedAt = now;
+    return Navigator.of(context).push<T>(route);
+  }
+
   Future<void> _openScheduleDetail(TravSSchedule schedule) async {
-    final result = await Navigator.of(context).push<Object>(
+    final result = await _pushPage<Object>(
       MaterialPageRoute<Object>(
         builder: (_) => TravSScheduleDetailPage(
           schedule: schedule,
@@ -352,7 +379,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
       return;
     }
 
-    final shouldRefresh = await Navigator.of(context).push<bool>(
+    final shouldRefresh = await _pushPage<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => TravSBookingDetailPage(
           session: widget.session!,
@@ -371,7 +398,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
       return;
     }
 
-    final shouldRefresh = await Navigator.of(context).push<bool>(
+    final shouldRefresh = await _pushPage<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => TravSTicketDetailPage(
           session: widget.session!,
@@ -395,7 +422,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
   }
 
   Future<void> _openEditProfile(TravSUserSession session) async {
-    final updatedSession = await Navigator.of(context).push<TravSUserSession>(
+    final updatedSession = await _pushPage<TravSUserSession>(
       MaterialPageRoute<TravSUserSession>(
         builder: (_) => _EditProfilePage(
           session: session,
@@ -415,7 +442,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
   }
 
   Future<void> _openPassengerInfoPage() {
-    return Navigator.of(context).push<void>(
+    return _pushPage<void>(
       MaterialPageRoute<void>(builder: (_) => const _PassengerInfoPage()),
     );
   }
@@ -509,56 +536,67 @@ class _TravSHomePageState extends State<TravSHomePage> {
   }
 
   Future<void> _openNotifications(_HomeBundle bundle) async {
-    var feed = bundle.notifications;
+    // Cegah tombol notifikasi dispam saat data notifikasi masih dimuat, agar
+    // halaman notifikasi tidak terbuka berlapis-lapis.
+    if (_isOpeningNotifications) {
+      return;
+    }
+
+    _isOpeningNotifications = true;
     try {
-      final session = widget.session;
-      if (session != null) {
-        // Status awal dipakai untuk membagi notifikasi baru dan lama di layar.
-        // Setelah halaman dibuka, server baru diberi tanda bahwa notifikasi sudah dibaca.
-        feed = await _apiService.loadNotifications(token: session.token);
-        await _apiService.loadNotifications(
-          token: session.token,
-          markAsRead: true,
-        );
+      var feed = bundle.notifications;
+      try {
+        final session = widget.session;
+        if (session != null) {
+          // Status awal dipakai untuk membagi notifikasi baru dan lama di layar.
+          // Setelah halaman dibuka, server baru diberi tanda bahwa notifikasi sudah dibaca.
+          feed = await _apiService.loadNotifications(token: session.token);
+          await _apiService.loadNotifications(
+            token: session.token,
+            markAsRead: true,
+          );
+        }
+      } catch (_) {
+        if (mounted) {
+          _showMessage(
+            'Notifikasi terbaru belum bisa dimuat. Daftar terakhir tetap ditampilkan.',
+          );
+        }
       }
-    } catch (_) {
-      if (mounted) {
-        _showMessage(
-          'Notifikasi terbaru belum bisa dimuat. Daftar terakhir tetap ditampilkan.',
-        );
+
+      if (!mounted) {
+        return;
       }
-    }
 
-    if (!mounted) {
-      return;
-    }
-
-    final selectedEntry = await Navigator.of(context).push<_NotificationEntry>(
-      MaterialPageRoute<_NotificationEntry>(
-        builder: (_) => _NotificationPage(
-          title: 'Notifikasi',
-          subtitle: _role == AppRolePreview.driver
-              ? 'Update operasional, pengingat jadwal, dan aktivitas scan.'
-              : 'Status pemesanan, tiket, dan promo perjalanan terbaru.',
-          entries: _buildApiNotifications(feed.items),
-          notificationsEnabled: _notificationsEnabled,
-          showPermissionSettings: false,
-          onToggleNotifications: _setNotificationsEnabled,
-          onClearHistory: _clearNotificationHistory,
+      final selectedEntry = await Navigator.of(context).push<_NotificationEntry>(
+        MaterialPageRoute<_NotificationEntry>(
+          builder: (_) => _NotificationPage(
+            title: 'Notifikasi',
+            subtitle: _role == AppRolePreview.driver
+                ? 'Update operasional, pengingat jadwal, dan aktivitas scan.'
+                : 'Status pemesanan, tiket, dan promo perjalanan terbaru.',
+            entries: _buildApiNotifications(feed.items),
+            notificationsEnabled: _notificationsEnabled,
+            showPermissionSettings: false,
+            onToggleNotifications: _setNotificationsEnabled,
+            onClearHistory: _clearNotificationHistory,
+          ),
         ),
-      ),
-    );
+      );
 
-    if (!mounted) {
-      return;
-    }
+      if (!mounted) {
+        return;
+      }
 
-    if (selectedEntry != null) {
-      await _openNotificationTarget(selectedEntry);
-    }
+      if (selectedEntry != null) {
+        await _openNotificationTarget(selectedEntry);
+      }
 
-    if (mounted) {
-      await _refresh();
+      if (mounted) {
+        await _refresh();
+      }
+    } finally {
+      _isOpeningNotifications = false;
     }
   }
 
@@ -660,7 +698,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
   }
 
   Future<void> _openDriverJourney(_DriverJourneyRecord record) async {
-    await Navigator.of(context).push<void>(
+    await _pushPage<void>(
       MaterialPageRoute<void>(
         builder: (_) => _DriverJourneyDetailPage(
           record: record,
@@ -878,7 +916,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
       return;
     }
 
-    await Navigator.of(context).push<void>(
+    await _pushPage<void>(
       MaterialPageRoute<void>(
         builder: (_) => _ScanTicketPage(
           apiService: _apiService,
@@ -1352,7 +1390,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
               label: 'Penumpang',
               value: '${dashboard.penumpangTerdaftar}',
             ),
-            _HeroStat(label: 'Manifest', value: '${records.length}'),
+            _HeroStat(label: 'Manifes', value: '${records.length}'),
           ],
         ),
         const SizedBox(height: 14),
@@ -1366,7 +1404,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
             title: 'Tugas terdekat',
             description:
                 '${nextTrip.route} - ${_formatDateTime(nextTrip.departureAt)} - ${nextTrip.vehicle}',
-            actionLabel: 'Lihat Manifest',
+            actionLabel: 'Lihat Manifes',
             icon: Icons.assignment_turned_in_outlined,
             onTap: () => _openDriverJourney(nextTrip),
           ),
@@ -1375,7 +1413,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
           eyebrow: 'Perjalanan',
           title: 'Trip aktif',
           subtitle:
-              'Fokus ke jadwal, manifest, dan akses pindai tiket untuk tugas pengemudi.',
+              'Fokus ke jadwal, manifes, dan akses pindai tiket untuk tugas pengemudi.',
         ),
         const SizedBox(height: 12),
         if (records.isEmpty)
@@ -1409,14 +1447,14 @@ class _TravSHomePageState extends State<TravSHomePage> {
       children: [
         _PageTopBar(
           leading: _backToHomeButton(),
-          title: 'Manifest',
+          title: 'Manifes',
           subtitle: 'Daftar penumpang per perjalanan.',
           trailing: _notificationButton(bundle),
         ),
         const SizedBox(height: 16),
         if (records.isEmpty)
           const _EmptyStateCard(
-            title: 'Belum ada manifest aktif.',
+            title: 'Belum ada manifes aktif.',
             subtitle:
                 'Saat jadwal ditetapkan ke akun pengemudi, data perjalanan akan tampil di sini.',
           )
@@ -1507,7 +1545,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
           icon: Icons.info_outline_rounded,
           title: 'Tata Cara dan Aturan Pengemudi',
           subtitle: 'Panduan kerja pengemudi saat menjalankan perjalanan.',
-          onTap: () => Navigator.of(context).push<void>(
+          onTap: () => _pushPage<void>(
             MaterialPageRoute<void>(builder: (_) => const _DriverInfoPage()),
           ),
         ),
@@ -1759,7 +1797,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
         _InlineActionCard(
           title: 'Masuk sebagai penumpang atau pengemudi',
           description:
-              'Penumpang bisa menyimpan pemesanan dan tiket. Pengemudi memakai akun dari admin untuk manifest dan scan.',
+              'Penumpang bisa menyimpan pemesanan dan tiket. Pengemudi memakai akun dari admin untuk manifes dan scan.',
           actionLabel: 'Buka Login',
           icon: Icons.login_rounded,
           onTap: widget.onOpenAuth,
@@ -1833,7 +1871,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
             selectedIcon: Icons.home_rounded,
           ),
           _NavItem(
-            label: 'Manifest',
+            label: 'Manifes',
             icon: Icons.assignment_outlined,
             selectedIcon: Icons.assignment_rounded,
           ),
@@ -4262,7 +4300,7 @@ class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
           style: TextStyle(color: TravSTheme.navy, fontWeight: FontWeight.w800),
         ),
         content: Text(
-          'Pastikan kendaraan, rute, dan manifest sudah diperiksa. Mulai perjalanan ${_record.route}?',
+          'Pastikan kendaraan, rute, dan manifes sudah diperiksa. Mulai perjalanan ${_record.route}?',
         ),
         actions: [
           TextButton(
@@ -4831,7 +4869,6 @@ class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
                 rows: [
                   _InfoRowData('Nama akun', passenger.accountName),
                   _InfoRowData('Email', passenger.accountEmail),
-                  _InfoRowData('No. HP akun', passenger.accountPhone),
                   _InfoRowData('No. HP penumpang', passenger.phone),
                 ],
               ),
@@ -4967,11 +5004,77 @@ class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
                           ),
                     ),
                     const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Tanggal keberangkatan',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: Colors.white70),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _formatDateTime(
+                                  record.departureAt,
+                                ).split('\n').first,
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Waktu keberangkatan',
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(color: Colors.white70),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _formatDateTime(
+                                          record.departureAt,
+                                        ).split('\n').length >
+                                        1
+                                    ? _formatDateTime(
+                                        record.departureAt,
+                                      ).split('\n').skip(1).join(' ')
+                                    : '-',
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
                     Text(
-                      '${_formatDateTime(record.departureAt)}\n${record.vehicle}',
+                      'Kendaraan',
                       style: Theme.of(
                         context,
                       ).textTheme.bodySmall?.copyWith(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      record.vehicle,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -5001,13 +5104,6 @@ class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              _InfoCard(
-                title: 'Rute perjalanan',
-                description:
-                    'Manifest dan penumpang berikut ini disusun sesuai alur kerja pengemudi.',
-                icon: Icons.alt_route_rounded,
-              ),
-              const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
@@ -5019,7 +5115,7 @@ class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Manifest Penumpang',
+                      'Manifes Penumpang',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         color: TravSTheme.navy,
                         fontWeight: FontWeight.w800,
@@ -5035,6 +5131,9 @@ class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
                               _confirmingDetailId == passenger.detailId,
                           isDroppingOff:
                               _droppingOffDetailId == passenger.detailId,
+                          // Perjalanan dianggap sudah dimulai ketika statusnya
+                          // "berangkat", sehingga tombol turun baru bisa dipakai.
+                          journeyStarted: _record.status == 'berangkat',
                           onConfirmCash: passenger.canConfirmCash
                               ? () => _handleConfirmCash(passenger)
                               : null,
@@ -5445,6 +5544,7 @@ class _ManifestPassengerTile extends StatelessWidget {
     required this.passenger,
     required this.isConfirming,
     required this.isDroppingOff,
+    required this.journeyStarted,
     this.onConfirmCash,
     this.onDropoff,
     this.onOpenDetail,
@@ -5453,6 +5553,8 @@ class _ManifestPassengerTile extends StatelessWidget {
   final _ManifestPassengerRecord passenger;
   final bool isConfirming;
   final bool isDroppingOff;
+  // Tombol turun hanya boleh aktif setelah perjalanan dimulai (status berangkat).
+  final bool journeyStarted;
   final VoidCallback? onConfirmCash;
   final VoidCallback? onDropoff;
   final VoidCallback? onOpenDetail;
@@ -5558,19 +5660,31 @@ class _ManifestPassengerTile extends StatelessWidget {
               if (passenger.canDropoff) ...[
                 const SizedBox(width: 10),
                 Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: isDroppingOff ? null : onDropoff,
-                    icon: isDroppingOff
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            ),
-                          )
-                        : const Icon(Icons.check_circle_outline_rounded),
-                    label: Text(isDroppingOff ? 'Memproses...' : 'Turun'),
+                  // Tombol turun dikunci sampai perjalanan dimulai. Tooltip
+                  // menjelaskan alasannya agar pengemudi tidak bingung.
+                  child: Tooltip(
+                    message: journeyStarted
+                        ? ''
+                        : 'Mulai perjalanan dulu sebelum menandai penumpang turun.',
+                    triggerMode: journeyStarted
+                        ? TooltipTriggerMode.manual
+                        : TooltipTriggerMode.tap,
+                    child: ElevatedButton.icon(
+                      onPressed: (isDroppingOff || !journeyStarted)
+                          ? null
+                          : onDropoff,
+                      icon: isDroppingOff
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Icon(Icons.check_circle_outline_rounded),
+                      label: Text(isDroppingOff ? 'Memproses...' : 'Turun'),
+                    ),
                   ),
                 ),
               ],
@@ -5839,8 +5953,8 @@ class _ScanTicketPageState extends State<_ScanTicketPage> {
             ? _ScanPreviewState.valid
             : _ScanPreviewState.invalid;
         _message = result.valid
-            ? 'Tiket cocok dengan manifest dan sudah ditandai hadir.'
-            : 'Tiket tidak valid untuk manifest aktif.';
+            ? 'Tiket cocok dengan manifes dan sudah ditandai hadir.'
+            : 'Tiket tidak valid untuk manifes aktif.';
         _detailLines = result.detailLines;
       });
     } on TravSApiException catch (error) {
@@ -6955,7 +7069,7 @@ class _DriverJourneyCard extends StatelessWidget {
                 ),
                 Expanded(
                   child: _MetaColumn(
-                    label: 'Manifest',
+                    label: 'Manifes',
                     value: '${record.passengerCount} penumpang',
                   ),
                 ),
@@ -7453,11 +7567,10 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         decoration: _profileInputDecoration(
-                          hint: 'contoh@email.com',
+                          hint: 'contoh@gmail.com',
                           icon: Icons.mail_outline_rounded,
                         ),
-                        validator: (value) =>
-                            _validateRequiredText(value, 'Email'),
+                        validator: _validateGmailEmail,
                       ),
                       const SizedBox(height: 12),
                       _ProfileFieldLabel(
@@ -7465,13 +7578,16 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                       ),
                       TextFormField(
                         controller: _phoneController,
-                        keyboardType: TextInputType.phone,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(12),
+                        ],
                         decoration: _profileInputDecoration(
                           hint: '081234567891',
                           icon: Icons.phone_outlined,
                         ),
-                        validator: (value) =>
-                            _validateRequiredText(value, 'Nomor HP'),
+                        validator: _validatePhoneNumber,
                       ),
                     ],
                   ),
@@ -7533,8 +7649,9 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                       TextFormField(
                         controller: _newPasswordController,
                         obscureText: true,
+                        inputFormatters: [LengthLimitingTextInputFormatter(8)],
                         decoration: _profileInputDecoration(
-                          hint: 'Password baru',
+                          hint: '6-8 karakter, huruf + angka/simbol',
                           icon: Icons.lock_reset_rounded,
                         ),
                         validator: _validateNewPassword,
@@ -7544,6 +7661,7 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                       TextFormField(
                         controller: _confirmPasswordController,
                         obscureText: true,
+                        inputFormatters: [LengthLimitingTextInputFormatter(8)],
                         decoration: _profileInputDecoration(
                           hint: 'Konfirmasi password baru',
                           icon: Icons.verified_user_outlined,
@@ -7633,8 +7751,40 @@ class _EditProfilePageState extends State<_EditProfilePage> {
     if (!shouldChangePassword) {
       return null;
     }
-    if (value == null || value.trim().length < 8) {
-      return 'Password baru minimal 8 karakter.';
+    if (value == null || value.length < 6 || value.length > 8) {
+      return 'Password baru harus terdiri dari 6 sampai 8 karakter.';
+    }
+    if (!RegExp(r'[A-Za-z]').hasMatch(value) ||
+        !RegExp(r'[0-9]|[^A-Za-z0-9\s]').hasMatch(value)) {
+      return 'Gunakan huruf dan minimal satu angka atau simbol.';
+    }
+    if (value == _currentPasswordController.text) {
+      return 'Password baru harus berbeda dari password lama.';
+    }
+    return null;
+  }
+
+  String? _validateGmailEmail(String? value) {
+    final email = value?.trim() ?? '';
+    if (email.isEmpty) {
+      return 'Email wajib diisi.';
+    }
+    if (!RegExp(
+      r'^[^@\s]+@gmail\.com$',
+      caseSensitive: false,
+    ).hasMatch(email)) {
+      return 'Email wajib menggunakan alamat @gmail.com.';
+    }
+    return null;
+  }
+
+  String? _validatePhoneNumber(String? value) {
+    final phone = value?.trim() ?? '';
+    if (phone.isEmpty) {
+      return 'Nomor HP wajib diisi.';
+    }
+    if (!RegExp(r'^[0-9]{11,12}$').hasMatch(phone)) {
+      return 'Nomor HP harus terdiri dari 11 sampai 12 digit angka.';
     }
     return null;
   }
@@ -8119,7 +8269,7 @@ class _DriverInfoPage extends StatelessWidget {
             const _InfoCard(
               title: 'Periksa jadwal tugas',
               description:
-                  'Buka halaman Beranda atau Manifest untuk melihat jadwal yang ditugaskan admin. Periksa rute, waktu berangkat, kendaraan, dan jumlah penumpang sebelum perjalanan dimulai.\n\n'
+                  'Buka halaman Beranda atau Manifes untuk melihat jadwal yang ditugaskan admin. Periksa rute, waktu berangkat, kendaraan, dan jumlah penumpang sebelum perjalanan dimulai.\n\n'
                   '1. Jadwal aktif muncul setelah admin membuat penugasan.\n'
                   '2. Kendaraan mengikuti data jadwal, bukan data profil.\n'
                   '3. Jika jadwal tidak sesuai, hubungi admin sebelum berangkat.',
@@ -8127,9 +8277,9 @@ class _DriverInfoPage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             const _InfoCard(
-              title: 'Buka manifest penumpang',
+              title: 'Buka manifes penumpang',
               description:
-                  'Manifest berisi daftar penumpang, nomor kursi, titik jemput, titik turun, nomor HP, dan data barang bawaan. Gunakan data ini sebagai acuan kerja saat menjemput penumpang.\n\n'
+                  'Manifes berisi daftar penumpang, nomor kursi, titik jemput, titik turun, nomor HP, dan data barang bawaan. Gunakan data ini sebagai acuan kerja saat menjemput penumpang.\n\n'
                   '1. Pastikan nama dan kursi sesuai daftar.\n'
                   '2. Periksa catatan patokan jemput dan turun.\n'
                   '3. Lihat foto barang jika penumpang mengunggah bukti barang bawaan.',
@@ -8151,7 +8301,7 @@ class _DriverInfoPage extends StatelessWidget {
               description:
                   'Saat penumpang naik, pindai QR tiket dari aplikasi penumpang. Pemindaian dipakai untuk mencatat kehadiran dan memastikan tiket yang digunakan sesuai pemesanan.\n\n'
                   '1. Jangan memindai tiket milik penumpang lain.\n'
-                  '2. Jika QR tidak terbaca, periksa kembali data manifest.\n'
+                  '2. Jika QR tidak terbaca, periksa kembali data manifes.\n'
                   '3. Laporkan kendala tiket kepada admin.',
               justifyDescription: true,
             ),
@@ -8165,7 +8315,7 @@ class _DriverInfoPage extends StatelessWidget {
             const _InfoCard(
               title: 'Ikuti jadwal dan kendaraan tugas',
               description:
-                  'Pengemudi menjalankan perjalanan sesuai jadwal yang dibuat admin. Data rute, kendaraan, waktu keberangkatan, dan manifest tidak boleh diubah sendiri melalui aplikasi pengemudi.\n\n'
+                  'Pengemudi menjalankan perjalanan sesuai jadwal yang dibuat admin. Data rute, kendaraan, waktu keberangkatan, dan manifes tidak boleh diubah sendiri melalui aplikasi pengemudi.\n\n'
                   '1. Kendaraan ditentukan dari jadwal.\n'
                   '2. Perubahan rute atau jadwal dilakukan oleh admin.\n'
                   '3. Jika ada kendala kendaraan, segera konfirmasi ke admin.',
@@ -8215,7 +8365,7 @@ class _BookingInfoSections extends StatelessWidget {
           title: 'Data penumpang wajib benar',
           description:
               'Gunakan nama lengkap dan nomor HP aktif agar admin atau pengemudi bisa menghubungi Anda jika ada perubahan jadwal.\n\n'
-              '1. Nama penumpang dipakai pada tiket dan manifest.\n'
+              '1. Nama penumpang dipakai pada tiket dan manifes.\n'
               '2. Nomor HP dipakai untuk komunikasi keberangkatan.\n'
               '3. Data yang salah dapat menyulitkan proses penjemputan.',
           justifyDescription: true,

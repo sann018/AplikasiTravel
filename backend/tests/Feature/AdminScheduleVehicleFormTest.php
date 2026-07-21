@@ -67,6 +67,17 @@ class AdminScheduleVehicleFormTest extends TestCase
         ]);
     }
 
+    public function test_vehicle_create_form_does_not_show_default_seat_layout(): void
+    {
+        $admin = User::factory()->create(['peran' => 'admin']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.kendaraan.create'))
+            ->assertOk()
+            ->assertDontSee('Susunan Kursi Default')
+            ->assertDontSee('name="seat_layout"', false);
+    }
+
     public function test_completed_schedule_status_is_locked_in_form_and_backend(): void
     {
         $this->seed(DatabaseSeeder::class);

@@ -11,7 +11,7 @@
 
     <div class="travs-dashboard-simple">
         <article class="travs-dashboard-panel travs-dashboard-panel-full collapsible-section" data-collapsible-section>
-            <div class="travs-panel-header collapsible-section__header" data-collapse-header>
+            <div class="travs-panel-header collapsible-section__header d-flex align-items-start justify-content-between" data-collapse-header>
                 <div class="travs-panel-title">
                     <h3>Ringkasan Pendapatan Minggu Ini</h3>
                     <p>
@@ -28,8 +28,8 @@
                 </div>
             </div>
 
-            <div id="dashboard-revenue-body" class="travs-dashboard-table-wrap collapsible-section__body" data-collapse-body>
-                <table class="travs-table">
+            <div id="dashboard-revenue-body" class="travs-dashboard-table-wrap collapsible-section__body table-responsive" data-collapse-body>
+                <table class="travs-table table mb-0">
                     <thead>
                         <tr>
                             <th>No.</th>
@@ -61,19 +61,19 @@
         </article>
 
         <article class="travs-dashboard-panel travs-dashboard-panel-full collapsible-section" data-collapsible-section>
-            <div class="travs-panel-header collapsible-section__header" data-collapse-header>
+            <div class="travs-panel-header collapsible-section__header d-flex align-items-start justify-content-between" data-collapse-header>
                 <div class="travs-panel-title">
                     <h3>Jadwal Keberangkatan Hari Ini</h3>
                     <p>Daftar keberangkatan pada tanggal {{ now()->translatedFormat('d F Y') }}.</p>
                 </div>
                 <div class="collapsible-section__header-actions">
-                    <a href="{{ route('admin.jadwal.index', ['tanggal' => $today]) }}" class="travs-button-link">Kelola jadwal</a>
+                    <a href="{{ route('admin.jadwal.index', ['tanggal' => $today]) }}" class="travs-button-link btn btn-link">Kelola jadwal</a>
                     @include('admin.partials.collapsible-toggle', ['targetId' => 'dashboard-schedule-body'])
                 </div>
             </div>
 
-            <div id="dashboard-schedule-body" class="travs-dashboard-table-wrap collapsible-section__body" data-collapse-body>
-                <table class="travs-table">
+            <div id="dashboard-schedule-body" class="travs-dashboard-table-wrap collapsible-section__body table-responsive" data-collapse-body>
+                <table class="travs-table table mb-0">
                     <thead>
                         <tr>
                             <th>Waktu</th>

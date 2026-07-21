@@ -8,6 +8,7 @@ use App\Models\Notifikasi;
 use App\Models\Pemesanan;
 use App\Models\User;
 use App\Services\AdminOperationalNotificationService;
+use App\Services\DepartureReminderService;
 use App\Services\SettingService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -39,15 +40,13 @@ class AdminOperationalNotificationTest extends TestCase
             'batas_pembayaran' => now()->addMinutes(5),
             'alamat_jemput' => 'Pontianak',
             'subtotal_tiket' => 200000,
-            'biaya_bagasi' => 0,
-            'diskon' => 0,
             'total_harga' => 200000,
             'status_pemesanan' => 'menunggu_pembayaran',
         ]);
 
         $this->booking->pembayaran()->create([
             'order_id_gateway' => 'ADMIN-NOTIF-CASH',
-            'metode_bayar' => 'tunai',
+            'metode_bayar' => 'cash',
             'jumlah_bayar' => 200000,
             'status_bayar' => 'menunggu',
             'expired_at' => now()->addMinutes(5),
@@ -82,11 +81,60 @@ class AdminOperationalNotificationTest extends TestCase
         $service = app(AdminOperationalNotificationService::class);
 
         $service->scheduleNearDeparture($schedule);
+        Notifikasi::query()
+            ->where('pengguna_id', $this->admin->id)
+            ->where('judul', 'Jadwal mendekati keberangkatan')
+            ->update(['sudah_dibaca' => true]);
         $service->scheduleNearDeparture($schedule);
 
         $this->assertSame(1, Notifikasi::query()
             ->where('pengguna_id', $this->admin->id)
             ->where('judul', 'Jadwal mendekati keberangkatan')
+            ->count());
+        $this->assertDatabaseHas('notifikasi', [
+            'pengguna_id' => $this->admin->id,
+            'judul' => 'Jadwal mendekati keberangkatan',
+            'sudah_dibaca' => true,
+        ]);
+    }
+
+    public function test_admin_departure_reminder_stays_enabled_when_passenger_reminder_is_disabled(): void
+    {
+        Notifikasi::query()->delete();
+        $schedule = $this->booking->jadwal;
+        $schedule->update([
+            'status' => 'dibuka',
+            'waktu_berangkat' => now()->addMinutes(45),
+        ]);
+        app(SettingService::class)->updateMany([
+            'notif_departure_reminder' => false,
+        ], $this->admin->id);
+
+        app(DepartureReminderService::class)->sendUpcomingReminders();
+
+        $this->assertDatabaseHas('notifikasi', [
+            'pengguna_id' => $this->admin->id,
+            'judul' => 'Jadwal mendekati keberangkatan',
+            'referensi_id' => $schedule->id,
+        ]);
+        $this->assertDatabaseMissing('notifikasi', [
+            'pengguna_id' => $this->booking->pengguna_id,
+            'judul' => 'Pengingat keberangkatan',
+        ]);
+    }
+
+    public function test_departed_schedule_notifies_admin_once(): void
+    {
+        $schedule = $this->booking->jadwal;
+        $service = app(AdminOperationalNotificationService::class);
+
+        $service->scheduleDeparted($schedule);
+        $service->scheduleDeparted($schedule);
+
+        $this->assertSame(1, Notifikasi::query()
+            ->where('pengguna_id', $this->admin->id)
+            ->where('judul', 'Armada telah berangkat')
+            ->where('referensi_id', $schedule->id)
             ->count());
     }
 

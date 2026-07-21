@@ -234,6 +234,27 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       const SizedBox(height: 40),
+                      // Sambutan di atas kartu form login. Diletakkan pada latar
+                      // gradien gelap sehingga memakai warna putih agar kontras
+                      // dan selaras dengan tema aplikasi.
+                      Text(
+                        'Selamat Datang di Platform Rusly Travel',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Pemesanan Jasa Transportasi Umum Lintas Kota',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: Colors.white.withValues(alpha: 0.82),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
                       Container(
                         padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
                         decoration: BoxDecoration(
@@ -441,15 +462,18 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         style: const TextStyle(color: TravSTheme.navy),
         decoration: const InputDecoration(
           labelText: 'Email',
-          hintText: 'nama@email.com',
+          hintText: 'nama@gmail.com',
           prefixIcon: Icon(Icons.mail_outline_rounded),
         ),
         validator: (value) {
           if (value == null || value.trim().isEmpty) {
             return 'Email wajib diisi.';
           }
-          if (!value.contains('@')) {
-            return 'Format email belum valid.';
+          if (!RegExp(
+            r'^[^@\s]+@gmail\.com$',
+            caseSensitive: false,
+          ).hasMatch(value.trim())) {
+            return 'Email wajib menggunakan alamat @gmail.com.';
           }
           return null;
         },
@@ -457,8 +481,12 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
       const SizedBox(height: 14),
       TextFormField(
         controller: _registerPhoneController,
-        keyboardType: TextInputType.phone,
+        keyboardType: TextInputType.number,
         textInputAction: TextInputAction.next,
+        inputFormatters: [
+          FilteringTextInputFormatter.digitsOnly,
+          LengthLimitingTextInputFormatter(12),
+        ],
         style: const TextStyle(color: TravSTheme.navy),
         decoration: const InputDecoration(
           labelText: 'Nomor HP',
@@ -469,8 +497,9 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
           if (value == null || value.trim().isEmpty) {
             return 'Nomor HP wajib diisi.';
           }
-          if (value.trim().length < 10) {
-            return 'Nomor HP minimal 10 digit.';
+          final phone = value.trim();
+          if (phone.length < 11 || phone.length > 12) {
+            return 'Nomor HP harus terdiri dari 11 sampai 12 digit.';
           }
           return null;
         },
@@ -480,10 +509,11 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         controller: _registerPasswordController,
         obscureText: _registerPasswordHidden,
         textInputAction: TextInputAction.next,
+        inputFormatters: [LengthLimitingTextInputFormatter(8)],
         style: const TextStyle(color: TravSTheme.navy),
         decoration: InputDecoration(
           labelText: 'Kata sandi',
-          hintText: 'Minimal 8 karakter',
+          hintText: '6-8 karakter, huruf + angka/simbol',
           prefixIcon: const Icon(Icons.lock_outline_rounded),
           suffixIcon: IconButton(
             onPressed: () {
@@ -502,8 +532,15 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
           if (value == null || value.isEmpty) {
             return 'Kata sandi wajib diisi.';
           }
-          if (value.length < 8) {
-            return 'Kata sandi minimal 8 karakter.';
+          if (value.length < 6 || value.length > 8) {
+            return 'Kata sandi harus terdiri dari 6 sampai 8 karakter.';
+          }
+          final hasLetter = RegExp(r'[A-Za-z]').hasMatch(value);
+          final hasNumberOrSymbol = RegExp(
+            r'[0-9]|[^A-Za-z0-9\s]',
+          ).hasMatch(value);
+          if (!hasLetter || !hasNumberOrSymbol) {
+            return 'Gunakan huruf dan minimal satu angka atau simbol.';
           }
           return null;
         },
@@ -513,6 +550,7 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         controller: _registerConfirmPasswordController,
         obscureText: _registerConfirmPasswordHidden,
         textInputAction: TextInputAction.done,
+        inputFormatters: [LengthLimitingTextInputFormatter(8)],
         style: const TextStyle(color: TravSTheme.navy),
         decoration: InputDecoration(
           labelText: 'Konfirmasi kata sandi',

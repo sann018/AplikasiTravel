@@ -5,20 +5,20 @@
 @section('page-description', 'Pantau pembayaran tunai, QRIS, dan transfer.')
 
 @section('content')
-    <article class="travs-section-card">
+    <article class="travs-section-card card">
         <div class="travs-panel-title">
             <h3>Filter Pembayaran</h3>
             <p>Cari transaksi berdasarkan kode, penumpang, rute, metode, atau status.</p>
         </div>
 
-        <form method="GET" class="travs-filter-grid travs-filter-grid-wide">
+        <form method="GET" class="travs-filter-grid travs-filter-grid-wide d-grid">
             <div class="travs-field">
-                <label for="search">Cari</label>
-                <input id="search" name="search" class="travs-input" value="{{ $filters['search'] ?? '' }}" placeholder="Kode pemesanan, order, penumpang, rute">
+                <label for="search" class="form-label">Cari</label>
+                <input id="search" name="search" class="travs-input form-control" value="{{ $filters['search'] ?? '' }}" placeholder="Kode pemesanan, order, penumpang, rute">
             </div>
             <div class="travs-field">
-                <label for="metode_bayar">Metode</label>
-                <select id="metode_bayar" name="metode_bayar" class="travs-select">
+                <label for="metode_bayar" class="form-label">Metode</label>
+                <select id="metode_bayar" name="metode_bayar" class="travs-select form-select">
                     <option value="">Semua metode</option>
                     @foreach (['transfer' => 'Transfer', 'qris' => 'QRIS', 'cash' => 'Cash'] as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['metode_bayar'] ?? '') === $value)>{{ $label }}</option>
@@ -26,8 +26,8 @@
                 </select>
             </div>
             <div class="travs-field">
-                <label for="status_bayar">Status</label>
-                <select id="status_bayar" name="status_bayar" class="travs-select">
+                <label for="status_bayar" class="form-label">Status</label>
+                <select id="status_bayar" name="status_bayar" class="travs-select form-select">
                     <option value="">Semua status</option>
                     @foreach (['menunggu' => 'Menunggu', 'berhasil' => 'Berhasil', 'gagal' => 'Gagal', 'kedaluwarsa' => 'Kedaluwarsa'] as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['status_bayar'] ?? '') === $value)>{{ $label }}</option>
@@ -35,21 +35,21 @@
                 </select>
             </div>
             <div class="travs-field">
-                <label for="tanggal_mulai">Tanggal Mulai</label>
-                <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input" value="{{ $filters['tanggal_mulai'] ?? '' }}">
+                <label for="tanggal_mulai" class="form-label">Tanggal Mulai</label>
+                <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_mulai'] ?? '' }}">
             </div>
             <div class="travs-field">
-                <label for="tanggal_selesai">Tanggal Selesai</label>
-                <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input" value="{{ $filters['tanggal_selesai'] ?? '' }}">
+                <label for="tanggal_selesai" class="form-label">Tanggal Selesai</label>
+                <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
             </div>
-            <div class="travs-filter-actions">
-                <button type="submit" class="travs-button-secondary">Terapkan Filter</button>
-                <a href="{{ route('admin.pembayaran.index') }}" class="travs-button-secondary">Reset</a>
+            <div class="travs-filter-actions d-flex align-items-end flex-wrap">
+                <button type="submit" class="travs-button-secondary btn btn-secondary">Terapkan Filter</button>
+                <a href="{{ route('admin.pembayaran.index') }}" class="travs-button-secondary btn btn-secondary">Reset</a>
             </div>
         </form>
 
-        <div class="travs-table-wrap">
-            <table class="travs-table">
+        <div class="travs-table-wrap table-responsive">
+            <table class="travs-table table mb-0">
                 <thead>
                     <tr>
                         <th>Kode Pemesanan</th>
@@ -80,16 +80,16 @@
                                 </div>
                             </td>
                             <td>
-                                <span class="travs-status-pill travs-status-{{ strtolower($payment->metode_bayar) }}">
+                                <span class="travs-status-pill travs-status-{{ strtolower($payment->metode_bayar) }} badge rounded-pill">
                                     {{ strtoupper($payment->metode_bayar) }}
                                 </span>
                             </td>
                             <td>
                                 <div class="travs-status-stack">
-                                    <span class="travs-status-pill travs-status-{{ $payment->status_bayar }}">
+                                    <span class="travs-status-pill travs-status-{{ $payment->status_bayar }} badge rounded-pill">
                                         {{ ucwords(str_replace('_', ' ', $payment->status_bayar)) }}
                                     </span>
-                                    <span class="travs-status-pill travs-status-{{ $booking?->status_pemesanan ?? 'draft' }}">
+                                    <span class="travs-status-pill travs-status-{{ $booking?->status_pemesanan ?? 'draft' }} badge rounded-pill">
                                         {{ ucwords(str_replace('_', ' ', $booking?->status_pemesanan ?? 'draft')) }}
                                     </span>
                                 </div>
@@ -101,21 +101,21 @@
                                 </div>
                             </td>
                             <td>
-                                <span class="travs-status-pill travs-status-{{ $payment->issue_label === 'Normal' ? 'selesai' : 'menunggu' }}">
+                                <span class="travs-status-pill travs-status-{{ $payment->issue_label === 'Normal' ? 'selesai' : 'menunggu' }} badge rounded-pill">
                                     {{ $payment->issue_label }}
                                 </span>
                             </td>
                             <td>
-                                <div class="travs-table-actions">
-                                    <a href="{{ route('admin.pembayaran.show', $payment) }}" class="travs-button-link">Detail Pembayaran</a>
+                                <div class="travs-table-actions d-flex align-items-center flex-wrap">
+                                    <a href="{{ route('admin.pembayaran.show', $payment) }}" class="travs-button-link btn btn-link">Detail Pembayaran</a>
                                     @if ($booking)
-                                        <a href="{{ route('admin.pemesanan.show', $booking) }}" class="travs-button-link">Pemesanan</a>
+                                        <a href="{{ route('admin.pemesanan.show', $booking) }}" class="travs-button-link btn btn-link">Pemesanan</a>
                                     @endif
 
                                     @if ($payment->can_confirm_cash && $booking)
                                         <form method="POST" action="{{ route('admin.pembayaran.confirm-cash', $booking) }}">
                                             @csrf
-                                            <button type="submit" class="travs-button-link">Verifikasi Cash</button>
+                                            <button type="submit" class="travs-button-link btn btn-link">Verifikasi Cash</button>
                                         </form>
                                     @endif
                                 </div>
