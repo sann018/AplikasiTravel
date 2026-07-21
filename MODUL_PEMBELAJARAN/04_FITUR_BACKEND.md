@@ -462,7 +462,9 @@ aktif, dan mengelola banner promosi di beranda mobile.
 ```php
 $maxKursi = (int) $this->settingService->get('max_seat_per_booking', 4);
 ```
-Nilai setting disimpan di tabel `system_settings` dan bisa diubah admin tanpa mengubah kode.
+Nilai setting disimpan di tabel `pengaturan_sistem` dan bisa diubah admin tanpa mengubah kode.
+Nama class `SystemSetting` serta key konfigurasi seperti `max_seat_per_booking` tetap dipertahankan
+untuk kompatibilitas kode dan API; yang distandardisasi hanya nama tabel dan kolom database.
 
 ---
 

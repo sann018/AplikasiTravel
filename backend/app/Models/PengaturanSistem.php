@@ -13,7 +13,7 @@ class PengaturanSistem extends Model
      *
      * @var string
      */
-    protected $table = 'pengaturan_sistem';
+    protected $table = 'pengaturan_sistem_legacy_backup';
 
     /**
      * Menentukan apakah Laravel perlu mengatur waktu pembuatan/perubahan otomatis.

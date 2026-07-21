@@ -108,7 +108,7 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
                 (int) $schedule->rute->harga_tiket,
             );
 
-        $this->assertDatabaseMissing('system_settings', ['key' => 'admin_fee']);
+        $this->assertDatabaseMissing('pengaturan_sistem', ['kunci' => 'admin_fee']);
     }
 
     public function test_cash_booking_is_rejected_when_cash_setting_is_disabled(): void
@@ -205,6 +205,18 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
         );
     }
 
+    public function test_notification_toggle_reads_current_system_setting(): void
+    {
+        $this->setSettings(['notif_departure_reminder' => false]);
+
+        $this->assertFalse(
+            app(NotificationTemplateService::class)->enabled('notif_departure_reminder'),
+        );
+        $this->assertTrue(
+            app(NotificationTemplateService::class)->enabled('setting_not_available', true),
+        );
+    }
+
     public function test_payment_success_notification_remains_active_with_standard_template(): void
     {
         $this->setSettings([
@@ -284,8 +296,8 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
     private function setSettings(array $values): void
     {
         foreach ($values as $key => $value) {
-            $setting = SystemSetting::query()->where('key', $key)->firstOrFail();
-            $setting->update(['value' => is_bool($value) ? ($value ? 'true' : 'false') : (string) $value]);
+            $setting = SystemSetting::query()->where('kunci', $key)->firstOrFail();
+            $setting->update(['nilai' => is_bool($value) ? ($value ? 'true' : 'false') : (string) $value]);
         }
 
         app(SettingService::class)->clearCache();

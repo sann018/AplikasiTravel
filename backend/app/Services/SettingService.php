@@ -90,9 +90,9 @@ class SettingService
     {
         // Controller cukup mengirim nilai; detail tabel dan tipe data ditangani di satu tempat.
         $settings = SystemSetting::query()
-            ->whereIn('key', array_keys($data))
+            ->whereIn('kunci', array_keys($data))
             ->get()
-            ->keyBy('key');
+            ->keyBy('kunci');
 
         foreach ($data as $key => $value) {
             $setting = $settings->get($key);
@@ -101,9 +101,9 @@ class SettingService
             }
 
             $setting->update([
-                'value' => $this->prepareStoredValue($value, $setting->type),
+                'nilai' => $this->prepareStoredValue($value, $setting->tipe),
                 // Audit sederhana ini menunjukkan admin terakhir yang mengubah nilai.
-                'updated_by' => $adminId,
+                'diperbarui_oleh' => $adminId,
             ]);
         }
 
@@ -119,17 +119,19 @@ class SettingService
     {
         // Cache hanya menyimpan array sederhana agar aman dibaca web, scheduler, dan perintah Artisan.
         $records = Cache::rememberForever(self::CACHE_KEY, fn () => SystemSetting::query()
-            ->orderBy('group')
-            ->orderBy('key')
+            ->orderBy('kelompok')
+            ->orderBy('kunci')
             ->get()
             ->map(fn (SystemSetting $setting) => [
                 'id' => $setting->id,
-                'group' => $setting->group,
-                'key' => $setting->key,
-                'value' => $setting->value,
-                'type' => $setting->type,
-                'description' => $setting->description,
-                'updated_by' => $setting->updated_by,
+                // Alias internal lama dipertahankan agar controller, Blade,
+                // dan kontrak API tidak ikut berubah karena rename database.
+                'group' => $setting->kelompok,
+                'key' => $setting->kunci,
+                'value' => $setting->nilai,
+                'type' => $setting->tipe,
+                'description' => $setting->deskripsi,
+                'updated_by' => $setting->diperbarui_oleh,
                 'updated_at' => $setting->updated_at?->toISOString(),
             ])
             ->all());

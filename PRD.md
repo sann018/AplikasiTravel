@@ -189,6 +189,8 @@ Tabel domain yang sudah ada:
 - `notifikasi`
 - `biaya_operasional_perjalanan`
 - `pengaturan_sistem`
+- `banner_beranda`
+- `pengaturan_sistem_legacy_backup` (arsip legacy, tidak digunakan runtime)
 
 Endpoint API yang sudah ada:
 
@@ -1170,6 +1172,8 @@ Scan QR:
 - notifikasi
 - biaya_operasional_perjalanan
 - pengaturan_sistem
+- banner_beranda
+- pengaturan_sistem_legacy_backup (arsip legacy)
 
 ### 7.2 Relasi inti
 

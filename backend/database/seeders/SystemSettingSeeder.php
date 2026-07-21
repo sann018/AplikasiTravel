@@ -65,11 +65,19 @@ class SystemSettingSeeder extends Seeder
 
         foreach ($settings as $setting) {
             // firstOrCreate menjaga nilai yang sudah pernah diubah admin agar tidak tertimpa saat seeder dijalankan lagi.
-            SystemSetting::query()->firstOrCreate(['key' => $setting['key']], $setting);
+            SystemSetting::query()->firstOrCreate(
+                ['kunci' => $setting['key']],
+                [
+                    'kelompok' => $setting['group'],
+                    'nilai' => $setting['value'],
+                    'tipe' => $setting['type'],
+                    'deskripsi' => $setting['description'],
+                ],
+            );
         }
 
         // Biaya layanan pembayaran sepenuhnya mengikuti Pakasir, bukan RuslyTravel.
-        SystemSetting::query()->where('key', 'admin_fee')->delete();
+        SystemSetting::query()->where('kunci', 'admin_fee')->delete();
 
         app(SettingService::class)->clearCache();
     }

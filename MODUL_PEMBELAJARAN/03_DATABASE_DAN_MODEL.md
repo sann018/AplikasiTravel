@@ -57,8 +57,9 @@ Sistem ini punya tabel-tabel berikut (dikelompokkan berdasarkan fungsinya):
 |-------|--------|
 | `notifikasi` | Pemberitahuan ke pengguna |
 | `biaya_operasional_perjalanan` | Pengeluaran perjalanan (bensin, tol) |
-| `system_settings` | Pengaturan sistem (nama app, aturan booking, dll) |
-| `home_banners` | Banner promosi di beranda mobile |
+| `pengaturan_sistem` | Pengaturan sistem aktif (nama app, aturan booking, dll) |
+| `banner_beranda` | Banner promosi di beranda mobile |
+| `pengaturan_sistem_legacy_backup` | Arsip tabel pengaturan lama; tidak dipakai runtime dan belum dihapus |
 
 ### Kelompok Bawaan Laravel (jarang disentuh)
 `cache`, `jobs`, `sessions` — tabel teknis Laravel. Pada project ini tidak dipakai runtime karena
@@ -235,15 +236,21 @@ Constraint gabungan memastikan nomor kursi tidak berulang dalam satu jadwal:
 | sudah_dipindai | boolean | Sudah discan sopir? |
 | dipindai_pada, diterbitkan_pada | datetime, nullable | Waktu scan & terbit |
 
-### Tabel `notifikasi`, `biaya_operasional_perjalanan`, `system_settings`, `home_banners`
+### Tabel `notifikasi`, `biaya_operasional_perjalanan`, `pengaturan_sistem`, `banner_beranda`
 Struktur ringkas:
 - `notifikasi`: `pengguna_id`, `judul`, `pesan`, `jenis` (pembayaran/perjalanan/sistem), `sudah_dibaca`.
 - `biaya_operasional_perjalanan`: `jadwal_id`, `jenis_biaya`, `nominal`, `keterangan`, `bukti_url`,
   `tanggal_biaya`, `created_by`. Kolom `created_by` boleh kosong dan memakai `ON DELETE SET NULL`
   agar histori biaya tetap tersimpan bila akun pencatat dihapus.
-- `system_settings`: `group`, `key`, `value`, `type` — menyimpan konfigurasi seperti nama aplikasi,
-  batas kursi per booking, durasi kunci kursi, metode bayar aktif, dll.
-- `home_banners`: `judul`, `subjudul`, `gambar_path`, `aktif`, `urutan`.
+- `pengaturan_sistem`: `kelompok`, `kunci`, `nilai`, `tipe`, `deskripsi`, `diperbarui_oleh` —
+  menyimpan konfigurasi seperti nama aplikasi, batas kursi per booking, durasi kunci kursi, dan
+  metode bayar aktif. Isi `kunci` seperti `seat_lock_form_minutes` tetap dipertahankan agar kontrak
+  kode dan API tidak berubah.
+- `banner_beranda`: `judul`, `subjudul`, `path_gambar`, `aktif`, `urutan`, `dibuat_oleh`.
+- `pengaturan_sistem_legacy_backup`: tabel pengaturan generasi lama yang sengaja dipertahankan
+  sebagai arsip migrasi dan tidak menjadi sumber konfigurasi runtime.
+
+Kolom `created_at` dan `updated_at` tetap menggunakan nama serta konvensi timestamp Laravel.
 
 ---
 

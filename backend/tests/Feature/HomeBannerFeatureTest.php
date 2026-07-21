@@ -29,12 +29,12 @@ class HomeBannerFeatureTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $banner = HomeBanner::query()->firstOrFail();
-        Storage::disk('public')->assertExists($banner->gambar_path);
+        Storage::disk('public')->assertExists($banner->path_gambar);
 
         $this->getJson('/api/home-banners')
             ->assertOk()
             ->assertJsonPath('data.0.judul', 'Promo Sambas')
-            ->assertJsonPath('data.0.gambar_url', '/storage/'.$banner->gambar_path);
+            ->assertJsonPath('data.0.gambar_url', '/storage/'.$banner->path_gambar);
     }
 
     public function test_new_banner_is_always_active_after_visibility_control_is_removed(): void

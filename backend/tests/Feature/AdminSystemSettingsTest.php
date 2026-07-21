@@ -83,19 +83,19 @@ class AdminSystemSettingsTest extends TestCase
             ->assertRedirect(route('admin.settings.index', ['tab' => 'general']))
             ->assertSessionHasNoErrors();
 
-        $this->assertDatabaseHas('system_settings', [
-            'key' => 'app_name',
-            'value' => 'RuslyTravel Baru',
-            'updated_by' => $admin->id,
+        $this->assertDatabaseHas('pengaturan_sistem', [
+            'kunci' => 'app_name',
+            'nilai' => 'RuslyTravel Baru',
+            'diperbarui_oleh' => $admin->id,
         ]);
-        $this->assertDatabaseHas('system_settings', [
-            'key' => 'max_seat_per_booking',
-            'value' => '4',
+        $this->assertDatabaseHas('pengaturan_sistem', [
+            'kunci' => 'max_seat_per_booking',
+            'nilai' => '4',
         ]);
 
         $logoPath = (string) SystemSetting::query()
-            ->where('key', 'app_logo')
-            ->value('value');
+            ->where('kunci', 'app_logo')
+            ->value('nilai');
         $this->assertStringStartsWith('app-logos/', $logoPath);
         $this->assertStringEndsWith('.webp', $logoPath);
         $this->assertTrue(
@@ -149,8 +149,8 @@ class AdminSystemSettingsTest extends TestCase
 
     public function test_payment_tab_only_updates_visible_payment_note_and_preserves_legacy_settings(): void
     {
-        SystemSetting::query()->where('key', 'payment_cash_enabled')->update(['value' => 'true']);
-        SystemSetting::query()->where('key', 'bank_account_number')->update(['value' => '1234567890']);
+        SystemSetting::query()->where('kunci', 'payment_cash_enabled')->update(['nilai' => 'true']);
+        SystemSetting::query()->where('kunci', 'bank_account_number')->update(['nilai' => '1234567890']);
 
         $this->actingAs($this->admin())
             ->post(route('admin.settings.payment.update'), [
@@ -161,17 +161,17 @@ class AdminSystemSettingsTest extends TestCase
             ->assertRedirect(route('admin.settings.index', ['tab' => 'payment']))
             ->assertSessionHasNoErrors();
 
-        $this->assertDatabaseHas('system_settings', [
-            'key' => 'payment_cash_note',
-            'value' => 'Bayarkan langsung kepada pengemudi sebelum keberangkatan.',
+        $this->assertDatabaseHas('pengaturan_sistem', [
+            'kunci' => 'payment_cash_note',
+            'nilai' => 'Bayarkan langsung kepada pengemudi sebelum keberangkatan.',
         ]);
-        $this->assertDatabaseHas('system_settings', [
-            'key' => 'payment_cash_enabled',
-            'value' => 'true',
+        $this->assertDatabaseHas('pengaturan_sistem', [
+            'kunci' => 'payment_cash_enabled',
+            'nilai' => 'true',
         ]);
-        $this->assertDatabaseHas('system_settings', [
-            'key' => 'bank_account_number',
-            'value' => '1234567890',
+        $this->assertDatabaseHas('pengaturan_sistem', [
+            'kunci' => 'bank_account_number',
+            'nilai' => '1234567890',
         ]);
     }
 
@@ -191,7 +191,7 @@ class AdminSystemSettingsTest extends TestCase
 
     public function test_legacy_baggage_endpoint_no_longer_changes_tariffs(): void
     {
-        $before = SystemSetting::query()->where('key', 'baggage_extra_fee_per_kg')->value('value');
+        $before = SystemSetting::query()->where('kunci', 'baggage_extra_fee_per_kg')->value('nilai');
 
         $this->actingAs($this->admin())
             ->post(route('admin.settings.baggage.update'), $this->validBaggagePayload([
@@ -202,7 +202,7 @@ class AdminSystemSettingsTest extends TestCase
 
         $this->assertSame(
             $before,
-            SystemSetting::query()->where('key', 'baggage_extra_fee_per_kg')->value('value'),
+            SystemSetting::query()->where('kunci', 'baggage_extra_fee_per_kg')->value('nilai'),
         );
     }
 
@@ -219,8 +219,8 @@ class AdminSystemSettingsTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $items = json_decode((string) SystemSetting::query()
-            ->where('key', 'important_information')
-            ->value('value'), true);
+            ->where('kunci', 'important_information')
+            ->value('nilai'), true);
         $created = collect($items)->firstWhere('title', 'Perubahan titik keberangkatan');
 
         $this->assertNotNull($created);
@@ -231,8 +231,8 @@ class AdminSystemSettingsTest extends TestCase
             ->assertSessionHasNoErrors();
 
         $remaining = json_decode((string) SystemSetting::query()
-            ->where('key', 'important_information')
-            ->value('value'), true);
+            ->where('kunci', 'important_information')
+            ->value('nilai'), true);
 
         $this->assertNull(collect($remaining)->firstWhere('id', $created['id']));
     }

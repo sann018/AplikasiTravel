@@ -45,7 +45,7 @@
                 @forelse ($banners as $banner)
                     <div class="col-md-6">
                         <article class="border rounded-3 p-3 h-100">
-                            <img src="{{ asset('storage/'.$banner->gambar_path) }}" class="img-fluid rounded-3 mb-3 travs-photo-preview-trigger" style="width:100%;height:160px;object-fit:cover" alt="{{ $banner->judul }}" data-preview-src="{{ asset('storage/'.$banner->gambar_path) }}">
+                            <img src="{{ asset('storage/'.$banner->path_gambar) }}" class="img-fluid rounded-3 mb-3 travs-photo-preview-trigger" style="width:100%;height:160px;object-fit:cover" alt="{{ $banner->judul }}" data-preview-src="{{ asset('storage/'.$banner->path_gambar) }}">
                             <div class="d-flex justify-content-between gap-3">
                                 <div>
                                     <strong>{{ $banner->judul }}</strong>

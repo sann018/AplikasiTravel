@@ -36,7 +36,7 @@ class HomeBannerController extends Controller
         HomeBanner::query()->create([
             'judul' => $validated['judul'],
             'subjudul' => $validated['subjudul'] ?? null,
-            'gambar_path' => $path,
+            'path_gambar' => $path,
             'urutan' => $validated['urutan'],
             // Kontrol aktif/nonaktif sudah dihapus; banner baru langsung tampil.
             'aktif' => true,
@@ -48,7 +48,7 @@ class HomeBannerController extends Controller
 
     public function destroy(HomeBanner $banner): RedirectResponse
     {
-        $path = $banner->gambar_path;
+        $path = $banner->path_gambar;
         $banner->delete();
         Storage::disk('public')->delete($path);
 

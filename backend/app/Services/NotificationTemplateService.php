@@ -4,10 +4,13 @@ namespace App\Services;
 
 class NotificationTemplateService
 {
+    public function __construct(
+        private readonly SettingService $settings,
+    ) {}
+
     public function enabled(string $settingKey, bool $default = true): bool
     {
-        // Notifikasi operasional wajib aktif agar informasi penting tidak terputus.
-        return true;
+        return (bool) $this->settings->get($settingKey, $default);
     }
 
     /**

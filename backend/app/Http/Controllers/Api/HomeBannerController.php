@@ -19,7 +19,7 @@ class HomeBannerController extends Controller
                 'id' => $banner->id,
                 'judul' => $banner->judul,
                 'subjudul' => $banner->subjudul,
-                'gambar_url' => '/storage/'.ltrim($banner->gambar_path, '/'),
+                'gambar_url' => '/storage/'.ltrim($banner->path_gambar, '/'),
             ]);
 
         return response()->json(['success' => true, 'data' => $items]);

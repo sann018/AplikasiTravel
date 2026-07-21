@@ -44,10 +44,10 @@ class SystemSettingServiceTest extends TestCase
 
         $this->assertSame(3, $settings->get('max_seat_per_booking'));
         $this->assertFalse($settings->get('auto_cancel_booking'));
-        $this->assertDatabaseHas('system_settings', [
-            'key' => 'max_seat_per_booking',
-            'value' => '3',
-            'updated_by' => $admin->id,
+        $this->assertDatabaseHas('pengaturan_sistem', [
+            'kunci' => 'max_seat_per_booking',
+            'nilai' => '3',
+            'diperbarui_oleh' => $admin->id,
         ]);
     }
 }

@@ -599,13 +599,13 @@ class BookingFlowTest extends TestCase
 
     public function test_legacy_item_fee_setting_does_not_change_booking_total(): void
     {
-        DB::table('system_settings')->updateOrInsert(
-            ['key' => 'baggage_free_item_count'],
-            ['group' => 'baggage', 'value' => '0', 'type' => 'integer', 'description' => 'Item gratis', 'updated_at' => now(), 'created_at' => now()]
+        DB::table('pengaturan_sistem')->updateOrInsert(
+            ['kunci' => 'baggage_free_item_count'],
+            ['kelompok' => 'baggage', 'nilai' => '0', 'tipe' => 'integer', 'deskripsi' => 'Item gratis', 'updated_at' => now(), 'created_at' => now()]
         );
-        DB::table('system_settings')->updateOrInsert(
-            ['key' => 'baggage_extra_fee_per_item'],
-            ['group' => 'baggage', 'value' => '6000', 'type' => 'float', 'description' => 'Biaya item tambahan', 'updated_at' => now(), 'created_at' => now()]
+        DB::table('pengaturan_sistem')->updateOrInsert(
+            ['kunci' => 'baggage_extra_fee_per_item'],
+            ['kelompok' => 'baggage', 'nilai' => '6000', 'tipe' => 'float', 'deskripsi' => 'Biaya item tambahan', 'updated_at' => now(), 'created_at' => now()]
         );
         Cache::forget('system_settings');
 
@@ -663,9 +663,9 @@ class BookingFlowTest extends TestCase
             'baggage_free_item_count' => '1',
             'baggage_extra_fee_per_item' => '5000',
         ] as $key => $value) {
-            DB::table('system_settings')->updateOrInsert(
-                ['key' => $key],
-                ['group' => 'baggage', 'value' => $value, 'type' => 'float', 'description' => 'Pengaturan uji biaya item bagasi', 'updated_at' => now(), 'created_at' => now()]
+            DB::table('pengaturan_sistem')->updateOrInsert(
+                ['kunci' => $key],
+                ['kelompok' => 'baggage', 'nilai' => $value, 'tipe' => 'float', 'deskripsi' => 'Pengaturan uji biaya item bagasi', 'updated_at' => now(), 'created_at' => now()]
             );
         }
         Cache::forget('system_settings');
@@ -727,13 +727,13 @@ class BookingFlowTest extends TestCase
 
     public function test_large_baggage_type_held_by_passenger_is_not_charged(): void
     {
-        DB::table('system_settings')->updateOrInsert(
-            ['key' => 'baggage_large_vehicle_enabled'],
-            ['group' => 'baggage', 'value' => '1', 'type' => 'boolean', 'description' => 'Pengaturan uji bagasi besar', 'updated_at' => now(), 'created_at' => now()]
+        DB::table('pengaturan_sistem')->updateOrInsert(
+            ['kunci' => 'baggage_large_vehicle_enabled'],
+            ['kelompok' => 'baggage', 'nilai' => '1', 'tipe' => 'boolean', 'deskripsi' => 'Pengaturan uji bagasi besar', 'updated_at' => now(), 'created_at' => now()]
         );
-        DB::table('system_settings')->updateOrInsert(
-            ['key' => 'baggage_bicycle_fee'],
-            ['group' => 'baggage', 'value' => '30000', 'type' => 'float', 'description' => 'Pengaturan uji bagasi besar', 'updated_at' => now(), 'created_at' => now()]
+        DB::table('pengaturan_sistem')->updateOrInsert(
+            ['kunci' => 'baggage_bicycle_fee'],
+            ['kelompok' => 'baggage', 'nilai' => '30000', 'tipe' => 'float', 'deskripsi' => 'Pengaturan uji bagasi besar', 'updated_at' => now(), 'created_at' => now()]
         );
         Cache::forget('system_settings');
 

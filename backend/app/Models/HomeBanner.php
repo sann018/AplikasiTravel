@@ -6,10 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 
 class HomeBanner extends Model
 {
+    protected $table = 'banner_beranda';
+
     protected $fillable = [
         'judul',
         'subjudul',
-        'gambar_path',
+        'path_gambar',
         'aktif',
         'urutan',
         'dibuat_oleh',

@@ -7,29 +7,29 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SystemSetting extends Model
 {
-    protected $table = 'system_settings';
+    protected $table = 'pengaturan_sistem';
 
     protected $fillable = [
-        'group',
-        'key',
-        'value',
-        'type',
-        'description',
-        'updated_by',
+        'kelompok',
+        'kunci',
+        'nilai',
+        'tipe',
+        'deskripsi',
+        'diperbarui_oleh',
     ];
 
     public function updatedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'updated_by');
+        return $this->belongsTo(User::class, 'diperbarui_oleh');
     }
 
     public function typedValue(): mixed
     {
-        return match ($this->type) {
-            'integer' => (int) $this->value,
-            'boolean' => filter_var($this->value, FILTER_VALIDATE_BOOL),
-            'float' => (float) $this->value,
-            default => $this->value,
+        return match ($this->tipe) {
+            'integer' => (int) $this->nilai,
+            'boolean' => filter_var($this->nilai, FILTER_VALIDATE_BOOL),
+            'float' => (float) $this->nilai,
+            default => $this->nilai,
         };
     }
 }
