@@ -33,8 +33,8 @@
                 <input id="tanggal" name="tanggal" type="date" class="travs-input form-control" value="{{ $filters['tanggal'] ?? '' }}">
             </div>
             <div class="travs-filter-actions d-flex align-items-end flex-wrap">
-                <button type="submit" class="travs-button-secondary btn btn-secondary">Terapkan Filter</button>
-                <a href="{{ route('admin.jadwal.index') }}" class="travs-button-secondary btn btn-secondary">Reset</a>
+                <button type="submit" class="travs-button btn btn-primary">Terapkan Filter</button>
+                <a href="{{ route('admin.jadwal.index') }}" class="travs-button-secondary btn btn-outline-secondary">Reset</a>
             </div>
         </form>
 
@@ -43,11 +43,13 @@
                 <thead>
                     <tr>
                         <th>Keberangkatan</th>
+                        <th class="text-center">Status Jadwal</th>
                         <th>Rute</th>
                         <th>Armada</th>
                         <th>Pengemudi</th>
-                        <th>Kursi</th>
-                        <th>Aksi</th>
+                        <th class="text-center">Kursi</th>
+                        <th class="text-center">Booking</th>
+                        <th class="text-end">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -55,14 +57,31 @@
                         <tr>
                             <td>
                                 <strong>{{ $item->waktu_berangkat->translatedFormat('d M Y') }}</strong>
-                                <div class="travs-table-subcopy">{{ $item->waktu_berangkat->format('H:i') }} &middot; {{ ucfirst($item->status) }}</div>
+                                <div class="travs-table-subcopy">Pukul {{ $item->waktu_berangkat->format('H:i') }}</div>
+                            </td>
+                            <td class="text-center">
+                                <span class="travs-status-pill travs-status-{{ $item->status }} badge rounded-pill">
+                                    {{ ucfirst($item->status) }}
+                                </span>
                             </td>
                             <td>{{ $item->rute->kota_asal }} - {{ $item->rute->kota_tujuan }}</td>
                             <td>{{ $item->kendaraan->label_armada }}</td>
                             <td>{{ $item->pengemudi->pengguna->nama }}</td>
-                            <td>{{ $item->kursi_tersedia }} tersedia / {{ $item->pemesanan_count }} pemesanan</td>
-                            <td>
-                                <div class="travs-table-actions d-flex align-items-center flex-wrap">
+                            <td class="text-center">
+                                <strong>Terisi {{ $item->kursi_dipesan }} dari {{ $item->kendaraan->kapasitas_kursi }}</strong>
+                                <div class="travs-table-subcopy">{{ $item->kursi_tersedia }} kursi tersedia</div>
+                                @if ($item->kursi_terkunci > 0 || $item->kursi_nonaktif > 0)
+                                    <div class="travs-table-subcopy">
+                                        {{ $item->kursi_terkunci }} terkunci &middot; {{ $item->kursi_nonaktif }} nonaktif
+                                    </div>
+                                @endif
+                            </td>
+                            <td class="text-center">
+                                <strong>{{ $item->pemesanan_count }}</strong>
+                                <div class="travs-table-subcopy">pemesanan masuk</div>
+                            </td>
+                            <td class="text-end">
+                                <div class="travs-table-actions d-flex align-items-center justify-content-end flex-wrap">
                                     <a href="{{ route('admin.jadwal.show', $item) }}" class="travs-button-link btn btn-link">Detail</a>
                                     <a href="{{ route('admin.jadwal.edit', $item) }}" class="travs-button-link btn btn-link">Edit</a>
                                     <form method="POST" action="{{ route('admin.jadwal.destroy', $item) }}" onsubmit="return confirm('Hapus jadwal ini?')">
@@ -75,7 +94,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="travs-table-empty">Belum ada jadwal perjalanan.</td>
+                            <td colspan="8" class="travs-table-empty">Tidak ada jadwal yang sesuai dengan filter yang dipilih.</td>
                         </tr>
                     @endforelse
                 </tbody>

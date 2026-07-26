@@ -14,11 +14,6 @@
         $cashVerificationReady = $isCashPayment
             && $pembayaran?->status_bayar === 'menunggu'
             && $pemesanan->status_pemesanan === 'menunggu_pembayaran';
-        // Status yang sudah terbayar tidak boleh dikembalikan ke tahap menunggu pembayaran.
-        $paymentIsConfirmed = $pembayaran?->status_bayar === 'berhasil'
-            || in_array($pemesanan->status_pemesanan, ['terbayar', 'selesai'], true);
-        $bookingStatusTone = $paymentIsConfirmed ? 'is-paid' : 'is-unpaid';
-        $paymentStatusTone = $pembayaran?->status_bayar === 'berhasil' ? 'is-paid' : 'is-unpaid';
         $paymentDetailLabel = match (true) {
             $isCashPayment && $pembayaran?->status_bayar === 'menunggu' => 'Lihat Detail Tunai',
             $isCashPayment => 'Lihat Detail Tunai',
@@ -60,149 +55,215 @@
         $bagasiAman = $totalBagasi === 0 || $totalTurun >= $totalManifest;
         $kehadiranLengkap = $totalManifest > 0 && $totalHadir >= $totalManifest;
         $turunLengkap = $totalManifest > 0 && $totalTurun >= $totalManifest;
+        $seatNumbers = $pemesanan->detailPemesanan
+            ->pluck('nomor_kursi')
+            ->filter()
+            ->sort()
+            ->implode(', ');
+        $bookingStatusLabel = ucwords(str_replace('_', ' ', $pemesanan->status_pemesanan));
+        $paymentStatusLabel = ucwords(str_replace('_', ' ', $pembayaran?->status_bayar ?? 'belum_tersedia'));
+        $paymentMethodLabel = $pembayaran
+            ? \App\Support\PaymentMethodCatalog::label($metodeBayar)
+            : 'Belum dipilih';
+        // Deadline hanya memakai waktu yang sudah tersimpan pada transaksi atau pemesanan.
+        $paymentDeadline = $pembayaran?->expired_at ?? $pemesanan->batas_pembayaran;
         $departureTimezone = $pemesanan->jadwal->waktu_berangkat->timezoneName ?: config('app.timezone');
         $departureTimezoneLabel = match ($departureTimezone) {
             'Asia/Makassar' => 'WITA',
             'Asia/Jayapura' => 'WIT',
             default => 'WIB',
         };
+        // Jika dibuka dari detail jadwal, tombol kembali tetap menuju jadwal asal.
+        $backToSchedule = (int) request()->query('jadwal_id') === (int) $pemesanan->jadwal_id;
+        $backUrl = $backToSchedule
+            ? route('admin.jadwal.show', $pemesanan->jadwal)
+            : route('admin.pemesanan.index');
+        $backLabel = $backToSchedule
+            ? 'Kembali ke Detail Jadwal'
+            : 'Kembali ke Daftar Pemesanan';
     @endphp
 
-    <div class="travs-admin-detail-simple">
-    <section class="travs-detail-grid">
-        <article class="travs-section-card card">
-            <div class="travs-panel-title">
-                <h3>Ringkasan Pemesanan</h3>
-                <p>Kode pemesanan {{ $pemesanan->kode_booking }} untuk rute {{ $bookingRoute }}.</p>
+    @include('admin.partials.page-back', [
+        'url' => $backUrl,
+        'label' => $backLabel,
+    ])
+
+    <div class="travs-admin-detail-simple travs-detail-page">
+        <header class="travs-detail-page__header">
+            <div>
+                <span class="travs-detail-page__eyebrow">Kode {{ $pemesanan->kode_booking }}</span>
+                <h2>{{ $bookingRoute }}</h2>
+                <p>Dibuat {{ $pemesanan->created_at?->translatedFormat('d F Y, H:i') }}</p>
+                <div class="travs-detail-statuses" aria-label="Status pemesanan dan pembayaran">
+                    <span class="travs-status-pill travs-status-{{ $pemesanan->status_pemesanan }} badge rounded-pill">
+                        Status Pemesanan: {{ $bookingStatusLabel }}
+                    </span>
+                    <span class="travs-status-pill travs-status-{{ $pembayaran?->status_bayar ?? 'draft' }} badge rounded-pill">
+                        Status Pembayaran: {{ $paymentStatusLabel }}
+                    </span>
+                </div>
             </div>
 
-            <dl class="travs-description-list travs-description-list-neutral">
-                <div>
-                    <dt>Penumpang Pemesan</dt>
-                    <dd>
-                        <div class="travs-person-cell d-flex align-items-center">
-                            <div class="travs-avatar">
-                                @if ($pemesanan->pengguna->foto_profil)
-                                    <img class="travs-avatar-image travs-photo-preview-trigger" src="{{ $storageUrl($pemesanan->pengguna->foto_profil) }}" alt="Foto {{ $pemesanan->pengguna->nama }}">
-                                @else
-                                    <span>{{ strtoupper(mb_substr($pemesanan->pengguna->nama, 0, 1)) }}</span>
-                                @endif
-                            </div>
-                            <div>
+            @if ($pembayaran)
+                <div class="travs-detail-page__actions">
+                    <a href="{{ $paymentDetailUrl }}" class="travs-button-secondary btn btn-outline-secondary">{{ $paymentDetailLabel }}</a>
+                </div>
+            @endif
+        </header>
+
+        <section class="travs-detail-card-grid">
+            <article class="travs-section-card card">
+                <div class="travs-panel-title">
+                    <h3>Informasi Perjalanan</h3>
+                    <p>Jadwal, armada, pengemudi, serta lokasi perjalanan.</p>
+                </div>
+
+                <dl class="travs-detail-data-list">
+                    <div>
+                        <dt>Keberangkatan</dt>
+                        <dd>
+                            {{ $pemesanan->jadwal->waktu_berangkat->locale('id')->translatedFormat('l, d F Y') }}
+                            pukul {{ $pemesanan->jadwal->waktu_berangkat->format('H:i') }} {{ $departureTimezoneLabel }}
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>Kendaraan</dt>
+                        <dd>
+                            <strong>{{ $pemesanan->jadwal->kendaraan->merk_kendaraan }}</strong>
+                            <span>{{ $pemesanan->jadwal->kendaraan->nomor_plat }}</span>
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>Pengemudi</dt>
+                        <dd>
+                            <strong>{{ $pemesanan->jadwal->pengemudi->pengguna->nama }}</strong>
+                            <span>{{ $pemesanan->jadwal->pengemudi->pengguna->no_hp }}</span>
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>Titik Jemput</dt>
+                        <dd>
+                            <strong>{{ $pemesanan->alamat_jemput ?: '—' }}</strong>
+                            <span>{{ $pemesanan->catatan_jemput ?: 'Patokan belum diisi' }}</span>
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>Titik Turun</dt>
+                        <dd>
+                            <strong>{{ $pemesanan->alamat_turun ?: '—' }}</strong>
+                            <span>{{ $pemesanan->catatan_turun ?: 'Patokan belum diisi' }}</span>
+                        </dd>
+                    </div>
+                </dl>
+            </article>
+
+            <article class="travs-section-card card">
+                <div class="travs-panel-title">
+                    <h3>Informasi Pemesan</h3>
+                    <p>Identitas pemesan dan kursi yang tercatat.</p>
+                </div>
+
+                <dl class="travs-detail-data-list">
+                    <div>
+                        <dt>Nama Pemesan</dt>
+                        <dd>
+                            <div class="travs-person-cell d-flex align-items-center">
+                                <div class="travs-avatar">
+                                    @if ($pemesanan->pengguna->foto_profil)
+                                        <img class="travs-avatar-image travs-photo-preview-trigger" src="{{ $storageUrl($pemesanan->pengguna->foto_profil) }}" alt="Foto {{ $pemesanan->pengguna->nama }}">
+                                    @else
+                                        <span>{{ strtoupper(mb_substr($pemesanan->pengguna->nama, 0, 1)) }}</span>
+                                    @endif
+                                </div>
                                 <strong>{{ $pemesanan->pengguna->nama }}</strong>
-                                <div class="travs-table-subcopy">{{ $pemesanan->pengguna->email }} - {{ $pemesanan->pengguna->no_hp }}</div>
                             </div>
-                        </div>
-                    </dd>
+                        </dd>
+                    </div>
+                    <div>
+                        <dt>Email</dt>
+                        <dd>{{ $pemesanan->pengguna->email ?: '—' }}</dd>
+                    </div>
+                    <div>
+                        <dt>Nomor HP</dt>
+                        <dd>{{ $pemesanan->pengguna->no_hp ?: '—' }}</dd>
+                    </div>
+                    <div>
+                        <dt>Jumlah Kursi</dt>
+                        <dd>{{ number_format($pemesanan->jumlah_kursi) }} kursi</dd>
+                    </div>
+                    <div>
+                        <dt>Nomor Kursi</dt>
+                        <dd>{{ $seatNumbers !== '' ? $seatNumbers : '—' }}</dd>
+                    </div>
+                </dl>
+            </article>
+        </section>
+
+        <section class="travs-section-card card">
+            <div class="travs-panel-header d-flex align-items-start justify-content-between flex-wrap gap-3">
+                <div class="travs-panel-title">
+                    <h3>Rincian Pembayaran</h3>
+                    <p>Snapshot nominal dan waktu yang tersimpan pada transaksi ini.</p>
                 </div>
-                <div class="travs-status-card {{ $bookingStatusTone }}">
-                    <dt>Status Pemesanan</dt>
-                    <dd>{{ ucwords(str_replace('_', ' ', $pemesanan->status_pemesanan)) }}</dd>
+            </div>
+
+            <dl class="travs-detail-data-list travs-detail-payment-list">
+                <div>
+                    <dt>Metode Pembayaran</dt>
+                    <dd>{{ $paymentMethodLabel }}</dd>
                 </div>
                 <div>
-                    <dt>Waktu Berangkat</dt>
+                    <dt>Status Pembayaran</dt>
                     <dd>
-                        {{ $pemesanan->jadwal->waktu_berangkat->locale('id')->translatedFormat('l, d F Y') }}
-                        Pukul {{ $pemesanan->jadwal->waktu_berangkat->format('H:i') }} {{ $departureTimezoneLabel }}
+                        <span class="travs-status-pill travs-status-{{ $pembayaran?->status_bayar ?? 'draft' }} badge rounded-pill">
+                            {{ $paymentStatusLabel }}
+                        </span>
                     </dd>
                 </div>
                 <div>
-                    <dt>Pengemudi</dt>
-                    <dd>
-                        <div class="travs-person-cell d-flex align-items-center">
-                            <div class="travs-avatar">
-                                @if ($pemesanan->jadwal->pengemudi->pengguna->foto_profil)
-                                    <img
-                                        class="travs-avatar-image travs-photo-preview-trigger"
-                                        src="{{ $storageUrl($pemesanan->jadwal->pengemudi->pengguna->foto_profil) }}"
-                                        alt="Foto pengemudi {{ $pemesanan->jadwal->pengemudi->pengguna->nama }}"
-                                    >
-                                @else
-                                    <span>{{ strtoupper(mb_substr($pemesanan->jadwal->pengemudi->pengguna->nama, 0, 1)) }}</span>
-                                @endif
-                            </div>
-                            <div>
-                                <strong>{{ $pemesanan->jadwal->pengemudi->pengguna->nama }}</strong>
-                                <div class="travs-table-subcopy">SIM {{ $pemesanan->jadwal->pengemudi->nomor_sim ?: '-' }}</div>
-                            </div>
-                        </div>
-                    </dd>
+                    <dt>Nominal Transaksi</dt>
+                    <dd class="travs-detail-value-end">{{ $pembayaran?->nominal_transaksi === null ? '—' : $formatRupiah($pembayaran->nominal_transaksi) }}</dd>
                 </div>
                 <div>
-                    <dt>Kendaraan</dt>
-                    <dd>
-                        <div class="travs-person-cell d-flex align-items-center">
-                            <div class="travs-avatar travs-avatar-vehicle">
-                                @if ($pemesanan->jadwal->kendaraan->foto_kendaraan)
-                                    <img
-                                        class="travs-avatar-image travs-photo-preview-trigger"
-                                        src="{{ $storageUrl($pemesanan->jadwal->kendaraan->foto_kendaraan) }}"
-                                        alt="Foto kendaraan {{ $pemesanan->jadwal->kendaraan->merk_kendaraan }}"
-                                    >
-                                @else
-                                    <span><i data-feather="truck"></i></span>
-                                @endif
-                            </div>
-                            <div>
-                                <strong>{{ $pemesanan->jadwal->kendaraan->merk_kendaraan }}</strong>
-                                <div class="travs-table-subcopy">{{ $pemesanan->jadwal->kendaraan->nomor_plat }}</div>
-                            </div>
-                        </div>
-                    </dd>
+                    <dt>Biaya Admin Provider</dt>
+                    <dd class="travs-detail-value-end">{{ $pembayaran?->biaya_admin_provider === null ? '—' : $formatRupiah($pembayaran->biaya_admin_provider) }}</dd>
+                </div>
+                <div class="is-total">
+                    <dt>Total Dibayar Penumpang</dt>
+                    <dd class="travs-detail-value-end">{{ $pembayaran?->total_dibayar_penumpang === null ? '—' : $formatRupiah($pembayaran->total_dibayar_penumpang) }}</dd>
                 </div>
                 <div>
-                    <dt>Alamat Jemput</dt>
-                    <dd>{{ $pemesanan->alamat_jemput ?: '-' }}</dd>
+                    <dt>Batas Pembayaran</dt>
+                    <dd>{{ $paymentDeadline?->translatedFormat('d F Y, H:i') ?: '—' }}</dd>
                 </div>
                 <div>
-                    <dt>Patokan Jemput</dt>
-                    <dd>{{ $pemesanan->catatan_jemput ?: 'Patokan belum diisi' }}</dd>
-                </div>
-                <div>
-                    <dt>Alamat Turun</dt>
-                    <dd>{{ $pemesanan->alamat_turun ?: '-' }}</dd>
-                </div>
-                <div>
-                    <dt>Patokan Turun</dt>
-                    <dd>{{ $pemesanan->catatan_turun ?: 'Patokan belum diisi' }}</dd>
+                    <dt>Dibayar Pada</dt>
+                    <dd>{{ $pembayaran?->dibayar_pada?->translatedFormat('d F Y, H:i') ?: '—' }}</dd>
                 </div>
             </dl>
-        </article>
 
-        <article class="travs-section-card card">
+            @if ($cashVerificationReady)
+                <div class="travs-subsection">
+                    <strong>Konfirmasi Pembayaran Tunai</strong>
+                    <p class="travs-empty-inline">Gunakan aksi ini setelah pembayaran tunai benar-benar diterima.</p>
+                    <form method="POST" action="{{ route('admin.pembayaran.confirm-cash', $pemesanan) }}">
+                        @csrf
+                        <button type="submit" class="travs-button btn btn-primary">Konfirmasi Pembayaran Tunai</button>
+                    </form>
+                </div>
+            @endif
+        </section>
+
+        <section class="travs-section-card card">
             <div class="travs-panel-title">
-                <h3>Status dan Pembayaran</h3>
-                <p>Status pemesanan mengikuti pembayaran dan proses perjalanan. Pembayaran digital diperbarui otomatis oleh layanan pembayaran.</p>
+                <h3>Ringkasan Operasional</h3>
+                <p>Ringkasan kehadiran, penurunan, dan barang bawaan.</p>
             </div>
-
-            <div class="travs-table-wrap table-responsive">
-                <table class="travs-table table mb-0">
-                    <tbody>
-                        <tr>
-                            <th>Status Pemesanan</th>
-                            <td>
-                                <span class="travs-status-pill travs-status-{{ $pemesanan->status_pemesanan }} badge rounded-pill">
-                                    {{ ucwords(str_replace('_', ' ', $pemesanan->status_pemesanan)) }}
-                                </span>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>Subtotal Tiket</th>
-                            <td>{{ $formatRupiah($pemesanan->subtotal_tiket) }}</td>
-                        </tr>
-                        <tr>
-                            <th>Total</th>
-                            <td><strong>{{ $formatRupiah($pemesanan->total_harga) }}</strong></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="travs-operational-summary travs-operational-summary-neutral">
+            <div class="travs-detail-metric-grid">
                 <div @class(['is-complete' => $kehadiranLengkap])>
                     <small>Kehadiran</small>
                     <strong>{{ $totalHadir }}/{{ $totalManifest }}</strong>
-                    <span>{{ $totalManifest > 0 && $totalHadir >= $totalManifest ? 'Semua hadir' : 'Belum lengkap' }}</span>
+                    <span>{{ $kehadiranLengkap ? 'Semua hadir' : 'Belum lengkap' }}</span>
                 </div>
                 <div @class(['is-complete' => $turunLengkap])>
                     <small>Status Turun</small>
@@ -212,131 +273,81 @@
                 <div>
                     <small>Barang Bawaan</small>
                     <strong>{{ $totalBagasi }} catatan</strong>
-                    <span>{{ $bagasiAman ? 'Aman' : 'Perlu cek saat turun' }}</span>
+                    <span>{{ $bagasiAman ? 'Aman' : 'Perlu diperiksa' }}</span>
                 </div>
             </div>
+        </section>
 
-            <div class="travs-form-actions travs-inline d-flex justify-content-end align-items-center flex-wrap">
-                <a href="{{ route('admin.pemesanan.index') }}" class="travs-button-secondary btn btn-secondary">Kembali ke Daftar</a>
-                <a href="{{ $paymentDetailUrl }}" class="travs-button-secondary btn btn-secondary">{{ $paymentDetailLabel }}</a>
-            </div>
-
-            @if ($cashVerificationReady)
-                <div class="travs-subsection">
-                    <strong>Konfirmasi Pembayaran Tunai</strong>
-                    <p class="travs-empty-inline">Pemesanan ini menunggu pembayaran tunai dari penumpang.</p>
-                    <form method="POST" action="{{ route('admin.pembayaran.confirm-cash', $pemesanan) }}">
-                        @csrf
-                        <button type="submit" class="travs-button btn btn-primary">Konfirmasi Pembayaran Tunai</button>
-                    </form>
+        <section class="travs-detail-stack">
+            <article class="travs-section-card collapsible-section card" data-collapsible-section data-collapse-id="pemesanan-penumpang-kursi">
+                <div class="collapsible-section__header" data-collapse-header>
+                    <div class="travs-panel-title">
+                        <h3>Penumpang per Kursi</h3>
+                        <p>Daftar penumpang, status kehadiran, status turun, dan tiket.</p>
+                    </div>
+                    @include('admin.partials.collapsible-toggle', ['target' => 'pemesanan-penumpang-kursi-body'])
                 </div>
-            @endif
-        </article>
-    </section>
 
-    <section class="travs-detail-stack">
-        <article class="travs-section-card collapsible-section card" data-collapsible-section data-collapse-id="pemesanan-penumpang-kursi">
-            <div class="collapsible-section__header" data-collapse-header>
-                <div class="travs-panel-title">
-                    <h3>Penumpang per Kursi</h3>
-                    <p>Daftar penumpang, lokasi, status kehadiran, dan tiket pada pemesanan ini.</p>
-                </div>
-                @include('admin.partials.collapsible-toggle', ['target' => 'pemesanan-penumpang-kursi-body'])
-            </div>
-
-            <div id="pemesanan-penumpang-kursi-body" class="collapsible-section__body" data-collapse-body>
-                <div class="travs-table-wrap table-responsive">
-                    <table class="travs-table table mb-0">
-                        <thead>
-                            <tr>
-                                <th>Kursi</th>
-                                <th>Penumpang</th>
-                                <th>No. HP</th>
-                                <th>Status</th>
-                                <th>Lokasi</th>
-                                <th>Tiket</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($pemesanan->detailPemesanan as $detail)
-                                @php
-                                    $whatsappNumber = $normalizeWhatsapp($detail->no_hp_penumpang);
-                                @endphp
+                <div id="pemesanan-penumpang-kursi-body" class="collapsible-section__body" data-collapse-body>
+                    <div class="travs-table-wrap table-responsive">
+                        <table class="travs-table table mb-0 align-middle">
+                            <thead>
                                 <tr>
-                                    <td>{{ $detail->nomor_kursi }}</td>
-                                    <td>{{ $detail->nama_penumpang }}</td>
-                                    <td>
-                                        @if ($whatsappNumber)
-                                            <a class="travs-contact-link" href="https://wa.me/{{ $whatsappNumber }}" target="_blank" rel="noopener">{{ $detail->no_hp_penumpang }}</a>
-                                        @else
-                                            {{ $detail->no_hp_penumpang ?: '-' }}
-                                        @endif
-                                    </td>
-                                    <td>
-                                        <span class="travs-status-pill travs-status-{{ $detail->status_kehadiran }} badge rounded-pill">
-                                            {{ ucfirst(str_replace('_', ' ', $detail->status_kehadiran)) }}
-                                        </span>
-                                        <span class="travs-status-pill travs-status-{{ $detail->diturunkan_pada ? 'selesai' : 'menunggu' }} badge rounded-pill">
-                                            {{ $detail->diturunkan_pada ? 'Sudah turun' : 'Belum turun' }}
-                                        </span>
-                                        <div class="travs-table-subcopy">
-                                            {{ $detail->diturunkan_pada ? $detail->diturunkan_pada->format('d M Y H:i') : 'Barang bawaan perlu dicek saat turun' }}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <strong>Jemput:</strong> {{ $pemesanan->alamat_jemput ?: '-' }}
-                                        <div class="travs-location-note">Patokan jemput: {{ $pemesanan->catatan_jemput ?: 'Patokan belum diisi' }}</div>
-                                        <div style="margin-top:8px;"><strong>Turun:</strong> {{ $pemesanan->alamat_turun ?: '-' }}</div>
-                                        <div class="travs-location-note">Patokan turun: {{ $pemesanan->catatan_turun ?: 'Patokan belum diisi' }}</div>
-                                    </td>
-                                    <td>{{ $detail->tiketElektronik?->kode_qr ?: 'Belum terbit' }}</td>
+                                    <th>Kursi</th>
+                                    <th>Penumpang</th>
+                                    <th>No. HP</th>
+                                    <th class="text-center">Kehadiran</th>
+                                    <th>Status Turun</th>
+                                    <th>Tiket</th>
                                 </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @forelse ($pemesanan->detailPemesanan as $detail)
+                                    @php
+                                        $whatsappNumber = $normalizeWhatsapp($detail->no_hp_penumpang);
+                                    @endphp
+                                    <tr>
+                                        <td><strong>{{ $detail->nomor_kursi }}</strong></td>
+                                        <td>{{ $detail->nama_penumpang }}</td>
+                                        <td>
+                                            @if ($whatsappNumber)
+                                                <a class="travs-contact-link" href="https://wa.me/{{ $whatsappNumber }}" target="_blank" rel="noopener">{{ $detail->no_hp_penumpang }}</a>
+                                            @else
+                                                {{ $detail->no_hp_penumpang ?: '—' }}
+                                            @endif
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="travs-status-pill travs-status-{{ $detail->status_kehadiran }} badge rounded-pill">
+                                                {{ ucfirst(str_replace('_', ' ', $detail->status_kehadiran)) }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <strong>{{ $detail->diturunkan_pada ? 'Sudah turun' : 'Belum turun' }}</strong>
+                                            <div class="travs-table-subcopy">{{ $detail->diturunkan_pada?->format('d M Y H:i') ?: '—' }}</div>
+                                        </td>
+                                        <td>{{ $detail->tiketElektronik?->kode_qr ?: 'Belum terbit' }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6" class="travs-table-empty">Belum ada data penumpang pada pemesanan ini.</td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
-        </article>
+            </article>
 
-        <article class="travs-section-card collapsible-section card" data-collapsible-section data-collapse-id="pemesanan-pembayaran-bagasi">
-            <div class="collapsible-section__header" data-collapse-header>
-                <div class="travs-panel-title">
-                    <h3>Pembayaran dan Barang Bawaan</h3>
-                    <p>Rincian pembayaran serta catatan barang yang dibawa penumpang.</p>
+            <article class="travs-section-card collapsible-section card" data-collapsible-section data-collapse-id="pemesanan-pembayaran-bagasi">
+                <div class="collapsible-section__header" data-collapse-header>
+                    <div class="travs-panel-title">
+                        <h3>Barang Bawaan</h3>
+                        <p>Catatan dan foto barang yang dibawa penumpang.</p>
+                    </div>
+                    @include('admin.partials.collapsible-toggle', ['target' => 'pemesanan-pembayaran-bagasi-body'])
                 </div>
-                @include('admin.partials.collapsible-toggle', ['target' => 'pemesanan-pembayaran-bagasi-body'])
-            </div>
 
-            <div id="pemesanan-pembayaran-bagasi-body" class="collapsible-section__body" data-collapse-body>
-                <dl class="travs-description-list travs-description-list-neutral">
-                    <div>
-                        <dt>Metode Bayar</dt>
-                        <dd>{{ strtoupper($metodeBayar ?? '-') }}</dd>
-                    </div>
-                    <div class="travs-status-card {{ $paymentStatusTone }}">
-                        <dt>Status Bayar</dt>
-                        <dd>{{ ucwords(str_replace('_', ' ', $pembayaran?->status_bayar ?? 'draft')) }}</dd>
-                    </div>
-                    <div>
-                        <dt>Dibayar Pada</dt>
-                        <dd>{{ $pembayaran?->dibayar_pada?->translatedFormat('d F Y H:i') ?: '-' }}</dd>
-                    </div>
-                    <div>
-                        <dt>Batas Pembayaran</dt>
-                        <dd>{{ $pemesanan->batas_pembayaran?->translatedFormat('d F Y H:i') ?: '-' }}</dd>
-                    </div>
-                    <div>
-                        <dt>Subtotal Tiket</dt>
-                        <dd>{{ $formatRupiah($pemesanan->subtotal_tiket) }}</dd>
-                    </div>
-                    <div>
-                        <dt>Total Pembayaran</dt>
-                        <dd>{{ $formatRupiah($pemesanan->total_harga) }}</dd>
-                    </div>
-                </dl>
-
-                <div class="travs-subsection">
-                    <strong>Catatan Barang Bawaan</strong>
+                <div id="pemesanan-pembayaran-bagasi-body" class="collapsible-section__body" data-collapse-body>
                     <div class="travs-bagasi-list">
                         @forelse ($pemesanan->itemBagasi as $item)
                             @php
@@ -371,8 +382,7 @@
                         @endforelse
                     </div>
                 </div>
-            </div>
-        </article>
-    </section>
+            </article>
+        </section>
     </div>
 @endsection

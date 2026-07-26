@@ -10,8 +10,10 @@ use App\Services\BookingService;
 use App\Services\PakasirService;
 use App\Services\ScheduleLifecycleService;
 use App\Services\SettingService;
+use App\Support\PaymentMethodCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class BookingController extends Controller
 {
@@ -28,6 +30,9 @@ class BookingController extends Controller
         $this->bookingService->releaseExpiredResources($jadwal->id);
         $this->scheduleLifecycleService->closeSingleIfPastBookingWindow($jadwal);
         $jadwal->load(['rute', 'kendaraan', 'pengemudi.pengguna', 'kursi']);
+        $qrisEnabled = (bool) $this->settingService->get('payment_qris_enabled', false);
+        $virtualAccountEnabled = (bool) $this->settingService->get('payment_transfer_enabled', false);
+        $cashEnabled = (bool) $this->settingService->get('payment_cash_enabled', false);
 
         return response()->json([
             'success' => true,
@@ -62,9 +67,15 @@ class BookingController extends Controller
                     'seat_lock_payment_minutes' => (int) $this->settingService->get('seat_lock_payment_minutes', 5),
                 ],
                 'payment_methods' => [
-                    'transfer' => (bool) $this->settingService->get('payment_transfer_enabled', false),
-                    'qris' => (bool) $this->settingService->get('payment_qris_enabled', false),
-                    'cash' => (bool) $this->settingService->get('payment_cash_enabled', false),
+                    // Field boolean lama dipertahankan untuk client versi lama.
+                    'transfer' => $virtualAccountEnabled,
+                    'qris' => $qrisEnabled,
+                    'cash' => $cashEnabled,
+                    'options' => PaymentMethodCatalog::selectableOptions(
+                        $qrisEnabled,
+                        $virtualAccountEnabled,
+                        $cashEnabled,
+                    ),
                 ],
                 'bagasi' => [
                     // Nilai legacy tetap dikirim agar aplikasi lama tidak gagal
@@ -174,6 +185,7 @@ class BookingController extends Controller
         ]);
     }
 
+    /** Membuat booking lebih dulu tanpa memilih metode atau memanggil Pakasir. */
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -190,7 +202,6 @@ class BookingController extends Controller
             'dropoff.longitude' => ['required', 'numeric', 'between:-180,180'],
             'dropoff.address' => ['required', 'string', 'max:1000'],
             'dropoff.note' => ['required', 'string', 'max:500'],
-            'payment_method' => ['required', 'string', 'in:transfer,qris,cash'],
             'passengers' => ['required', 'array', 'min:1'],
             'passengers.*.seat_number' => ['required', 'integer', 'min:1'],
             'passengers.*.nama_penumpang' => ['required', 'string', 'max:100'],
@@ -223,9 +234,31 @@ class BookingController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Draft pemesanan berhasil dibuat.',
+            'message' => 'Pemesanan berhasil dibuat. Silakan pilih metode pembayaran.',
             'data' => $this->formatBooking($booking),
         ], 201);
+    }
+
+    /** Memilih metode pembayaran setelah booking berhasil dibuat. */
+    public function choosePayment(Request $request, Pemesanan $booking): JsonResponse
+    {
+        abort_unless($booking->pengguna_id === $request->user()->id, 404);
+
+        $validated = $request->validate([
+            'payment_method' => ['required', 'string', Rule::in(PaymentMethodCatalog::selectableCodes())],
+        ]);
+
+        $booking = $this->bookingService->choosePaymentMethod(
+            $booking,
+            $request->user(),
+            (string) $validated['payment_method'],
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Metode pembayaran berhasil dipilih.',
+            'data' => $this->formatBooking($booking, true),
+        ]);
     }
 
     public function uploadBaggagePhoto(Request $request): JsonResponse
@@ -324,18 +357,26 @@ class BookingController extends Controller
         ]);
     }
 
+    /** Menyusun data booking dan pembayaran yang dikirim ke aplikasi mobile. */
     private function formatBooking(Pemesanan $booking, bool $full = false): array
     {
         $gatewayMeta = $this->pakasirService->decodeGatewayResponse($booking->pembayaran?->gateway_response);
         $createPayment = data_get($gatewayMeta, 'create_payment', []);
         $transactionDetail = data_get($gatewayMeta, 'transaction_detail', []);
-        $paymentNumber = (string) data_get($createPayment, 'payment_number', $booking->pembayaran?->gateway_reference);
-        $amount = (float) data_get($createPayment, 'amount', $booking->total_harga);
-        $fee = (float) data_get($createPayment, 'fee', 0);
-        $totalPayment = (float) data_get($createPayment, 'total_payment', $booking->pembayaran?->jumlah_bayar);
+        $payment = $booking->pembayaran;
+        $amount = $booking->pembayaran?->nominal_transaksi
+            ?? (int) data_get($createPayment, 'amount', $booking->total_harga);
+        $providerFee = $booking->pembayaran?->biaya_admin_provider;
+        $totalPayment = $booking->pembayaran?->total_dibayar_penumpang;
+        if (
+            $payment !== null
+            && $this->pakasirService->canCreateTransaction($payment->metode_bayar)
+            && $providerFee !== null
+        ) {
+            // Menjaga transaksi lama tetap menampilkan nominal ditambah fee provider.
+            $totalPayment = $amount + $providerFee;
+        }
 
-        // Tautan ini membuka halaman Pakasir agar pembayaran diselesaikan
-        // melalui browser, bukan diproses langsung oleh aplikasi mobile.
         $checkoutUrl = (string) data_get(
             $gatewayMeta,
             'checkout_url',
@@ -348,31 +389,49 @@ class BookingController extends Controller
 
         if (
             $checkoutUrl === ''
-            && $this->pakasirService->handlesMethod((string) $booking->pembayaran?->metode_bayar)
+            && $payment !== null
+            && (
+                $payment->metode_bayar === PaymentMethodCatalog::LEGACY_TRANSFER
+                || $this->pakasirService->canCreateTransaction($payment->metode_bayar)
+            )
+            && $payment->status_bayar === 'menunggu'
+            && $booking->status_pemesanan === 'menunggu_pembayaran'
+            && ($payment->expired_at === null || $payment->expired_at->isFuture())
             && $this->pakasirService->isConfigured()
         ) {
             $checkoutUrl = $this->pakasirService->checkoutUrl(
-                $booking->pembayaran?->order_id_gateway ?: $booking->kode_booking,
-                $booking->total_harga,
-                $booking->pembayaran?->metode_bayar === 'qris',
+                $payment->order_id_gateway ?: $booking->kode_booking,
+                $amount,
+                $payment->metode_bayar === PaymentMethodCatalog::QRIS,
                 $this->pakasirService->merchantReturnUrl(),
+                $payment->metode_bayar === PaymentMethodCatalog::LEGACY_TRANSFER
+                    ? null
+                    : $payment->metode_bayar,
             );
         }
 
-        $paymentNumber = (string) data_get(
-            $createPayment,
-            'payment_number',
-            $booking->pembayaran?->gateway_reference,
+        $paymentNumber = (string) (
+            $payment?->payment_number
+            ?? data_get($createPayment, 'payment_number', $payment?->gateway_reference)
         );
+        $paymentStatus = match (true) {
+            $payment === null && $booking->status_pemesanan === 'menunggu_pembayaran' => 'menunggu_pemilihan_metode',
+            $payment?->metode_bayar === PaymentMethodCatalog::CASH
+                && $payment->status_bayar === 'menunggu' => 'menunggu_konfirmasi_tunai',
+            default => $payment?->status_bayar,
+        };
 
         $response = [
             'id' => $booking->id,
+            'booking_id' => $booking->id,
             'kode_booking' => $booking->kode_booking,
+            'order_id' => $booking->kode_booking,
             'status' => $booking->status_pemesanan,
+            'status_pemesanan' => $booking->status_pemesanan,
             'jumlah_kursi' => $booking->jumlah_kursi,
             'batas_pembayaran' => $booking->batas_pembayaran?->toIso8601String(),
-            'subtotal_tiket' => (float) $booking->subtotal_tiket,
-            'total_harga' => (float) $booking->total_harga,
+            'subtotal_tiket' => (int) $booking->subtotal_tiket,
+            'total_harga' => (int) $booking->total_harga,
             'pemesan' => [
                 'nama' => $booking->pengguna?->nama,
                 'email' => $booking->pengguna?->email,
@@ -386,21 +445,41 @@ class BookingController extends Controller
             'kendaraan' => $this->formatVehicle($booking->jadwal),
             'pengemudi' => $this->formatDriver($booking->jadwal),
             'payment' => [
-                'status' => $booking->pembayaran?->status_bayar,
-                'method' => $booking->pembayaran?->metode_bayar,
-                'expired_at' => $booking->pembayaran?->expired_at?->toIso8601String(),
+                'status' => $payment?->status_bayar,
+                'status_pembayaran' => $paymentStatus,
+                'method' => $payment?->metode_bayar,
+                'metode_pembayaran' => $payment?->metode_bayar,
+                'method_label' => $payment ? PaymentMethodCatalog::label($payment->metode_bayar) : null,
+                'method_family' => $payment ? PaymentMethodCatalog::family($payment->metode_bayar) : null,
+                'provider_order_id' => $payment?->metode_bayar === PaymentMethodCatalog::CASH
+                    ? null
+                    : $payment?->order_id_gateway,
+                'can_choose' => $payment === null
+                    && $booking->status_pemesanan === 'menunggu_pembayaran'
+                    && $booking->batas_pembayaran?->isFuture(),
+                'selection_expires_at' => $payment === null
+                    ? $booking->batas_pembayaran?->toIso8601String()
+                    : null,
+                'expired_at' => $payment?->expired_at?->toIso8601String(),
                 // Waktu pembayaran berasal dari catatan backend, bukan perkiraan mobile.
-                'paid_at' => $booking->pembayaran?->dibayar_pada?->toIso8601String(),
-                'can_simulate' => app()->environment(['local', 'testing']),
-                'uses_gateway' => $this->pakasirService->handlesMethod((string) $booking->pembayaran?->metode_bayar) && $this->pakasirService->isConfigured(),
+                'paid_at' => $payment?->dibayar_pada?->toIso8601String(),
+                'can_simulate' => $payment !== null && app()->environment(['local', 'testing']),
+                'uses_gateway' => $payment !== null
+                    && $this->pakasirService->handlesMethod($payment->metode_bayar)
+                    && $this->pakasirService->isConfigured(),
                 'provider' => data_get($gatewayMeta, 'provider'),
                 'project' => data_get($createPayment, 'project'),
+                // Field utama untuk mobile Sesi 2; alias lama tetap tersedia.
+                'nominal_transaksi' => $amount,
+                'biaya_admin_provider' => $providerFee,
+                'total_dibayar_penumpang' => $totalPayment,
                 'amount' => $amount,
-                'fee' => $fee,
+                'provider_fee' => $providerFee,
                 'total_payment' => $totalPayment,
-                'payment_number' => $paymentNumber,
-                'checkout_url' => $checkoutUrl,
+                'payment_number' => $paymentNumber !== '' ? $paymentNumber : null,
+                'checkout_url' => $checkoutUrl !== '' ? $checkoutUrl : null,
                 'gateway_status' => data_get($transactionDetail, 'status'),
+                'completed_at' => $payment?->dibayar_pada?->toIso8601String(),
             ],
         ];
 

@@ -5,6 +5,41 @@
 @section('page-description', 'Pantau pemesanan berdasarkan periode.')
 
 @section('content')
+    <section aria-labelledby="booking-report-summary-title">
+        <div class="travs-panel-title mb-3">
+            <h3 id="booking-report-summary-title">Ringkasan Laporan</h3>
+            <p><strong>Periode Aktif:</strong> {{ $activePeriodLabel }}.</p>
+        </div>
+
+        <div class="travs-summary-grid travs-summary-grid-auto">
+            <article class="travs-summary-card card">
+                <small>Total Pemesanan</small>
+                <strong>{{ number_format($summary['total_booking'], 0, ',', '.') }}</strong>
+                <span>Seluruh pemesanan sesuai filter aktif.</span>
+            </article>
+            <article class="travs-summary-card card">
+                <small>Terbayar</small>
+                <strong>{{ number_format($summary['terbayar'], 0, ',', '.') }}</strong>
+                <span>Pemesanan yang sudah memiliki pembayaran berhasil.</span>
+            </article>
+            <article class="travs-summary-card card">
+                <small>Dibatalkan</small>
+                <strong>{{ number_format($summary['dibatalkan'], 0, ',', '.') }}</strong>
+                <span>Pemesanan berstatus dibatalkan.</span>
+            </article>
+            <article class="travs-summary-card card">
+                <small>Selesai</small>
+                <strong>{{ number_format($summary['selesai'], 0, ',', '.') }}</strong>
+                <span>Perjalanan pemesanan yang telah selesai.</span>
+            </article>
+            <article class="travs-summary-card card">
+                <small>Total Nilai Pemesanan</small>
+                <strong>Rp{{ number_format($summary['total_nilai'], 0, ',', '.') }}</strong>
+                <span>Nilai historis pemesanan sesuai filter aktif.</span>
+            </article>
+        </div>
+    </section>
+
     <article class="travs-section-card card">
         <div class="travs-panel-header d-flex align-items-start justify-content-between">
             <div class="travs-panel-title">
@@ -40,8 +75,8 @@
                 <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
             </div>
             <div class="travs-filter-actions d-flex align-items-end flex-wrap">
-                <button type="submit" class="travs-button-secondary btn btn-secondary">Terapkan Filter</button>
-                <a href="{{ route('admin.laporan.pemesanan') }}" class="travs-button-secondary btn btn-secondary">Reset</a>
+                <button type="submit" class="travs-button btn btn-primary">Terapkan Filter</button>
+                <a href="{{ route('admin.laporan.pemesanan') }}" class="travs-button-secondary btn btn-outline-secondary">Reset</a>
             </div>
         </form>
 
@@ -52,9 +87,9 @@
                         <th>Kode Pemesanan</th>
                         <th>Penumpang</th>
                         <th>Rute</th>
-                        <th>Status</th>
-                        <th>Kursi</th>
-                        <th>Total</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Kursi</th>
+                        <th class="text-end">Total</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -63,17 +98,17 @@
                             <td>{{ $booking->kode_booking }}</td>
                             <td>{{ $booking->pengguna->nama }}</td>
                             <td>{{ $booking->jadwal->rute->kota_asal }} - {{ $booking->jadwal->rute->kota_tujuan }}</td>
-                            <td>
+                            <td class="text-center">
                                 <span class="travs-status-pill travs-status-{{ $booking->status_pemesanan }} badge rounded-pill">
                                     {{ ucwords(str_replace('_', ' ', $booking->status_pemesanan)) }}
                                 </span>
                             </td>
-                            <td>{{ number_format($booking->detail_pemesanan_count) }}</td>
-                            <td>Rp{{ number_format($booking->total_harga, 0, ',', '.') }}</td>
+                            <td class="text-center">{{ number_format($booking->detail_pemesanan_count) }}</td>
+                            <td class="text-end text-nowrap">Rp{{ number_format($booking->total_harga, 0, ',', '.') }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="travs-table-empty">Belum ada data pemesanan pada filter ini.</td>
+                            <td colspan="6" class="travs-table-empty">Tidak ada pemesanan yang sesuai dengan filter yang dipilih.</td>
                         </tr>
                     @endforelse
                 </tbody>

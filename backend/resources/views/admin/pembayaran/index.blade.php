@@ -2,7 +2,7 @@
 
 @section('title', 'Pembayaran')
 @section('page-title', 'Pembayaran')
-@section('page-description', 'Pantau pembayaran tunai, QRIS, dan transfer.')
+@section('page-description', 'Pantau pembayaran tunai, QRIS, dan Virtual Account.')
 
 @section('content')
     <article class="travs-section-card card">
@@ -20,7 +20,7 @@
                 <label for="metode_bayar" class="form-label">Metode</label>
                 <select id="metode_bayar" name="metode_bayar" class="travs-select form-select">
                     <option value="">Semua metode</option>
-                    @foreach (['transfer' => 'Transfer', 'qris' => 'QRIS', 'cash' => 'Cash'] as $value => $label)
+                    @foreach (\App\Support\PaymentMethodCatalog::adminOptions() as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['metode_bayar'] ?? '') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
@@ -43,8 +43,8 @@
                 <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
             </div>
             <div class="travs-filter-actions d-flex align-items-end flex-wrap">
-                <button type="submit" class="travs-button-secondary btn btn-secondary">Terapkan Filter</button>
-                <a href="{{ route('admin.pembayaran.index') }}" class="travs-button-secondary btn btn-secondary">Reset</a>
+                <button type="submit" class="travs-button btn btn-primary">Terapkan Filter</button>
+                <a href="{{ route('admin.pembayaran.index') }}" class="travs-button-secondary btn btn-outline-secondary">Reset</a>
             </div>
         </form>
 
@@ -81,7 +81,7 @@
                             </td>
                             <td>
                                 <span class="travs-status-pill travs-status-{{ strtolower($payment->metode_bayar) }} badge rounded-pill">
-                                    {{ strtoupper($payment->metode_bayar) }}
+                                    {{ \App\Support\PaymentMethodCatalog::label($payment->metode_bayar) }}
                                 </span>
                             </td>
                             <td>
@@ -95,9 +95,9 @@
                                 </div>
                             </td>
                             <td>
-                                Rp{{ number_format($payment->jumlah_bayar, 0, ',', '.') }}
+                                Rp{{ number_format($payment->nominal_transaksi ?? $payment->pemesanan?->total_harga, 0, ',', '.') }}
                                 <div class="travs-table-subcopy">
-                                    {{ $payment->expired_at ? 'Batas '.$payment->expired_at->translatedFormat('d M Y H:i') : 'Tanpa batas aktif' }}
+                                    {{ $payment->total_dibayar_penumpang === null ? 'Total pelanggan belum tersedia' : 'Dibayar penumpang Rp'.number_format($payment->total_dibayar_penumpang, 0, ',', '.') }}
                                 </div>
                             </td>
                             <td>

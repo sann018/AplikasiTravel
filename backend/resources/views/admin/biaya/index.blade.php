@@ -5,6 +5,31 @@
 @section('page-description', 'Catat pengeluaran setiap perjalanan tanpa proses persetujuan terpisah.')
 
 @section('content')
+    <section aria-labelledby="cost-summary-title">
+        <div class="travs-panel-title mb-3">
+            <h3 id="cost-summary-title">Ringkasan Biaya</h3>
+            <p>Ringkasan mengikuti rute dan rentang tanggal yang sedang diterapkan.</p>
+        </div>
+
+        <div class="travs-summary-grid travs-summary-grid-auto">
+            <article class="travs-summary-card card">
+                <small>Total Biaya Periode</small>
+                <strong>Rp{{ number_format($periodSummary['total_biaya'], 0, ',', '.') }}</strong>
+                <span>{{ $periodSummary['periode_label'] }}.</span>
+            </article>
+            <article class="travs-summary-card card">
+                <small>Jumlah Transaksi</small>
+                <strong>{{ number_format($periodSummary['jumlah_transaksi'], 0, ',', '.') }}</strong>
+                <span>Catatan biaya yang sesuai dengan filter aktif.</span>
+            </article>
+            <article class="travs-summary-card card">
+                <small>Rute dengan Biaya Tertinggi</small>
+                <strong>{{ $periodSummary['rute_tertinggi'] }}</strong>
+                <span>Rp{{ number_format($periodSummary['rute_tertinggi_total'], 0, ',', '.') }} pada periode aktif.</span>
+            </article>
+        </div>
+    </section>
+
     <article class="travs-section-card collapsible-section card" data-collapsible-section>
         <div class="travs-panel-header collapsible-section__header d-flex align-items-start justify-content-between" data-collapse-header>
             <div class="travs-panel-title">
@@ -50,8 +75,8 @@
                     <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
                 </div>
                 <div class="travs-filter-actions d-flex align-items-end flex-wrap">
-                    <button type="submit" class="travs-button-secondary btn btn-secondary">Terapkan Filter</button>
-                    <a href="{{ route('admin.biaya.index') }}" class="travs-button-secondary btn btn-secondary">Tampilkan Semua</a>
+                    <button type="submit" class="travs-button btn btn-primary">Terapkan Filter</button>
+                    <a href="{{ route('admin.biaya.index') }}" class="travs-button-secondary btn btn-outline-secondary">Tampilkan Semua</a>
                 </div>
             </form>
 
@@ -62,10 +87,10 @@
                             <th>Tanggal</th>
                             <th>Jenis Biaya</th>
                             <th>Rute</th>
-                            <th>Nominal</th>
+                            <th class="text-end">Nominal</th>
                             <th>Sumber Pencatatan</th>
-                            <th>Bukti</th>
-                            <th>Aksi</th>
+                            <th class="text-center">Bukti</th>
+                            <th class="text-end">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -77,20 +102,20 @@
                                     <div class="travs-table-subcopy">{{ $item->keterangan ?: 'Tanpa keterangan' }}</div>
                                 </td>
                                 <td>{{ $item->jadwal->rute->kota_asal }} - {{ $item->jadwal->rute->kota_tujuan }}</td>
-                                <td>Rp{{ number_format($item->nominal, 0, ',', '.') }}</td>
+                                <td class="text-end text-nowrap">Rp{{ number_format($item->nominal, 0, ',', '.') }}</td>
                                 <td>
                                     <strong>{{ $item->pencatat?->nama ?? 'Pencatat tidak tersedia' }}</strong>
                                     <div class="travs-table-subcopy">{{ $item->pencatat?->peran === 'pengemudi' ? 'Dicatat pengemudi' : 'Dicatat admin' }}</div>
                                 </td>
-                                <td>
+                                <td class="text-center">
                                     @if ($item->bukti_url)
                                         <button type="button" class="travs-button-link travs-photo-preview-trigger btn btn-link" data-preview-src="{{ asset('storage/'.ltrim($item->bukti_url, '/')) }}" aria-label="Lihat bukti {{ $item->jenis_biaya }}">Lihat Bukti</button>
                                     @else
                                         <span class="travs-table-subcopy">Bukti lama tidak tersedia</span>
                                     @endif
                                 </td>
-                                <td>
-                                    <div class="travs-table-actions d-flex align-items-center flex-wrap">
+                                <td class="text-end">
+                                    <div class="travs-table-actions d-flex align-items-center justify-content-end flex-wrap">
                                         <a href="{{ route('admin.biaya.edit', $item) }}" class="travs-button-link btn btn-link">Edit</a>
                                         <form method="POST" action="{{ route('admin.biaya.destroy', $item) }}" onsubmit="return confirm('Hapus biaya ini?')">
                                             @csrf
@@ -102,7 +127,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="travs-table-empty">Belum ada biaya operasional pada filter ini.</td>
+                                <td colspan="7" class="travs-table-empty">Tidak ada biaya operasional yang sesuai dengan filter yang dipilih.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -127,8 +152,8 @@
                 <thead>
                     <tr>
                         <th>Rute</th>
-                        <th>Jumlah Item</th>
-                        <th>Total Biaya</th>
+                        <th class="text-center">Jumlah Item</th>
+                        <th class="text-end">Total Biaya</th>
                         <th>Catatan Terakhir</th>
                     </tr>
                 </thead>
@@ -136,13 +161,13 @@
                     @forelse ($rekap as $item)
                         <tr>
                             <td>{{ $item['route'] }}</td>
-                            <td>{{ number_format($item['count']) }}</td>
-                            <td>Rp{{ number_format($item['total'], 0, ',', '.') }}</td>
+                            <td class="text-center">{{ number_format($item['count']) }}</td>
+                            <td class="text-end text-nowrap">Rp{{ number_format($item['total'], 0, ',', '.') }}</td>
                             <td>{{ $item['latest_date'] ? \Illuminate\Support\Carbon::parse($item['latest_date'])->translatedFormat('d M Y H:i') : '-' }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" class="travs-table-empty">Belum ada akumulasi biaya pada filter ini.</td>
+                            <td colspan="4" class="travs-table-empty">Tidak ada akumulasi biaya yang sesuai dengan filter yang dipilih.</td>
                         </tr>
                     @endforelse
                 </tbody>

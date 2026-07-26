@@ -6,44 +6,72 @@ use App\Http\Controllers\Controller;
 use App\Models\Pembayaran;
 use App\Models\Pemesanan;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LaporanController extends Controller
 {
     public function pemesanan(Request $request): View
     {
         $query = $this->bookingQuery($request);
-
-        $bookings = $query->latest()->paginate(20)->withQueryString();
+        $summary = [
+            'total_booking' => (clone $query)->count(),
+            'terbayar' => (clone $query)->where('status_pemesanan', 'terbayar')->count(),
+            'dibatalkan' => (clone $query)->where('status_pemesanan', 'dibatalkan')->count(),
+            'selesai' => (clone $query)->where('status_pemesanan', 'selesai')->count(),
+            'total_kursi' => (clone $query)->sum('jumlah_kursi'),
+            'total_nilai' => (int) (clone $query)->sum('total_harga'),
+        ];
+        $bookings = (clone $query)->latest()->paginate(20)->withQueryString();
 
         return view('admin.laporan.pemesanan', [
             'bookings' => $bookings,
-            'summary' => [
-                'total_booking' => (clone $query)->count(),
-                'total_kursi' => (clone $query)->sum('jumlah_kursi'),
-                'total_nilai' => (float) (clone $query)->sum('total_harga'),
-            ],
+            'summary' => $summary,
             'filters' => $request->only(['status', 'tanggal_mulai', 'tanggal_selesai']),
+            'activePeriodLabel' => $this->periodLabel($request),
         ]);
     }
 
     public function transaksi(Request $request): View
     {
         $query = $this->transactionQuery($request);
-
         $transactions = $query->latest()->paginate(20)->withQueryString();
+        $successfulTransactions = (clone $query)
+            ->where('status_bayar', 'berhasil')
+            ->whereHas('pemesanan', fn ($booking) => $booking->whereIn('status_pemesanan', ['terbayar', 'selesai']));
+        $successfulPayments = (clone $successfulTransactions)->get();
+        $today = today();
+
+        // Ringkasan periode selalu memakai transaksi sah dan nominal milik RuslyTravel.
+        $periodRevenueQuery = Pembayaran::query()
+            ->join('pemesanan', 'pemesanan.id', '=', 'pembayaran.pemesanan_id')
+            ->where('pembayaran.status_bayar', 'berhasil')
+            ->whereIn('pemesanan.status_pemesanan', ['terbayar', 'selesai']);
 
         return view('admin.laporan.transaksi', [
             'transactions' => $transactions,
             'summary' => [
                 'total_transaksi' => (clone $query)->count(),
-                'berhasil' => (clone $query)->where('status_bayar', 'berhasil')->count(),
-                'nilai_berhasil' => (float) (clone $query)
-                    ->where('status_bayar', 'berhasil')
-                    ->sum('jumlah_bayar'),
+                'berhasil' => $successfulPayments->count(),
+                // Fee Pakasir ditampilkan terpisah dan tidak masuk pendapatan.
+                'nilai_berhasil' => (int) $successfulPayments
+                    ->sum(fn ($payment) => $payment->nominal_transaksi ?? (int) $payment->pemesanan?->total_harga),
+                'biaya_admin_provider' => (int) $successfulPayments->sum('biaya_admin_provider'),
+            ],
+            'periodSummary' => [
+                'pendapatan_tahun_ini' => (int) (clone $periodRevenueQuery)
+                    ->whereYear('pembayaran.dibayar_pada', $today->year)
+                    ->sum(DB::raw('COALESCE(pembayaran.nominal_transaksi, pemesanan.total_harga)')),
+                'pendapatan_bulan_ini' => (int) (clone $periodRevenueQuery)
+                    ->whereYear('pembayaran.dibayar_pada', $today->year)
+                    ->whereMonth('pembayaran.dibayar_pada', $today->month)
+                    ->sum(DB::raw('COALESCE(pembayaran.nominal_transaksi, pemesanan.total_harga)')),
+                'tahun_label' => (string) $today->year,
+                'bulan_label' => $today->translatedFormat('F Y'),
             ],
             'filters' => $request->only(['status', 'metode_bayar', 'tanggal_mulai', 'tanggal_selesai']),
+            'activePeriodLabel' => $this->periodLabel($request),
         ]);
     }
 
@@ -88,7 +116,7 @@ class LaporanController extends Controller
             'summary' => [
                 'Total pemesanan' => $bookings->count(),
                 'Total kursi' => $bookings->sum('detail_pemesanan_count'),
-                'Total nilai' => (float) $bookings->sum('total_harga'),
+                'Total nilai' => (int) $bookings->sum('total_harga'),
             ],
             'money_columns' => ['Total Harga'],
         ]);
@@ -107,7 +135,9 @@ class LaporanController extends Controller
             'Rute',
             'Metode Bayar',
             'Status Bayar',
-            'Nominal',
+            'Pendapatan RuslyTravel',
+            'Biaya Admin Pakasir',
+            'Dibayar Penumpang',
             'Channel',
             'Waktu Dibuat',
             'Waktu Dibayar',
@@ -124,7 +154,11 @@ class LaporanController extends Controller
                 : '-',
                 strtolower($transaction->metode_bayar),
                 $transaction->status_bayar,
-                (string) (int) $transaction->jumlah_bayar,
+                (string) ($transaction->nominal_transaksi ?? (int) $transaction->pemesanan?->total_harga),
+                (string) ($transaction->biaya_admin_provider ?? 0),
+                $transaction->total_dibayar_penumpang === null
+                    ? ''
+                    : (string) $transaction->total_dibayar_penumpang,
                 $transaction->paid_channel ?: '-',
                 $transaction->created_at->format('Y-m-d H:i:s'),
                 $transaction->dibayar_pada?->format('Y-m-d H:i:s') ?: '-',
@@ -137,9 +171,13 @@ class LaporanController extends Controller
             'summary' => [
                 'Total transaksi' => $transactions->count(),
                 'Transaksi berhasil' => $transactions->where('status_bayar', 'berhasil')->count(),
-                'Total berhasil' => (float) $transactions->where('status_bayar', 'berhasil')->sum('jumlah_bayar'),
+                'Pendapatan RuslyTravel' => (int) $transactions
+                    ->where('status_bayar', 'berhasil')
+                    ->filter(fn ($payment) => in_array($payment->pemesanan?->status_pemesanan, ['terbayar', 'selesai'], true))
+                    ->sum(fn ($payment) => $payment->nominal_transaksi ?? (int) $payment->pemesanan?->total_harga),
+                'Biaya admin Pakasir' => (int) $transactions->where('status_bayar', 'berhasil')->sum('biaya_admin_provider'),
             ],
-            'money_columns' => ['Nominal'],
+            'money_columns' => ['Pendapatan RuslyTravel', 'Biaya Admin Pakasir', 'Dibayar Penumpang'],
         ]);
     }
 

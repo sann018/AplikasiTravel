@@ -43,8 +43,8 @@
                 <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
             </div>
             <div class="travs-filter-actions d-flex align-items-end flex-wrap">
-                <button type="submit" class="travs-button-secondary btn btn-secondary">Terapkan Filter</button>
-                <a href="{{ route('admin.pemesanan.index') }}" class="travs-button-secondary btn btn-secondary">Reset</a>
+                <button type="submit" class="travs-button btn btn-primary">Terapkan Filter</button>
+                <a href="{{ route('admin.pemesanan.index') }}" class="travs-button-secondary btn btn-outline-secondary">Reset</a>
             </div>
         </form>
 
@@ -55,9 +55,11 @@
                         <th>Kode Pemesanan</th>
                         <th>Penumpang</th>
                         <th>Rute</th>
-                        <th>Status</th>
-                        <th>Total</th>
-                        <th>Aksi</th>
+                        <th class="text-center">Status Pemesanan</th>
+                        <th class="text-center">Status Pembayaran</th>
+                        <th class="text-center">Kursi</th>
+                        <th class="text-end">Total</th>
+                        <th class="text-end">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -78,38 +80,35 @@
                                     </div>
                                     <div>
                                         <strong>{{ $booking->pengguna->nama }}</strong>
-                                        <div class="travs-table-subcopy">{{ $booking->detail_pemesanan_count }} kursi</div>
+                                        <div class="travs-table-subcopy">{{ $booking->pengguna->no_hp }}</div>
                                     </div>
                                 </div>
                             </td>
                             <td>{{ $booking->jadwal->rute->kota_asal }} - {{ $booking->jadwal->rute->kota_tujuan }}</td>
-                            <td>
-                                <div class="travs-status-stack">
-                                    <span class="travs-status-pill travs-status-{{ $booking->status_pemesanan }} badge rounded-pill">
-                                        {{ ucwords(str_replace('_', ' ', $booking->status_pemesanan)) }}
-                                    </span>
-                                    <span class="travs-status-pill travs-status-{{ $booking->pembayaran?->status_bayar ?? 'draft' }} badge rounded-pill">
-                                        {{ ucwords(str_replace('_', ' ', $booking->pembayaran?->status_bayar ?? 'draft')) }}
-                                    </span>
-                                    <span class="travs-status-pill travs-status-{{ $booking->penumpang_hadir_count >= $booking->detail_pemesanan_count && $booking->detail_pemesanan_count > 0 ? 'hadir' : 'menunggu' }} badge rounded-pill">
-                                        Hadir {{ $booking->penumpang_hadir_count }}/{{ $booking->detail_pemesanan_count }}
-                                    </span>
-                                    <span class="travs-status-pill travs-status-{{ $booking->penumpang_turun_count >= $booking->detail_pemesanan_count && $booking->detail_pemesanan_count > 0 ? 'selesai' : 'menunggu' }} badge rounded-pill">
-                                        Turun {{ $booking->penumpang_turun_count }}/{{ $booking->detail_pemesanan_count }}
-                                    </span>
-                                    <span class="travs-status-pill travs-status-{{ $booking->item_bagasi_count > 0 ? 'qris' : 'draft' }} badge rounded-pill">
-                                        Barang {{ $booking->item_bagasi_count }} catatan
-                                    </span>
-                                </div>
+                            <td class="text-center">
+                                <span class="travs-status-pill travs-status-{{ $booking->status_pemesanan }} badge rounded-pill">
+                                    {{ ucwords(str_replace('_', ' ', $booking->status_pemesanan)) }}
+                                </span>
                             </td>
-                            <td>Rp{{ number_format($booking->total_harga, 0, ',', '.') }}</td>
-                            <td>
+                            <td class="text-center">
+                                <span class="travs-status-pill travs-status-{{ $booking->pembayaran?->status_bayar ?? 'draft' }} badge rounded-pill">
+                                    {{ $booking->pembayaran
+                                        ? ucwords(str_replace('_', ' ', $booking->pembayaran->status_bayar))
+                                        : 'Belum Tersedia' }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <strong>{{ $booking->detail_pemesanan_count }}</strong>
+                                <div class="travs-table-subcopy">kursi</div>
+                            </td>
+                            <td class="text-end text-nowrap">Rp{{ number_format($booking->total_harga, 0, ',', '.') }}</td>
+                            <td class="text-end">
                                 <a href="{{ route('admin.pemesanan.show', $booking) }}" class="travs-button-link btn btn-link">Lihat Detail</a>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="travs-table-empty">Belum ada data pemesanan.</td>
+                            <td colspan="8" class="travs-table-empty">Tidak ada pemesanan yang sesuai dengan filter yang dipilih.</td>
                         </tr>
                     @endforelse
                 </tbody>

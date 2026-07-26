@@ -10,15 +10,21 @@ import '../../core/services/travs_api_service.dart';
 import '../../core/theme/travs_theme.dart';
 import '../ticket/travs_ticket_detail_page.dart';
 
+enum _BookingLocationTab { pickup, dropoff }
+
+enum _DetailPaymentFamily { qris, virtualAccount, cash }
+
 class TravSBookingDetailPage extends StatefulWidget {
   const TravSBookingDetailPage({
     required this.session,
     required this.bookingId,
+    this.apiService,
     super.key,
   });
 
   final TravSUserSession session;
   final int bookingId;
+  final TravSApiService? apiService;
 
   @override
   State<TravSBookingDetailPage> createState() => _TravSBookingDetailPageState();
@@ -26,7 +32,7 @@ class TravSBookingDetailPage extends StatefulWidget {
 
 class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
     with WidgetsBindingObserver {
-  final TravSApiService _apiService = TravSApiService();
+  late final TravSApiService _apiService;
 
   late Future<TravSBookingResult> _future;
   bool _shouldRefreshParent = false;
@@ -35,12 +41,20 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
   // Penjaga agar tombol buka tiket tidak bisa dispam sehingga halaman tiket
   // tidak menumpuk berlapis (double-push).
   bool _isOpeningTicketPage = false;
+  _BookingLocationTab _selectedLocationTab = _BookingLocationTab.pickup;
+  bool _hasInitializedLocationTab = false;
+  TravSPaymentMethods? _paymentMethods;
+  _DetailPaymentFamily? _selectedPaymentFamily;
+  String? _selectedVirtualAccount;
+  bool _isChoosingPayment = false;
+  String? _paymentSelectionError;
   Timer? _paymentDeadlineTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _apiService = widget.apiService ?? TravSApiService();
     _future = _loadBooking();
   }
 
@@ -70,6 +84,13 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
       token: widget.session.token,
       bookingId: widget.bookingId,
     );
+    if (booking.payment.canChoose && _paymentMethods == null) {
+      try {
+        _paymentMethods = await _apiService.loadPaymentMethods();
+      } catch (_) {
+        // Booking tetap dapat dibaca walau opsi pembayaran gagal dimuat.
+      }
+    }
 
     if (!_shouldSynchronizeGatewayPayment(booking)) {
       _schedulePaymentDeadlineRefresh(booking);
@@ -89,6 +110,48 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
     } catch (_) {
       _schedulePaymentDeadlineRefresh(booking);
       return booking;
+    }
+  }
+
+  String? get _selectedPaymentMethod => switch (_selectedPaymentFamily) {
+    _DetailPaymentFamily.qris => 'qris',
+    _DetailPaymentFamily.virtualAccount => _selectedVirtualAccount,
+    _DetailPaymentFamily.cash => 'cash',
+    null => null,
+  };
+
+  Future<void> _choosePayment(TravSBookingResult booking) async {
+    if (_isChoosingPayment) return;
+    final method = _selectedPaymentMethod;
+    if (method == null) {
+      setState(() {
+        _paymentSelectionError =
+            _selectedPaymentFamily == _DetailPaymentFamily.virtualAccount
+            ? 'Pilih bank Virtual Account terlebih dahulu.'
+            : 'Pilih metode pembayaran terlebih dahulu.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isChoosingPayment = true;
+      _paymentSelectionError = null;
+    });
+    try {
+      final updated = await _apiService.chooseBookingPaymentMethod(
+        token: widget.session.token,
+        bookingId: booking.id,
+        paymentMethod: method,
+      );
+      if (!mounted) return;
+      setState(() {
+        _future = Future.value(updated);
+        _shouldRefreshParent = true;
+      });
+    } on TravSApiException catch (error) {
+      if (mounted) setState(() => _paymentSelectionError = error.message);
+    } finally {
+      if (mounted) setState(() => _isChoosingPayment = false);
     }
   }
 
@@ -278,11 +341,21 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
   bool _isPaymentPending(TravSBookingResult booking) {
     return !booking.isPaid &&
         booking.status == 'menunggu_pembayaran' &&
-        booking.payment.status == 'menunggu';
+        (booking.payment.canChoose || booking.payment.status == 'menunggu');
   }
 
   DateTime? _paymentDeadline(TravSBookingResult booking) {
-    final raw = booking.payment.expiredAt.isNotEmpty
+    if (booking.payment.methodFamily == 'cash' ||
+        booking.payment.method == 'cash') {
+      // Tunai dibayar saat dijemput, jadi deadline digital tidak digunakan.
+      return null;
+    }
+
+    final raw =
+        booking.payment.canChoose &&
+            booking.payment.selectionExpiresAt.isNotEmpty
+        ? booking.payment.selectionExpiresAt
+        : booking.payment.expiredAt.isNotEmpty
         ? booking.payment.expiredAt
         : booking.batasPembayaran;
     return DateTime.tryParse(raw)?.toLocal();
@@ -293,6 +366,130 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
     return _isPaymentPending(booking) &&
         deadline != null &&
         deadline.isAfter(DateTime.now());
+  }
+
+  Widget _buildPaymentChooser(TravSBookingResult booking) {
+    final options = _paymentMethods?.activeOptions ?? const [];
+    final vaOptions = options.where((option) => option.family == 'va').toList();
+
+    if (options.isEmpty) {
+      return const _InlineEmptyState(
+        title:
+            'Metode pembayaran belum dapat dimuat. Tarik halaman untuk mencoba lagi.',
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const _InternalSectionHeading(title: 'Pilih Metode Pembayaran'),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 420;
+            return SegmentedButton<_DetailPaymentFamily>(
+              segments: [
+                if (options.any((option) => option.family == 'qris'))
+                  const ButtonSegment(
+                    value: _DetailPaymentFamily.qris,
+                    label: Text('QRIS'),
+                  ),
+                if (vaOptions.isNotEmpty)
+                  ButtonSegment(
+                    value: _DetailPaymentFamily.virtualAccount,
+                    label: Text(
+                      compact ? 'VA' : 'Virtual Account',
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                if (options.any((option) => option.family == 'cash'))
+                  const ButtonSegment(
+                    value: _DetailPaymentFamily.cash,
+                    label: Text('Tunai'),
+                  ),
+              ],
+              selected: _selectedPaymentFamily == null
+                  ? const {}
+                  : {_selectedPaymentFamily!},
+              showSelectedIcon: false,
+              emptySelectionAllowed: true,
+              // Arah horizontal menjaga tinggi tetap terbatas di dalam
+              // daftar detail pada layar ponsel.
+              direction: Axis.horizontal,
+              expandedInsets: EdgeInsets.zero,
+              onSelectionChanged: _isChoosingPayment
+                  ? null
+                  : (selection) {
+                      setState(() {
+                        // Pilihan kosong tidak boleh membuat detail gagal
+                        // ketika metode aktif ditekan kembali.
+                        _selectedPaymentFamily = selection.isEmpty
+                            ? null
+                            : selection.first;
+                        if (_selectedPaymentFamily !=
+                            _DetailPaymentFamily.virtualAccount) {
+                          _selectedVirtualAccount = null;
+                        }
+                        _paymentSelectionError = null;
+                      });
+                    },
+            );
+          },
+        ),
+        if (_selectedPaymentFamily == _DetailPaymentFamily.virtualAccount) ...[
+          const SizedBox(height: 14),
+          DropdownButtonFormField<String>(
+            initialValue: _selectedVirtualAccount,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Pilih bank'),
+            items: vaOptions
+                .map(
+                  (option) => DropdownMenuItem(
+                    value: option.code,
+                    child: Text(
+                      option.label.replaceFirst('Virtual Account ', ''),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: _isChoosingPayment
+                ? null
+                : (value) {
+                    setState(() {
+                      _selectedVirtualAccount = value;
+                      _paymentSelectionError = null;
+                    });
+                  },
+          ),
+        ],
+        if (_paymentSelectionError != null) ...[
+          const SizedBox(height: 10),
+          Text(
+            _paymentSelectionError!,
+            style: const TextStyle(
+              color: TravSTheme.danger,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+        const SizedBox(height: 14),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: _isChoosingPayment
+                ? null
+                : () => _choosePayment(booking),
+            child: _isChoosingPayment
+                ? const SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Buat Pembayaran'),
+          ),
+        ),
+      ],
+    );
   }
 
   void _closePage() {
@@ -332,6 +529,12 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
                 }
 
                 final booking = snapshot.data!;
+                if (!_hasInitializedLocationTab) {
+                  _selectedLocationTab = booking.pickup != null
+                      ? _BookingLocationTab.pickup
+                      : _BookingLocationTab.dropoff;
+                  _hasInitializedLocationTab = true;
+                }
                 // Detail penumpang memakai deadline pembayaran yang sama dengan
                 // transaksi. Field pemesanan tetap menjadi fallback data lama.
                 final paymentDeadline = booking.payment.expiredAt.isNotEmpty
@@ -345,44 +548,89 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
                     children: [
                       _BookingHeaderCard(booking: booking),
                       const SizedBox(height: 16),
-                      if (booking.pemesan != null) ...[
-                        _RequesterCard(requester: booking.pemesan!),
-                        const SizedBox(height: 16),
-                      ],
                       _DetailSectionCard(
-                        title: 'Ringkasan Pembayaran',
-                        subtitle:
-                            'Status pemesanan, metode bayar, dan total tagihan selalu diperbarui.',
+                        title: 'Informasi Pemesanan',
+                        subtitle: '',
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            if (booking.pemesan != null) ...[
+                              const _InternalSectionHeading(title: 'Pemesan'),
+                              const SizedBox(height: 12),
+                              _RequesterDetails(requester: booking.pemesan!),
+                              const Divider(height: 34),
+                            ],
+                            const _InternalSectionHeading(title: 'Pembayaran'),
+                            const SizedBox(height: 8),
                             _DetailRow(
                               label: 'Status pemesanan',
                               value: _humanizeStatus(booking.status),
+                              alignValueRight: true,
                             ),
                             _DetailRow(
                               label: 'Status pembayaran',
-                              value: _humanizeStatus(booking.payment.status),
+                              value: booking.payment.canChoose
+                                  ? 'Belum dipilih'
+                                  : _humanizeStatus(booking.payment.status),
+                              alignValueRight: true,
                             ),
                             _DetailRow(
                               label: 'Metode bayar',
-                              value: booking.payment.method.toUpperCase(),
+                              value: booking.payment.canChoose
+                                  ? 'Belum dipilih'
+                                  : booking.payment.methodLabel,
+                              alignValueRight: true,
                             ),
+                            if (booking.payment.methodFamily == 'cash' &&
+                                _isPaymentPending(booking))
+                              const _DetailRow(
+                                label: 'Cara pembayaran',
+                                value:
+                                    'Bayar kepada pengemudi setelah dijemput dan sebelum naik kendaraan.',
+                                alignValueRight: true,
+                              ),
                             if (_hasActivePaymentDeadline(booking))
                               _DetailRow(
                                 label: 'Batas pembayaran',
                                 value: _formatDateTime(paymentDeadline),
+                                alignValueRight: true,
                               ),
                             if (booking.payment.paidAt.isNotEmpty)
                               _DetailRow(
                                 label: 'Dibayarkan pada',
                                 value: _formatDateTime(booking.payment.paidAt),
+                                alignValueRight: true,
                               ),
                             const Divider(height: 24),
                             _DetailRow(
-                              label: 'Total tagihan',
-                              value: 'Rp${_formatCurrency(booking.totalHarga)}',
-                              emphasize: true,
+                              label: 'Nominal transaksi',
+                              value: booking.payment.hasSelectedMethod
+                                  ? booking.payment.amount > 0
+                                        ? 'Rp${_formatCurrency(booking.payment.amount)}'
+                                        : '-'
+                                  : 'Rp${_formatCurrency(booking.totalHarga)}',
+                              alignValueRight: true,
                             ),
+                            if (booking.payment.usesGateway &&
+                                booking.payment.providerFee != null)
+                              _DetailRow(
+                                label: 'Biaya Admin Transaksi',
+                                value:
+                                    'Rp${_formatCurrency(booking.payment.providerFee!)}',
+                                alignValueRight: true,
+                              ),
+                            _DetailRow(
+                              label: 'Total pembayaran',
+                              value: booking.payment.totalPayment == null
+                                  ? '-'
+                                  : 'Rp${_formatCurrency(booking.payment.totalPayment!)}',
+                              emphasize: true,
+                              alignValueRight: true,
+                            ),
+                            if (booking.payment.canChoose) ...[
+                              const Divider(height: 30),
+                              _buildPaymentChooser(booking),
+                            ],
                             if (_canContinuePayment(booking)) ...[
                               const SizedBox(height: 16),
                               SizedBox(
@@ -391,7 +639,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
                                   onPressed: _isRefreshingPayment
                                       ? null
                                       : () => _continuePayment(booking),
-                                  icon: const Icon(Icons.payment_rounded),
+                                  icon: const Icon(Icons.payments_rounded),
                                   label: const Text('Lanjutkan Pembayaran'),
                                 ),
                               ),
@@ -420,6 +668,22 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
                                 ),
                               ),
                             ],
+                            const Divider(height: 34),
+                            const _InternalSectionHeading(
+                              title: 'Penumpang & Kursi',
+                            ),
+                            const SizedBox(height: 12),
+                            if (booking.passengers.isEmpty)
+                              const _InlineEmptyState(
+                                title: 'Data penumpang belum tersedia.',
+                              )
+                            else
+                              ...booking.passengers.map(
+                                (passenger) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: _PassengerCard(passenger: passenger),
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -453,115 +717,68 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
                         ),
                       ),
                       const SizedBox(height: 16),
-                      if (booking.pickup != null)
+                      if (booking.pickup != null || booking.dropoff != null)
                         _DetailSectionCard(
-                          title: 'Titik Jemput',
+                          title: 'Lokasi Perjalanan',
                           subtitle:
-                              'Lokasi yang dipilih sebagai titik awal perjalanan.',
+                              'Pilih tab untuk melihat titik awal atau tujuan perjalanan.',
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _DetailRow(
-                                label: 'Koordinat',
-                                value:
-                                    '${booking.pickup!.latitude.toStringAsFixed(6)}, ${booking.pickup!.longitude.toStringAsFixed(6)}',
-                                stacked: true,
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final compact = constraints.maxWidth < 360;
+                                  return SizedBox(
+                                    width: double.infinity,
+                                    child: SegmentedButton<_BookingLocationTab>(
+                                      segments: [
+                                        const ButtonSegment(
+                                          value: _BookingLocationTab.pickup,
+                                          label: Text('Titik Jemput'),
+                                        ),
+                                        ButtonSegment(
+                                          value: _BookingLocationTab.dropoff,
+                                          label: Text(
+                                            compact
+                                                ? 'Tujuan / Turun'
+                                                : 'Titik Tujuan / Turun',
+                                            textAlign: TextAlign.center,
+                                            maxLines: 2,
+                                          ),
+                                        ),
+                                      ],
+                                      selected: {_selectedLocationTab},
+                                      showSelectedIcon: false,
+                                      expandedInsets: EdgeInsets.zero,
+                                      onSelectionChanged: (selection) {
+                                        setState(() {
+                                          _selectedLocationTab =
+                                              selection.first;
+                                        });
+                                      },
+                                    ),
+                                  );
+                                },
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                booking.pickup!.address,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(color: TravSTheme.navy),
-                              ),
-                              if ((booking.pickup!.note ?? '')
-                                  .trim()
-                                  .isNotEmpty) ...[
-                                const SizedBox(height: 10),
-                                _DetailRow(
-                                  label: 'Patokan jemput',
-                                  value: booking.pickup!.note!.trim(),
-                                  stacked: true,
-                                ),
-                              ],
-                              const SizedBox(height: 14),
-                              OutlinedButton.icon(
-                                onPressed: () => _openMaps(booking.pickup!),
-                                icon: const Icon(Icons.map_outlined),
-                                label: const Text('Buka di Google Maps'),
+                              const SizedBox(height: 18),
+                              _BookingLocationContent(
+                                location:
+                                    _selectedLocationTab ==
+                                        _BookingLocationTab.pickup
+                                    ? booking.pickup
+                                    : booking.dropoff,
+                                isPickup:
+                                    _selectedLocationTab ==
+                                    _BookingLocationTab.pickup,
+                                onOpenMaps: _openMaps,
                               ),
                             ],
                           ),
                         ),
-                      if (booking.pickup != null) const SizedBox(height: 16),
-                      if (booking.dropoff != null)
-                        _DetailSectionCard(
-                          title: 'Titik Tujuan / Turun',
-                          subtitle:
-                              'Lokasi yang dipilih sebagai tujuan akhir perjalanan.',
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _DetailRow(
-                                label: 'Koordinat',
-                                value:
-                                    '${booking.dropoff!.latitude.toStringAsFixed(6)}, ${booking.dropoff!.longitude.toStringAsFixed(6)}',
-                                stacked: true,
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                booking.dropoff!.address,
-                                style: Theme.of(context).textTheme.bodyMedium
-                                    ?.copyWith(color: TravSTheme.navy),
-                              ),
-                              if ((booking.dropoff!.note ?? '')
-                                  .trim()
-                                  .isNotEmpty) ...[
-                                const SizedBox(height: 10),
-                                _DetailRow(
-                                  label: 'Patokan turun',
-                                  value: booking.dropoff!.note!.trim(),
-                                  stacked: true,
-                                ),
-                              ],
-                              const SizedBox(height: 14),
-                              OutlinedButton.icon(
-                                onPressed: () => _openMaps(booking.dropoff!),
-                                icon: const Icon(Icons.map_outlined),
-                                label: const Text('Buka di Google Maps'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      if (booking.dropoff != null) const SizedBox(height: 16),
-                      _DetailSectionCard(
-                        title: 'Penumpang & Kursi',
-                        subtitle:
-                            'Informasi penumpang dan nomor kursi yang telah dipesan.',
-                        child: Column(
-                          children: booking.passengers.isEmpty
-                              ? const [
-                                  _InlineEmptyState(
-                                    title: 'Data penumpang belum tersedia.',
-                                  ),
-                                ]
-                              : booking.passengers
-                                    .map(
-                                      (passenger) => Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 12,
-                                        ),
-                                        child: _PassengerCard(
-                                          passenger: passenger,
-                                        ),
-                                      ),
-                                    )
-                                    .toList(),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
+                      if (booking.pickup != null || booking.dropoff != null)
+                        const SizedBox(height: 16),
                       _DetailSectionCard(
                         title: 'Barang Bawaan',
-                        initiallyExpanded: false,
                         subtitle:
                             'Barang yang dicatat saat pemesanan tampil di bagian ini.',
                         child: Column(
@@ -597,8 +814,8 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
   }
 }
 
-class _RequesterCard extends StatelessWidget {
-  const _RequesterCard({required this.requester});
+class _RequesterDetails extends StatelessWidget {
+  const _RequesterDetails({required this.requester});
 
   final TravSBookingRequesterInfo requester;
 
@@ -606,43 +823,39 @@ class _RequesterCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final imageUrl = TravSApiService.resolveMediaUrl(requester.fotoUrl);
 
-    return _DetailSectionCard(
-      title: 'Pemesanan Atas',
-      subtitle: '',
-      child: Row(
-        children: [
-          _RequesterAvatar(name: requester.nama, imageUrl: imageUrl),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  requester.nama,
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: TravSTheme.navy,
-                    fontWeight: FontWeight.w800,
-                  ),
+    return Row(
+      children: [
+        _RequesterAvatar(name: requester.nama, imageUrl: imageUrl),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                requester.nama,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: TravSTheme.navy,
+                  fontWeight: FontWeight.w800,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  requester.email,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: TravSTheme.navyMuted),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  requester.noHp,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodySmall?.copyWith(color: TravSTheme.navyMuted),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                requester.email,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: TravSTheme.navyMuted),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                requester.noHp,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: TravSTheme.navyMuted),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -786,31 +999,16 @@ class _HeaderScheduleInfo extends StatelessWidget {
   }
 }
 
-class _DetailSectionCard extends StatefulWidget {
+class _DetailSectionCard extends StatelessWidget {
   const _DetailSectionCard({
     required this.title,
     required this.subtitle,
     required this.child,
-    this.initiallyExpanded = true,
   });
 
   final String title;
   final String subtitle;
   final Widget child;
-  final bool initiallyExpanded;
-
-  @override
-  State<_DetailSectionCard> createState() => _DetailSectionCardState();
-}
-
-class _DetailSectionCardState extends State<_DetailSectionCard> {
-  late bool _expanded;
-
-  @override
-  void initState() {
-    super.initState();
-    _expanded = widget.initiallyExpanded;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -822,52 +1020,97 @@ class _DetailSectionCardState extends State<_DetailSectionCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () => setState(() => _expanded = !_expanded),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      widget.title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        color: TravSTheme.navy,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    _expanded
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.keyboard_arrow_down_rounded,
-                    color: TravSTheme.navy,
-                  ),
-                ],
+            Text(
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: TravSTheme.navy,
+                fontWeight: FontWeight.w800,
               ),
             ),
-            if (widget.subtitle.trim().isNotEmpty) ...[
+            if (subtitle.trim().isNotEmpty) ...[
               const SizedBox(height: 8),
               Text(
-                widget.subtitle,
+                subtitle,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: TravSTheme.navyMuted,
                 ),
               ),
             ],
-            AnimatedCrossFade(
-              duration: const Duration(milliseconds: 180),
-              crossFadeState: _expanded
-                  ? CrossFadeState.showSecond
-                  : CrossFadeState.showFirst,
-              firstChild: const SizedBox.shrink(),
-              secondChild: Padding(
-                padding: const EdgeInsets.only(top: 18),
-                child: widget.child,
-              ),
-            ),
+            Padding(padding: const EdgeInsets.only(top: 18), child: child),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _InternalSectionHeading extends StatelessWidget {
+  const _InternalSectionHeading({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+        color: TravSTheme.navy,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+}
+
+class _BookingLocationContent extends StatelessWidget {
+  const _BookingLocationContent({
+    required this.location,
+    required this.isPickup,
+    required this.onOpenMaps,
+  });
+
+  final TravSBookingPickupInfo? location;
+  final bool isPickup;
+  final ValueChanged<TravSBookingPickupInfo> onOpenMaps;
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedLocation = location;
+    if (selectedLocation == null) {
+      return const _InlineEmptyState(title: 'Data lokasi belum tersedia.');
+    }
+
+    final note = selectedLocation.note?.trim() ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _DetailRow(
+          label: 'Koordinat',
+          value:
+              '${selectedLocation.latitude.toStringAsFixed(6)}, ${selectedLocation.longitude.toStringAsFixed(6)}',
+          stacked: true,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          selectedLocation.address,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: TravSTheme.navy),
+        ),
+        if (note.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          _DetailRow(
+            label: isPickup ? 'Patokan jemput' : 'Patokan turun',
+            value: note,
+            stacked: true,
+          ),
+        ],
+        const SizedBox(height: 14),
+        OutlinedButton.icon(
+          onPressed: () => onOpenMaps(selectedLocation),
+          icon: const Icon(Icons.map_rounded),
+          label: const Text('Buka di Google Maps'),
+        ),
+      ],
     );
   }
 }
@@ -878,12 +1121,14 @@ class _DetailRow extends StatelessWidget {
     required this.value,
     this.emphasize = false,
     this.stacked = false,
+    this.alignValueRight = false,
   });
 
   final String label;
   final String value;
   final bool emphasize;
   final bool stacked;
+  final bool alignValueRight;
 
   @override
   Widget build(BuildContext context) {
@@ -913,13 +1158,22 @@ class _DetailRow extends StatelessWidget {
               children: [
                 Expanded(child: Text(label, style: labelStyle)),
                 const SizedBox(width: 14),
-                Flexible(
-                  child: Text(
-                    value,
-                    textAlign: TextAlign.end,
-                    style: valueStyle,
+                if (alignValueRight)
+                  Expanded(
+                    child: Text(
+                      value,
+                      textAlign: TextAlign.right,
+                      style: valueStyle,
+                    ),
+                  )
+                else
+                  Flexible(
+                    child: Text(
+                      value,
+                      textAlign: TextAlign.end,
+                      style: valueStyle,
+                    ),
                   ),
-                ),
               ],
             ),
     );
@@ -1206,7 +1460,7 @@ class _BookingErrorState extends StatelessWidget {
   }
 }
 
-String _formatCurrency(double value) {
+String _formatCurrency(num value) {
   return NumberFormat.decimalPattern('id_ID').format(value);
 }
 
@@ -1257,7 +1511,7 @@ void _showPhotoPreview(BuildContext context, String imageUrl) {
               child: IconButton(
                 tooltip: 'Tutup preview',
                 onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.arrow_back_rounded),
+                icon: const Icon(Icons.close_rounded),
               ),
             ),
           ),

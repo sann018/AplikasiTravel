@@ -223,6 +223,18 @@ class TravSApiService {
     );
   }
 
+  Future<TravSPaymentMethods> loadPaymentMethods() async {
+    final response = await getWithFallback(
+      '/api/mobile/bootstrap',
+      headers: jsonHeaders(),
+    );
+
+    return _decodeDataObject(
+      response,
+      (data) => TravSPaymentMethods.fromJson(_asMap(data['payment_methods'])),
+    );
+  }
+
   /// Memuat detail satu jadwal, termasuk kursi, bagasi, dan metode bayar.
   /// Kesalahan diteruskan agar halaman tidak diam saat data gagal dimuat.
   Future<TravSScheduleDetail> loadScheduleDetail(TravSSchedule schedule) async {
@@ -436,6 +448,23 @@ class TravSApiService {
       '/api/penumpang/bookings',
       headers: jsonHeaders(token: token),
       body: jsonEncode(payload.toJson()),
+    );
+
+    return _decodeDataObject(
+      response,
+      (data) => TravSBookingResult.fromJson(data),
+    );
+  }
+
+  Future<TravSBookingResult> chooseBookingPaymentMethod({
+    required String token,
+    required int bookingId,
+    required String paymentMethod,
+  }) async {
+    final response = await putWithFallback(
+      '/api/penumpang/bookings/$bookingId/payment',
+      headers: jsonHeaders(token: token),
+      body: jsonEncode({'payment_method': paymentMethod}),
     );
 
     return _decodeDataObject(
@@ -1255,29 +1284,78 @@ class TravSBookingRules {
   }
 }
 
+class TravSPaymentMethod {
+  const TravSPaymentMethod({
+    required this.code,
+    required this.label,
+    required this.family,
+  });
+
+  final String code;
+  final String label;
+  final String family;
+
+  factory TravSPaymentMethod.fromJson(Map<String, dynamic> json) {
+    return TravSPaymentMethod(
+      code: json['code']?.toString() ?? '',
+      label: json['label']?.toString() ?? '',
+      family: json['family']?.toString() ?? '',
+    );
+  }
+}
+
 class TravSPaymentMethods {
   const TravSPaymentMethods({
     required this.transferEnabled,
     required this.qrisEnabled,
     required this.cashEnabled,
+    this.options = const [],
   });
 
   final bool transferEnabled;
   final bool qrisEnabled;
   final bool cashEnabled;
+  final List<TravSPaymentMethod> options;
+
+  List<TravSPaymentMethod> get activeOptions {
+    if (options.isNotEmpty) {
+      return options;
+    }
+
+    return [
+      if (qrisEnabled)
+        const TravSPaymentMethod(code: 'qris', label: 'QRIS', family: 'qris'),
+      if (transferEnabled)
+        const TravSPaymentMethod(
+          code: 'transfer',
+          label: 'Transfer Bank',
+          family: 'va',
+        ),
+      if (cashEnabled)
+        const TravSPaymentMethod(
+          code: 'cash',
+          label: 'Bayar Tunai',
+          family: 'cash',
+        ),
+    ];
+  }
 
   List<String> get activeLabels {
-    final labels = <String>[];
-    if (transferEnabled) {
-      labels.add('Transfer Bank');
-    }
-    if (qrisEnabled) {
-      labels.add('QRIS');
-    }
-    if (cashEnabled) {
-      labels.add('Bayar Tunai');
-    }
-    return labels;
+    return activeOptions.map((method) => method.label).toList();
+  }
+
+  String get conciseSummary {
+    final banks = activeOptions
+        .where((method) => method.family == 'va')
+        .map((method) => method.label.replaceFirst('Virtual Account ', ''))
+        .toList();
+    final labels = <String>[
+      if (activeOptions.any((method) => method.family == 'qris')) 'QRIS',
+      if (banks.isNotEmpty) 'Virtual Account (${_joinIndonesian(banks)})',
+      if (activeOptions.any((method) => method.family == 'cash')) 'Tunai',
+    ];
+
+    return _joinIndonesian(labels);
   }
 
   factory TravSPaymentMethods.fromJson(Map<String, dynamic> json) {
@@ -1285,6 +1363,14 @@ class TravSPaymentMethods {
       transferEnabled: _readBool(json['transfer']),
       qrisEnabled: _readBool(json['qris']),
       cashEnabled: _readBool(json['cash']),
+      options: (json['options'] as List? ?? const [])
+          .whereType<Map>()
+          .map(
+            (item) =>
+                TravSPaymentMethod.fromJson(Map<String, dynamic>.from(item)),
+          )
+          .where((item) => item.code.isNotEmpty)
+          .toList(),
     );
   }
 }
@@ -1768,6 +1854,14 @@ Map<String, dynamic> _asMap(dynamic value) {
   }
 
   return <String, dynamic>{};
+}
+
+String _joinIndonesian(List<String> values) {
+  if (values.isEmpty) return '';
+  if (values.length == 1) return values.first;
+  if (values.length == 2) return '${values.first} dan ${values.last}';
+
+  return '${values.sublist(0, values.length - 1).join(', ')}, dan ${values.last}';
 }
 
 int _readInt(dynamic value, {int fallback = 0}) {

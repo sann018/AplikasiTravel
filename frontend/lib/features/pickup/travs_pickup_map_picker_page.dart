@@ -16,6 +16,7 @@ class TravSPickupMapPickerPage extends StatefulWidget {
     this.title = 'Pilih Titik Jemput',
     this.locationLabel = 'titik jemput',
     this.showCurrentLocationButton = true,
+    this.locationService,
     super.key,
   });
 
@@ -24,6 +25,8 @@ class TravSPickupMapPickerPage extends StatefulWidget {
   final String title;
   final String locationLabel;
   final bool showCurrentLocationButton;
+  @visibleForTesting
+  final TravSLocationService? locationService;
 
   @override
   State<TravSPickupMapPickerPage> createState() =>
@@ -33,7 +36,8 @@ class TravSPickupMapPickerPage extends StatefulWidget {
 class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
   static const LatLng _pontianakCenter = LatLng(-0.0263, 109.3425);
 
-  final TravSLocationService _locationService = TravSLocationService();
+  late final TravSLocationService _locationService =
+      widget.locationService ?? TravSLocationService();
   final MapController _mapController = MapController();
 
   late LatLng _selectedPoint;
@@ -229,7 +233,13 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
+      appBar: AppBar(
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.arrow_back_rounded),
+        ),
+        title: Text(widget.title),
+      ),
       body: Column(
         children: [
           Container(

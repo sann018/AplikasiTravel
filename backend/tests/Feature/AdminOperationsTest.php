@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\Pemesanan;
 use App\Models\Pembayaran;
+use App\Models\Pemesanan;
 use App\Models\Pengemudi;
 use App\Models\TiketElektronik;
 use App\Models\User;
@@ -90,7 +90,7 @@ class AdminOperationsTest extends TestCase
         $response->assertOk();
         $response->assertSee('Akun Admin');
         $response->assertSee('Simpan Perubahan Akun');
-        $response->assertSee('Control Center');
+        $response->assertSee('PUSAT PENGATURAN');
     }
 
     public function test_admin_account_update_requires_correct_current_password(): void
@@ -420,6 +420,11 @@ class AdminOperationsTest extends TestCase
         $this->assertSame('terbayar', $booking->status_pemesanan);
         $this->assertSame('cash', $payment->metode_bayar);
         $this->assertSame('berhasil', $payment->status_bayar);
+        $this->assertSame((int) $booking->total_harga, $payment->nominal_transaksi);
+        $this->assertSame(0, $payment->biaya_admin_provider);
+        $this->assertSame((int) $booking->total_harga, $payment->total_dibayar_penumpang);
+        $this->assertNull($payment->payment_number);
+        $this->assertNull($payment->webhook_verified_at);
         $this->assertNotNull($payment->dibayar_pada);
         $this->assertSame('admin_cash_confirm', data_get($gatewayResponse, 'cash_confirmation.source'));
         $this->assertSame($admin->id, data_get($gatewayResponse, 'cash_confirmation.confirmed_by_id'));

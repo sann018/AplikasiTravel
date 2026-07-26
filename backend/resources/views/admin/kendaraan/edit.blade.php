@@ -5,13 +5,17 @@
 @section('page-description', 'Perbarui data kendaraan untuk menjaga informasi armada tetap akurat.')
 
 @section('content')
+    @include('admin.partials.page-back', [
+        'url' => route('admin.kendaraan.index'),
+        'label' => 'Kembali ke Daftar Armada',
+    ])
+
     <div class="travs-page-frame card">
         <div class="travs-panel-header d-flex align-items-start justify-content-between">
             <div class="travs-panel-title">
                 <h3>Form Edit Armada</h3>
                 <p>Perbarui data kendaraan {{ $kendaraan->merk_kendaraan }} ({{ $kendaraan->nomor_plat }}).</p>
             </div>
-            <a href="{{ route('admin.kendaraan.index') }}" class="travs-button-secondary btn btn-secondary">Kembali</a>
         </div>
 
         @if ($errors->any())
@@ -110,7 +114,7 @@
             </div>
 
             <div class="travs-form-actions travs-inline d-flex justify-content-end align-items-center flex-wrap">
-                <a href="{{ route('admin.kendaraan.index') }}" class="travs-button-secondary btn btn-secondary">Batal</a>
+                <a href="{{ route('admin.kendaraan.index') }}" class="travs-button-secondary btn btn-outline-secondary">Batal</a>
                 <button type="submit" class="travs-button btn btn-primary">Simpan Perubahan</button>
             </div>
         </form>

@@ -125,7 +125,7 @@ class AdminCollapsibleSectionTest extends TestCase
             ->assertRedirect(route('admin.biaya.index'));
     }
 
-    public function test_operational_cost_hides_statistics_and_keeps_visible_vertical_sections(): void
+    public function test_operational_cost_shows_summary_and_keeps_visible_vertical_sections(): void
     {
         $admin = User::query()->where('peran', 'admin')->firstOrFail();
 
@@ -133,13 +133,14 @@ class AdminCollapsibleSectionTest extends TestCase
             ->get(route('admin.biaya.index'))
             ->assertOk()
             ->assertDontSee('data-static-cost-summary', false)
-            ->assertDontSee('Ringkasan Biaya')
+            ->assertSee('Ringkasan Biaya')
             ->assertSee('cost-list-body', false)
             ->assertSee('cost-recap-route-body', false)
             ->assertDontSee('class="collapsible-section__toggle"', false)
             ->assertDontSee('data-cost-summary-toggle', false)
             ->assertDontSee('data-cost-filter-toggle', false)
             ->assertSeeInOrder([
+                'Ringkasan Biaya',
                 'Daftar Biaya',
                 'Akumulasi per Rute',
             ]);

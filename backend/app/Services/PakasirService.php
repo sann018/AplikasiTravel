@@ -2,12 +2,15 @@
 
 namespace App\Services;
 
+use App\Support\PaymentMethodCatalog;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
-class PakasirException extends RuntimeException
-{
-}
+class PakasirException extends RuntimeException {}
+
+/** Penanda saat request mungkin sudah masuk ke Pakasir, tetapi responsnya terputus. */
+class PakasirUncertainException extends PakasirException {}
 
 class PakasirService
 {
@@ -26,7 +29,12 @@ class PakasirService
 
     public function handlesMethod(string $paymentMethod): bool
     {
-        return in_array($paymentMethod, ['qris', 'transfer'], true);
+        return PaymentMethodCatalog::isHandledGateway($paymentMethod);
+    }
+
+    public function canCreateTransaction(string $paymentMethod): bool
+    {
+        return PaymentMethodCatalog::isDirectGateway($paymentMethod);
     }
 
     public function validateProject(string $project): bool
@@ -50,9 +58,10 @@ class PakasirService
 
     public function checkoutUrl(
         string $orderId,
-        int|float|string $amount,
+        int $amount,
         bool $qrisOnly = true,
         ?string $redirectUrl = null,
+        ?string $paymentMethod = null,
     ): string {
         $query = [
             'order_id' => $orderId,
@@ -60,6 +69,11 @@ class PakasirService
 
         if ($qrisOnly) {
             $query['qris_only'] = '1';
+        }
+
+        if (is_string($paymentMethod) && trim($paymentMethod) !== '') {
+            // Metode ini disandingkan dengan transaksi yang sudah dibuat.
+            $query['payment_method'] = trim($paymentMethod);
         }
 
         if (is_string($redirectUrl) && trim($redirectUrl) !== '') {
@@ -72,13 +86,13 @@ class PakasirService
             .'?'.http_build_query($query);
     }
 
-    /**
-     * Membuat transaksi baru di Pakasir dan mengembalikan data pembayarannya.
-     *
-     * @return array<string, mixed>
-     */
-    public function createTransaction(string $method, string $orderId, int|float|string $amount): array
+    /** Membuat QRIS atau VA baru melalui Transaction Create Pakasir. */
+    public function createTransaction(string $method, string $orderId, int $amount): array
     {
+        if (! $this->canCreateTransaction($method)) {
+            throw new PakasirException("Metode pembayaran Pakasir {$method} tidak didukung.");
+        }
+
         $response = $this->post("transactioncreate/{$method}", [
             'project' => $this->project(),
             'order_id' => $orderId,
@@ -94,12 +108,8 @@ class PakasirService
         return $payment;
     }
 
-    /**
-     * Menjalankan simulasi pembayaran untuk kebutuhan pengujian lokal.
-     *
-     * @return array<string, mixed>
-     */
-    public function simulatePayment(string $orderId, int|float|string $amount): array
+    /** Menjalankan simulasi pembayaran Pakasir untuk mode sandbox. */
+    public function simulatePayment(string $orderId, int $amount): array
     {
         return $this->post('paymentsimulation', [
             'project' => $this->project(),
@@ -109,12 +119,8 @@ class PakasirService
         ]);
     }
 
-    /**
-     * Membatalkan transaksi Pakasir berdasarkan kode pesanan dan nominalnya.
-     *
-     * @return array<string, mixed>
-     */
-    public function cancelTransaction(string $orderId, int|float|string $amount): array
+    /** Membatalkan transaksi Pakasir memakai order ID dan nominal awal. */
+    public function cancelTransaction(string $orderId, int $amount): array
     {
         return $this->post('transactioncancel', [
             'project' => $this->project(),
@@ -124,12 +130,8 @@ class PakasirService
         ]);
     }
 
-    /**
-     * Mengambil status terbaru transaksi langsung dari Pakasir.
-     *
-     * @return array<string, mixed>
-     */
-    public function transactionDetail(string $orderId, int|float|string $amount): array
+    /** Mengecek status transaksi terbaru melalui Transaction Detail Pakasir. */
+    public function transactionDetail(string $orderId, int $amount): array
     {
         $response = $this->get('transactiondetail', [
             'project' => $this->project(),
@@ -203,11 +205,18 @@ class PakasirService
      */
     private function post(string $path, array $payload): array
     {
-        $response = Http::acceptJson()
-            ->asJson()
-            ->timeout($this->timeoutSeconds())
-            ->connectTimeout($this->connectTimeoutSeconds())
-            ->post($this->url($path), $payload);
+        try {
+            $response = Http::acceptJson()
+                ->asJson()
+                ->timeout($this->timeoutSeconds())
+                ->connectTimeout($this->connectTimeoutSeconds())
+                ->post($this->url($path), $payload);
+        } catch (ConnectionException $exception) {
+            throw new PakasirUncertainException(
+                'Koneksi ke Pakasir terputus sebelum hasil transaksi dapat dipastikan.',
+                previous: $exception,
+            );
+        }
 
         return $this->decodeResponse($response->status(), $response->body());
     }
@@ -220,10 +229,17 @@ class PakasirService
      */
     private function get(string $path, array $query): array
     {
-        $response = Http::acceptJson()
-            ->timeout($this->timeoutSeconds())
-            ->connectTimeout($this->connectTimeoutSeconds())
-            ->get($this->url($path), $query);
+        try {
+            $response = Http::acceptJson()
+                ->timeout($this->timeoutSeconds())
+                ->connectTimeout($this->connectTimeoutSeconds())
+                ->get($this->url($path), $query);
+        } catch (ConnectionException $exception) {
+            throw new PakasirUncertainException(
+                'Koneksi ke Pakasir terputus sebelum status transaksi dapat dipastikan.',
+                previous: $exception,
+            );
+        }
 
         return $this->decodeResponse($response->status(), $response->body());
     }
@@ -251,9 +267,13 @@ class PakasirService
         return rtrim($this->baseUrl(), '/').'/'.ltrim($path, '/');
     }
 
-    private function normalizeAmount(int|float|string $amount): int
+    private function normalizeAmount(int $amount): int
     {
-        return (int) round((float) $amount);
+        if ($amount < 1) {
+            throw new PakasirException('Nominal pembayaran Pakasir tidak valid.');
+        }
+
+        return $amount;
     }
 
     private function baseUrl(): string

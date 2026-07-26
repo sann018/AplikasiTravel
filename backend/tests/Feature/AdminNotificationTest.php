@@ -29,7 +29,10 @@ class AdminNotificationTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.notifikasi.index'))
             ->assertOk()
+            ->assertSee('Aksi Lainnya')
             ->assertSee('Bersihkan Notifikasi Lama')
+            ->assertSee('Tampilkan hanya belum dibaca')
+            ->assertSee('href="'.route('admin.notifikasi.index', ['dibaca' => '0']).'"', false)
             ->assertSee('Hapus Riwayat');
 
         $this->assertDatabaseHas('notifikasi', [

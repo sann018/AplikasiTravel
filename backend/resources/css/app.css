@@ -2073,6 +2073,11 @@ svg {
     align-items: start;
 }
 
+/* Jumlah card laporan dapat berubah tanpa meninggalkan kolom kosong yang lebar. */
+.travs-summary-grid-auto {
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
 .travs-summary-grid-dashboard .travs-summary-card-finance {
     grid-column: 4;
     grid-row: 1 / span 2;
@@ -4075,6 +4080,24 @@ body.travs-sidebar-open {
     min-width: 220px;
 }
 
+/* Aksi hapus riwayat disimpan sebagai tindakan tambahan agar tidak menyaingi filter utama. */
+.travs-admin-body .travs-notification-more-actions > summary {
+    display: inline-flex;
+    align-items: center;
+    list-style: none;
+    cursor: pointer;
+}
+
+.travs-admin-body .travs-notification-more-actions > summary::-webkit-details-marker {
+    display: none;
+}
+
+.travs-admin-body .travs-notification-more-actions__body {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid #d8e0e8;
+}
+
 .travs-admin-body .travs-notification-list {
     margin-top: 18px;
     display: grid;
@@ -4392,4 +4415,344 @@ body.travs-sidebar-open {
 
 .travs-admin-body .travs-dashboard-table-wrap .travs-table.table > :not(caption) > * > * {
     padding: 13px 0;
+}
+
+/* Fondasi UI fase 1: hierarki aksi, fokus keyboard, dan lebar konten dibuat konsisten. */
+#main-content > * {
+    width: min(100%, 1600px);
+    margin-inline: auto;
+}
+
+.travs-admin-body .travs-button,
+.travs-admin-body .travs-button-secondary,
+.travs-admin-body .btn-primary,
+.travs-admin-body .btn-secondary,
+.travs-admin-body .btn-outline-secondary {
+    min-height: 42px;
+}
+
+.travs-admin-body .travs-button-secondary,
+.travs-admin-body .btn-secondary,
+.travs-admin-body .btn-outline-secondary {
+    color: #0f2747;
+    background: #ffffff;
+    border-color: #9aa8ba;
+}
+
+.travs-admin-body .travs-button-secondary:hover,
+.travs-admin-body .travs-button-secondary:focus-visible,
+.travs-admin-body .btn-secondary:hover,
+.travs-admin-body .btn-secondary:focus-visible,
+.travs-admin-body .btn-outline-secondary:hover,
+.travs-admin-body .btn-outline-secondary:focus-visible {
+    color: #0f2747;
+    background: #eef2f7;
+    border-color: #64748b;
+}
+
+.travs-admin-body :where(a, button, input, select, textarea, summary):focus-visible {
+    outline: 3px solid rgba(245, 138, 42, 0.45);
+    outline-offset: 2px;
+}
+
+.travs-admin-body .travs-page-back {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 14px;
+}
+
+.travs-admin-body .travs-page-back .travs-button-secondary {
+    padding: 10px 14px;
+}
+
+.travs-admin-body .travs-page-back svg {
+    width: 16px;
+    height: 16px;
+}
+
+.travs-admin-body .travs-table-empty {
+    padding: 32px 16px !important;
+    text-align: center;
+    line-height: 1.6;
+}
+
+.travs-admin-body .travs-filter-actions {
+    align-self: end;
+}
+
+.travs-admin-body .travs-filter-actions > * {
+    min-width: 132px;
+}
+
+.travs-admin-body .travs-form-actions {
+    gap: 10px;
+}
+
+@media (max-width: 575.98px) {
+    #main-content {
+        padding: 14px;
+    }
+
+    .travs-admin-body .travs-panel-header {
+        align-items: stretch !important;
+    }
+
+    .travs-admin-body .travs-filter-actions,
+    .travs-admin-body .travs-form-actions {
+        align-items: stretch !important;
+    }
+
+    .travs-admin-body .travs-filter-actions > *,
+    .travs-admin-body .travs-form-actions > .travs-button,
+    .travs-admin-body .travs-form-actions > .travs-button-secondary,
+    .travs-admin-body .travs-form-actions > form,
+    .travs-admin-body .travs-form-actions > form > button {
+        width: 100%;
+    }
+}
+
+/* Fase 2: halaman detail memakai pola header, card informasi, dan nilai yang sama. */
+.travs-admin-body .travs-detail-page,
+.travs-admin-body .travs-admin-detail-simple.travs-detail-page {
+    display: grid;
+    gap: 18px;
+    width: 100%;
+    max-width: 1440px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+
+.travs-admin-body .travs-detail-page__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 20px;
+    border: 1px solid #d8e0e8;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.travs-admin-body .travs-detail-page__eyebrow {
+    display: block;
+    margin-bottom: 6px;
+    color: #64748b;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.travs-admin-body .travs-detail-page__header h2 {
+    margin: 0;
+    color: #0f2747;
+    font-size: clamp(1.25rem, 2vw, 1.6rem);
+    line-height: 1.25;
+}
+
+.travs-admin-body .travs-detail-page__header p {
+    margin: 7px 0 0;
+    color: #64748b;
+    line-height: 1.55;
+}
+
+.travs-admin-body .travs-detail-statuses {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+}
+
+.travs-admin-body .travs-detail-page__actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+    flex: 0 0 auto;
+}
+
+.travs-admin-body .travs-detail-card-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+}
+
+.travs-admin-body .travs-detail-page .travs-section-card,
+.travs-admin-body .travs-admin-detail-simple.travs-detail-page .travs-section-card,
+.travs-admin-body .travs-admin-detail-simple.travs-detail-page .travs-section-card + .travs-section-card {
+    padding: 18px;
+    margin-top: 0;
+    border: 1px solid #d8e0e8;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 1px 3px rgba(37, 57, 111, 0.08);
+}
+
+.travs-admin-body .travs-detail-page .travs-detail-stack,
+.travs-admin-body .travs-admin-detail-simple.travs-detail-page > .travs-detail-stack {
+    display: grid;
+    gap: 18px;
+    padding-top: 0;
+    margin-top: 0;
+    border-top: 0;
+}
+
+.travs-admin-body .travs-detail-data-list {
+    display: grid;
+    margin: 16px 0 0;
+}
+
+.travs-admin-body .travs-detail-data-list > div {
+    display: grid;
+    grid-template-columns: minmax(135px, 0.8fr) minmax(0, 1.2fr);
+    gap: 16px;
+    align-items: start;
+    padding: 12px 0;
+    border-bottom: 1px solid #e5e9ef;
+}
+
+.travs-admin-body .travs-detail-data-list > div:last-child {
+    border-bottom: 0;
+}
+
+.travs-admin-body .travs-detail-data-list dt {
+    color: #64748b;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.travs-admin-body .travs-detail-data-list dd {
+    min-width: 0;
+    margin: 0;
+    color: #0f2747;
+    font-weight: 600;
+    line-height: 1.55;
+    overflow-wrap: anywhere;
+}
+
+.travs-admin-body .travs-detail-data-list dd > span:not(.travs-status-pill) {
+    display: block;
+    margin-top: 3px;
+    color: #64748b;
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
+.travs-admin-body .travs-detail-data-list-money dd,
+.travs-admin-body .travs-detail-payment-list .travs-detail-value-end {
+    text-align: right;
+}
+
+.travs-admin-body .travs-detail-data-list > .is-total {
+    margin-top: 4px;
+    padding-top: 15px;
+    border-top: 1px solid #9aa8ba;
+}
+
+.travs-admin-body .travs-detail-data-list > .is-total dt,
+.travs-admin-body .travs-detail-data-list > .is-total dd {
+    color: #0f2747;
+    font-weight: 800;
+}
+
+.travs-admin-body .travs-detail-metric-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 16px;
+}
+
+.travs-admin-body .travs-detail-metric-grid > div {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid #d8e0e8;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.travs-admin-body .travs-detail-metric-grid > .is-complete {
+    border-color: #86efac;
+    background: #ecfdf3;
+}
+
+.travs-admin-body .travs-detail-metric-grid small {
+    color: #64748b;
+    font-size: 0.75rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.travs-admin-body .travs-detail-metric-grid strong {
+    color: #0f2747;
+    font-size: 1.12rem;
+}
+
+.travs-admin-body .travs-detail-metric-grid span {
+    color: #64748b;
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.travs-admin-body .travs-detail-page .travs-bagasi-item,
+.travs-admin-body .travs-admin-detail-simple.travs-detail-page .travs-bagasi-item {
+    padding: 14px;
+    border: 1px solid #d8e0e8;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.travs-admin-body .travs-detail-footer-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+@media (max-width: 900px) {
+    .travs-admin-body .travs-detail-card-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-admin-body .travs-detail-metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 600px) {
+    .travs-admin-body .travs-detail-page__header {
+        display: grid;
+        gap: 16px;
+        padding: 16px;
+    }
+
+    .travs-admin-body .travs-detail-page__actions,
+    .travs-admin-body .travs-detail-page__actions > *,
+    .travs-admin-body .travs-detail-page__actions .travs-button,
+    .travs-admin-body .travs-detail-page__actions .travs-button-secondary {
+        width: 100%;
+    }
+
+    .travs-admin-body .travs-detail-data-list > div {
+        grid-template-columns: 1fr;
+        gap: 5px;
+    }
+
+    .travs-admin-body .travs-detail-data-list-money dd,
+    .travs-admin-body .travs-detail-payment-list .travs-detail-value-end {
+        text-align: left;
+    }
+
+    .travs-admin-body .travs-detail-metric-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-admin-body .travs-detail-footer-actions,
+    .travs-admin-body .travs-detail-footer-actions > * {
+        width: 100%;
+    }
 }

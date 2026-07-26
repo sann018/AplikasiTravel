@@ -57,38 +57,42 @@
                     <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
                 </div>
                 <div class="travs-filter-actions d-flex align-items-end flex-wrap">
-                    <button type="submit" class="travs-button-secondary btn btn-secondary">Terapkan Filter</button>
-                    <a href="{{ route($resetRoute ?? 'admin.notifikasi.index') }}" class="travs-button-secondary btn btn-secondary">Reset</a>
+                    <button type="submit" class="travs-button btn btn-primary">Terapkan Filter</button>
+                    <a href="{{ route($resetRoute ?? 'admin.notifikasi.index') }}" class="travs-button-secondary btn btn-outline-secondary">Reset</a>
+                    <a href="{{ route($resetRoute ?? 'admin.notifikasi.index', ['dibaca' => '0']) }}" class="travs-button-secondary btn btn-outline-secondary">Tampilkan hanya belum dibaca</a>
                 </div>
             </form>
         </section>
 
-        <section id="notification-cleanup-body" class="travs-admin-simple-block">
-            <div class="travs-panel-title">
-                <h3>Bersihkan Notifikasi Lama</h3>
-                <p>Hanya notifikasi yang sudah dibaca yang akan dihapus. Notifikasi belum dibaca tetap disimpan.</p>
+        <details id="notification-cleanup-body" class="travs-admin-simple-block travs-notification-more-actions">
+            <summary class="travs-button-secondary btn btn-outline-secondary">Aksi Lainnya</summary>
+            <div class="travs-notification-more-actions__body">
+                <div class="travs-panel-title">
+                    <h3>Bersihkan Notifikasi Lama</h3>
+                    <p>Hanya notifikasi yang sudah dibaca yang akan dihapus. Notifikasi belum dibaca tetap disimpan.</p>
+                </div>
+
+                <form
+                    method="POST"
+                    action="{{ route($clearRoute ?? 'admin.notifikasi.history.clear') }}"
+                    class="travs-notification-cleanup-form"
+                    onsubmit="return confirm('Hapus riwayat notifikasi yang sudah dibaca sesuai pilihan ini?');"
+                >
+                    @csrf
+                    @method('DELETE')
+                    <div class="travs-field">
+                        <label for="cleanup-period" class="form-label">Periode</label>
+                        <select id="cleanup-period" name="period" class="travs-select form-select" required>
+                            <option value="7_days">Lebih lama dari 7 hari</option>
+                            <option value="30_days" selected>Lebih lama dari 30 hari</option>
+                            <option value="90_days">Lebih lama dari 90 hari</option>
+                            <option value="all_read">Semua yang sudah dibaca</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="travs-button-link travs-button-link-danger btn btn-link">Hapus Riwayat</button>
+                </form>
             </div>
-
-            <form
-                method="POST"
-                action="{{ route($clearRoute ?? 'admin.notifikasi.history.clear') }}"
-                class="travs-notification-cleanup-form"
-                onsubmit="return confirm('Hapus riwayat notifikasi yang sudah dibaca sesuai pilihan ini?');"
-            >
-                @csrf
-                @method('DELETE')
-                <div class="travs-field">
-                    <label for="cleanup-period" class="form-label">Periode</label>
-                    <select id="cleanup-period" name="period" class="travs-select form-select" required>
-                        <option value="7_days">Lebih lama dari 7 hari</option>
-                        <option value="30_days" selected>Lebih lama dari 30 hari</option>
-                        <option value="90_days">Lebih lama dari 90 hari</option>
-                        <option value="all_read">Semua yang sudah dibaca</option>
-                    </select>
-                </div>
-                <button type="submit" class="travs-button-secondary btn btn-secondary">Hapus Riwayat</button>
-            </form>
-        </section>
+        </details>
 
         <section id="notification-list-body" class="travs-admin-simple-block">
             <div class="travs-panel-title">

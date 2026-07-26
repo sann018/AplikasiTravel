@@ -16,7 +16,8 @@ class BookingCalculator
      */
     public function calculate(Jadwal $jadwal, int $seatCount): array
     {
-        $subtotalTiket = (float) $jadwal->rute->harga_tiket * $seatCount;
+        $ticketPrice = (int) $jadwal->rute->harga_tiket;
+        $subtotalTiket = $ticketPrice * $seatCount;
 
         return [
             'subtotal_tiket' => $subtotalTiket,

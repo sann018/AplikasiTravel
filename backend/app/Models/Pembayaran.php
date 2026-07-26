@@ -25,6 +25,10 @@ class Pembayaran extends Model
         'gateway_reference',
         'metode_bayar',
         'paid_channel',
+        'nominal_transaksi',
+        'biaya_admin_provider',
+        'total_dibayar_penumpang',
+        'payment_number',
         'jumlah_bayar',
         'status_bayar',
         'gateway_response',
@@ -38,6 +42,9 @@ class Pembayaran extends Model
     {
         return [
             'jumlah_bayar' => 'decimal:2',
+            'nominal_transaksi' => 'integer',
+            'biaya_admin_provider' => 'integer',
+            'total_dibayar_penumpang' => 'integer',
             'raw_webhook_payload' => 'array',
             'expired_at' => 'datetime',
             'webhook_verified_at' => 'datetime',

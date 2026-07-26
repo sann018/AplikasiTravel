@@ -102,7 +102,6 @@ class TravSCreateBookingPayload {
     required this.dropoffLongitude,
     required this.dropoffAddress,
     this.dropoffNote,
-    required this.paymentMethod,
     required this.passengers,
     required this.baggageItems,
   });
@@ -117,7 +116,6 @@ class TravSCreateBookingPayload {
   final double dropoffLongitude;
   final String dropoffAddress;
   final String? dropoffNote;
-  final String paymentMethod;
   final List<TravSPassengerPayload> passengers;
   final List<TravSBaggagePayload> baggageItems;
 
@@ -137,7 +135,6 @@ class TravSCreateBookingPayload {
         'address': dropoffAddress,
         'note': dropoffNote,
       },
-      'payment_method': paymentMethod,
       'passengers': passengers.map((item) => item.toJson()).toList(),
       'baggage_items': baggageItems.map((item) => item.toJson()).toList(),
     };
@@ -148,6 +145,10 @@ class TravSBookingPaymentInfo {
   const TravSBookingPaymentInfo({
     required this.status,
     required this.method,
+    required this.methodLabel,
+    required this.methodFamily,
+    required this.canChoose,
+    required this.selectionExpiresAt,
     required this.expiredAt,
     this.paidAt = '',
     required this.canSimulate,
@@ -155,7 +156,7 @@ class TravSBookingPaymentInfo {
     required this.provider,
     required this.project,
     required this.amount,
-    required this.fee,
+    required this.providerFee,
     required this.totalPayment,
     required this.paymentNumber,
     required this.checkoutUrl,
@@ -164,18 +165,22 @@ class TravSBookingPaymentInfo {
 
   final String status;
   final String method;
+  final String methodLabel;
+  final String methodFamily;
+  final bool canChoose;
+  final String selectionExpiresAt;
   final String expiredAt;
   final String paidAt;
   final bool canSimulate;
   final bool usesGateway;
   final String provider;
   final String project;
-  final double amount;
-  final double fee;
-  final double totalPayment;
+  final int amount;
+  final int? providerFee;
+  final int? totalPayment;
   final String paymentNumber;
 
-  /// Tautan halaman Pakasir yang dibuka penumpang untuk menyelesaikan pembayaran.
+  /// Tautan hosted checkout dipakai untuk membuka halaman pembayaran Pakasir.
   final String checkoutUrl;
 
   final String gatewayStatus;
@@ -185,19 +190,49 @@ class TravSBookingPaymentInfo {
   /// Menandai apakah tautan pembayaran dari Pakasir tersedia dan bisa dibuka.
   bool get hasCheckoutUrl => checkoutUrl.trim().isNotEmpty;
 
+  bool get hasSelectedMethod => method.trim().isNotEmpty;
+
+  bool get isAwaitingMethodSelection => canChoose && !hasSelectedMethod;
+
+  bool get hasCompleteDigitalSnapshot =>
+      amount > 0 &&
+      providerFee != null &&
+      totalPayment != null &&
+      hasCheckoutUrl;
+
   factory TravSBookingPaymentInfo.fromJson(Map<String, dynamic> json) {
+    // Nama Indonesia adalah kontrak baru; nama lama tetap dibaca agar transaksi
+    // yang sudah tersimpan masih dapat dibuka.
     return TravSBookingPaymentInfo(
-      status: json['status'] as String? ?? '-',
-      method: json['method'] as String? ?? '-',
+      status:
+          json['status_pembayaran'] as String? ??
+          json['status'] as String? ??
+          '',
+      method:
+          json['metode_pembayaran'] as String? ??
+          json['method'] as String? ??
+          '',
+      methodLabel:
+          json['method_label'] as String? ??
+          json['metode_pembayaran'] as String? ??
+          json['method'] as String? ??
+          '',
+      methodFamily: json['method_family'] as String? ?? '',
+      canChoose: json['can_choose'] as bool? ?? false,
+      selectionExpiresAt: json['selection_expires_at'] as String? ?? '',
       expiredAt: json['expired_at'] as String? ?? '',
       paidAt: json['paid_at'] as String? ?? '',
       canSimulate: json['can_simulate'] as bool? ?? false,
       usesGateway: json['uses_gateway'] as bool? ?? false,
       provider: json['provider'] as String? ?? '',
       project: json['project'] as String? ?? '',
-      amount: _readDouble(json['amount']),
-      fee: _readDouble(json['fee']),
-      totalPayment: _readDouble(json['total_payment']),
+      amount: _readInt(json['nominal_transaksi'] ?? json['amount']),
+      providerFee: _readNullableInt(
+        json['biaya_admin_provider'] ?? json['provider_fee'],
+      ),
+      totalPayment: _readNullableInt(
+        json['total_dibayar_penumpang'] ?? json['total_payment'],
+      ),
       paymentNumber: json['payment_number'] as String? ?? '',
       checkoutUrl: json['checkout_url'] as String? ?? '',
       gatewayStatus: json['gateway_status'] as String? ?? '',
@@ -433,7 +468,6 @@ class TravSBookingResult {
     required this.jumlahKursi,
     required this.batasPembayaran,
     required this.subtotalTiket,
-    required this.biayaAdmin,
     required this.totalHarga,
     required this.rute,
     required this.waktuBerangkat,
@@ -452,9 +486,8 @@ class TravSBookingResult {
   final String status;
   final int jumlahKursi;
   final String batasPembayaran;
-  final double subtotalTiket;
-  final double biayaAdmin;
-  final double totalHarga;
+  final int subtotalTiket;
+  final int totalHarga;
   final String rute;
   final String waktuBerangkat;
   final TravSBookingPaymentInfo payment;
@@ -478,14 +511,17 @@ class TravSBookingResult {
     final requesterJson = _asMapOrNull(json['pemesan']);
 
     return TravSBookingResult(
-      id: _readInt(json['id']),
-      kodeBooking: json['kode_booking'] as String? ?? '-',
-      status: json['status'] as String? ?? '-',
+      id: _readInt(json['booking_id'] ?? json['id']),
+      kodeBooking:
+          json['order_id'] as String? ?? json['kode_booking'] as String? ?? '-',
+      status:
+          json['status_pemesanan'] as String? ??
+          json['status'] as String? ??
+          '-',
       jumlahKursi: _readInt(json['jumlah_kursi']),
       batasPembayaran: json['batas_pembayaran'] as String? ?? '',
-      subtotalTiket: _readDouble(json['subtotal_tiket']),
-      biayaAdmin: _readDouble(json['biaya_admin']),
-      totalHarga: _readDouble(json['total_harga']),
+      subtotalTiket: _readInt(json['subtotal_tiket']),
+      totalHarga: _readInt(json['total_harga']),
       rute: json['rute'] as String? ?? '-',
       waktuBerangkat: json['waktu_berangkat'] as String? ?? '',
       payment: TravSBookingPaymentInfo.fromJson(_asMap(json['payment'])),
@@ -563,6 +599,22 @@ int _readInt(dynamic value, {int fallback = 0}) {
   }
 
   return int.tryParse(value.toString()) ?? fallback;
+}
+
+int? _readNullableInt(dynamic value) {
+  if (value == null) {
+    return null;
+  }
+
+  if (value is int) {
+    return value;
+  }
+
+  if (value is num) {
+    return value.toInt();
+  }
+
+  return int.tryParse(value.toString());
 }
 
 double _readDouble(dynamic value, {double fallback = 0}) {

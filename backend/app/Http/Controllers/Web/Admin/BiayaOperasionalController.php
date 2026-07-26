@@ -36,8 +36,10 @@ class BiayaOperasionalController extends Controller
                 ];
             })
             ->values();
+        $highestCostRoute = $rekap->sortByDesc('total')->first();
 
         $biaya = $query->latest('tanggal_biaya')->paginate(12)->withQueryString();
+
         return view('admin.biaya.index', [
             'biaya' => $biaya,
             'routeOptions' => Rute::query()
@@ -61,6 +63,13 @@ class BiayaOperasionalController extends Controller
             ],
             'filters' => $request->only(['search', 'rute_id', 'tanggal_mulai', 'tanggal_selesai']),
             'rekap' => $rekap,
+            'periodSummary' => [
+                'total_biaya' => (int) $rekapRecords->sum('nominal'),
+                'jumlah_transaksi' => $rekapRecords->count(),
+                'rute_tertinggi' => $highestCostRoute['route'] ?? '—',
+                'rute_tertinggi_total' => (int) ($highestCostRoute['total'] ?? 0),
+                'periode_label' => $this->periodLabel($request),
+            ],
         ]);
     }
 
@@ -496,8 +505,7 @@ class BiayaOperasionalController extends Controller
     private function validatedPayload(
         Request $request,
         ?BiayaOperasionalPerjalanan $biayaOperasional = null,
-    ): array
-    {
+    ): array {
         // Bukti wajib untuk pencatatan baru. Saat edit, bukti lama boleh tetap
         // dipakai agar admin tidak perlu mengunggah ulang file yang sama.
         $proofPresenceRule = $biayaOperasional?->bukti_url ? 'nullable' : 'required';

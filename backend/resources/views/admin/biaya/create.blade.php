@@ -5,6 +5,11 @@
 @section('page-description', 'Catat biaya operasional perjalanan untuk keperluan rekap dan laporan.')
 
 @section('content')
+    @include('admin.partials.page-back', [
+        'url' => route('admin.biaya.index'),
+        'label' => 'Kembali ke Daftar Biaya Operasional',
+    ])
+
     <section class="travs-section-card card">
         <form method="POST" enctype="multipart/form-data" action="{{ route('admin.biaya.store') }}" class="travs-form-grid d-grid">
             @csrf
@@ -97,7 +102,7 @@
                     <i data-feather="save"></i>
                     Simpan Biaya
                 </button>
-                <a href="{{ route('admin.biaya.index') }}" class="travs-button-secondary btn btn-secondary">
+                <a href="{{ route('admin.biaya.index') }}" class="travs-button-secondary btn btn-outline-secondary">
                     <i data-feather="x"></i>
                     Batal
                 </a>

@@ -5,6 +5,36 @@
 @section('page-description', 'Pantau pembayaran berdasarkan status, metode bayar, dan periode untuk kebutuhan rekap transaksi.')
 
 @section('content')
+    <section aria-labelledby="transaction-summary-title">
+        <div class="travs-panel-title mb-3">
+            <h3 id="transaction-summary-title">Ringkasan Pendapatan</h3>
+            <p>Pendapatan hanya memakai nominal transaksi RuslyTravel dan tidak memasukkan biaya admin provider.</p>
+        </div>
+
+        <div class="travs-summary-grid">
+            <article class="travs-summary-card card">
+                <small>Pendapatan Tahun Ini</small>
+                <strong>Rp{{ number_format($periodSummary['pendapatan_tahun_ini'], 0, ',', '.') }}</strong>
+                <span>Periode Januari–Desember {{ $periodSummary['tahun_label'] }}.</span>
+            </article>
+            <article class="travs-summary-card card">
+                <small>Pendapatan Bulan Ini</small>
+                <strong>Rp{{ number_format($periodSummary['pendapatan_bulan_ini'], 0, ',', '.') }}</strong>
+                <span>Periode {{ $periodSummary['bulan_label'] }}.</span>
+            </article>
+            <article class="travs-summary-card card">
+                <small>Transaksi Berhasil</small>
+                <strong>{{ number_format($summary['berhasil'], 0, ',', '.') }}</strong>
+                <span>{{ $activePeriodLabel }} sesuai filter aktif.</span>
+            </article>
+            <article class="travs-summary-card card">
+                <small>Pendapatan Filter Aktif</small>
+                <strong>Rp{{ number_format($summary['nilai_berhasil'], 0, ',', '.') }}</strong>
+                <span>Dari {{ number_format($summary['total_transaksi'], 0, ',', '.') }} transaksi yang ditemukan.</span>
+            </article>
+        </div>
+    </section>
+
     <article class="travs-section-card card">
         <div class="travs-panel-header d-flex align-items-start justify-content-between">
             <div class="travs-panel-title">
@@ -35,7 +65,7 @@
                 <label for="metode_bayar" class="form-label">Metode Bayar</label>
                 <select id="metode_bayar" name="metode_bayar" class="travs-select form-select">
                     <option value="">Semua metode</option>
-                    @foreach (['transfer' => 'Transfer', 'qris' => 'QRIS', 'cash' => 'Cash'] as $value => $label)
+                    @foreach (\App\Support\PaymentMethodCatalog::adminOptions() as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['metode_bayar'] ?? '') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
@@ -49,8 +79,8 @@
                 <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
             </div>
             <div class="travs-filter-actions d-flex align-items-end flex-wrap">
-                <button type="submit" class="travs-button-secondary btn btn-secondary">Terapkan Filter</button>
-                <a href="{{ route('admin.laporan.transaksi') }}" class="travs-button-secondary btn btn-secondary">Reset</a>
+                <button type="submit" class="travs-button btn btn-primary">Terapkan Filter</button>
+                <a href="{{ route('admin.laporan.transaksi') }}" class="travs-button-secondary btn btn-outline-secondary">Reset</a>
             </div>
         </form>
 
@@ -62,7 +92,9 @@
                         <th>Kode Pemesanan</th>
                         <th>Metode</th>
                         <th>Status</th>
-                        <th>Nominal</th>
+                        <th>Pendapatan RuslyTravel</th>
+                        <th>Biaya Admin Pakasir</th>
+                        <th>Dibayar Penumpang</th>
                         <th>Waktu</th>
                     </tr>
                 </thead>
@@ -76,7 +108,7 @@
                             </td>
                             <td>
                                 <span class="travs-status-pill travs-status-{{ strtolower($transaction->metode_bayar) }} badge rounded-pill">
-                                    {{ strtoupper($transaction->metode_bayar) }}
+                                    {{ \App\Support\PaymentMethodCatalog::label($transaction->metode_bayar) }}
                                 </span>
                             </td>
                             <td>
@@ -84,12 +116,14 @@
                                     {{ ucwords(str_replace('_', ' ', $transaction->status_bayar)) }}
                                 </span>
                             </td>
-                            <td>Rp{{ number_format($transaction->jumlah_bayar, 0, ',', '.') }}</td>
+                            <td>Rp{{ number_format($transaction->nominal_transaksi ?? $transaction->pemesanan?->total_harga, 0, ',', '.') }}</td>
+                            <td>{{ $transaction->biaya_admin_provider === null ? '-' : 'Rp'.number_format($transaction->biaya_admin_provider, 0, ',', '.') }}</td>
+                            <td>{{ $transaction->total_dibayar_penumpang === null ? '-' : 'Rp'.number_format($transaction->total_dibayar_penumpang, 0, ',', '.') }}</td>
                             <td>{{ $transaction->created_at->translatedFormat('d M Y H:i') }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="travs-table-empty">Belum ada data transaksi pada filter ini.</td>
+                            <td colspan="8" class="travs-table-empty">Belum ada data transaksi pada filter ini.</td>
                         </tr>
                     @endforelse
                 </tbody>

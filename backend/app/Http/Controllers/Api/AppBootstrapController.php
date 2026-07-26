@@ -7,6 +7,7 @@ use App\Models\Jadwal;
 use App\Services\BookingService;
 use App\Services\ScheduleLifecycleService;
 use App\Services\SettingService;
+use App\Support\PaymentMethodCatalog;
 use Illuminate\Http\JsonResponse;
 
 class AppBootstrapController extends Controller
@@ -28,6 +29,9 @@ class AppBootstrapController extends Controller
             ->orderBy('waktu_berangkat')
             ->limit(4)
             ->get();
+        $qrisEnabled = (bool) $this->settingService->get('payment_qris_enabled', true);
+        $virtualAccountEnabled = (bool) $this->settingService->get('payment_transfer_enabled', true);
+        $cashEnabled = (bool) $this->settingService->get('payment_cash_enabled', false);
 
         return response()->json([
             'success' => true,
@@ -46,9 +50,14 @@ class AppBootstrapController extends Controller
                     'muted' => '#EEF2F7',
                 ],
                 'payment_methods' => [
-                    'transfer' => $this->settingService->get('payment_transfer_enabled', true),
-                    'qris' => $this->settingService->get('payment_qris_enabled', true),
-                    'cash' => $this->settingService->get('payment_cash_enabled', false),
+                    'transfer' => $virtualAccountEnabled,
+                    'qris' => $qrisEnabled,
+                    'cash' => $cashEnabled,
+                    'options' => PaymentMethodCatalog::selectableOptions(
+                        $qrisEnabled,
+                        $virtualAccountEnabled,
+                        $cashEnabled,
+                    ),
                 ],
                 'important_information' => $this->settingService->importantInformation(),
                 'featured_schedules' => $jadwal->map(fn (Jadwal $item) => $this->formatSchedule($item))->all(),

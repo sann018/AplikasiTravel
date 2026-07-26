@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\BookingService;
+use App\Support\PaymentMethodCatalog;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PaymentGatewayController extends Controller
 {
@@ -14,14 +16,23 @@ class PaymentGatewayController extends Controller
     ) {
     }
 
+    /** Menerima webhook Pakasir lalu meneruskannya untuk verifikasi pembayaran. */
     public function pakasirWebhook(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:1'],
+            'amount' => ['required', 'integer', 'min:1'],
             'order_id' => ['required', 'string', 'max:100'],
             'project' => ['required', 'string', 'max:100'],
-            'status' => ['required', 'string', 'max:50'],
-            'payment_method' => ['required', 'string', 'max:50'],
+            'status' => [
+                'required',
+                'string',
+                Rule::in(['completed', 'pending', 'expired', 'failed', 'cancelled', 'canceled']),
+            ],
+            'payment_method' => [
+                'required',
+                'string',
+                Rule::in(PaymentMethodCatalog::directGatewayCodes()),
+            ],
             'completed_at' => ['nullable', 'date'],
         ]);
 

@@ -5,13 +5,17 @@
 @section('page-description', 'Lengkapi data kendaraan baru agar jadwal dan kapasitas kursi bisa disusun otomatis.')
 
 @section('content')
+    @include('admin.partials.page-back', [
+        'url' => route('admin.kendaraan.index'),
+        'label' => 'Kembali ke Daftar Armada',
+    ])
+
     <div class="travs-page-frame card">
         <div class="travs-panel-header d-flex align-items-start justify-content-between">
             <div class="travs-panel-title">
                 <h3>Form Tambah Armada</h3>
                 <p>Isi data kendaraan dengan lengkap untuk memudahkan pengelolaan jadwal dan kapasitas kursi.</p>
             </div>
-            <a href="{{ route('admin.kendaraan.index') }}" class="travs-button-secondary btn btn-secondary">Kembali</a>
         </div>
 
         @if ($errors->any())

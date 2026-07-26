@@ -79,7 +79,7 @@ void _showScheduleImagePreview(
               child: IconButton(
                 tooltip: 'Tutup preview',
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                icon: const Icon(Icons.arrow_back_rounded),
+                icon: const Icon(Icons.close_rounded),
               ),
             ),
           ),
@@ -275,7 +275,13 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Detail Jadwal & Pilih Kursi')),
+      appBar: AppBar(
+        leading: IconButton(
+          onPressed: () => Navigator.of(context).maybePop(),
+          icon: const Icon(Icons.arrow_back_rounded),
+        ),
+        title: const Text('Detail Jadwal & Pilih Kursi'),
+      ),
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -442,7 +448,7 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
   }
 
   TravSCheckoutDraft _estimate(TravSScheduleDetail detail) {
-    final ticketSubtotal = detail.schedule.hargaTiket * _seatCount;
+    final ticketSubtotal = detail.schedule.hargaTiket.round() * _seatCount;
     final passengerCount = _registeredPassengerCount;
 
     return TravSCheckoutDraft(
@@ -532,16 +538,16 @@ class _HeroCard extends StatelessWidget {
             runSpacing: 12,
             children: [
               _HeroInfoPill(
-                icon: Icons.schedule_outlined,
+                icon: Icons.schedule_rounded,
                 text: _formatDate(detail.schedule.waktuBerangkat),
               ),
               _HeroInfoPill(
-                icon: Icons.route_outlined,
+                icon: Icons.timer_rounded,
                 text:
                     '${_formatDurationMinutes(detail.schedule.durasiMenit)} perjalanan',
               ),
               _HeroInfoPill(
-                icon: Icons.event_seat_outlined,
+                icon: Icons.event_seat_rounded,
                 text:
                     '${detail.schedule.sisaKursi}/${detail.schedule.kapasitas} kursi tersedia',
               ),
@@ -560,66 +566,62 @@ class _InfoGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final cards = [
-          _MetricCardData(
-            title: 'Harga Tiket',
-            value: 'Rp${_formatCurrency(detail.schedule.hargaTiket)}',
-            subtitle: 'Barang bawaan biasa dicatat tanpa biaya tambahan',
-            icon: Icons.payments_outlined,
-          ),
-          _MetricCardData(
-            title: 'Kendaraan',
-            value: detail.schedule.kendaraan,
-            subtitle: detail.vehicleType,
-            icon: Icons.directions_car_filled_outlined,
-            imageUrl:
-                detail.vehiclePhotoUrl ?? detail.schedule.kendaraanFotoUrl,
-          ),
-          _MetricCardData(
-            title: 'Pengemudi',
-            value: detail.schedule.pengemudi,
-            subtitle: detail.driverLicenseNumber,
-            icon: Icons.badge_outlined,
-            imageUrl: detail.driverPhotoUrl,
-          ),
-          _MetricCardData(
-            title: 'Metode Bayar',
-            value: detail.paymentMethods.activeLabels.join(', '),
-            subtitle:
-                'Kunci form ${detail.bookingRules.seatLockFormMinutes} menit, bayar ${detail.bookingRules.seatLockPaymentMinutes} menit',
-            icon: Icons.account_balance_wallet_outlined,
-          ),
-        ];
+    final cards = [
+      _MetricCardData(
+        title: 'Harga Tiket',
+        value: 'Rp${_formatCurrency(detail.schedule.hargaTiket)}',
+        subtitle: 'Barang bawaan biasa dicatat tanpa biaya tambahan',
+        icon: Icons.payments_rounded,
+      ),
+      _MetricCardData(
+        title: 'Kendaraan',
+        value: detail.schedule.kendaraan,
+        subtitle: detail.vehicleType,
+        icon: Icons.directions_car_filled_rounded,
+        imageUrl: detail.vehiclePhotoUrl ?? detail.schedule.kendaraanFotoUrl,
+      ),
+      _MetricCardData(
+        title: 'Pengemudi',
+        value: detail.schedule.pengemudi,
+        subtitle: detail.driverLicenseNumber,
+        icon: Icons.badge_rounded,
+        imageUrl: detail.driverPhotoUrl,
+      ),
+      _MetricCardData(
+        title: 'Metode Pembayaran',
+        value: detail.paymentMethods.conciseSummary,
+        subtitle:
+            'Kunci form ${detail.bookingRules.seatLockFormMinutes} menit, bayar ${detail.bookingRules.seatLockPaymentMinutes} menit',
+        icon: Icons.payments_rounded,
+      ),
+    ];
 
-        if (constraints.maxWidth < 760) {
-          return Column(
-            children: List.generate(
-              cards.length,
-              (index) => Padding(
-                padding: EdgeInsets.only(
-                  bottom: index == cards.length - 1 ? 0 : 12,
-                ),
-                child: _MetricCard(data: cards[index]),
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Informasi Perjalanan',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: TravSTheme.navy,
+                fontWeight: FontWeight.w800,
               ),
             ),
-          );
-        }
-
-        return Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: cards
-              .map(
-                (card) => SizedBox(
-                  width: (constraints.maxWidth - 12) / 2,
-                  child: _MetricCard(data: card),
-                ),
-              )
-              .toList(),
-        );
-      },
+            const SizedBox(height: 6),
+            ...List.generate(
+              cards.length,
+              (index) => Column(
+                children: [
+                  if (index > 0) const Divider(height: 28),
+                  _MetricCard(data: cards[index]),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -779,6 +781,8 @@ class _CheckoutPreviewCard extends StatelessWidget {
               const SizedBox(height: 18),
             ],
             Container(
+              key: const Key('seat-choice-summary'),
+              width: double.infinity,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: TravSTheme.surfaceSoft,
@@ -839,6 +843,8 @@ class _CheckoutPreviewCard extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             Container(
+              key: const Key('ticket-price-summary'),
+              width: double.infinity,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: TravSTheme.surfaceSoft,
@@ -871,7 +877,7 @@ class _CheckoutPreviewCard extends StatelessWidget {
                       ? Icons.login_rounded
                       : isPreparingCheckout
                       ? Icons.sync_rounded
-                      : Icons.shopping_bag_outlined,
+                      : Icons.receipt_long_rounded,
                 ),
                 label: Text(
                   isSoldOut
@@ -939,7 +945,7 @@ class _DriverBriefCard extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: onPrimaryAction,
-                icon: const Icon(Icons.qr_code_scanner_outlined),
+                icon: const Icon(Icons.assignment_rounded),
                 label: const Text('Buka Manifes'),
               ),
             ),
@@ -960,88 +966,83 @@ class _MetricCard extends StatelessWidget {
     final theme = Theme.of(context);
     final resolvedImageUrl = TravSApiService.resolveMediaUrl(data.imageUrl);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Row(
-          children: [
-            InkWell(
-              onTap: resolvedImageUrl == null
-                  ? null
-                  : () => _showScheduleImagePreview(
-                      context,
-                      imageUrl: resolvedImageUrl,
-                      title: data.value,
-                    ),
-              borderRadius: BorderRadius.circular(18),
-              child: Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: TravSTheme.orangeSoft,
-                  borderRadius: BorderRadius.circular(18),
+    return Row(
+      children: [
+        InkWell(
+          onTap: resolvedImageUrl == null
+              ? null
+              : () => _showScheduleImagePreview(
+                  context,
+                  imageUrl: resolvedImageUrl,
+                  title: data.value,
                 ),
-                child: resolvedImageUrl == null
-                    ? Icon(data.icon, color: TravSTheme.orange)
-                    : ClipRRect(
-                        borderRadius: BorderRadius.circular(18),
-                        child: Image.network(
-                          resolvedImageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Icon(data.icon, color: TravSTheme.orange),
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) {
-                              return child;
-                            }
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: TravSTheme.orangeSoft,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: resolvedImageUrl == null
+                ? Icon(data.icon, color: TravSTheme.orange)
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(18),
+                    child: Image.network(
+                      resolvedImageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          Icon(data.icon, color: TravSTheme.orange),
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) {
+                          return child;
+                        }
 
-                            return Center(
-                              child: SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: TravSTheme.orange,
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    data.title,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: TravSTheme.navyMuted,
+                        return Center(
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: TravSTheme.orange,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    data.value,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: TravSTheme.navy,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    data.subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: TravSTheme.navyMuted,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                data.title,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: TravSTheme.navyMuted,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                data.value,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: TravSTheme.navy,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                data.subtitle,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: TravSTheme.navyMuted,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1797,6 +1798,6 @@ String _formatDurationMinutes(int minutes) {
   return '$remainingMinutes menit';
 }
 
-String _formatCurrency(double value) {
+String _formatCurrency(num value) {
   return NumberFormat.decimalPattern('id_ID').format(value);
 }

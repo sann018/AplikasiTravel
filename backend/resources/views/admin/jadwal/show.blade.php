@@ -19,24 +19,45 @@
             'ditutup' => 'menunggu',
             default => $jadwal->status,
         };
+        // Nilai tetap berasal dari controller; teks ini hanya memberi konteks surplus atau defisit.
+        $balanceContext = match (true) {
+            $summary['recorded_balance'] < 0 => 'Defisit',
+            $summary['recorded_balance'] > 0 => 'Surplus',
+            default => 'Seimbang',
+        };
     @endphp
 
-    <div class="travs-admin-detail-simple">
-    <section class="travs-detail-grid">
+    @include('admin.partials.page-back', [
+        'url' => route('admin.jadwal.index'),
+        'label' => 'Kembali ke Daftar Jadwal',
+    ])
+
+    <div class="travs-admin-detail-simple travs-detail-page">
+    <header class="travs-detail-page__header">
+        <div>
+            <span class="travs-detail-page__eyebrow">Jadwal #{{ $jadwal->id }}</span>
+            <h2>{{ $routeLabel }}</h2>
+            <p>{{ $jadwal->waktu_berangkat?->translatedFormat('d F Y, H:i') }} {{ $departureTimezoneLabel }}</p>
+            <div class="travs-detail-statuses" aria-label="Status jadwal">
+                <span class="travs-status-pill travs-status-{{ $scheduleStatusTone }} badge rounded-pill">{{ $scheduleStatusLabel }}</span>
+            </div>
+        </div>
+        <div class="travs-detail-page__actions">
+            <a href="{{ route('admin.jadwal.edit', $jadwal) }}" class="travs-button btn btn-primary">Edit Jadwal</a>
+        </div>
+    </header>
+
+    <section class="travs-detail-card-grid">
         <article class="travs-section-card card">
             <div class="travs-panel-title">
                 <h3>Ringkasan Jadwal</h3>
                 <p>Informasi utama perjalanan untuk rute {{ $routeLabel }}.</p>
             </div>
 
-            <dl class="travs-description-list travs-description-list-neutral">
+            <dl class="travs-detail-data-list">
                 <div>
                     <dt>Rute</dt>
                     <dd>{{ $routeLabel }}</dd>
-                </div>
-                <div>
-                    <dt>Status</dt>
-                    <dd><span class="travs-status-pill travs-status-{{ $scheduleStatusTone }} badge rounded-pill">{{ $scheduleStatusLabel }}</span></dd>
                 </div>
                 <div>
                     <dt>Waktu Berangkat</dt>
@@ -68,68 +89,76 @@
                 <h3>Status dan Keuangan</h3>
                 <p>Ringkasan pemesanan, pendapatan, biaya, dan proses perjalanan pada jadwal ini.</p>
             </div>
-            <div class="travs-table-wrap table-responsive">
-                <table class="travs-table table mb-0">
-                    <tbody>
-                        <tr>
-                            <th>Status Jadwal</th>
-                            <td><span class="travs-status-pill travs-status-{{ $scheduleStatusTone }} badge rounded-pill">{{ $scheduleStatusLabel }}</span></td>
-                        </tr>
-                        <tr>
-                            <th>Pemesanan</th>
-                            <td>
-                                <strong>{{ number_format($summary['bookings']['total']) }}</strong>
-                                <div class="travs-table-subcopy">
-                                    {{ $summary['bookings']['menunggu_pembayaran'] }} menunggu pembayaran /
-                                    {{ $summary['bookings']['terbayar'] }} terbayar /
-                                    {{ $summary['bookings']['selesai'] }} selesai /
-                                    {{ $summary['bookings']['dibatalkan'] }} dibatalkan
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <th>Pendapatan Diterima</th>
-                            <td><strong>{{ $formatRupiah($summary['confirmed_revenue']) }}</strong></td>
-                        </tr>
-                        <tr>
-                            <th>Menunggu Pembayaran</th>
-                            <td>{{ $formatRupiah($summary['pending_value']) }}</td>
-                        </tr>
-                        <tr>
-                            <th>Biaya Operasional</th>
-                            <td>{{ $formatRupiah($summary['operational_cost']) }}</td>
-                        </tr>
-                        <tr>
-                            <th>Selisih Tercatat</th>
-                            <td><strong>{{ $formatRupiah($summary['recorded_balance']) }}</strong></td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <div class="travs-operational-summary travs-operational-summary-neutral">
+            <dl class="travs-detail-data-list travs-detail-data-list-money">
                 <div>
-                    <small>Kursi</small>
-                    <strong>{{ $summary['seats']['tersedia'] }} tersedia</strong>
-                    <span>{{ $summary['seats']['dipesan'] }} dipesan / {{ $summary['seats']['nonaktif'] }} nonaktif</span>
+                    <dt>Pemesanan Berhasil</dt>
+                    <dd>
+                        <strong>{{ number_format($summary['bookings']['total']) }}</strong>
+                        <span>{{ $summary['bookings']['terbayar'] }} terbayar &middot; {{ $summary['bookings']['selesai'] }} selesai</span>
+                    </dd>
                 </div>
                 <div>
-                    <small>Kehadiran</small>
-                    <strong>{{ $summary['passengers']['hadir'] }}/{{ $summary['passengers']['total'] }}</strong>
-                    <span>{{ $summary['passengers']['menunggu'] }} belum hadir / {{ $summary['passengers']['tidak_hadir'] }} tidak hadir</span>
+                    <dt>Pendapatan Diterima</dt>
+                    <dd><strong>{{ $formatRupiah($summary['confirmed_revenue']) }}</strong></dd>
                 </div>
-                <div @class(['is-complete' => $summary['passengers']['total'] > 0 && $summary['passengers']['turun'] >= $summary['passengers']['total']])>
-                    <small>Status Turun</small>
-                    <strong>{{ $summary['passengers']['turun'] }}/{{ $summary['passengers']['total'] }}</strong>
-                    <span>{{ $summary['passengers']['turun'] >= $summary['passengers']['total'] && $summary['passengers']['total'] > 0 ? 'Semua turun' : 'Belum lengkap' }}</span>
+                <div>
+                    <dt>Biaya Operasional</dt>
+                    <dd><strong>{{ $formatRupiah($summary['operational_cost']) }}</strong></dd>
                 </div>
-            </div>
-
-            <div class="travs-form-actions travs-inline d-flex justify-content-end align-items-center flex-wrap">
-                <a href="{{ route('admin.jadwal.index') }}" class="travs-button-secondary btn btn-secondary">Kembali ke Daftar</a>
-                <a href="{{ route('admin.jadwal.edit', $jadwal) }}" class="travs-button btn btn-primary">Edit Jadwal</a>
-            </div>
+                <div>
+                    <dt>Surplus/Defisit</dt>
+                    <dd>
+                        <strong>{{ $balanceContext }} &middot; {{ $formatRupiah($summary['recorded_balance']) }}</strong>
+                        <span>Pendapatan dikurangi biaya operasional yang tercatat.</span>
+                    </dd>
+                </div>
+            </dl>
         </article>
+    </section>
+
+    <section class="travs-section-card card">
+        <div class="travs-panel-title">
+            <h3>Ringkasan Operasional</h3>
+            <p>Kondisi kursi dan penumpang pada jadwal ini.</p>
+        </div>
+
+        <div class="travs-detail-metric-grid">
+            <div>
+                <small>Kapasitas</small>
+                <strong>{{ $summary['seats']['total'] }}</strong>
+                <span>Total kursi jadwal</span>
+            </div>
+            <div>
+                <small>Dipesan</small>
+                <strong>{{ $summary['seats']['dipesan'] }}</strong>
+                <span>Kursi terisi</span>
+            </div>
+            <div>
+                <small>Tersedia</small>
+                <strong>{{ $summary['seats']['tersedia'] }}</strong>
+                <span>Kursi dapat dipesan</span>
+            </div>
+            <div>
+                <small>Nonaktif</small>
+                <strong>{{ $summary['seats']['nonaktif'] }}</strong>
+                <span>Kursi tidak digunakan</span>
+            </div>
+            <div>
+                <small>Hadir</small>
+                <strong>{{ $summary['passengers']['hadir'] }}/{{ $summary['passengers']['total'] }}</strong>
+                <span>{{ $summary['passengers']['menunggu'] }} belum hadir</span>
+            </div>
+            <div>
+                <small>Tidak Hadir</small>
+                <strong>{{ $summary['passengers']['tidak_hadir'] }}</strong>
+                <span>Penumpang tercatat</span>
+            </div>
+            <div>
+                <small>Sudah Turun</small>
+                <strong>{{ $summary['passengers']['turun'] }}/{{ $summary['passengers']['total'] }}</strong>
+                <span>Status perjalanan penumpang</span>
+            </div>
+        </div>
     </section>
 
     <section class="travs-detail-stack">
@@ -137,9 +166,9 @@
             <div class="travs-panel-header d-flex align-items-start justify-content-between flex-wrap gap-3">
                 <div class="travs-panel-title">
                     <h3>Pemesanan dan Penumpang</h3>
-                    <p>Tarif per penumpang berasal dari subtotal historis pemesanan, bukan harga rute saat ini.</p>
+                    <p>Hanya pemesanan dengan pembayaran berhasil. Tarif memakai subtotal historis pemesanan.</p>
                 </div>
-                <a href="{{ route('admin.pemesanan.index') }}" class="travs-button-secondary btn btn-secondary">Daftar Pemesanan</a>
+                <a href="{{ route('admin.pemesanan.index') }}" class="travs-button-secondary btn btn-outline-secondary">Lihat Semua Pemesanan &rarr;</a>
             </div>
 
             <div class="travs-table-wrap table-responsive">
@@ -148,15 +177,15 @@
                         <tr>
                             <th>Pemesanan</th>
                             <th>Penumpang &amp; Kursi</th>
-                            <th>Tarif</th>
-                            <th>Pemesanan</th>
-                            <th>Pembayaran</th>
+                            <th class="text-end">Tarif</th>
+                            <th class="text-center">Status Pemesanan</th>
+                            <th class="text-center">Pembayaran</th>
                             <th>Kehadiran</th>
-                            <th>Aksi</th>
+                            <th class="text-end">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse ($jadwal->pemesanan as $booking)
+                        @forelse ($successfulBookings as $booking)
                             @php
                                 $passengerCount = max(1, (int) $booking->jumlah_kursi);
                                 $historicalFare = (float) $booking->subtotal_tiket / $passengerCount;
@@ -194,34 +223,34 @@
                                         <span class="travs-table-subcopy">Belum ada detail penumpang.</span>
                                     @endforelse
                                 </td>
-                                <td>
+                                <td class="text-end">
                                     <strong>{{ $formatRupiah($historicalFare) }}/orang</strong>
                                     <div class="travs-table-subcopy">Total {{ $formatRupiah($booking->total_harga) }}</div>
                                 </td>
-                                <td>
+                                <td class="text-center">
                                     <span class="travs-status-pill travs-status-{{ $booking->status_pemesanan }} badge rounded-pill">
                                         {{ ucwords(str_replace('_', ' ', $booking->status_pemesanan)) }}
                                     </span>
                                 </td>
-                                <td>
+                                <td class="text-center">
                                     <span class="travs-status-pill travs-status-{{ $paymentStatusTone }} badge rounded-pill">
                                         {{ ucwords(str_replace('_', ' ', $paymentStatus)) }}
                                     </span>
                                     @if ($booking->pembayaran)
-                                        <div class="travs-table-subcopy mt-1">{{ strtoupper($booking->pembayaran->metode_bayar) }}</div>
+                                        <div class="travs-table-subcopy mt-1">{{ \App\Support\PaymentMethodCatalog::label($booking->pembayaran->metode_bayar) }}</div>
                                     @endif
                                 </td>
                                 <td>
                                     <strong>{{ $presentCount }} hadir</strong>
                                     <div class="travs-table-subcopy">{{ $absentCount }} tidak hadir &middot; {{ $droppedCount }} turun</div>
                                 </td>
-                                <td>
-                                    <a href="{{ route('admin.pemesanan.show', $booking) }}" class="travs-button-link btn btn-link">Detail Pemesanan</a>
+                                <td class="text-end">
+                                    <a href="{{ route('admin.pemesanan.show', ['pemesanan' => $booking, 'jadwal_id' => $jadwal->id]) }}" class="travs-button-link btn btn-link">Detail Pemesanan</a>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="travs-table-empty">Belum ada pemesanan pada jadwal ini.</td>
+                                <td colspan="7" class="travs-table-empty">Belum ada pemesanan berhasil pada jadwal ini.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -235,7 +264,7 @@
                     <h3>Biaya Operasional</h3>
                     <p>Biaya final yang tercatat khusus untuk jadwal ini.</p>
                 </div>
-                <a href="{{ route('admin.biaya.index', ['rute_id' => $jadwal->rute_id]) }}" class="travs-button-secondary btn btn-secondary">Daftar Biaya</a>
+                <a href="{{ route('admin.biaya.index', ['rute_id' => $jadwal->rute_id]) }}" class="travs-button-secondary btn btn-outline-secondary">Lihat Semua Biaya &rarr;</a>
             </div>
 
             <div class="travs-table-wrap table-responsive">
@@ -246,8 +275,8 @@
                             <th>Jenis Biaya</th>
                             <th>Pencatat</th>
                             <th>Keterangan</th>
-                            <th>Nominal</th>
-                            <th>Aksi</th>
+                            <th class="text-end">Nominal</th>
+                            <th class="text-end">Aksi</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -257,8 +286,8 @@
                                 <td><strong>{{ $cost->jenis_biaya }}</strong></td>
                                 <td>{{ $cost->pencatat?->nama ?? '-' }}</td>
                                 <td>{{ $cost->keterangan ?: '-' }}</td>
-                                <td><strong>{{ $formatRupiah($cost->nominal) }}</strong></td>
-                                <td><a href="{{ route('admin.biaya.edit', $cost) }}" class="travs-button-link btn btn-link">Buka Data</a></td>
+                                <td class="text-end"><strong>{{ $formatRupiah($cost->nominal) }}</strong></td>
+                                <td class="text-end"><a href="{{ route('admin.biaya.edit', $cost) }}" class="travs-button-link btn btn-link">Buka Data</a></td>
                             </tr>
                         @empty
                             <tr>
@@ -269,7 +298,7 @@
                     <tfoot>
                         <tr>
                             <th colspan="4">Total Biaya Operasional</th>
-                            <th colspan="2">{{ $formatRupiah($summary['operational_cost']) }}</th>
+                            <th colspan="2" class="text-end">{{ $formatRupiah($summary['operational_cost']) }}</th>
                         </tr>
                     </tfoot>
                 </table>

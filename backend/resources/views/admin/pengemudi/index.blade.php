@@ -28,8 +28,8 @@
                 </select>
             </div>
             <div class="travs-filter-actions d-flex align-items-end flex-wrap">
-                <button type="submit" class="travs-button-secondary btn btn-secondary">Terapkan Filter</button>
-                <a href="{{ route('admin.pengemudi.index') }}" class="travs-button-secondary btn btn-secondary">Reset</a>
+                <button type="submit" class="travs-button btn btn-primary">Terapkan Filter</button>
+                <a href="{{ route('admin.pengemudi.index') }}" class="travs-button-secondary btn btn-outline-secondary">Reset</a>
             </div>
         </form>
 
@@ -39,15 +39,15 @@
                     <tr>
                         <th>Pengemudi</th>
                         <th>Kontak</th>
-                        <th>Status</th>
-                        <th>Jadwal</th>
-                        <th>Aksi</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Jadwal</th>
+                        <th class="text-end">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($pengemudi as $item)
                         <tr>
-                            <td>
+                            <td class="text-center">
                                 <div class="travs-person-cell d-flex align-items-center">
                                     <div class="travs-avatar">
                                         @if ($item->pengguna->foto_profil)
@@ -76,9 +76,9 @@
                                     {{ $item->status === 'aktif' ? 'Siap dipilih pada jadwal.' : 'Tidak dipakai sementara.' }}
                                 </div>
                             </td>
-                            <td>{{ number_format($item->jadwal_count) }} jadwal</td>
-                            <td>
-                                <div class="travs-table-actions d-flex align-items-center flex-wrap">
+                            <td class="text-center">{{ number_format($item->jadwal_count) }} jadwal</td>
+                            <td class="text-end">
+                                <div class="travs-table-actions d-flex align-items-center justify-content-end flex-wrap">
                                     <a href="{{ route('admin.pengemudi.edit', $item) }}" class="travs-button-link btn btn-link">Edit</a>
                                     <form method="POST" action="{{ route('admin.pengemudi.destroy', $item) }}" onsubmit="return confirm('Hapus akun pengemudi ini?')">
                                         @csrf
@@ -90,7 +90,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="travs-table-empty">Belum ada akun pengemudi.</td>
+                            <td colspan="5" class="travs-table-empty">Tidak ada pengemudi yang sesuai dengan filter yang dipilih.</td>
                         </tr>
                     @endforelse
                 </tbody>

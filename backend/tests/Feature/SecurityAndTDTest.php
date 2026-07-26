@@ -8,7 +8,6 @@ use App\Models\KursiJadwal;
 use App\Models\Notifikasi;
 use App\Models\Pemesanan;
 use App\Models\Pengemudi;
-use App\Models\TiketElektronik;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -384,7 +383,6 @@ class SecurityAndTDTest extends TestCase
                 'jadwal_id',
                 'seat_numbers',
                 'pickup',
-                'payment_method',
                 'passengers',
             ]);
     }

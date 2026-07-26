@@ -1,4 +1,9 @@
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:gal/gal.dart';
 import 'package:intl/intl.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -7,28 +12,38 @@ import '../../core/models/travs_user_session.dart';
 import '../../core/services/travs_api_service.dart';
 import '../../core/theme/travs_theme.dart';
 
+typedef TicketImageSaver =
+    Future<void> Function(Uint8List bytes, String fileName);
+
 class TravSTicketDetailPage extends StatefulWidget {
   const TravSTicketDetailPage({
     required this.session,
     required this.bookingId,
+    this.apiService,
+    this.saveTicketImage,
     super.key,
   });
 
   final TravSUserSession session;
   final int bookingId;
+  final TravSApiService? apiService;
+  final TicketImageSaver? saveTicketImage;
 
   @override
   State<TravSTicketDetailPage> createState() => _TravSTicketDetailPageState();
 }
 
 class _TravSTicketDetailPageState extends State<TravSTicketDetailPage> {
-  final TravSApiService _apiService = TravSApiService();
-
+  late final TravSApiService _apiService;
   late Future<TravSBookingResult> _future;
+  final GlobalKey _ticketCaptureKey = GlobalKey();
+  int _selectedTicketIndex = 0;
+  bool _isSavingTicket = false;
 
   @override
   void initState() {
     super.initState();
+    _apiService = widget.apiService ?? TravSApiService();
     _future = _loadBooking();
   }
 
@@ -49,6 +64,61 @@ class _TravSTicketDetailPageState extends State<TravSTicketDetailPage> {
 
   void _closePage() {
     Navigator.of(context).pop(false);
+  }
+
+  Future<void> _downloadTicket(
+    TravSBookingResult booking,
+    TravSBookingPassengerInfo passenger,
+  ) async {
+    if (_isSavingTicket) return;
+
+    setState(() => _isSavingTicket = true);
+    try {
+      // Card yang terlihat dirender langsung agar file sama dengan tampilan.
+      final boundary =
+          _ticketCaptureKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+      if (boundary == null) {
+        throw StateError('Card tiket belum siap.');
+      }
+
+      final image = await boundary.toImage(pixelRatio: 3);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      if (byteData == null) {
+        throw StateError('Gambar tiket belum dapat dibuat.');
+      }
+
+      final bytes = byteData.buffer.asUint8List();
+      final fileName = _ticketFileName(booking, passenger);
+      final customSaver = widget.saveTicketImage;
+      if (customSaver != null) {
+        await customSaver(bytes, fileName);
+      } else {
+        await Gal.putImageBytes(
+          bytes,
+          album: 'RuslyTravel',
+          name: fileName.replaceFirst(RegExp(r'\.png$'), ''),
+        );
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tiket berhasil disimpan ke galeri.')),
+      );
+    } catch (error) {
+      debugPrint('Gagal menyimpan tiket: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Tiket belum dapat disimpan. Periksa izin galeri lalu coba lagi.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSavingTicket = false);
+    }
   }
 
   @override
@@ -87,26 +157,75 @@ class _TravSTicketDetailPageState extends State<TravSTicketDetailPage> {
                 final tickets = booking.passengers
                     .where((item) => item.ticket != null)
                     .toList();
+                final selectedIndex = tickets.isEmpty
+                    ? 0
+                    : _selectedTicketIndex.clamp(0, tickets.length - 1);
+                final selectedPassenger = tickets.isEmpty
+                    ? null
+                    : tickets[selectedIndex];
                 return RefreshIndicator(
                   color: TravSTheme.orange,
                   onRefresh: _refresh,
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
                     children: [
-                      _TicketHeaderCard(booking: booking),
-                      const SizedBox(height: 16),
-                      if (tickets.isEmpty)
-                        _EmptyTicketCard(booking: booking)
-                      else
-                        ...tickets.map(
-                          (passenger) => Padding(
-                            padding: const EdgeInsets.only(bottom: 16),
-                            child: _TicketCard(
-                              booking: booking,
-                              passenger: passenger,
+                      if (tickets.isEmpty) ...[
+                        _TicketHeaderCard(booking: booking),
+                        const SizedBox(height: 16),
+                        _EmptyTicketCard(booking: booking),
+                      ] else ...[
+                        if (tickets.length > 1) ...[
+                          _TicketOwnerSelector(
+                            passengers: tickets,
+                            selectedIndex: selectedIndex,
+                            onSelected: (index) {
+                              setState(() => _selectedTicketIndex = index);
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        RepaintBoundary(
+                          key: _ticketCaptureKey,
+                          child: KeyedSubtree(
+                            key: const Key('active-ticket-card'),
+                            child: Column(
+                              children: [
+                                _TicketHeaderCard(booking: booking),
+                                const SizedBox(height: 16),
+                                _TicketCard(
+                                  booking: booking,
+                                  passenger: selectedPassenger!,
+                                ),
+                              ],
                             ),
                           ),
                         ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _isSavingTicket
+                                ? null
+                                : () => _downloadTicket(
+                                    booking,
+                                    selectedPassenger,
+                                  ),
+                            icon: _isSavingTicket
+                                ? const SizedBox.square(
+                                    dimension: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(Icons.download_rounded),
+                            label: Text(
+                              _isSavingTicket
+                                  ? 'Menyimpan Tiket...'
+                                  : 'Download Tiket',
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 );
@@ -115,6 +234,80 @@ class _TravSTicketDetailPageState extends State<TravSTicketDetailPage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _TicketOwnerSelector extends StatelessWidget {
+  const _TicketOwnerSelector({
+    required this.passengers,
+    required this.selectedIndex,
+    required this.onSelected,
+  });
+
+  final List<TravSBookingPassengerInfo> passengers;
+  final int selectedIndex;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            'Nama Pemilik Tiket',
+            style: TextStyle(
+              color: TravSTheme.navy,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              key: const Key('ticket-owner-selector'),
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(passengers.length, (index) {
+                    final passenger = passengers[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 5),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          minWidth: 132,
+                          minHeight: 52,
+                        ),
+                        child: ChoiceChip(
+                          label: Text(
+                            passenger.namaPenumpang,
+                            textAlign: TextAlign.center,
+                          ),
+                          labelPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 7,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          selected: index == selectedIndex,
+                          onSelected: (_) => onSelected(index),
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
     );
   }
 }
@@ -636,7 +829,7 @@ class _TicketScheduleInfoPanel extends StatelessWidget {
               _TicketInfoRow(
                 label: 'Hari/Tanggal',
                 value: _formatDayDate(booking.waktuBerangkat),
-                icon: Icons.calendar_today_rounded,
+                icon: Icons.calendar_month_rounded,
               ),
               _TicketInfoDivider(),
               _TicketInfoRow(
@@ -655,7 +848,7 @@ class _TicketScheduleInfoPanel extends StatelessWidget {
                 label: 'Harga Tiket',
                 value:
                     'Rp${_formatCurrency(booking.subtotalTiket / (booking.jumlahKursi == 0 ? 1 : booking.jumlahKursi))}',
-                icon: Icons.payments_outlined,
+                icon: Icons.payments_rounded,
               ),
             ],
           ),
@@ -926,6 +1119,23 @@ class _TicketErrorState extends StatelessWidget {
   }
 }
 
+String _ticketFileName(
+  TravSBookingResult booking,
+  TravSBookingPassengerInfo passenger,
+) {
+  final owner = passenger.namaPenumpang
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '');
+  final bookingCode = booking.kodeBooking
+      .trim()
+      .toLowerCase()
+      .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+      .replaceAll(RegExp(r'^-+|-+$'), '');
+  return 'tiket-$bookingCode-$owner.png';
+}
+
 String _formatDayDate(String value) {
   if (value.isEmpty) {
     return '-';
@@ -952,6 +1162,6 @@ String _formatTime(String value) {
   return DateFormat('HH:mm', 'id_ID').format(parsed);
 }
 
-String _formatCurrency(double value) {
+String _formatCurrency(num value) {
   return NumberFormat('#,##0', 'id_ID').format(value).replaceAll(',', '.');
 }

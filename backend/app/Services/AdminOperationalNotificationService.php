@@ -17,40 +17,47 @@ class AdminOperationalNotificationService
     {
         $booking->loadMissing(['pengguna', 'jadwal.rute', 'pembayaran']);
         $route = $this->routeLabel($booking->jadwal);
+        $departure = $this->departureLabel($booking);
 
         $this->notifyAdmins(
             'Pemesanan baru masuk',
-            "Pemesanan {$booking->kode_booking} dari {$booking->pengguna?->nama} untuk rute {$route} baru dibuat.",
+            "Pemesanan dari {$booking->pengguna?->nama} untuk rute {$route} dengan jadwal keberangkatan {$departure} baru dibuat.",
             'sistem',
             $booking->id,
         );
 
-        if ($booking->pembayaran?->metode_bayar === 'cash') {
-            $this->notifyAdmins(
-                'Pembayaran tunai menunggu konfirmasi',
-                "Pemesanan {$booking->kode_booking} memilih pembayaran tunai dan perlu dikonfirmasi setelah uang diterima.",
-                'pembayaran',
-                $booking->id,
-            );
-        }
+    }
+
+    public function cashPaymentSelected(Pemesanan $booking): void
+    {
+        $booking->loadMissing(['pengguna', 'jadwal.rute']);
+        $departure = $this->departureLabel($booking);
+
+        $this->notifyAdmins(
+            'Pembayaran tunai menunggu konfirmasi',
+            "Pemesanan untuk jadwal keberangkatan {$departure} memilih pembayaran tunai dan perlu dikonfirmasi setelah uang diterima.",
+            'pembayaran',
+            $booking->id,
+        );
     }
 
     public function paymentStatusChanged(Pemesanan $booking, string $status): void
     {
         $booking->loadMissing(['pengguna', 'jadwal.rute']);
+        $departure = $this->departureLabel($booking);
 
         [$title, $message] = match ($status) {
             'berhasil' => [
                 'Pembayaran berhasil',
-                "Pembayaran pemesanan {$booking->kode_booking} milik {$booking->pengguna?->nama} berhasil dikonfirmasi.",
+                "Pembayaran jadwal keberangkatan {$departure} milik {$booking->pengguna?->nama} berhasil dikonfirmasi.",
             ],
             'gagal' => [
                 'Pembayaran gagal',
-                "Pembayaran pemesanan {$booking->kode_booking} gagal. Periksa transaksi jika penumpang membutuhkan bantuan.",
+                "Pembayaran jadwal keberangkatan {$departure} gagal. Periksa transaksi jika penumpang membutuhkan bantuan.",
             ],
             'kedaluwarsa' => [
                 'Pembayaran kedaluwarsa',
-                "Waktu pembayaran pemesanan {$booking->kode_booking} telah habis dan kursi dapat dilepas kembali.",
+                "Waktu pembayaran jadwal keberangkatan {$departure} telah habis dan kursi dapat dilepas kembali.",
             ],
         };
 
@@ -64,10 +71,11 @@ class AdminOperationalNotificationService
     public function paymentReceivedAfterCancellation(Pemesanan $booking): void
     {
         $booking->loadMissing(['pengguna', 'jadwal.rute']);
+        $departure = $this->departureLabel($booking);
 
         $this->notifyAdmins(
             'Pembayaran masuk pada pemesanan yang sudah batal',
-            "Pembayaran untuk pemesanan {$booking->kode_booking} milik {$booking->pengguna?->nama} berhasil, "
+            "Pembayaran untuk jadwal keberangkatan {$departure} milik {$booking->pengguna?->nama} berhasil, "
                 .'tetapi pemesanan sudah dibatalkan/kedaluwarsa sehingga tiket tidak dapat diterbitkan. '
                 .'Periksa transaksi dan proses pengembalian dana secara manual.',
             'pembayaran',
@@ -177,5 +185,10 @@ class AdminOperationalNotificationService
         return $schedule?->rute
             ? $schedule->rute->kota_asal.' - '.$schedule->rute->kota_tujuan
             : 'rute yang dipilih';
+    }
+
+    private function departureLabel(Pemesanan $booking): string
+    {
+        return $booking->jadwal?->waktu_berangkat?->translatedFormat('d F Y H:i') ?? '-';
     }
 }

@@ -38,6 +38,9 @@ class JadwalController extends Controller
             ->withCount([
                 'pemesanan',
                 'kursi as kursi_tersedia' => fn ($builder) => $builder->where('status_kursi', 'tersedia'),
+                'kursi as kursi_dipesan' => fn ($builder) => $builder->where('status_kursi', 'dipesan'),
+                'kursi as kursi_terkunci' => fn ($builder) => $builder->where('status_kursi', 'terkunci'),
+                'kursi as kursi_nonaktif' => fn ($builder) => $builder->where('status_kursi', 'nonaktif'),
             ]);
 
         if ($request->filled('search')) {
@@ -129,42 +132,37 @@ class JadwalController extends Controller
                 ->latest('tanggal_biaya'),
         ]);
 
-        $activeBookings = $jadwal->pemesanan
-            ->whereIn('status_pemesanan', ['menunggu_pembayaran', 'terbayar', 'selesai']);
-        $activePassengers = $activeBookings->flatMap->detailPemesanan;
-        $confirmedBookings = $jadwal->pemesanan
+        // Detail jadwal hanya memakai pemesanan yang pembayarannya berhasil.
+        $successfulBookings = $jadwal->pemesanan
             ->whereIn('status_pemesanan', ['terbayar', 'selesai'])
             ->filter(fn ($booking) => $booking->pembayaran?->status_bayar === 'berhasil');
-        $confirmedRevenue = (float) $confirmedBookings
-            ->sum(fn ($booking) => (float) $booking->pembayaran->jumlah_bayar);
-        $pendingValue = (float) $jadwal->pemesanan
-            ->where('status_pemesanan', 'menunggu_pembayaran')
-            ->filter(fn ($booking) => $booking->pembayaran?->status_bayar === 'menunggu')
-            ->sum(fn ($booking) => (float) $booking->total_harga);
-        $operationalCost = (float) $jadwal->biayaOperasional->sum('nominal');
+        $successfulPassengers = $successfulBookings->flatMap->detailPemesanan;
+        // Pendapatan jadwal hanya menghitung nominal milik RuslyTravel.
+        $confirmedRevenue = (int) $successfulBookings
+            ->sum(fn ($booking) => $booking->pembayaran->nominal_transaksi ?? (int) $booking->total_harga);
+        $operationalCost = (int) $jadwal->biayaOperasional->sum('nominal');
 
         return view('admin.jadwal.show', [
             'jadwal' => $jadwal,
+            'successfulBookings' => $successfulBookings,
             'summary' => [
                 'bookings' => [
-                    'total' => $jadwal->pemesanan->count(),
-                    'menunggu_pembayaran' => $jadwal->pemesanan->where('status_pemesanan', 'menunggu_pembayaran')->count(),
-                    'terbayar' => $jadwal->pemesanan->where('status_pemesanan', 'terbayar')->count(),
-                    'selesai' => $jadwal->pemesanan->where('status_pemesanan', 'selesai')->count(),
-                    'dibatalkan' => $jadwal->pemesanan->where('status_pemesanan', 'dibatalkan')->count(),
+                    'total' => $successfulBookings->count(),
+                    'terbayar' => $successfulBookings->where('status_pemesanan', 'terbayar')->count(),
+                    'selesai' => $successfulBookings->where('status_pemesanan', 'selesai')->count(),
                 ],
                 'passengers' => [
-                    'total' => $activePassengers->count(),
-                    'menunggu' => $activePassengers
+                    'total' => $successfulPassengers->count(),
+                    'menunggu' => $successfulPassengers
                         ->where('status_kehadiran', 'menunggu')
                         ->whereNull('diturunkan_pada')
                         ->count(),
-                    'hadir' => $activePassengers
+                    'hadir' => $successfulPassengers
                         ->where('status_kehadiran', 'hadir')
                         ->whereNull('diturunkan_pada')
                         ->count(),
-                    'tidak_hadir' => $activePassengers->where('status_kehadiran', 'tidak_hadir')->count(),
-                    'turun' => $activePassengers->whereNotNull('diturunkan_pada')->count(),
+                    'tidak_hadir' => $successfulPassengers->where('status_kehadiran', 'tidak_hadir')->count(),
+                    'turun' => $successfulPassengers->whereNotNull('diturunkan_pada')->count(),
                 ],
                 'seats' => [
                     'total' => $jadwal->kursi->count(),
@@ -173,7 +171,6 @@ class JadwalController extends Controller
                     'nonaktif' => $jadwal->kursi->where('status_kursi', 'nonaktif')->count(),
                 ],
                 'confirmed_revenue' => $confirmedRevenue,
-                'pending_value' => $pendingValue,
                 'operational_cost' => $operationalCost,
                 'recorded_balance' => $confirmedRevenue - $operationalCost,
             ],

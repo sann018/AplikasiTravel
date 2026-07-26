@@ -14,23 +14,23 @@
             <a href="{{ route('admin.kendaraan.create') }}" class="travs-button btn btn-primary">Tambah Armada</a>
         </div>
 
-        <form method="GET" class="row g-3 align-items-end">
-            <div class="col-12 col-md-6 col-xl-4">
+        <form method="GET" class="travs-filter-grid d-grid">
+            <div class="travs-field">
                 <label for="search" class="form-label">Cari Armada</label>
-                <input id="search" name="search" class="form-control" value="{{ $filters['search'] ?? '' }}" placeholder="Plat, merk, atau tipe">
+                <input id="search" name="search" class="travs-input form-control" value="{{ $filters['search'] ?? '' }}" placeholder="Plat, merk, atau tipe">
             </div>
-            <div class="col-12 col-md-6 col-xl-4">
+            <div class="travs-field">
                 <label for="status" class="form-label">Status</label>
-                <select id="status" name="status" class="form-select">
+                <select id="status" name="status" class="travs-select form-select">
                     <option value="">Semua status</option>
                     <option value="aktif" @selected(($filters['status'] ?? '') === 'aktif')>Aktif</option>
                     <option value="perawatan" @selected(($filters['status'] ?? '') === 'perawatan')>Perawatan</option>
                     <option value="nonaktif" @selected(($filters['status'] ?? '') === 'nonaktif')>Nonaktif</option>
                 </select>
             </div>
-            <div class="col-12 d-flex flex-wrap gap-2">
-                <button type="submit" class="travs-button-secondary btn btn-secondary">Terapkan Filter</button>
-                <a href="{{ route('admin.kendaraan.index') }}" class="travs-button-secondary btn btn-secondary">Reset</a>
+            <div class="travs-filter-actions d-flex align-items-end flex-wrap">
+                <button type="submit" class="travs-button btn btn-primary">Terapkan Filter</button>
+                <a href="{{ route('admin.kendaraan.index') }}" class="travs-button-secondary btn btn-outline-secondary">Reset</a>
             </div>
         </form>
 
@@ -40,10 +40,10 @@
                     <tr>
                         <th>Foto</th>
                         <th>Armada</th>
-                        <th>Kapasitas</th>
-                        <th>Status</th>
-                        <th>Jadwal</th>
-                        <th>Aksi</th>
+                        <th class="text-center">Kapasitas</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-center">Jadwal</th>
+                        <th class="text-end">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -66,15 +66,15 @@
                                 <strong>{{ $item->merk_kendaraan }}</strong>
                                 <div class="travs-table-subcopy">{{ $item->nomor_plat }} &middot; {{ $item->tipe_kendaraan ?: 'Tipe belum diisi' }}</div>
                             </td>
-                            <td>{{ $item->kapasitas_kursi }} kursi</td>
-                            <td>
+                            <td class="text-center">{{ $item->kapasitas_kursi }} kursi</td>
+                            <td class="text-center">
                                 <span class="travs-status-pill travs-status-{{ $item->status_kendaraan }} badge rounded-pill">
                                     {{ ucfirst($item->status_kendaraan) }}
                                 </span>
                             </td>
-                            <td>{{ number_format($item->jadwal_count) }} jadwal</td>
-                            <td>
-                                <div class="travs-table-actions d-flex align-items-center flex-wrap">
+                            <td class="text-center">{{ number_format($item->jadwal_count) }} jadwal</td>
+                            <td class="text-end">
+                                <div class="travs-table-actions d-flex align-items-center justify-content-end flex-wrap">
                                     <a href="{{ route('admin.kendaraan.edit', $item) }}" class="travs-button-link btn btn-link">Edit</a>
                                     <form method="POST" action="{{ route('admin.kendaraan.destroy', $item) }}" onsubmit="return confirm('Hapus armada ini?')">
                                         @csrf
@@ -86,7 +86,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="travs-table-empty">Belum ada data armada kendaraan.</td>
+                            <td colspan="6" class="travs-table-empty">Tidak ada armada yang sesuai dengan filter yang dipilih.</td>
                         </tr>
                     @endforelse
                 </tbody>

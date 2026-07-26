@@ -55,10 +55,20 @@ class AdminOperationalNotificationTest extends TestCase
 
     public function test_new_cash_booking_notifies_admin_about_booking_and_cash_confirmation(): void
     {
-        app(AdminOperationalNotificationService::class)->bookingCreated($this->booking);
+        $service = app(AdminOperationalNotificationService::class);
+        $service->bookingCreated($this->booking);
+        $service->cashPaymentSelected($this->booking);
 
         $this->assertAdminNotificationExists('Pemesanan baru masuk');
         $this->assertAdminNotificationExists('Pembayaran tunai menunggu konfirmasi');
+        $messages = Notifikasi::query()
+            ->where('pengguna_id', $this->admin->id)
+            ->whereIn('judul', ['Pemesanan baru masuk', 'Pembayaran tunai menunggu konfirmasi'])
+            ->pluck('pesan');
+        foreach ($messages as $message) {
+            $this->assertStringNotContainsString($this->booking->kode_booking, $message);
+            $this->assertStringContainsString('jadwal keberangkatan', $message);
+        }
     }
 
     public function test_payment_success_failed_and_expired_notify_admin(): void

@@ -572,7 +572,10 @@ class DriverController extends Controller
             'kendaraan_foto_url' => $this->publicStorageUrl($jadwal->kendaraan?->foto_kendaraan),
             'status' => $jadwal->status,
             'passenger_count' => $this->manifestPassengers($jadwal)->count(),
-            'revenue' => $jadwal->pemesanan->sum(fn (Pemesanan $booking) => (float) $booking->total_harga),
+            'revenue' => $jadwal->pemesanan
+                ->filter(fn (Pemesanan $booking) => in_array($booking->status_pemesanan, ['terbayar', 'selesai'], true)
+                    && $booking->pembayaran?->status_bayar === 'berhasil')
+                ->sum(fn (Pemesanan $booking) => $booking->pembayaran?->nominal_transaksi ?? (int) $booking->total_harga),
         ];
     }
 
@@ -697,8 +700,10 @@ class DriverController extends Controller
                 'status' => $paymentStatus,
                 'metode' => $paymentMethod,
                 'channel' => $booking->pembayaran?->paid_channel,
-                'total' => (float) ($booking->pembayaran?->jumlah_bayar ?? $booking->total_harga),
-                'label' => 'Rp'.number_format((float) ($booking->pembayaran?->jumlah_bayar ?? $booking->total_harga), 0, ',', '.'),
+                'total' => $booking->pembayaran?->total_dibayar_penumpang,
+                'label' => $booking->pembayaran?->total_dibayar_penumpang === null
+                    ? '-'
+                    : 'Rp'.number_format($booking->pembayaran->total_dibayar_penumpang, 0, ',', '.'),
                 'is_cash_pending' => $isCashPending,
                 'can_confirm_cash' => $isCashPending,
             ],

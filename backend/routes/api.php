@@ -59,6 +59,7 @@ Route::middleware(['auth:sanctum', 'role:penumpang'])->group(function () {
     Route::post('/penumpang/bookings/estimate', [BookingController::class, 'estimate'])->middleware('throttle:travs-action');
     Route::post('/penumpang/bookings/baggage-photo', [BookingController::class, 'uploadBaggagePhoto'])->middleware('throttle:travs-upload');
     Route::post('/penumpang/bookings', [BookingController::class, 'store'])->middleware('throttle:travs-action');
+    Route::put('/penumpang/bookings/{booking}/payment', [BookingController::class, 'choosePayment'])->middleware('throttle:travs-action');
     Route::post('/penumpang/bookings/{booking}/simulate-payment', [BookingController::class, 'simulatePayment'])->middleware('throttle:travs-action');
     Route::post('/penumpang/bookings/{booking}/refresh-payment-status', [BookingController::class, 'refreshPaymentStatus'])->middleware('throttle:travs-action');
 });

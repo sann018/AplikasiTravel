@@ -40,7 +40,7 @@
         <section class="travs-settings-tabs collapsible-section mb-3" data-collapsible-section>
             <div class="collapsible-section__header" data-collapse-header>
                 <div class="travs-settings-tabs-copy">
-                    <span class="travs-settings-label">Control Center</span>
+                    <span class="travs-settings-label">PUSAT PENGATURAN</span>
                 </div>
                 @include('admin.partials.collapsible-toggle', ['targetId' => 'settings-control-center-body'])
             </div>
@@ -77,7 +77,7 @@
                 </div>
 
                 <div id="settings-admin-account-body" class="collapsible-section__body" data-collapse-body>
-                    {{-- Akun admin diletakkan di Control Center agar semua pengaturan sistem berada dalam satu area. --}}
+                    {{-- Akun admin diletakkan di pusat pengaturan agar semua konfigurasi sistem berada dalam satu area. --}}
                     <div class="travs-admin-account-form">
                         <div class="travs-admin-account-primary">
                             <div class="travs-field">
@@ -95,6 +95,7 @@
                                         <span class="d-none" data-password-hide-icon><i data-feather="eye-off"></i></span>
                                     </button>
                                 </div>
+                                <div class="travs-field-meta">Diperlukan untuk mengonfirmasi perubahan email atau password.</div>
                                 @include('admin.partials.field-error', ['name' => 'current_password'])
                             </div>
                         </div>
@@ -168,8 +169,8 @@
                             aria-label="Lihat logo aplikasi"
                             @if (! $logoPreviewUrl) hidden @endif
                         >
-                            <span>Preview logo</span>
-                            <img src="{{ $logoPreviewUrl ?? '' }}" alt="Preview logo aplikasi" data-logo-preview>
+                            <span>Pratinjau Logo</span>
+                            <img src="{{ $logoPreviewUrl ?? '' }}" alt="Pratinjau logo aplikasi" data-logo-preview>
                         </button>
                     </div>
                     <div class="col-md-6">
@@ -276,7 +277,7 @@
                         @include('admin.partials.field-error', ['name' => 'max_seat_per_booking'])
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label" for="seat_lock_form_minutes">Seat Lock Form</label>
+                        <label class="form-label" for="seat_lock_form_minutes">Durasi Pengisian Form</label>
                         <div class="input-group">
                             <input id="seat_lock_form_minutes" name="seat_lock_form_minutes" type="number" min="1" class="form-control @error('seat_lock_form_minutes') is-invalid @enderror" value="{{ $settingValue('seat_lock_form_minutes') }}" required>
                             <span class="input-group-text">menit</span>
@@ -285,7 +286,7 @@
                         @include('admin.partials.field-error', ['name' => 'seat_lock_form_minutes'])
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label" for="seat_lock_payment_minutes">Seat Lock Payment</label>
+                        <label class="form-label" for="seat_lock_payment_minutes">Batas Waktu Pembayaran</label>
                         <div class="input-group">
                             <input id="seat_lock_payment_minutes" name="seat_lock_payment_minutes" type="number" min="1" class="form-control @error('seat_lock_payment_minutes') is-invalid @enderror" value="{{ $settingValue('seat_lock_payment_minutes') }}" required>
                             <span class="input-group-text">menit</span>
@@ -296,6 +297,7 @@
                 </div>
 
                 <div class="alert alert-info mt-3 mb-0" role="alert">
+                    Perubahan hanya berlaku untuk pemesanan baru dan tidak mengubah pemesanan yang sedang berjalan.
                     Timer pada aplikasi mobile membantu pengguna melihat sisa waktu. Keputusan akhir masa berlaku tetap diperiksa backend.
                 </div>
                 <div class="travs-form-actions mt-4 d-flex justify-content-end">
@@ -311,7 +313,7 @@
                 <div class="travs-settings-group-header collapsible-section__header" data-collapse-header>
                     <div>
                         <span class="travs-settings-label">Pembayaran</span>
-                        <h3>Catatan Pembayaran</h3>
+                        <h3>Instruksi Pembayaran Tunai</h3>
                         <p>Kelola petunjuk pembayaran tunai yang ditampilkan kepada penumpang.</p>
                     </div>
                     @include('admin.partials.collapsible-toggle', ['targetId' => 'settings-payment-body'])
@@ -320,7 +322,7 @@
                 <div id="settings-payment-body" class="collapsible-section__body" data-collapse-body>
                 {{-- Toggle tunai dan rekening transfer lama tidak diedit lagi dari admin agar sumber pembayaran tetap mengikuti Pakasir. --}}
                 <div>
-                    <label class="form-label" for="payment_cash_note">Catatan Pembayaran Tunai</label>
+                    <label class="form-label" for="payment_cash_note">Instruksi Pembayaran Tunai</label>
                     <textarea id="payment_cash_note" name="payment_cash_note" rows="3" maxlength="1000" class="form-control @error('payment_cash_note') is-invalid @enderror" data-cash-note>{{ $settingValue('payment_cash_note') }}</textarea>
                     <div class="form-text">Petunjuk yang dibaca penumpang ketika memilih pembayaran tunai.</div>
                     @include('admin.partials.field-error', ['name' => 'payment_cash_note'])
@@ -537,14 +539,14 @@
                                     <input id="banner_gambar" name="gambar" type="file" accept="image/jpeg,image/png,image/webp" class="form-control @error('gambar') is-invalid @enderror" data-banner-image-input required>
                                     <div class="form-text">JPG, JPEG, PNG, atau WEBP. Maksimal 3 MB.</div>
                                     @include('admin.partials.field-error', ['name' => 'gambar'])
-                                    <img class="travs-banner-preview d-none" alt="Preview banner" data-banner-image-preview>
+                                    <img class="travs-banner-preview d-none" alt="Pratinjau banner" data-banner-image-preview>
                                 </div>
                                 <div class="mb-3">
                                     <label class="form-label" for="banner_urutan">Urutan Tampil</label>
                                     <input id="banner_urutan" name="urutan" type="number" min="0" max="999" class="form-control @error('urutan') is-invalid @enderror" value="{{ old('urutan', 0) }}" required>
                                     @include('admin.partials.field-error', ['name' => 'urutan'])
                                 </div>
-                                <button class="travs-button w-100 btn btn-primary" type="submit">Simpan Banner</button>
+                                <button class="travs-button w-100 btn btn-primary" type="submit">Tambah Banner</button>
                             </form>
                         </div>
 

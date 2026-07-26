@@ -81,6 +81,40 @@ class OneToOneDatabaseConstraintTest extends TestCase
         ]);
     }
 
+    public function test_gateway_order_id_cannot_belong_to_two_payments(): void
+    {
+        $bookings = Pemesanan::query()->take(2)->get();
+        $this->assertCount(2, $bookings);
+
+        $firstPayment = $bookings[0]->pembayaran()->firstOrFail();
+        $secondPayment = $bookings[1]->pembayaran()->firstOrFail();
+
+        $this->expectException(QueryException::class);
+
+        $secondPayment->update([
+            'order_id_gateway' => $firstPayment->order_id_gateway,
+        ]);
+    }
+
+    public function test_payment_amount_snapshots_use_integer_casts(): void
+    {
+        $payment = Pembayaran::query()->firstOrFail();
+        $payment->update([
+            'nominal_transaksi' => 400000,
+            'biaya_admin_provider' => 4000,
+            'total_dibayar_penumpang' => 404000,
+            'payment_number' => str_repeat('0', 400),
+        ]);
+
+        $payment->refresh();
+
+        $this->assertSame(400000, $payment->nominal_transaksi);
+        $this->assertSame(4000, $payment->biaya_admin_provider);
+        $this->assertSame(404000, $payment->total_dibayar_penumpang);
+        $this->assertSame(400, strlen($payment->payment_number));
+        $this->assertIsString($payment->jumlah_bayar);
+    }
+
     public function test_schedule_seat_cannot_be_used_by_two_booking_details(): void
     {
         $booking = $this->makeBookingWithoutPayment();

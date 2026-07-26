@@ -31,7 +31,24 @@ class AdminSystemSettingsTest extends TestCase
             ->get('/admin/settings')
             ->assertOk()
             ->assertSee('Pengaturan Sistem')
+            ->assertSee('PUSAT PENGATURAN')
             ->assertSee('Simpan Pengaturan Umum');
+    }
+
+    public function test_settings_page_uses_clear_indonesian_labels_and_form_guidance(): void
+    {
+        $this->actingAs($this->admin())
+            ->get(route('admin.settings.index'))
+            ->assertOk()
+            ->assertSee('Durasi Pengisian Form')
+            ->assertSee('Batas Waktu Pembayaran')
+            ->assertSee('Pratinjau Logo')
+            ->assertSee('Perubahan hanya berlaku untuk pemesanan baru')
+            ->assertSee('Tambah Banner')
+            ->assertDontSee('Control Center')
+            ->assertDontSee('Seat Lock Form')
+            ->assertDontSee('Seat Lock Payment')
+            ->assertDontSee('Simpan Banner');
     }
 
     public function test_settings_page_contains_separate_forms_and_admin_helpers(): void
@@ -180,7 +197,7 @@ class AdminSystemSettingsTest extends TestCase
         $this->actingAs($this->admin())
             ->get(route('admin.settings.index', ['tab' => 'payment']))
             ->assertOk()
-            ->assertSee('Catatan Pembayaran Tunai')
+            ->assertSee('Instruksi Pembayaran Tunai')
             ->assertDontSee('Metode tunai hanya muncul di mobile saat status ini aktif.')
             ->assertDontSee('Rekening Transfer')
             ->assertDontSee('name="payment_cash_enabled"', false)

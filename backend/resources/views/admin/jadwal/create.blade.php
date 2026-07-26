@@ -5,13 +5,17 @@
 @section('page-description', 'Buat jadwal keberangkatan baru dengan memilih rute, kendaraan, dan pengemudi.')
 
 @section('content')
+    @include('admin.partials.page-back', [
+        'url' => route('admin.jadwal.index'),
+        'label' => 'Kembali ke Daftar Jadwal',
+    ])
+
     <div class="travs-page-frame card">
         <div class="travs-panel-header d-flex align-items-start justify-content-between">
             <div class="travs-panel-title">
                 <h3>Form Tambah Jadwal</h3>
                 <p>Isi data jadwal perjalanan dengan lengkap untuk membuka pemesanan penumpang.</p>
             </div>
-            <a href="{{ route('admin.jadwal.index') }}" class="travs-button-secondary btn btn-secondary">Kembali</a>
         </div>
 
         @if ($errors->any())

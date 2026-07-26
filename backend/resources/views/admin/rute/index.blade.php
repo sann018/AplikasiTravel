@@ -28,8 +28,8 @@
                 </select>
             </div>
             <div class="travs-filter-actions d-flex align-items-end flex-wrap">
-                <button type="submit" class="travs-button-secondary btn btn-secondary">Terapkan Filter</button>
-                <a href="{{ route('admin.rute.index') }}" class="travs-button-secondary btn btn-secondary">Reset</a>
+                <button type="submit" class="travs-button btn btn-primary">Terapkan Filter</button>
+                <a href="{{ route('admin.rute.index') }}" class="travs-button-secondary btn btn-outline-secondary">Reset</a>
             </div>
         </form>
 
@@ -38,10 +38,10 @@
                 <thead>
                     <tr>
                         <th>Rute</th>
-                        <th>Harga</th>
-                        <th>Durasi</th>
-                        <th>Status</th>
-                        <th>Aksi</th>
+                        <th class="text-end">Harga</th>
+                        <th class="text-center">Durasi</th>
+                        <th class="text-center">Status</th>
+                        <th class="text-end">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -51,15 +51,15 @@
                                 <strong>{{ $item->kota_asal }} - {{ $item->kota_tujuan }}</strong>
                                 <div class="travs-table-subcopy">{{ $item->deskripsi_jalur ?: 'Deskripsi jalur belum diisi' }}</div>
                             </td>
-                            <td>Rp{{ number_format($item->harga_tiket, 0, ',', '.') }}</td>
-                            <td>{{ $item->durasi_label }}</td>
-                            <td>
+                            <td class="text-end text-nowrap">Rp{{ number_format($item->harga_tiket, 0, ',', '.') }}</td>
+                            <td class="text-center">{{ $item->durasi_label }}</td>
+                            <td class="text-center">
                                 <span class="travs-status-pill travs-status-{{ $item->status_aktif ? 'aktif' : 'nonaktif' }} badge rounded-pill">
                                     {{ $item->status_aktif ? 'Aktif' : 'Nonaktif' }}
                                 </span>
                             </td>
-                            <td>
-                                <div class="travs-table-actions d-flex align-items-center flex-wrap">
+                            <td class="text-end">
+                                <div class="travs-table-actions d-flex align-items-center justify-content-end flex-wrap">
                                     <a href="{{ route('admin.rute.edit', $item) }}" class="travs-button-link btn btn-link">Edit</a>
                                     <form method="POST" action="{{ route('admin.rute.destroy', $item) }}" onsubmit="return confirm('Hapus rute ini?')">
                                         @csrf
@@ -71,7 +71,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="5" class="travs-table-empty">Belum ada data rute perjalanan.</td>
+                            <td colspan="5" class="travs-table-empty">Tidak ada rute yang sesuai dengan filter yang dipilih.</td>
                         </tr>
                     @endforelse
                 </tbody>

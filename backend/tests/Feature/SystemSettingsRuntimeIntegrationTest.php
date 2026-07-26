@@ -12,6 +12,7 @@ use App\Services\NotificationTemplateService;
 use App\Services\SettingService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -119,13 +120,21 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
         $schedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
         $seat = $this->availableSeats($schedule, 1)[0];
         Sanctum::actingAs($user);
+        $this->postJson('/api/penumpang/bookings/lock-form', [
+            'jadwal_id' => $schedule->id,
+            'seat_numbers' => [$seat],
+        ])->assertOk();
 
-        $this->postJson('/api/penumpang/bookings', $this->bookingPayload($schedule, $seat, 'cash'))
+        $bookingId = $this->postJson('/api/penumpang/bookings', $this->bookingPayload($schedule, $seat, 'cash'))
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->putJson("/api/penumpang/bookings/{$bookingId}/payment", ['payment_method' => 'cash'])
             ->assertUnprocessable()
             ->assertJsonPath('errors.payment_method.0', 'Pembayaran tunai sedang tidak tersedia. Silakan pilih metode lain.');
     }
 
-    public function test_cash_booking_uses_configured_payment_deadline(): void
+    public function test_cash_booking_removes_deadline_after_method_is_selected(): void
     {
         $this->setSettings([
             'payment_cash_enabled' => true,
@@ -136,23 +145,32 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
         $schedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
         $seat = $this->availableSeats($schedule, 1)[0];
         Sanctum::actingAs($user);
-
         $this->postJson('/api/penumpang/bookings/lock-form', [
             'jadwal_id' => $schedule->id,
             'seat_numbers' => [$seat],
         ])->assertOk();
 
-        $response = $this->postJson(
+        $bookingResponse = $this->postJson(
             '/api/penumpang/bookings',
             $this->bookingPayload($schedule, $seat, 'cash'),
         );
 
-        $response
+        $bookingResponse
             ->assertCreated()
             ->assertJsonPath('data.status', 'menunggu_pembayaran')
+            ->assertJsonPath('data.payment.method', null)
+            ->assertJsonPath('data.batas_pembayaran', fn ($value) => is_string($value) && $value !== '');
+
+        $this->putJson(
+            '/api/penumpang/bookings/'.$bookingResponse->json('data.id').'/payment',
+            ['payment_method' => 'cash'],
+        )
+            ->assertOk()
             ->assertJsonPath('data.payment.method', 'cash')
-            ->assertJsonPath('data.batas_pembayaran', fn ($value) => is_string($value) && $value !== '')
-            ->assertJsonPath('data.payment.expired_at', fn ($value) => is_string($value) && $value !== '');
+            ->assertJsonPath('data.payment.status_pembayaran', 'menunggu_konfirmasi_tunai')
+            // Setelah tunai dipilih, penumpang membayar saat dijemput tanpa countdown.
+            ->assertJsonPath('data.batas_pembayaran', null)
+            ->assertJsonPath('data.payment.expired_at', null);
     }
 
     public function test_expired_booking_is_not_cancelled_when_auto_cancel_is_disabled(): void
@@ -229,6 +247,22 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
         $schedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
         $seat = $this->availableSeats($schedule, 1)[0];
         Sanctum::actingAs($user);
+        config()->set('services.pakasir.enabled', true);
+        config()->set('services.pakasir.base_url', 'https://app.pakasir.test/api');
+        config()->set('services.pakasir.project', 'travs-test');
+        config()->set('services.pakasir.api_key', 'secret-test-key');
+        Http::fake(fn ($request) => Http::response([
+            'payment' => [
+                'project' => 'travs-test',
+                'order_id' => $request['order_id'],
+                'payment_method' => 'qris',
+                'payment_number' => 'QRIS-NOTIFICATION-TEST',
+                'amount' => $request['amount'],
+                'fee' => 0,
+                'total_payment' => $request['amount'],
+                'expired_at' => now()->addMinutes(10)->toIso8601String(),
+            ],
+        ]));
 
         $this->postJson('/api/penumpang/bookings/lock-form', [
             'jadwal_id' => $schedule->id,
@@ -239,6 +273,10 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
             '/api/penumpang/bookings',
             $this->bookingPayload($schedule, $seat, 'qris'),
         )->assertCreated()->json('data.id');
+
+        $this->putJson("/api/penumpang/bookings/{$bookingId}/payment", [
+            'payment_method' => 'qris',
+        ])->assertOk();
 
         $this->postJson("/api/penumpang/bookings/{$bookingId}/simulate-payment")
             ->assertOk();

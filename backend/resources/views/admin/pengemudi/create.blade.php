@@ -5,13 +5,17 @@
 @section('page-description', 'Buat akun pengemudi baru untuk menerima tugas jadwal perjalanan.')
 
 @section('content')
+    @include('admin.partials.page-back', [
+        'url' => route('admin.pengemudi.index'),
+        'label' => 'Kembali ke Daftar Pengemudi',
+    ])
+
     <div class="travs-page-frame card">
         <div class="travs-panel-header d-flex align-items-start justify-content-between">
             <div class="travs-panel-title">
                 <h3>Form Tambah Pengemudi</h3>
                 <p>Isi data pengemudi dengan lengkap untuk memudahkan penugasan jadwal perjalanan.</p>
             </div>
-            <a href="{{ route('admin.pengemudi.index') }}" class="travs-button-secondary btn btn-secondary">Kembali</a>
         </div>
 
         @if ($errors->any())
