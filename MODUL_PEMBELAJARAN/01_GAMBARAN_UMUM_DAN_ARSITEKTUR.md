@@ -13,7 +13,7 @@ aplikasi ini, pemesanan biasanya lewat telепон atau catat manual. Aplikasi i
 proses itu ke digital:
 
 - Penumpang bisa **lihat jadwal, pilih kursi, dan bayar** lewat HP.
-- Pengemudi bisa **melihat daftar penumpang (manifest) dan memvalidasi tiket** lewat HP.
+- Pengemudi bisa **melihat daftar penumpang (Manifes) dan memvalidasi tiket** lewat HP.
 - Admin bisa **mengelola rute, armada, jadwal, dan laporan** lewat komputer.
 
 Di dalam kode, aplikasi ini diberi nama merek internal **"TravS"**. Jadi kalau kamu lihat kata
@@ -41,7 +41,7 @@ titik jemput/turun, bayar, lihat tiket QR, lihat riwayat, kelola profil.
 - Saat daftar lewat mobile, akun **selalu** dibuat sebagai penumpang (lihat `AuthController.php`).
 
 ### c. Pengemudi (Driver)
-Sopir yang menjalankan perjalanan. Fitur: lihat perjalanan yang ditugaskan, lihat manifest
+Sopir yang menjalankan perjalanan. Fitur: lihat perjalanan yang ditugaskan, lihat Manifes
 (daftar penumpang), scan QR tiket, tandai penumpang dijemput/turun, konfirmasi pembayaran tunai,
 catat biaya operasional.
 
@@ -71,7 +71,7 @@ operasional, laporan, notifikasi, banner, dan pengaturan sistem.
 | Database | **MySQL** | Tempat semua data disimpan (nama database: `aplikasi_travel`) |
 | Frontend mobile | **Flutter** (Dart) | Aplikasi HP untuk penumpang & pengemudi |
 | Web admin | **Blade + CSS custom + Bootstrap** | Halaman web yang dirender server untuk admin |
-| Payment gateway | **Pakasir** (mode sandbox) | Layanan pembayaran QRIS/transfer online |
+| Payment gateway | **Pakasir** (mode sandbox) | Layanan pembayaran QRIS/virtual account online |
 
 ### Library/package penting
 
@@ -171,12 +171,12 @@ Ini "cerita besar" aplikasi. Hafalkan alurnya, detail kodenya ada di file `04` d
 3. **Pilih jadwal & kursi** — penumpang pilih jadwal, lalu memilih kursi. Kursi yang dipilih
    **dikunci sementara** (seat lock) supaya tidak direbut orang lain saat mengisi form.
 4. **Isi data** — nama penumpang tiap kursi, titik jemput & titik turun (pakai peta), barang bawaan.
-5. **Pilih metode bayar** — QRIS, Transfer (lewat Pakasir), atau Tunai (bayar di kendaraan).
-6. **Bayar** — kalau QRIS/Transfer, penumpang diarahkan ke halaman pembayaran Pakasir. Kalau Tunai,
+5. **Pilih metode bayar** — QRIS, virtual account (lewat Pakasir), atau Tunai (bayar di kendaraan).
+6. **Bayar** — kalau QRIS/virtual account, penumpang diarahkan ke halaman pembayaran Pakasir. Kalau Tunai,
    pembayaran dikonfirmasi nanti oleh pengemudi/admin.
 7. **Tiket terbit** — begitu pembayaran berhasil, sistem menerbitkan **tiket elektronik ber-QR**
    untuk tiap kursi.
-8. **Hari keberangkatan** — pengemudi membuka manifest, memanggil penumpang, **scan QR** untuk
+8. **Hari keberangkatan** — pengemudi membuka Manifes, memanggil penumpang, **scan QR** untuk
    validasi, menandai dijemput & diturunkan.
 9. **Selesai** — setelah semua turun/perjalanan selesai, status jadwal & pemesanan jadi "selesai".
 10. **Laporan** — admin melihat laporan pemesanan & transaksi, serta mencatat biaya operasional.
@@ -202,6 +202,18 @@ Ini "cerita besar" aplikasi. Hafalkan alurnya, detail kodenya ada di file `04` d
 | `biaya_operasional_perjalanan` | Pengeluaran sopir (bensin, tol, dll) |
 | `notifikasi` | Pemberitahuan |
 | `seat lock` | Penguncian kursi sementara agar tak direbut |
-| `manifest` | Daftar penumpang yang harus dilayani sopir dalam satu trip |
+| `manifes` | Daftar penumpang yang harus dilayani sopir dalam satu trip |
+
+---
+
+## 1.8 Pembaruan Arsitektur per 25 Juli 2026
+
+Alur transaksi sekarang mempunyai dua fase waktu: lock kursi ketika form diisi dan lock pembayaran setelah draft booking dibuat. Keduanya diproses oleh `BookingService` di backend agar deadline tidak hanya bergantung pada timer Flutter. Scheduler Laravel membatalkan booking kedaluwarsa setiap menit serta menutup jadwal H-1 jam sebelum berangkat.
+
+Pembayaran digital melalui Pakasir menyimpan snapshot nominal transaksi, biaya admin provider, total yang dibayar penumpang, serta nomor pembayaran bila tersedia. Dengan demikian, perubahan harga rute atau biaya provider tidak mengubah laporan transaksi lama.
+
+Notifikasi admin mencakup pengingat jadwal, kapasitas hampir penuh, dan event armada telah berangkat. Referensi notifikasi dibedakan antara booking dan jadwal sebelum tombol detail ditampilkan.
+
+> **Catatan jujur:** Sanctum digunakan untuk token API dan token dihapus saat logout/reset password. Masa kedaluwarsa token eksplisit belum tampak pada source yang diaudit, jadi jangan menyebut token otomatis expired tanpa konfigurasi tambahan.
 
 Lanjut ke `02_STRUKTUR_DAN_SETUP.md` untuk mengenal struktur folder dan cara menjalankan project.

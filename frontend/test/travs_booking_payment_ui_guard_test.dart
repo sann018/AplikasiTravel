@@ -4,7 +4,25 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   String source(String relativePath) {
-    return File(relativePath).readAsStringSync();
+    final mainFile = File(relativePath);
+    final mainSource = mainFile.readAsStringSync();
+    final combinedSource = StringBuffer(mainSource);
+
+    // Test guard ikut membaca widget yang dipisah melalui directive part.
+    final partPattern = RegExp(r"^part\s+'([^']+)';", multiLine: true);
+    for (final match in partPattern.allMatches(mainSource)) {
+      final partPath = match.group(1);
+      if (partPath == null) {
+        continue;
+      }
+
+      final partFile = File.fromUri(mainFile.parent.uri.resolve(partPath));
+      combinedSource
+        ..writeln()
+        ..write(partFile.readAsStringSync());
+    }
+
+    return combinedSource.toString();
   }
 
   test('halaman pembayaran membuka QRIS melalui hosted Pakasir', () {

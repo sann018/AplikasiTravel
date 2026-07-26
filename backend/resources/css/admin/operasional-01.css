@@ -1,0 +1,243 @@
+/* Form biaya disusun sebagai daftar vertikal, jadi tidak boleh menempel saat halaman digulir. */
+.travs-cost-workspace > .travs-cost-form-panel {
+    position: static;
+    top: auto;
+    width: 100%;
+}
+
+.travs-cost-workspace > .travs-cost-list-panel {
+    width: 100%;
+    margin-top: 0;
+    clear: both;
+}
+
+.travs-cost-form-panel,
+.travs-cost-list-panel,
+.travs-rekap-shelf-panel {
+    min-width: 0;
+}
+
+.travs-cost-filter-section {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: var(--travs-surface);
+    border: 1px solid var(--travs-border);
+    border-radius: 8px;
+}
+
+.travs-cost-filter-section .travs-filter-grid {
+    margin-bottom: 0;
+}
+
+.travs-cost-table-section {
+    margin-top: 0;
+}
+
+.travs-rekap-panel-grid {
+    align-items: start;
+}
+
+.travs-rekap-shelf-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+}
+
+.travs-chart-card {
+    min-height: 260px;
+    padding: 14px;
+    background: var(--travs-surface);
+    border: 1px solid var(--travs-border);
+    border-radius: 16px;
+}
+
+.travs-chart-bars {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    align-items: end;
+    gap: 12px;
+    min-height: 230px;
+}
+
+.travs-chart-bar-item {
+    display: grid;
+    gap: 10px;
+    height: 100%;
+}
+
+.travs-chart-value {
+    color: var(--travs-text-faint);
+    font-size: 0.72rem;
+    text-align: center;
+}
+
+.travs-chart-bar-shell {
+    position: relative;
+    display: flex;
+    align-items: end;
+    justify-content: center;
+    height: 170px;
+    padding: 8px;
+    border-radius: 12px;
+    background: #eef2f6;
+}
+
+.travs-chart-bar {
+    display: block;
+    width: 100%;
+    max-width: 24px;
+    border-radius: 999px;
+    background: var(--travs-primary);
+}
+
+.travs-chart-bar-item strong {
+    color: var(--travs-primary);
+    font-size: 0.82rem;
+    text-align: center;
+}
+
+.travs-empty-state {
+    display: grid;
+    place-items: center;
+    gap: 10px;
+    min-height: 230px;
+    text-align: center;
+    color: var(--travs-text-soft);
+}
+
+.travs-empty-state strong {
+    color: var(--travs-primary);
+}
+
+.travs-empty-state p {
+    max-width: 340px;
+    margin: 0;
+    line-height: 1.65;
+}
+
+.travs-empty-illustration {
+    position: relative;
+    width: 120px;
+    height: 72px;
+    border: 1.5px solid var(--travs-border-strong);
+    border-radius: 14px;
+}
+
+.travs-empty-illustration::before,
+.travs-empty-illustration::after {
+    content: '';
+    position: absolute;
+    top: 35px;
+    left: 14px;
+    width: 92px;
+    height: 1.5px;
+    background: var(--travs-border-strong);
+}
+
+.travs-empty-illustration::before {
+    transform: rotate(24deg);
+}
+
+.travs-empty-illustration::after {
+    transform: rotate(-24deg);
+}
+
+.travs-table-wrap {
+    overflow-x: auto;
+}
+
+.travs-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.travs-table th,
+.travs-table td {
+    padding: 12px 0;
+    text-align: left;
+    border-bottom: 1px solid var(--travs-surface-muted);
+    font-size: 0.9rem;
+    vertical-align: top;
+}
+
+.travs-table th {
+    color: var(--travs-text-soft);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.travs-table-empty {
+    color: var(--travs-text-soft);
+}
+
+.travs-badge {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .02em;
+}
+
+.travs-badge-success {
+    background: #e8f7ee;
+    color: #0f7a3a;
+}
+
+.travs-badge-warning {
+    background: #fff4df;
+    color: #a65f00;
+}
+
+.travs-badge-danger {
+    background: #fdecec;
+    color: #b42318;
+}
+
+.travs-reminder-section {
+    margin-top: 18px;
+    padding: 18px;
+    border: 1px solid var(--travs-border);
+    border-radius: 18px;
+    background: var(--travs-white);
+}
+
+.travs-note-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-top: 16px;
+}
+
+.travs-note-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px;
+    border: 1px solid var(--travs-border);
+    border-radius: 16px;
+    background: var(--travs-surface);
+}
+
+.travs-note-icon {
+    position: relative;
+    flex: 0 0 28px;
+    width: 28px;
+    height: 28px;
+    border: 1.5px solid var(--travs-border-strong);
+    border-radius: 8px;
+}
+
+.travs-note-icon::before,
+.travs-note-icon::after {
+    content: '';
+    position: absolute;
+    top: 12px;
+    left: 5px;
+    width: 16px;
+    height: 1.5px;
+    background: var(--travs-border-strong);
+}
+

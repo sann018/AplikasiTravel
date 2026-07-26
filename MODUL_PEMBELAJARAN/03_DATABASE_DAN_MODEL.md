@@ -217,10 +217,15 @@ Constraint gabungan memastikan nomor kursi tidak berulang dalam satu jadwal:
 |-------|------|------------|
 | id | bigint (PK) | Nomor unik |
 | pemesanan_id | FK/UQ → pemesanan | Untuk booking mana; satu booking maksimal satu pembayaran |
-| order_id_gateway, gateway_reference | string, nullable | ID dari Pakasir |
-| metode_bayar | string(50) | qris / transfer / cash |
+| order_id_gateway | string, unik, nullable | ID transaksi gateway, berbeda dari kode booking |
+| gateway_reference | string, nullable | Referensi dari gateway |
+| metode_bayar | string(50) | qris / virtual account / cash; `transfer` lama hanya kompatibilitas |
 | paid_channel | string, nullable | Kanal bayar sebenarnya |
-| jumlah_bayar | decimal | Nominal |
+| nominal_transaksi | unsigned bigint, nullable | Nilai tiket/pendapatan RuslyTravel saat transaksi |
+| biaya_admin_provider | unsigned bigint, nullable | Biaya dari Pakasir/provider |
+| total_dibayar_penumpang | unsigned bigint, nullable | Total final menurut provider |
+| payment_number | text, nullable | Nomor QR/virtual account bila tersedia |
+| jumlah_bayar | decimal | Kolom kompatibilitas lama; baca bersama snapshot di atas |
 | status_bayar | enum(menunggu, berhasil, gagal, kedaluwarsa) | Status |
 | gateway_response, raw_webhook_payload | - | Rekaman balasan Pakasir (audit) |
 | expired_at, webhook_verified_at, dibayar_pada | datetime, nullable | Waktu-waktu penting |
@@ -296,6 +301,7 @@ pembayaran.pemesanan_id [FK/UQ]
 detail_pemesanan.kursi_jadwal_id [FK/UQ]
 tiket_elektronik.detail_pemesanan_id [FK/UQ]
 UQ gabungan: kursi_jadwal(jadwal_id, nomor_kursi)
+order_id_gateway pada pembayaran [UQ]
 ```
 
 ---

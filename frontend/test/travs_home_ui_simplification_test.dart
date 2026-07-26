@@ -20,14 +20,30 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues(<String, Object>{}));
 
   test('menu tugas pengemudi memakai istilah Perjalanan', () {
-    final source = File(
-      'lib/features/home/travs_home_page.dart',
-    ).readAsStringSync();
+    final mainFile = File('lib/features/home/travs_home_page.dart');
+    final mainSource = mainFile.readAsStringSync();
+    final source = StringBuffer(mainSource);
 
-    expect(source, contains("label: 'Perjalanan'"));
-    expect(source, contains("label: 'Penumpang'"));
-    expect(source, isNot(contains("label: 'Manifes'")));
-    expect(source, contains("'Manifes Penumpang'"));
+    // Test istilah ikut membaca widget yang dipisah melalui directive part.
+    final partPattern = RegExp(r"^part\s+'([^']+)';", multiLine: true);
+    for (final match in partPattern.allMatches(mainSource)) {
+      final partPath = match.group(1);
+      if (partPath != null) {
+        source
+          ..writeln()
+          ..write(
+            File.fromUri(
+              mainFile.parent.uri.resolve(partPath),
+            ).readAsStringSync(),
+          );
+      }
+    }
+
+    final combinedSource = source.toString();
+    expect(combinedSource, contains("label: 'Perjalanan'"));
+    expect(combinedSource, contains("label: 'Penumpang'"));
+    expect(combinedSource, isNot(contains("label: 'Manifes'")));
+    expect(combinedSource, contains("'Manifes Penumpang'"));
   });
 
   Future<void> pumpHome(

@@ -21,20 +21,22 @@
             </div>
             <div class="travs-field">
                 <label for="status" class="form-label">Status</label>
-                <select id="status" name="status" class="travs-select form-select">
+                <select id="status" name="status" class="travs-select @error('status') is-invalid @enderror form-select">
                     <option value="">Semua status</option>
                     @foreach (['draft' => 'Draft', 'dibuka' => 'Dibuka', 'ditutup' => 'Ditutup', 'berangkat' => 'Berangkat', 'selesai' => 'Selesai'] as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['status'] ?? '') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
+                @include('admin.partials.field-error', ['name' => 'status'])
             </div>
             <div class="travs-field">
                 <label for="tanggal" class="form-label">Tanggal</label>
-                <input id="tanggal" name="tanggal" type="date" class="travs-input form-control" value="{{ $filters['tanggal'] ?? '' }}">
+                <input id="tanggal" name="tanggal" type="date" class="travs-input @error('tanggal') is-invalid @enderror form-control" value="{{ $filters['tanggal'] ?? '' }}">
+                @include('admin.partials.field-error', ['name' => 'tanggal'])
             </div>
             <div class="travs-filter-actions d-flex align-items-end flex-wrap">
                 <button type="submit" class="travs-button btn btn-primary">Terapkan Filter</button>
-                <a href="{{ route('admin.jadwal.index') }}" class="travs-button-secondary btn btn-outline-secondary">Reset</a>
+                <a href="{{ route('admin.jadwal.index') }}" class="travs-button-secondary btn btn-outline-secondary" data-clear-form-draft>Reset</a>
             </div>
         </form>
 

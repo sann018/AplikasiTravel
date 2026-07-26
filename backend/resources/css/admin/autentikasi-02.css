@@ -1,0 +1,120 @@
+.travs-export-label {
+    display: inline-flex;
+    align-items: center;
+    min-height: 38px;
+    padding: 0 12px;
+    color: var(--travs-primary);
+    background: rgba(16, 35, 63, 0.06);
+    border: 1px solid var(--travs-border);
+    border-radius: 12px;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+}
+
+.travs-export-menu {
+    position: relative;
+    display: inline-block;
+}
+
+.travs-export-menu summary {
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 16px;
+    color: var(--travs-primary);
+    background: var(--travs-white);
+    border: 1px solid var(--travs-border);
+    border-radius: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 10px 24px rgba(16, 35, 63, 0.06);
+}
+
+.travs-export-menu summary::-webkit-details-marker {
+    display: none;
+}
+
+.travs-export-menu summary::after {
+    content: '▾';
+    color: var(--travs-text-soft);
+    font-size: 0.78rem;
+}
+
+.travs-export-menu[open] summary {
+    color: var(--travs-white);
+    background: var(--travs-primary);
+    border-color: var(--travs-primary);
+}
+
+.travs-export-menu[open] summary::after {
+    color: var(--travs-white);
+}
+
+.travs-export-menu__list {
+    position: absolute;
+    right: 0;
+    z-index: 30;
+    display: grid;
+    min-width: 170px;
+    margin-top: 8px;
+    padding: 8px;
+    background: var(--travs-white);
+    border: 1px solid var(--travs-border);
+    border-radius: 14px;
+    box-shadow: 0 20px 36px rgba(16, 35, 63, 0.14);
+}
+
+.travs-export-menu__list :is(a, button) {
+    width: 100%;
+    padding: 10px 12px;
+    color: var(--travs-primary);
+    background: transparent;
+    border: 0;
+    border-radius: 10px;
+    font-weight: 800;
+    text-decoration: none;
+    text-align: left;
+    cursor: pointer;
+}
+
+.travs-export-menu__list :is(a, button):hover {
+    background: rgba(16, 35, 63, 0.08);
+}
+
+.travs-button-secondary-light {
+    color: var(--travs-white);
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.travs-auth-meta {
+    margin: 22px 0 0;
+    color: var(--travs-text-soft);
+    font-size: 0.92rem;
+    line-height: 1.65;
+}
+
+.travs-alert {
+    margin: 16px 0 0;
+    padding: 14px 16px;
+    border-radius: 16px;
+    font-size: 0.92rem;
+    line-height: 1.6;
+}
+
+.travs-alert-danger {
+    color: var(--travs-danger);
+    background: #fff1ef;
+    border: 1px solid #ffd7d1;
+}
+
+.travs-alert-success {
+    margin-bottom: 18px;
+    color: #187a51;
+    background: #edf9f2;
+    border: 1px solid #ccefdc;
+}
+

@@ -43,6 +43,24 @@ class DashboardController extends Controller
             ];
         });
         $pendapatanMingguIni = (int) $pendapatanHarian->sum('total');
+        // Rute yang benar-benar dikunjungi hanya dihitung dari perjalanan selesai.
+        $ruteTerpopulerRecord = Pemesanan::query()
+            ->join('jadwal', 'jadwal.id', '=', 'pemesanan.jadwal_id')
+            ->join('rute', 'rute.id', '=', 'jadwal.rute_id')
+            ->where('pemesanan.status_pemesanan', 'selesai')
+            ->select(['rute.id', 'rute.kota_asal', 'rute.kota_tujuan'])
+            ->selectRaw('SUM(pemesanan.jumlah_kursi) as jumlah_penumpang')
+            ->groupBy('rute.id', 'rute.kota_asal', 'rute.kota_tujuan')
+            ->orderByDesc('jumlah_penumpang')
+            ->orderBy('rute.id')
+            ->first();
+        $ruteTerpopuler = [
+            'label' => $ruteTerpopulerRecord
+                ? $ruteTerpopulerRecord->kota_asal.' - '.$ruteTerpopulerRecord->kota_tujuan
+                : 'Belum tersedia',
+            'jumlah_penumpang' => (int) ($ruteTerpopulerRecord?->jumlah_penumpang ?? 0),
+            'search' => $ruteTerpopulerRecord?->kota_tujuan,
+        ];
 
         $stats = [
             'total_armada' => Kendaraan::query()->count(),
@@ -54,13 +72,6 @@ class DashboardController extends Controller
             'pemesanan_hari_ini' => Pemesanan::query()->whereDate('created_at', $today)->count(),
             'booking_menunggu' => Pemesanan::query()->where('status_pemesanan', 'menunggu_pembayaran')->count(),
             'pendapatan_minggu_ini' => $pendapatanMingguIni,
-            // Pemesanan berhasil dihitung dari pembayaran sah pada bulan berjalan.
-            'pemesanan_berhasil_bulan_ini' => Pembayaran::query()
-                ->where('status_bayar', 'berhasil')
-                ->whereHas('pemesanan', fn ($booking) => $booking->whereIn('status_pemesanan', ['terbayar', 'selesai']))
-                ->whereYear('dibayar_pada', $today->year)
-                ->whereMonth('dibayar_pada', $today->month)
-                ->count(),
             'pendapatan_harian' => (int) Pembayaran::query()
                 ->join('pemesanan', 'pemesanan.id', '=', 'pembayaran.pemesanan_id')
                 ->where('pembayaran.status_bayar', 'berhasil')
@@ -82,6 +93,7 @@ class DashboardController extends Controller
 
         return view('admin.dashboard.index', [
             'stats' => $stats,
+            'ruteTerpopuler' => $ruteTerpopuler,
             'jadwalHariIni' => $jadwalHariIni,
             'pendapatanHarian' => $pendapatanHarian,
         ]);

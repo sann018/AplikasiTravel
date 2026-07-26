@@ -264,16 +264,16 @@ public function calculate(Jadwal $jadwal, int $seatCount): array
 
 ---
 
-## MODUL 7 — Pembayaran (QRIS / Transfer / Tunai) ⭐⭐
+## MODUL 7 — Pembayaran (QRIS / Virtual Account / Tunai) ⭐⭐
 
-**Fungsi:** memproses pembayaran lewat gateway Pakasir (QRIS/transfer) atau tunai (bayar di mobil).
+**Fungsi:** memproses pembayaran lewat gateway Pakasir (QRIS/virtual account) atau tunai (bayar di mobil).
 
 **File terkait:**
 - Controller: `Api/BookingController.php` (simulate, refresh status), `Api/PaymentGatewayController.php` (webhook)
 - Service: `BookingService.php` (proses status), `PakasirService.php` (komunikasi ke Pakasir)
 
 **Tiga metode pembayaran:**
-- **QRIS / Transfer** → lewat Pakasir. Penumpang diarahkan ke halaman checkout Pakasir.
+- **QRIS / Virtual Account** → lewat Pakasir. Penumpang diarahkan ke halaman checkout Pakasir.
 - **Tunai (cash)** → dibayar di kendaraan, dikonfirmasi pengemudi/admin.
 
 **Alur QRIS (aman):**
@@ -314,7 +314,7 @@ if ($this->pakasirService->isCompletedStatus($transaction['status'])) {
 
 ## MODUL 8 — Bagasi
 
-**Fungsi:** mencatat barang bawaan penumpang (untuk keperluan manifest, tanpa biaya tambahan).
+**Fungsi:** mencatat barang bawaan penumpang (untuk keperluan Manifes, tanpa biaya tambahan).
 
 **File terkait:** `BookingController.php` (validasi & simpan), Model `ItemBagasi.php`.
 
@@ -356,7 +356,7 @@ dicocokkan.
 
 ---
 
-## MODUL 10 — Manifest & Operasi Pengemudi ⭐
+## MODUL 10 — Manifes & Operasi Pengemudi ⭐
 
 **Fungsi:** pengemudi melihat daftar penumpang, scan QR, tandai jemput/turun, konfirmasi tunai.
 
@@ -480,10 +480,22 @@ untuk kompatibilitas kode dan API; yang distandardisasi hanya nama tabel dan kol
 | Pemesanan | `Api/BookingController` | `BookingService`, `BookingCalculator` | `Pemesanan`, `DetailPemesanan` |
 | Pembayaran | `Api/PaymentGatewayController` | `BookingService`, `PakasirService` | `Pembayaran` |
 | Tiket QR | `Api/BookingController` | `BookingService` | `TiketElektronik` |
-| Manifest/Sopir | `Api/DriverController` | `BookingService` | `Jadwal`, `DetailPemesanan` |
+| Manifes/Sopir | `Api/DriverController` | `BookingService` | `Jadwal`, `DetailPemesanan` |
 | Notifikasi | `Api/NotificationController` | `AdminOperationalNotificationService` | `Notifikasi` |
 | Laporan | `Web/Admin/LaporanController` | - | `Pemesanan`, `Pembayaran` |
 | Biaya operasional | `Web/Admin/BiayaOperasionalController` | - | `BiayaOperasionalPerjalanan` |
 | Pengaturan | `Web/Admin/SettingsController` | `SettingService` | `SystemSetting` |
 
 Lanjut ke `05_FITUR_FLUTTER.md` untuk memahami sisi aplikasi mobile.
+
+---
+
+## Pembaruan Logika Backend per 25 Juli 2026
+
+1. **Dua deadline booking:** `seat_lock_form_minutes` (default 30 menit) berlaku sebelum draft booking dibuat; `seat_lock_payment_minutes` (default 5 menit) berlaku setelahnya. Booking yang melewati batas pembayaran menjadi `dibatalkan`, pembayaran `kedaluwarsa`, dan kursi dilepas.
+2. **Pendapatan historis:** laporan dan Detail Jadwal memakai `nominal_transaksi` snapshot untuk booking yang benar-benar terbayar, bukan menghitung ulang dari harga rute saat ini atau `jumlah_bayar` provider.
+3. **Pembayaran digital:** gateway memvalidasi nominal Rupiah sebagai integer, metode pembayaran, order ID unik, dan respons transaksi provider sebelum status booking ditutup sebagai terbayar.
+4. **Pembayaran tunai:** tiket diterbitkan hanya setelah konfirmasi oleh admin atau pengemudi yang ditugaskan. Tunai yang belum dikonfirmasi sampai jadwal selesai dibatalkan sebagai no-show dan kursinya dilepas.
+5. **Notifikasi jadwal:** admin diberi notifikasi H-1 jam dan ketika pengemudi mengubah status menjadi `berangkat`; notifikasi jadwal menggunakan rujukan jadwal sehingga tombol Detail Jadwal tidak tertukar dengan detail booking.
+
+> **Risiko yang masih ada:** pengingat keberangkatan penumpang menggunakan `updateOrCreate` dengan nilai `sudah_dibaca = false`; scheduler berikutnya dapat mengubah notifikasi yang sudah dibaca menjadi belum dibaca lagi. Jangan mengklaim bagian ini sudah sepenuhnya idempoten sebelum diperbaiki.

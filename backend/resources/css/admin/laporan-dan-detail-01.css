@@ -1,0 +1,240 @@
+/* Jumlah card laporan dapat berubah tanpa meninggalkan kolom kosong yang lebar. */
+.travs-summary-grid-auto {
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.travs-summary-grid-dashboard .travs-summary-card-finance {
+    grid-column: 4;
+    grid-row: 1 / span 2;
+    align-self: stretch;
+}
+
+.travs-summary-card,
+.travs-section-card {
+    padding: 18px;
+    background: var(--travs-white);
+    border: 1px solid var(--travs-border);
+    border-radius: 18px;
+    box-shadow: var(--travs-shadow);
+}
+
+.travs-summary-card {
+    display: grid;
+    gap: 8px;
+    min-height: 124px;
+    align-content: start;
+}
+
+.travs-summary-card small {
+    color: var(--travs-text-soft);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.travs-summary-card strong {
+    color: var(--travs-primary);
+    font-size: 1.45rem;
+    line-height: 1.2;
+}
+
+.travs-summary-card span {
+    color: var(--travs-text-soft);
+    font-size: 0.86rem;
+    line-height: 1.6;
+}
+
+.travs-summary-card-multi {
+    gap: 10px;
+}
+
+.travs-summary-card-finance {
+    border-color: rgba(20, 51, 94, 0.18);
+    border-left: 5px solid #14335e;
+    background: #f8fbff;
+    align-content: start;
+}
+
+.travs-summary-card-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 10px;
+    border: 1px solid rgba(20, 51, 94, 0.08);
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.travs-summary-card-row em {
+    color: var(--travs-text-soft);
+    font-size: 0.82rem;
+    font-style: normal;
+    font-weight: 700;
+}
+
+.travs-summary-card-row strong {
+    font-size: 1.08rem;
+    text-align: right;
+}
+
+.travs-summary-income strong {
+    color: #087f5b;
+}
+
+.travs-summary-cost strong {
+    color: #d9480f;
+}
+
+.travs-split-grid {
+    display: grid;
+    grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.travs-form-card {
+    position: sticky;
+    top: 16px;
+}
+
+.travs-form-grid-2 {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.travs-field-span-2 {
+    grid-column: span 2;
+}
+
+.travs-filter-grid,
+.travs-filter-grid-wide {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    margin: 18px 0;
+}
+
+.travs-filter-grid-wide {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.travs-filter-actions {
+    display: flex;
+    align-items: end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.travs-filter-actions .travs-button-secondary,
+.travs-filter-actions .travs-button {
+    min-height: 48px;
+}
+
+.travs-table-subcopy {
+    margin-top: 5px;
+    color: var(--travs-text-soft);
+    font-size: 0.82rem;
+    line-height: 1.55;
+}
+
+.travs-person-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 180px;
+    max-width: 320px;
+    overflow: hidden;
+}
+
+.travs-person-cell > div:last-child {
+    min-width: 0;
+    max-width: 100%;
+}
+
+.travs-person-cell strong,
+.travs-person-cell .travs-table-subcopy {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.travs-avatar {
+    width: 46px;
+    height: 46px;
+    flex: 0 0 46px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 50%;
+    background: var(--travs-primary);
+    color: #ffffff;
+    font-weight: 800;
+    box-shadow: 0 8px 18px rgba(8, 36, 71, 0.14);
+}
+
+.travs-avatar img {
+    width: 100%;
+    height: 100%;
+    max-width: 46px;
+    max-height: 46px;
+    display: block;
+    object-fit: cover;
+}
+
+.travs-table .travs-avatar,
+.travs-table .travs-person-cell .travs-avatar {
+    width: 42px;
+    height: 42px;
+    flex-basis: 42px;
+    min-width: 42px;
+    max-width: 42px;
+    max-height: 42px;
+}
+
+.travs-table .travs-avatar img,
+.travs-table .travs-person-cell .travs-avatar img {
+    width: 42px;
+    height: 42px;
+    max-width: 42px;
+    max-height: 42px;
+    display: block;
+    object-fit: cover;
+}
+
+.travs-current-photo {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--travs-border);
+    border-radius: 18px;
+    background: var(--travs-soft);
+    color: var(--travs-text-soft);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.travs-current-photo img {
+    width: 54px;
+    height: 54px;
+    max-width: 54px;
+    max-height: 54px;
+    display: block;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.travs-current-document img {
+    width: 84px;
+    height: 54px;
+    max-width: 84px;
+    max-height: 54px;
+    border-radius: 12px;
+}
+

@@ -1,0 +1,73 @@
+/* Section bisa diringkas tanpa memuat ulang halaman atau meminta data baru ke server. */
+.collapsible-section__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 16px;
+}
+
+.collapsible-section__header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.collapsible-section__toggle {
+    display: inline-grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    padding: 0;
+    color: var(--travs-primary);
+    background: var(--travs-surface);
+    border: 1px solid var(--travs-border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.collapsible-section__toggle:hover,
+.collapsible-section__toggle:focus-visible {
+    background: var(--travs-white);
+    border-color: var(--travs-primary);
+    outline: none;
+}
+
+.collapsible-section__icon {
+    display: inline-grid;
+    place-items: center;
+}
+
+.collapsible-section__icon svg {
+    width: 20px;
+    height: 20px;
+}
+
+.collapsible-section__icon-closed,
+.collapsible-section.is-collapsed .collapsible-section__icon-open {
+    display: none;
+}
+
+.collapsible-section.is-collapsed .collapsible-section__icon-closed {
+    display: inline-grid;
+}
+
+.collapsible-section__body[hidden] {
+    display: none !important;
+}
+
+.collapsible-section.is-collapsed .collapsible-section__header {
+    margin-bottom: 0;
+}
+
+.travs-cost-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 24px;
+}
+

@@ -28,6 +28,8 @@
 	<true/>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>RuslyTravel memerlukan izin untuk menyimpan tiket ke galeri.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>RuslyTravel memerlukan akses galeri untuk menyimpan tiket ke album RuslyTravel.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

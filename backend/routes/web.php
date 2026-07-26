@@ -10,10 +10,11 @@ use App\Http\Controllers\Web\Admin\LaporanController;
 use App\Http\Controllers\Web\Admin\NotifikasiController;
 use App\Http\Controllers\Web\Admin\PembayaranController;
 use App\Http\Controllers\Web\Admin\PemesananController;
-use App\Http\Controllers\Web\Admin\PengemudiController;
 use App\Http\Controllers\Web\Admin\PengaturanController;
+use App\Http\Controllers\Web\Admin\PengemudiController;
 use App\Http\Controllers\Web\Admin\RuteController;
 use App\Http\Controllers\Web\Admin\SettingsController;
+use App\Http\Controllers\Web\Admin\TiketMonitorController;
 use App\Http\Controllers\Web\PasswordResetController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -83,6 +84,7 @@ Route::prefix('admin')->group(function () {
         Route::get('/pemesanan', [PemesananController::class, 'index'])->name('admin.pemesanan.index');
         Route::get('/pemesanan/{pemesanan}', [PemesananController::class, 'show'])->name('admin.pemesanan.show');
         Route::put('/pemesanan/{pemesanan}', [PemesananController::class, 'update'])->middleware('throttle:travs-admin-action')->name('admin.pemesanan.update');
+        Route::get('/tiket-monitor', [TiketMonitorController::class, 'index'])->name('admin.tiket-monitor.index');
 
         Route::get('/pembayaran', [PembayaranController::class, 'index'])->name('admin.pembayaran.index');
         Route::get('/pembayaran/{pembayaran}', [PembayaranController::class, 'show'])->name('admin.pembayaran.show');

@@ -1,0 +1,169 @@
+@media (max-width: 760px) {
+    .collapsible-section__header {
+        align-items: flex-start;
+    }
+
+    .collapsible-section__header-actions {
+        max-width: 100%;
+    }
+
+    .collapsible-section__toggle {
+        width: 38px;
+        height: 38px;
+        flex-basis: 38px;
+    }
+
+    .travs-login-card,
+    .travs-page-frame,
+    .travs-panel,
+    .travs-reminder-section,
+    .travs-settings-group {
+        padding: 18px;
+    }
+
+    .travs-overview-grid,
+    .travs-note-grid,
+    .travs-dashboard-highlight-stack {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-summary-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-summary-grid-dashboard {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-dashboard-simple .travs-summary-grid-dashboard .travs-summary-card-finance {
+        grid-column: auto;
+        grid-row: auto;
+    }
+
+    .travs-topbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .travs-topbar-left {
+        flex-wrap: wrap;
+    }
+
+    .travs-topbar-title p {
+        max-width: 100%;
+    }
+
+    .travs-topbar-right {
+        justify-content: flex-end;
+    }
+
+    .travs-search-box {
+        max-width: none;
+    }
+
+    .travs-user-pill {
+        justify-content: space-between;
+    }
+
+    .travs-dashboard-hero,
+    .travs-dashboard-panel {
+        padding: 18px;
+        border-radius: 22px;
+    }
+
+    .travs-dashboard-hero-copy h2 {
+        font-size: 1.6rem;
+    }
+
+    .travs-dashboard-hero-actions,
+    .travs-dashboard-list-item {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-dashboard-list-meta {
+        justify-items: start;
+        text-align: left;
+    }
+
+    .travs-chart-bars {
+        gap: 8px;
+    }
+
+    .travs-dashboard-chart-bars {
+        gap: 10px;
+        min-height: 260px;
+    }
+
+    .travs-pagination {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .travs-pagination-links {
+        justify-content: flex-start;
+    }
+}
+
+.travs-rekap-filter-card {
+    margin-bottom: 22px;
+}
+
+.travs-rekap-panel-grid {
+    display: grid;
+    gap: 22px;
+}
+
+.travs-admin-booking-alert {
+    display: grid;
+    gap: 8px;
+    padding: 14px 16px;
+    border: 1px solid var(--travs-border);
+    border-radius: 16px;
+    background: var(--travs-white);
+}
+
+.travs-admin-booking-alert strong {
+    color: var(--travs-primary);
+}
+
+.travs-admin-booking-alert small {
+    color: var(--travs-text-soft);
+    line-height: 1.55;
+}
+
+.travs-sidebar-badge {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 7px;
+    border-radius: 999px;
+    background: var(--travs-accent);
+    color: var(--travs-white);
+    font-size: 0.72rem;
+    font-weight: 800;
+    box-shadow: 0 8px 18px rgba(245, 138, 42, 0.18);
+}
+
+.travs-section-card.is-booking-notification {
+    border-color: rgba(245, 138, 42, 0.35);
+    box-shadow: 0 20px 34px rgba(245, 138, 42, 0.10);
+}
+
+.travs-booking-notification-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.travs-booking-notification-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 999px;
+    background: var(--travs-accent);
+    box-shadow: 0 0 0 6px rgba(245, 138, 42, 0.12);
+}
+

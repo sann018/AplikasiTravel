@@ -18,33 +18,37 @@
             </div>
             <div class="travs-field">
                 <label for="metode_bayar" class="form-label">Metode</label>
-                <select id="metode_bayar" name="metode_bayar" class="travs-select form-select">
+                <select id="metode_bayar" name="metode_bayar" class="travs-select @error('metode_bayar') is-invalid @enderror form-select">
                     <option value="">Semua metode</option>
                     @foreach (\App\Support\PaymentMethodCatalog::adminOptions() as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['metode_bayar'] ?? '') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
+                @include('admin.partials.field-error', ['name' => 'metode_bayar'])
             </div>
             <div class="travs-field">
                 <label for="status_bayar" class="form-label">Status</label>
-                <select id="status_bayar" name="status_bayar" class="travs-select form-select">
+                <select id="status_bayar" name="status_bayar" class="travs-select @error('status_bayar') is-invalid @enderror form-select">
                     <option value="">Semua status</option>
                     @foreach (['menunggu' => 'Menunggu', 'berhasil' => 'Berhasil', 'gagal' => 'Gagal', 'kedaluwarsa' => 'Kedaluwarsa'] as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['status_bayar'] ?? '') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
+                @include('admin.partials.field-error', ['name' => 'status_bayar'])
             </div>
             <div class="travs-field">
                 <label for="tanggal_mulai" class="form-label">Tanggal Mulai</label>
-                <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_mulai'] ?? '' }}">
+                <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input @error('tanggal_mulai') is-invalid @enderror form-control" value="{{ $filters['tanggal_mulai'] ?? '' }}">
+                @include('admin.partials.field-error', ['name' => 'tanggal_mulai'])
             </div>
             <div class="travs-field">
                 <label for="tanggal_selesai" class="form-label">Tanggal Selesai</label>
-                <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
+                <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input @error('tanggal_selesai') is-invalid @enderror form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
+                @include('admin.partials.field-error', ['name' => 'tanggal_selesai'])
             </div>
             <div class="travs-filter-actions d-flex align-items-end flex-wrap">
                 <button type="submit" class="travs-button btn btn-primary">Terapkan Filter</button>
-                <a href="{{ route('admin.pembayaran.index') }}" class="travs-button-secondary btn btn-outline-secondary">Reset</a>
+                <a href="{{ route('admin.pembayaran.index') }}" class="travs-button-secondary btn btn-outline-secondary" data-clear-form-draft>Reset</a>
             </div>
         </form>
 

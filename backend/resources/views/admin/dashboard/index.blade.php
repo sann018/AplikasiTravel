@@ -22,10 +22,10 @@
                     <strong>Rp{{ number_format($stats['pendapatan_minggu_ini'], 0, ',', '.') }}</strong>
                     <span>Nominal transaksi berhasil, tanpa biaya admin provider.</span>
                 </a>
-                <a href="{{ route('admin.laporan.pemesanan', ['status' => 'terbayar']) }}" class="travs-summary-card travs-summary-link card">
-                    <small>Pemesanan Berhasil Bulan Ini</small>
-                    <strong>{{ number_format($stats['pemesanan_berhasil_bulan_ini'], 0, ',', '.') }}</strong>
-                    <span>Pembayaran sah pada {{ now()->translatedFormat('F Y') }}.</span>
+                <a href="{{ route('admin.rute.index', array_filter(['search' => $ruteTerpopuler['search']])) }}" class="travs-summary-card travs-summary-link card">
+                    <small>Rute Paling Banyak Dikunjungi</small>
+                    <strong>{{ $ruteTerpopuler['label'] }}</strong>
+                    <span>{{ number_format($ruteTerpopuler['jumlah_penumpang'], 0, ',', '.') }} penumpang dari perjalanan yang sudah selesai.</span>
                 </a>
                 <a href="{{ route('admin.pemesanan.index', ['status' => 'menunggu_pembayaran']) }}" class="travs-summary-card travs-summary-link card">
                     <small>Menunggu Pembayaran</small>

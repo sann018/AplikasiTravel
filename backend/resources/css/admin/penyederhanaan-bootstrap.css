@@ -1,0 +1,147 @@
+/* Tampilan web admin dibuat lebih sederhana seperti pola Bootstrap bawaan.
+   Perubahan ini hanya menyentuh visual, fitur collapse buka-tutup tetap dipakai. */
+.travs-admin-body {
+    background: #f8f9fa;
+    color: #212529;
+}
+
+.travs-admin-body .travs-topbar,
+.travs-admin-body .travs-sidebar,
+.travs-admin-body .travs-card,
+.travs-admin-body .travs-panel,
+.travs-admin-body .travs-section-card,
+.travs-admin-body .travs-page-frame,
+.travs-admin-body .travs-dashboard-panel,
+.travs-admin-body .travs-overview-card,
+.travs-admin-body .travs-summary-card,
+.travs-admin-body .travs-form-card,
+.travs-admin-body .travs-filter-card,
+.travs-admin-body .travs-settings-group,
+.travs-admin-body .travs-settings-tabs,
+.travs-admin-body .travs-settings-subsection,
+.travs-admin-body .travs-settings-banner-card,
+.travs-admin-body .collapsible-section {
+    border-color: #dee2e6;
+    border-radius: 0.375rem;
+    box-shadow: none;
+}
+
+.travs-admin-body .travs-card,
+.travs-admin-body .travs-panel,
+.travs-admin-body .travs-section-card,
+.travs-admin-body .travs-page-frame,
+.travs-admin-body .travs-dashboard-panel,
+.travs-admin-body .travs-overview-card,
+.travs-admin-body .travs-summary-card,
+.travs-admin-body .travs-form-card,
+.travs-admin-body .travs-filter-card,
+.travs-admin-body .travs-settings-group,
+.travs-admin-body .travs-settings-tabs,
+.travs-admin-body .travs-settings-subsection,
+.travs-admin-body .travs-settings-banner-card,
+.travs-admin-body .collapsible-section {
+    background: #ffffff;
+}
+
+.travs-admin-body .travs-page-frame,
+.travs-admin-body .travs-panel,
+.travs-admin-body .travs-section-card,
+.travs-admin-body .travs-dashboard-panel,
+.travs-admin-body .travs-settings-group,
+.travs-admin-body .travs-settings-tabs,
+.travs-admin-body .travs-settings-subsection,
+.travs-admin-body .travs-settings-banner-card,
+.travs-admin-body .collapsible-section {
+    padding: 1rem;
+}
+
+.travs-admin-body .travs-summary-card,
+.travs-admin-body .travs-overview-card,
+.travs-admin-body .travs-mini-stat,
+.travs-admin-body .travs-payment-box,
+.travs-admin-body .travs-dashboard-focus-card,
+.travs-admin-body .travs-notification-row,
+.travs-admin-body .travs-ticket-card,
+.travs-admin-body .travs-baggage-item {
+    border-color: #dee2e6;
+    border-radius: 0.375rem;
+    box-shadow: none;
+}
+
+.travs-admin-body .travs-summary-card {
+    min-height: 104px;
+    padding: 1rem;
+}
+
+.travs-admin-body .travs-summary-card:hover,
+.travs-admin-body .travs-overview-card:hover,
+.travs-admin-body .travs-dashboard-focus-card:hover,
+.travs-admin-body .travs-ticket-card:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.travs-admin-body .travs-table th,
+.travs-admin-body .travs-summary-card small,
+.travs-admin-body .travs-dashboard-focus-label,
+.travs-admin-body .travs-pill {
+    letter-spacing: 0;
+}
+
+.travs-admin-body .travs-pill,
+.travs-admin-body .travs-badge,
+.travs-admin-body .travs-dashboard-focus-label {
+    border-radius: 0.375rem;
+}
+
+.travs-admin-body .travs-button,
+.travs-admin-body .travs-button-secondary,
+.travs-admin-body .travs-logout-button {
+    border-radius: 0.375rem;
+    box-shadow: none;
+    transform: none;
+}
+
+.travs-admin-body .travs-button:hover,
+.travs-admin-body .travs-button-secondary:hover,
+.travs-admin-body .travs-logout-button:hover,
+.travs-admin-body .travs-summary-link:hover,
+.travs-admin-body .travs-summary-link:focus-visible {
+    transform: none;
+    box-shadow: none;
+}
+
+.travs-admin-body .travs-button {
+    background: #0f2747;
+}
+
+.travs-admin-body .travs-button-secondary,
+.travs-admin-body .travs-logout-button {
+    color: #0f2747;
+    background: #e9ecef;
+}
+
+.travs-admin-body .travs-button-link,
+.travs-admin-body .travs-button-link-danger {
+    font-weight: 600;
+}
+
+.travs-admin-body .travs-input,
+.travs-admin-body .travs-select,
+.travs-admin-body .travs-textarea,
+.travs-admin-body .form-control,
+.travs-admin-body .form-select {
+    border-color: #ced4da;
+    border-radius: 0.375rem;
+    color: #212529;
+}
+
+.travs-admin-body .travs-input:focus,
+.travs-admin-body .travs-select:focus,
+.travs-admin-body .travs-textarea:focus,
+.travs-admin-body .form-control:focus,
+.travs-admin-body .form-select:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.18);
+}
+

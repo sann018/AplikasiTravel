@@ -23,6 +23,7 @@
                     ['label' => 'Rute Perjalanan', 'route' => 'admin.rute.index', 'active' => 'admin.rute.*', 'icon' => 'map'],
                     ['label' => 'Jadwal Perjalanan', 'route' => 'admin.jadwal.index', 'active' => 'admin.jadwal.*', 'icon' => 'calendar'],
                     ['label' => 'Pemesanan', 'route' => 'admin.pemesanan.index', 'active' => 'admin.pemesanan.*', 'icon' => 'book-open'],
+                    ['label' => 'Monitor Tiket', 'route' => 'admin.tiket-monitor.index', 'active' => 'admin.tiket-monitor.*', 'icon' => 'check-square'],
                 ],
             ],
             [

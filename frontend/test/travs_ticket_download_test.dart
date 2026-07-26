@@ -69,6 +69,50 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'download tiket menampilkan pengaturan ketika izin galeri ditolak',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 1800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      var settingsOpened = false;
+      var imageSaved = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: TravSTicketDetailPage(
+            session: _session,
+            bookingId: 88,
+            apiService: _FakeTicketApi(),
+            requestGalleryAccess: () async => false,
+            openGallerySettings: () async {
+              settingsOpened = true;
+              return true;
+            },
+            saveTicketImage: (bytes, fileName) async {
+              imageSaved = true;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Download Tiket'));
+      await tester.tap(find.text('Download Tiket'));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Izin Galeri Diperlukan'), findsOneWidget);
+      expect(find.text('Buka Pengaturan'), findsOneWidget);
+      expect(imageSaved, isFalse);
+
+      await tester.tap(find.text('Buka Pengaturan'));
+      await tester.pumpAndSettle();
+
+      expect(settingsOpened, isTrue);
+    },
+  );
 }
 
 const _session = TravSUserSession(

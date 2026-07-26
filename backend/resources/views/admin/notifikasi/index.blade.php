@@ -58,7 +58,7 @@
                 </div>
                 <div class="travs-filter-actions d-flex align-items-end flex-wrap">
                     <button type="submit" class="travs-button btn btn-primary">Terapkan Filter</button>
-                    <a href="{{ route($resetRoute ?? 'admin.notifikasi.index') }}" class="travs-button-secondary btn btn-outline-secondary">Reset</a>
+                    <a href="{{ route($resetRoute ?? 'admin.notifikasi.index') }}" class="travs-button-secondary btn btn-outline-secondary" data-clear-form-draft>Reset</a>
                     <a href="{{ route($resetRoute ?? 'admin.notifikasi.index', ['dibaca' => '0']) }}" class="travs-button-secondary btn btn-outline-secondary">Tampilkan hanya belum dibaca</a>
                 </div>
             </form>

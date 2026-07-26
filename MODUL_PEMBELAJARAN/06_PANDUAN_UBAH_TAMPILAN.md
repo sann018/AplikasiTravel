@@ -450,6 +450,16 @@ pemahaman:
    (`DriverController.php`.)
 4. **Kursi tunai tidak menggantung** — kursi tunai yang tak dikonfirmasi otomatis dilepas saat
    perjalanan selesai. (`DriverController.php`.)
+5. **Deadline booking/pembayaran dipisahkan** — lock form dan batas pembayaran diperiksa backend
+   agar draft kedaluwarsa tidak tetap menunggu pembayaran. (`BookingService.php`.)
+6. **Nominal laporan diperjelas** — nilai tiket, biaya provider, dan total bayar penumpang disimpan
+   terpisah sebagai snapshot. (`Pembayaran`, `BookingService.php`, `LaporanController.php`.)
+7. **Detail jadwal ditambahkan** — admin mendapat ringkasan jadwal, penumpang, pendapatan, dan biaya
+   tanpa menggantikan halaman detail pemesanan atau biaya operasional. (`JadwalController.php` dan
+   `admin/jadwal/show.blade.php`.)
+8. **Notifikasi keberangkatan diperluas** — tersedia pengingat sebelum berangkat serta notifikasi
+   ketika pengemudi benar-benar memulai perjalanan. (`DepartureReminderService.php`,
+   `AdminOperationalNotificationService.php`.)
 
 > **Poin sidang:** kalau ditanya "pernah menemukan bug?", ceritakan salah satu di atas dengan
 > bahasa sederhana: apa masalahnya, di file apa, dan bagaimana solusinya.

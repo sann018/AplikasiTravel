@@ -33,6 +33,16 @@ class JadwalController extends Controller
     {
         $this->scheduleLifecycleService->closeOpenSchedulesNearDeparture();
 
+        // Filter dijaga sebelum tanggal dibaca agar URL tidak valid tidak memicu error server.
+        $request->validate([
+            'search' => ['nullable', 'string', 'max:80'],
+            'status' => ['nullable', Rule::in(['draft', 'dibuka', 'ditutup', 'berangkat', 'selesai', 'dibatalkan'])],
+            'tanggal' => ['nullable', 'date'],
+        ], [
+            'status.in' => 'Status jadwal tidak valid.',
+            'tanggal.date' => 'Tanggal jadwal tidak valid.',
+        ]);
+
         $query = Jadwal::query()
             ->with(['rute', 'kendaraan', 'pengemudi.pengguna'])
             ->withCount([

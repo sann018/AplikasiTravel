@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -182,6 +183,23 @@ class BiayaOperasionalController extends Controller
 
     private function filteredQuery(Request $request)
     {
+        $tanggalSelesaiRules = ['nullable', 'date'];
+        if ($request->filled('tanggal_mulai')) {
+            $tanggalSelesaiRules[] = 'after_or_equal:tanggal_mulai';
+        }
+
+        // Filter divalidasi sebelum tanggal dibaca agar URL rusak tidak memicu error server.
+        $request->validate([
+            'search' => ['nullable', 'string', 'max:80'],
+            'rute_id' => ['nullable', 'integer', Rule::exists('rute', 'id')],
+            'tanggal_mulai' => ['nullable', 'date'],
+            'tanggal_selesai' => $tanggalSelesaiRules,
+        ], [
+            'tanggal_mulai.date' => 'Tanggal mulai tidak valid.',
+            'tanggal_selesai.date' => 'Tanggal selesai tidak valid.',
+            'tanggal_selesai.after_or_equal' => 'Tanggal selesai harus sama atau setelah tanggal mulai.',
+        ]);
+
         $query = BiayaOperasionalPerjalanan::query()
             ->finalized()
             ->with(['jadwal.rute', 'pencatat']);

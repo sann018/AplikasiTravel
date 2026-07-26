@@ -29,7 +29,7 @@
             </div>
             <div class="travs-filter-actions d-flex align-items-end flex-wrap">
                 <button type="submit" class="travs-button btn btn-primary">Terapkan Filter</button>
-                <a href="{{ route('admin.pengemudi.index') }}" class="travs-button-secondary btn btn-outline-secondary">Reset</a>
+                <a href="{{ route('admin.pengemudi.index') }}" class="travs-button-secondary btn btn-outline-secondary" data-clear-form-draft>Reset</a>
             </div>
         </form>
 

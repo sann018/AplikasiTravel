@@ -221,4 +221,15 @@ Kalau ditanya "bagaimana urutan kamu membangun project ini?", jawaban yang logis
 7. **Bangun aplikasi Flutter** — halaman per halaman di `frontend/lib/features/`, memanggil API.
 8. **Uji coba** — tulis test otomatis di `backend/tests/` (ada 194 test) dan uji manual.
 
+## 2.7 Pembaruan Setup per 25 Juli 2026
+
+Untuk mendemokan pembatalan otomatis booking, penutupan jadwal, atau pengingat keberangkatan, scheduler Laravel harus dijalankan:
+
+```powershell
+cd backend
+php artisan schedule:work
+```
+
+Pembatalan booking kedaluwarsa dan penutupan jadwal berjalan setiap menit. Pengingat keberangkatan diproses setiap 15 menit untuk jadwal dalam satu jam ke depan. Migration terbaru juga menambah unique constraint `order_id_gateway` serta snapshot nominal pembayaran; jalankan migration hanya pada database environment yang tepat dan backup data penting sebelum perubahan schema.
+
 Lanjut ke `03_DATABASE_DAN_MODEL.md` untuk mendalami struktur database (bahan BAB 4.3).

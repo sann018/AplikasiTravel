@@ -24,7 +24,7 @@ yang digunakan oleh pengelola untuk mengatur seluruh data operasional.
 Sistem melayani empat peran pengguna, yaitu:
 1. **Tamu**, yaitu pengunjung yang belum masuk dan hanya dapat melihat informasi rute serta jadwal.
 2. **Penumpang**, yaitu pengguna terdaftar yang dapat melakukan pemesanan tiket dan pembayaran.
-3. **Pengemudi**, yaitu pengemudi yang bertugas melihat daftar penumpang (manifest) dan memvalidasi
+3. **Pengemudi**, yaitu pengemudi yang bertugas melihat daftar penumpang (Manifes) dan memvalidasi
    tiket melalui pemindaian QR code.
 4. **Admin**, yaitu pengelola yang mengatur data rute, armada, pengemudi, jadwal, pemesanan,
    pembayaran, laporan, dan pengaturan sistem melalui panel web.
@@ -62,7 +62,7 @@ Perangkat lunak yang digunakan dalam pengembangan sistem ini adalah:
 | 7 | Flutter (Dart) | Framework aplikasi mobile |
 | 8 | Node.js & Vite | Membangun aset CSS/JavaScript panel admin |
 | 9 | Visual Studio Code | Editor kode |
-| 10 | Pakasir (sandbox) | Payment gateway untuk pembayaran QRIS/transfer |
+| 10 | Pakasir (sandbox) | Payment gateway untuk pembayaran QRIS/virtual account |
 | 11 | Web browser (Chrome) | Mengakses panel web admin |
 
 **Library/paket pendukung utama:**
@@ -178,9 +178,9 @@ Menampilkan ringkasan pemesanan, status pembayaran, dan tombol untuk membuka tik
 Menampilkan tiket elektronik ber-QR code untuk setiap kursi. QR hanya aktif setelah pembayaran
 berhasil, dan digunakan pengemudi untuk memvalidasi penumpang.
 
-**Gambar 4.x — Halaman Beranda & Manifest Pengemudi**
+**Gambar 4.x — Halaman Beranda & Manifes Pengemudi**
 *[Sisipkan screenshot]*
-Pengemudi dapat melihat perjalanan yang ditugaskan dan daftar penumpang (manifest). Pengemudi
+Pengemudi dapat melihat perjalanan yang ditugaskan dan daftar penumpang (Manifes). Pengemudi
 memindai QR tiket untuk validasi, menandai penumpang dijemput/turun, dan mengonfirmasi pembayaran
 tunai.
 
@@ -303,7 +303,7 @@ Berikut hasil pengujian black box terhadap fungsi-fungsi utama sistem.
 
 | No | Skenario Pengujian | Masukan | Hasil yang Diharapkan | Hasil | Ket |
 |----|--------------------|---------|-----------------------|-------|-----|
-| 1 | Melihat manifest | Buka perjalanan | Daftar penumpang tampil | Sesuai | Valid |
+| 1 | Melihat Manifes | Buka perjalanan | Daftar penumpang tampil | Sesuai | Valid |
 | 2 | Scan QR tiket valid | QR penumpang | Tiket tervalidasi, penumpang hadir | Sesuai | Valid |
 | 3 | Scan QR yang sama dua kali | QR sudah dipindai | Ditolak dengan pesan sudah dipindai | Sesuai | Valid |
 | 4 | Scan QR trip lain | QR bukan miliknya | Ditolak | Sesuai | Valid |
@@ -329,9 +329,9 @@ Berdasarkan hasil perancangan, pembangunan, dan pengujian sistem, dapat disimpul
 
 3. Sistem mampu menangani alur pemesanan tiket secara menyeluruh, mulai dari melihat jadwal, memilih
    kursi dengan mekanisme penguncian kursi sementara, mengisi data penumpang dan titik jemput/turun,
-   melakukan pembayaran (QRIS, transfer, atau tunai), hingga penerbitan tiket elektronik ber-QR code.
+   melakukan pembayaran (QRIS, virtual account, atau tunai), hingga penerbitan tiket elektronik ber-QR code.
 
-4. Sistem menyediakan fitur bagi pengemudi untuk melihat daftar penumpang (manifest) dan memvalidasi
+4. Sistem menyediakan fitur bagi pengemudi untuk melihat daftar penumpang (Manifes) dan memvalidasi
    tiket melalui pemindaian QR code, sehingga proses verifikasi penumpang menjadi lebih praktis.
 
 5. Panel web admin menyediakan pengelolaan data operasional secara terpusat, meliputi rute, armada,
@@ -339,6 +339,14 @@ Berdasarkan hasil perancangan, pembangunan, dan pengujian sistem, dapat disimpul
 
 6. Hasil pengujian black box menunjukkan bahwa seluruh fungsi utama sistem berjalan sesuai dengan
    yang diharapkan.
+
+## Catatan Pembaruan Implementasi untuk BAB IV
+
+Saat menulis implementasi dan pengujian, jelaskan bahwa booking memiliki dua batas waktu: lock pengisian form dan batas pembayaran. Data transaksi yang sudah berhasil memakai snapshot nominal, biaya admin provider, dan total pembayaran agar histori laporan tidak berubah saat harga rute atau tarif provider berubah.
+
+Gunakan istilah **Manifes** pada narasi dan screenshot aplikasi pengemudi. Tambahkan halaman Detail Jadwal sebagai ringkasan operasional admin, bukan duplikasi halaman detail pemesanan. Notifikasi admin juga mencakup reminder H-1 jam dan event armada benar-benar berangkat.
+
+Jangan menulis klaim bahwa token login otomatis expired atau semua notifikasi sepenuhnya idempoten, karena keduanya belum dapat dipastikan dari implementasi source saat ini.
 
 ## 5.2 Saran
 

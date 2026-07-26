@@ -1,0 +1,104 @@
+/* Dropdown export dipakai bersama oleh laporan pemesanan dan transaksi. */
+.travs-admin-body .travs-export-menu summary {
+    color: #ffffff;
+    background: #0f2747;
+    border-color: #0f2747;
+    box-shadow: none;
+}
+
+.travs-admin-body .travs-export-menu summary.travs-button {
+    gap: 10px;
+    min-height: 0;
+    padding: 14px 18px;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: var(--travs-font-data);
+    line-height: 1.45;
+}
+
+.travs-admin-body .travs-export-menu summary::after {
+    color: #ffffff;
+}
+
+.travs-admin-body .travs-export-menu summary:hover,
+.travs-admin-body .travs-export-menu summary:focus-visible,
+.travs-admin-body .travs-export-menu[open] summary {
+    color: #ffffff;
+    background: #f58a2a;
+    border-color: #f58a2a;
+    outline: none;
+}
+
+.travs-admin-body .travs-export-menu__list :is(a, button):hover,
+.travs-admin-body .travs-export-menu__list :is(a, button):focus-visible {
+    color: #ffffff;
+    background: #f58a2a;
+    outline: none;
+}
+
+.travs-admin-body .travs-notification-group-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 14px;
+    border-left: 4px solid;
+    border-radius: 0.375rem;
+}
+
+.travs-admin-body .travs-notification-group-heading > div {
+    display: grid;
+    gap: 2px;
+}
+
+.travs-admin-body .travs-notification-group-heading strong {
+    color: #0f2747;
+    font-size: var(--travs-font-subtitle);
+}
+
+.travs-admin-body .travs-notification-group-heading span {
+    color: #64748b;
+    font-size: var(--travs-font-caption);
+}
+
+.travs-admin-body .travs-notification-group-heading b {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 30px;
+    height: 30px;
+    border-radius: 999px;
+    color: #ffffff;
+    background: #0f2747;
+}
+
+.travs-admin-body .travs-notification-group-heading.is-new {
+    background: #fff3e7;
+    border-left-color: #f58a2a;
+}
+
+.travs-admin-body .travs-notification-group-heading.is-old {
+    margin-top: 8px;
+    padding-top: 18px;
+    background: #eef2f6;
+    border-top: 2px solid #cbd5e1;
+    border-left-color: #64748b;
+}
+
+.travs-admin-body .travs-notification-card.is-new-notification {
+    background: #fff8ef;
+    border-color: #f5b97d;
+    border-left: 5px solid #f58a2a;
+}
+
+.travs-admin-body .travs-notification-card.is-old-notification {
+    background: #f8fafc;
+    border-color: #d8e0e8;
+    border-left: 5px solid #94a3b8;
+}
+
+.travs-admin-body .travs-notification-card.is-old-notification .travs-panel-title,
+.travs-admin-body .travs-notification-card.is-old-notification .travs-admin-booking-alert {
+    opacity: .86;
+}
+

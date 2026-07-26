@@ -1,0 +1,108 @@
+/* Fondasi UI fase 1: hierarki aksi, fokus keyboard, dan lebar konten dibuat konsisten. */
+#main-content > * {
+    width: min(100%, 1600px);
+    margin-inline: auto;
+}
+
+.travs-admin-body .travs-button,
+.travs-admin-body .travs-button-secondary,
+.travs-admin-body .btn-primary,
+.travs-admin-body .btn-secondary,
+.travs-admin-body .btn-outline-secondary {
+    min-height: 42px;
+}
+
+.travs-admin-body .travs-button-secondary,
+.travs-admin-body .btn-secondary,
+.travs-admin-body .btn-outline-secondary {
+    color: #0f2747;
+    background: #ffffff;
+    border-color: #9aa8ba;
+}
+
+.travs-admin-body .travs-button-secondary:hover,
+.travs-admin-body .travs-button-secondary:focus-visible,
+.travs-admin-body .btn-secondary:hover,
+.travs-admin-body .btn-secondary:focus-visible,
+.travs-admin-body .btn-outline-secondary:hover,
+.travs-admin-body .btn-outline-secondary:focus-visible {
+    color: #0f2747;
+    background: #eef2f7;
+    border-color: #64748b;
+}
+
+.travs-admin-body :where(a, button, input, select, textarea, summary):focus-visible {
+    outline: 3px solid rgba(245, 138, 42, 0.45);
+    outline-offset: 2px;
+}
+
+.travs-admin-body .travs-page-back {
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 14px;
+}
+
+.travs-admin-body .travs-page-back .travs-button-secondary {
+    padding: 10px 14px;
+}
+
+.travs-admin-body .travs-page-back svg {
+    width: 16px;
+    height: 16px;
+}
+
+.travs-admin-body .travs-table-empty {
+    padding: 32px 16px !important;
+    text-align: center;
+    line-height: 1.6;
+}
+
+.travs-admin-body .travs-filter-actions {
+    align-self: end;
+}
+
+.travs-admin-body .travs-filter-actions > * {
+    min-width: 132px;
+}
+
+/* Tombol reset filter memakai aksen oranye agar berbeda dari tombol filter utama. */
+.travs-admin-body .travs-filter-actions [data-clear-form-draft] {
+    color: #ffffff;
+    background: #f58a2a;
+    border-color: #f58a2a;
+}
+
+.travs-admin-body .travs-filter-actions [data-clear-form-draft]:hover,
+.travs-admin-body .travs-filter-actions [data-clear-form-draft]:focus-visible {
+    color: #ffffff;
+    background: #d96f12;
+    border-color: #d96f12;
+}
+
+.travs-admin-body .travs-form-actions {
+    gap: 10px;
+}
+
+@media (max-width: 575.98px) {
+    #main-content {
+        padding: 14px;
+    }
+
+    .travs-admin-body .travs-panel-header {
+        align-items: stretch !important;
+    }
+
+    .travs-admin-body .travs-filter-actions,
+    .travs-admin-body .travs-form-actions {
+        align-items: stretch !important;
+    }
+
+    .travs-admin-body .travs-filter-actions > *,
+    .travs-admin-body .travs-form-actions > .travs-button,
+    .travs-admin-body .travs-form-actions > .travs-button-secondary,
+    .travs-admin-body .travs-form-actions > form,
+    .travs-admin-body .travs-form-actions > form > button {
+        width: 100%;
+    }
+}
+

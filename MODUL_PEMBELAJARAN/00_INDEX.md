@@ -56,7 +56,7 @@ Baca berurutan dari atas ke bawah. Tiap file punya fokus berbeda:
 - **Frontend mobile:** Flutter (bahasa Dart). Dipakai penumpang dan pengemudi.
 - **Web admin:** Halaman web bawaan Laravel (Blade) dengan CSS custom. Dipakai admin.
 - **4 peran pengguna:** Tamu, Penumpang, Pengemudi, Admin.
-- **Alur inti:** Tamu lihat jadwal → daftar/login → pilih kursi → isi data & titik jemput/turun → bayar (QRIS/Transfer/Tunai) → tiket QR terbit → pengemudi scan QR saat perjalanan.
+- **Alur inti:** Tamu lihat jadwal → daftar/login → pilih kursi → isi form dalam batas waktu → draft pemesanan dan batas pembayaran dibuat → bayar (QRIS/Virtual Account/Tunai) → tiket QR terbit → pengemudi scan QR saat perjalanan.
 
 ---
 
@@ -66,3 +66,17 @@ Baca berurutan dari atas ke bawah. Tiap file punya fokus berbeda:
 2. **Kuasai `06_PANDUAN_UBAH_TAMPILAN.md`.** Di situ ada latihan konkret ubah warna/ukuran/posisi.
 3. **Tahu beda dua dunia:** kalau diminta ubah tampilan **admin** → edit file `.blade.php` + `app.css`. Kalau diminta ubah tampilan **mobile** → edit file `.dart`.
 4. Semua istilah kode di project ini pakai **bahasa Indonesia** (contoh: `pemesanan`, `pengemudi`, `jadwal`), jadi lebih mudah dibaca.
+
+---
+
+## Status Implementasi Terkini — 26 Juli 2026
+
+Modul ini sudah diselaraskan dengan perbaikan terbaru. Saat belajar, perhatikan empat perubahan penting:
+
+1. Ada **dua batas waktu**: lock pengisian form (default 30 menit) dan batas pembayaran (default 5 menit). Booking yang sudah kedaluwarsa dibatalkan dan kursinya dilepas oleh backend.
+2. Nilai transaksi pembayaran sekarang dipisahkan menjadi `nominal_transaksi`, `biaya_admin_provider`, dan `total_dibayar_penumpang`, sehingga laporan pendapatan tetap historis dan tidak mencampur biaya provider.
+3. Admin memiliki halaman **Detail Jadwal** sebagai ringkasan operasional; detail booking dan biaya tetap dibuka dari halaman masing-masing.
+4. Menu utama pengemudi memakai istilah **Perjalanan**; istilah **Manifes** dipakai khusus untuk daftar penumpang pada detail perjalanan.
+5. Web admin memiliki **Monitor Tiket** untuk memantau tiket QR yang sudah atau belum dipindai. **Laporan Okupansi tidak diaktifkan** karena tidak termasuk ruang lingkup proposal.
+
+Untuk rangkuman paling baru sebelum sidang, baca juga file `../RANGKUMAN_BELAJAR_SIDANG.md`.

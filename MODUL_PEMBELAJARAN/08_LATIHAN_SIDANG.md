@@ -81,7 +81,7 @@ hafalan mati.
 
 **Q: Ada berapa peran pengguna? Apa bedanya?**
 > A: Empat: tamu (hanya lihat jadwal), penumpang (memesan tiket), pengemudi (validasi tiket & lihat
-> manifest), admin (kelola semua data lewat web).
+> Manifes), admin (kelola semua data lewat web).
 
 **Q: Apa itu API?**
 > A: API adalah jembatan komunikasi antara aplikasi mobile dan backend. Aplikasi mengirim permintaan
@@ -210,6 +210,20 @@ Centang saat sudah bisa:
    dunia → cari titik → baca → ubah → uji.
 
 ---
+
+## Bagian 5 — Tambahan Tanya Jawab Perubahan Terbaru
+
+**Q: Mengapa ada dua batas waktu pada pemesanan?**
+> A: Batas pertama menghindari kursi tertahan saat user masih mengisi form. Batas kedua menghindari draft booking menggantung setelah form selesai tetapi belum dibayar. Keduanya diperiksa backend dan kursi dilepas jika deadline habis.
+
+**Q: Mengapa laporan memakai `nominal_transaksi`, bukan harga rute saat ini?**
+> A: Karena harga rute dapat berubah. Snapshot menyimpan nilai transaksi saat pembayaran dibuat/berhasil, sehingga laporan transaksi lama tetap benar.
+
+**Q: Apa perbedaan biaya admin Pakasir dengan pendapatan travel?**
+> A: Biaya admin adalah biaya provider, sedangkan `nominal_transaksi` adalah nilai tiket untuk RuslyTravel. Total yang dibayar penumpang dapat berbeda karena biaya provider tersebut.
+
+**Q: Kapan admin mendapat notifikasi keberangkatan?**
+> A: Ada pengingat untuk jadwal yang berangkat dalam satu jam dan notifikasi kedua ketika pengemudi mengubah status perjalanan menjadi berangkat. Tombol detail diarahkan berdasarkan jenis referensinya, ke detail jadwal atau detail pemesanan.
 
 Selamat belajar. Kalau kamu sudah menuntaskan seluruh checklist di Bagian 3, kamu sudah sangat siap
 untuk sesi buka kode di sidang. Semangat!

@@ -103,6 +103,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         restoreDraft();
 
+        form.querySelectorAll('[data-clear-form-draft]').forEach((link) => {
+            link.addEventListener('click', () => {
+                // Reset membuang draft agar filter lama tidak muncul kembali.
+                localStorage.removeItem(draftKey);
+            });
+        });
+
         form.querySelectorAll('input, textarea, select').forEach((field) => {
             if (field.type === 'file' || field.type === 'password' || field.type === 'hidden') {
                 return;

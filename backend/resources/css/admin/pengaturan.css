@@ -1,0 +1,289 @@
+/* Semua aturan di bawah dibatasi untuk halaman pengaturan agar halaman admin lain tidak ikut berubah. */
+.travs-settings-page .travs-settings-group {
+    width: 100%;
+    padding: 24px;
+}
+
+.travs-settings-page .form-label {
+    margin-bottom: 7px;
+    color: var(--travs-primary);
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.travs-settings-page .form-control,
+.travs-settings-page .input-group-text {
+    min-height: 46px;
+    border-color: var(--travs-border);
+}
+
+.travs-settings-page textarea.form-control {
+    min-height: 98px;
+    resize: vertical;
+}
+
+.travs-settings-page .form-control:focus,
+.travs-settings-page .form-check-input:focus {
+    border-color: var(--travs-primary-soft);
+    box-shadow: 0 0 0 0.2rem rgba(24, 54, 95, 0.12);
+}
+
+.travs-settings-page .form-check-input:checked {
+    background-color: var(--travs-primary);
+    border-color: var(--travs-primary);
+}
+
+.travs-settings-page .form-switch .form-check-input {
+    width: 2.75rem;
+    height: 1.4rem;
+}
+
+.travs-settings-page .form-check.form-switch,
+.travs-settings-page .travs-switch-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding-left: 0;
+}
+
+.travs-settings-page .form-switch .form-check-input {
+    margin-left: 0;
+}
+
+.travs-settings-page .form-switch .form-check-label {
+    margin-left: 0;
+    color: var(--travs-primary);
+    font-weight: 700;
+}
+
+.travs-settings-page .form-text {
+    color: var(--travs-text-soft);
+    line-height: 1.5;
+}
+
+.travs-settings-page .travs-settings-subsection {
+    margin-top: 18px;
+    padding: 18px;
+    border: 1px solid var(--travs-border);
+    border-radius: 14px;
+    background: #f8fafc;
+    transition: opacity 160ms ease;
+}
+
+.travs-settings-page .travs-settings-subsection.is-disabled {
+    opacity: 0.55;
+}
+
+.travs-settings-page .travs-settings-subsection-head {
+    margin-bottom: 14px;
+}
+
+.travs-settings-page .travs-settings-subsection-head h4 {
+    margin: 0 0 5px;
+    color: var(--travs-primary);
+    font-size: 1rem;
+}
+
+.travs-settings-page .travs-settings-subsection-head p {
+    margin: 0;
+    color: var(--travs-text-soft);
+    font-size: 0.86rem;
+    line-height: 1.55;
+}
+
+.travs-settings-page .travs-settings-switch-row,
+.travs-settings-page .travs-settings-switch-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    min-height: 82px;
+    padding: 15px 16px;
+    border: 1px solid var(--travs-border);
+    border-radius: 14px;
+    background: var(--travs-white);
+}
+
+.travs-settings-page .travs-settings-switch-row .form-check,
+.travs-settings-page .travs-settings-switch-card .form-check {
+    flex-shrink: 0;
+}
+
+.travs-settings-page .travs-settings-switch-row strong,
+.travs-settings-page .travs-settings-switch-card strong {
+    display: block;
+    color: var(--travs-primary);
+    font-size: 0.9rem;
+}
+
+.travs-settings-page .travs-settings-switch-row p,
+.travs-settings-page .travs-settings-switch-card span {
+    display: block;
+    margin: 5px 0 0;
+    color: var(--travs-text-soft);
+    font-size: 0.8rem;
+    line-height: 1.45;
+}
+
+.travs-settings-page .travs-settings-logo-preview {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--travs-border);
+    border-radius: 12px;
+    background: #f8fafc;
+    color: var(--travs-text-soft);
+    font-family: inherit;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-align: left;
+}
+
+.travs-settings-page .travs-settings-logo-preview img {
+    width: 72px;
+    height: 48px;
+    object-fit: contain;
+}
+
+.travs-settings-page .travs-baggage-simulator {
+    background: var(--travs-white);
+}
+
+.travs-settings-page .travs-simulation-result {
+    display: grid;
+    gap: 5px;
+    min-height: 74px;
+    padding: 13px 15px;
+    border-radius: 12px;
+    background: var(--travs-primary);
+    color: var(--travs-white);
+}
+
+.travs-settings-page .travs-simulation-result span {
+    font-size: 0.76rem;
+    opacity: 0.78;
+}
+
+.travs-settings-page .travs-simulation-result strong {
+    font-size: 1.1rem;
+}
+
+.travs-settings-page .travs-banner-preview {
+    width: 100%;
+    max-height: 220px;
+    margin-top: 14px;
+    object-fit: cover;
+    border-radius: 14px;
+    border: 1px solid var(--travs-border);
+}
+
+.travs-settings-page .travs-banner-switch {
+    gap: 14px;
+}
+
+.travs-settings-page .travs-banner-switch .form-check-label {
+    padding-left: 4px;
+}
+
+.travs-settings-page .travs-banner-list-grid {
+    align-items: flex-start;
+}
+
+.travs-settings-page .travs-banner-card {
+    display: grid;
+    gap: 12px;
+    height: auto;
+    padding: 14px;
+    border: 1px solid var(--travs-border);
+    border-radius: 16px;
+    background: var(--travs-white);
+}
+
+.travs-settings-page .travs-banner-card .travs-banner-card-image {
+    display: block;
+    width: 232px;
+    max-width: 100%;
+    height: 131px;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    border-radius: 12px;
+}
+
+.travs-settings-page .travs-banner-card-body {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.travs-settings-page .travs-banner-card-body p {
+    margin: 4px 0 0;
+    color: var(--travs-text-soft);
+    font-size: 0.84rem;
+    line-height: 1.45;
+}
+
+@media (min-width: 1200px) {
+    .travs-settings-page .travs-banner-manager-row > .col-xl-8 {
+        /* Daftar banner dibuat sekitar dua pertiga layar desktop agar foto tidak melebar liar. */
+        flex: 0 0 66.666667%;
+        max-width: 66.666667%;
+    }
+
+    .travs-settings-page .travs-banner-manager-row > .col-xl-4 {
+        flex: 0 0 33.333333%;
+        max-width: 33.333333%;
+    }
+}
+
+@media (max-width: 767.98px) {
+    .travs-settings-page .travs-settings-group {
+        padding: 18px;
+    }
+
+    .travs-settings-page .travs-settings-tab-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .travs-settings-page .travs-settings-tab {
+        width: 100%;
+    }
+
+    .travs-settings-page .travs-settings-switch-row,
+    .travs-settings-page .travs-settings-switch-card {
+        align-items: flex-start;
+    }
+
+    .travs-settings-page .travs-form-actions .travs-button {
+        width: 100%;
+    }
+}
+
+.travs-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 8px;
+}
+
+.travs-inline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.travs-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.travs-summary-grid-dashboard {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    /* Card ringkasan biasa tidak ikut memanjang mengikuti card keuangan. */
+    align-items: start;
+}
+

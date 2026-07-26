@@ -1,0 +1,233 @@
+/* Kerangka admin ini menggantikan layout template dan menjaga sidebar tetap sederhana. */
+.travs-admin-body {
+    min-width: 320px;
+    background: #f2f7ff;
+    color: #25396f;
+}
+
+.travs-admin-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+}
+
+.travs-admin-main {
+    min-width: 0;
+}
+
+.travs-sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 1040;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 20px 16px;
+    background: #ffffff;
+    border-right: 1px solid #dce7f5;
+}
+
+.travs-sidebar-head {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    margin: -20px -16px 12px;
+    padding: 18px 20px 12px;
+    background: #ffffff;
+    border-bottom: 1px solid #edf2f7;
+}
+
+.travs-sidebar-menu,
+.travs-menu {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.travs-menu {
+    display: grid;
+    gap: 4px;
+}
+
+.travs-nav-group-title {
+    margin: 10px 0 4px;
+    padding: 0 12px;
+    color: #607080;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.travs-sidebar-item {
+    min-width: 0;
+}
+
+.travs-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 44px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    color: #25396f;
+}
+
+.travs-nav-link:hover {
+    color: #435ebe;
+    background: #f2f7ff;
+}
+
+.travs-nav-link.is-active {
+    color: #ffffff;
+    background: var(--travs-primary);
+}
+
+.travs-nav-link svg {
+    flex: 0 0 18px;
+}
+
+.travs-sidebar-logout-item {
+    margin-top: 28px;
+    padding-top: 18px;
+    border-top: 1px solid #edf2f7;
+}
+
+.travs-sidebar-logout-item form {
+    margin: 0;
+}
+
+.travs-sidebar-logout-link {
+    width: 100%;
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    background: transparent;
+}
+
+.travs-sidebar-logout-link:hover,
+.travs-sidebar-logout-link:focus-visible {
+    color: #ffffff;
+    background: var(--travs-primary);
+    outline: none;
+}
+
+.travs-brand-copy {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.travs-brand-copy h3,
+.travs-brand-copy h5 {
+    margin: 0;
+    color: #25396f;
+    font-weight: 700;
+}
+
+.travs-brand-copy small {
+    color: #7c8db5;
+}
+
+.travs-brand-mark {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    flex: 0 0 42px;
+    place-items: center;
+    border-radius: 8px;
+    background: #435ebe;
+}
+
+.travs-brand-mark span {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #ffffff;
+}
+
+.travs-brand-mark.travs-brand-logo {
+    overflow: hidden;
+    background: #ffffff;
+    border: 1px solid #d9e0ef;
+}
+
+.travs-brand-mark.travs-brand-logo > img {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    display: block;
+    position: static !important;
+    object-fit: contain !important;
+}
+
+.travs-sidebar-backdrop[hidden] {
+    display: none;
+}
+
+.travs-sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1035;
+    border: 0;
+    background: rgba(37, 57, 111, 0.38);
+}
+
+.travs-topbar-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #607080;
+    font-size: 0.88rem;
+}
+
+.travs-topbar-notification {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    color: var(--travs-primary);
+    background: #ffffff;
+    border: 1px solid #dce7f5;
+    border-radius: 8px;
+}
+
+.travs-topbar-notification:hover,
+.travs-topbar-notification:focus-visible {
+    color: #ffffff;
+    background: var(--travs-primary);
+}
+
+.travs-topbar-notification-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 19px;
+    height: 19px;
+    padding: 0 5px;
+    color: #ffffff;
+    background: #c83c3c;
+    border: 2px solid #ffffff;
+    border-radius: 999px;
+    font-size: 0.66rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.travs-topbar-chip svg,
+.travs-topbar-notification svg,
+.dropdown-item svg {
+    width: 16px;
+    height: 16px;
+}
+
+#main-content {
+    width: 100%;
+    max-width: none;
+    padding: 20px;
+}
+

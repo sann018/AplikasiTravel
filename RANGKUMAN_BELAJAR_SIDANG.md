@@ -1,382 +1,366 @@
-# Rangkuman Belajar Koding dan Sidang
+# Rangkuman Belajar dan Persiapan Sidang — RuslyTravel
 
-File ini dibuat sebagai catatan belajar untuk memahami isi project `AplikasiTravel`. Fokusnya bukan menghafal semua kode, tetapi memahami alur, alasan teknis, dan bagian yang sering ditanya saat sidang tugas akhir.
+> **Status audit:** diperbarui 25 Juli 2026 berdasarkan source code project `E:\POLNEP FILE\TUGAS AKHIR\AplikasiTravel`.
+>
+> Dokumen ini menjelaskan implementasi yang ada di source code saat audit, bukan janji fitur. Fokusnya adalah alur yang perlu dipahami saat sidang serta batasan yang perlu disampaikan secara jujur.
 
-## 1. Gambaran Umum Project
+## 1. Gambaran sistem
 
-Project ini adalah aplikasi travel untuk Rusly Travel dengan dua bagian utama:
+RuslyTravel adalah sistem pemesanan travel lintas kota dengan dua aplikasi utama:
 
-- `frontend`: aplikasi mobile Flutter untuk penumpang dan pengemudi.
-- `backend`: aplikasi Laravel untuk API mobile dan web admin.
+- **Frontend mobile:** Flutter untuk tamu, penumpang, dan pengemudi.
+- **Backend:** Laravel 13 sebagai API mobile, web admin, aturan bisnis, dan akses database.
 
-Backend menjadi pusat aturan bisnis. Flutter hanya menampilkan data, mengirim input user, dan menerima hasil dari API. Aturan penting seperti harga, booking kursi, bagasi, pembayaran, role user, dan validasi tetap dicek di Laravel supaya lebih aman.
+Backend adalah sumber kebenaran. Flutter hanya mengirim input dan menampilkan hasil API. Harga, kursi, status pemesanan, pembayaran, tiket, dan hak akses tetap divalidasi kembali oleh backend.
 
-## 2. Folder dan File yang Paling Penting
+Kalimat singkat untuk sidang:
+
+> RuslyTravel menggunakan Flutter sebagai aplikasi mobile dan Laravel sebagai backend API serta web admin. Pemisahan ini membuat aturan bisnis seperti pemesanan kursi, pembayaran, dan hak akses diproses terpusat di server.
+
+## 2. Struktur project yang penting
 
 ### Frontend Flutter
 
-- `frontend/lib/main.dart`: titik awal aplikasi Flutter.
-- `frontend/lib/app.dart`: pengaturan utama aplikasi.
-- `frontend/lib/core/services/travs_api_service.dart`: tempat Flutter memanggil API Laravel.
-- `frontend/lib/core/services/travs_auth_service.dart`: mengatur login, token, dan sesi user.
-- `frontend/lib/core/services/travs_location_service.dart`: mengambil lokasi user.
-- `frontend/lib/features/auth`: tampilan login dan register.
-- `frontend/lib/features/home`: halaman utama sesuai role.
-- `frontend/lib/features/schedule`: detail jadwal dan form pemesanan.
-- `frontend/lib/features/booking`: detail pemesanan.
-- `frontend/lib/features/payment`: tampilan pembayaran.
-- `frontend/lib/features/ticket`: detail tiket dan QR.
-- `frontend/lib/features/pickup`: pilih titik jemput di peta.
+- `frontend/lib/main.dart` dan `frontend/lib/app.dart`: titik awal serta konfigurasi aplikasi.
+- `frontend/lib/core/services/travs_api_service.dart`: komunikasi HTTP ke API Laravel.
+- `frontend/lib/core/services/travs_auth_service.dart`: penyimpanan sesi dan token login pada perangkat.
+- `frontend/lib/core/models/travs_booking_contract.dart`: kontrak data booking/pembayaran dari API.
+- `frontend/lib/features/auth`: masuk, daftar penumpang, verifikasi email, dan reset kata sandi.
+- `frontend/lib/features/schedule`: daftar/detail jadwal dan pemilihan kursi.
+- `frontend/lib/features/payment`: konfirmasi pemesanan dan tampilan pembayaran.
+- `frontend/lib/features/booking`: daftar serta detail pemesanan.
+- `frontend/lib/features/ticket`: tiket elektronik dan QR.
+- `frontend/lib/features/home`: beranda sesuai peran, profil, notifikasi, dan operasional pengemudi.
+- `frontend/lib/features/pickup`: pemilihan lokasi jemput pada peta.
 
 ### Backend Laravel
 
-- `backend/routes/api.php`: daftar endpoint API untuk mobile.
-- `backend/app/Http/Controllers/Api`: controller API.
-- `backend/app/Http/Middleware/EnsureUserHasRole.php`: pembatas akses berdasarkan role.
-- `backend/app/Providers/AppServiceProvider.php`: konfigurasi global, termasuk rate limit.
-- `backend/app/Services/BookingService.php`: proses utama booking.
-- `backend/app/Services/BookingCalculator.php`: hitung biaya kursi dan bagasi.
-- `backend/app/Services/PakasirService.php`: integrasi pembayaran Pakasir.
-- `backend/app/Models`: model tabel database.
-- `backend/database/migrations`: struktur tabel database.
-- `backend/database/seeders`: data awal/demo.
-- `backend/tests/Feature`: pengujian fitur utama.
+- `backend/routes/api.php`: endpoint yang dipakai aplikasi mobile.
+- `backend/routes/web.php`: halaman dan aksi web admin.
+- `backend/app/Http/Controllers/Api`: controller API mobile.
+- `backend/app/Http/Controllers/Web/Admin`: controller web admin.
+- `backend/app/Services/BookingService.php`: pembuatan booking, lock kursi, pembayaran, tiket, dan pembatalan otomatis.
+- `backend/app/Services/BookingCalculator.php`: menghitung subtotal tiket.
+- `backend/app/Services/PakasirService.php`: integrasi metode pembayaran digital Pakasir.
+- `backend/app/Services/DepartureReminderService.php`: pengingat H-1 jam keberangkatan.
+- `backend/app/Services/AdminOperationalNotificationService.php`: notifikasi operasional admin.
+- `backend/app/Services/ScheduleLifecycleService.php`: menutup jadwal yang sudah melewati batas pemesanan.
+- `backend/app/Models`: representasi tabel dan relasi database.
+- `backend/database/migrations`: struktur database yang dapat dilacak dengan migration.
+- `backend/tests/Feature` dan `frontend/test`: automated test backend dan Flutter.
 
-Catatan tambahan:
+## 3. Peran pengguna dan hak akses
 
-- `travs_location_service.dart` mengubah koordinat pickup menjadi alamat. Urutannya sederhana: coba geocoding bawaan perangkat dulu, jika gagal coba OpenStreetMap, jika tetap gagal baru tampilkan koordinat.
-- `travs_schedule_detail_page.dart` menampilkan denah kursi mobil top-view. Nomor kursi diambil dari backend, sedangkan kursi pengemudi hanya penanda visual dengan label `P`.
-- Foto kendaraan tersimpan di data armada. Admin dapat mengunggah foto mobil, lalu foto ini dipakai ulang di jadwal mobile, detail jadwal, ringkasan pilih kursi, dan dashboard pengemudi.
-- `PakasirService.php` mengurus komunikasi ke Pakasir dan menyiapkan `checkout_url` agar Flutter bisa membuka halaman pembayaran.
-- `routes/api.php` menyediakan endpoint versi `/api/v1`. Endpoint lama `/api` masih dipertahankan supaya aplikasi lama tidak langsung rusak.
-- Token login mobile punya waktu kedaluwarsa. Jika token sudah expired, aplikasi menghapus session lokal dan user harus login ulang.
-- Forgot password membuat token yang disimpan dalam bentuk hash dan mengirim email reset jika mailer sudah dikonfigurasi.
-- Driver manifest punya dua aksi lapangan: pickup penumpang dan penurunan penumpang. Scan QR tetap menjadi bukti boarding/hadir.
+| Peran | Fungsi utama |
+|---|---|
+| Tamu | Melihat banner, rute, jadwal, dan detail jadwal tanpa membuat pemesanan. |
+| Penumpang | Memilih kursi, mengisi data perjalanan, membayar, melihat tiket, dan mengelola profil. |
+| Pengemudi | Melihat Manifes, melakukan pickup, scan QR tiket, menandai turun, mengubah status perjalanan, serta mencatat biaya operasional. |
+| Admin | Mengelola master data, jadwal, pemesanan, pembayaran, biaya operasional, laporan, notifikasi, banner, dan pengaturan. |
 
-## 3. Alur Utama Pemesanan
+API yang membutuhkan login memakai middleware `auth:sanctum`. Endpoint penumpang dan pengemudi juga dibatasi middleware `role:penumpang` atau `role:pengemudi`; web admin memakai `auth` dan `role:admin`.
 
-1. Penumpang membuka jadwal.
-2. Penumpang memilih jadwal, kursi, titik jemput, dan bagasi.
-3. Flutter mengirim data ke API Laravel.
-4. Laravel memvalidasi data.
-5. Laravel menghitung biaya melalui `BookingCalculator`.
-6. Laravel menyimpan pemesanan melalui `BookingService`.
-7. Laravel membuat data pembayaran dan tiket.
-8. Flutter menampilkan detail pemesanan, pembayaran, dan tiket.
+Jawaban sidang:
 
-Hal penting: perhitungan harga tidak boleh hanya di Flutter, karena data dari frontend bisa dimanipulasi. Karena itu backend tetap menghitung ulang.
+> Role-based access control membatasi endpoint dan halaman berdasarkan peran. Jadi penumpang tidak dapat memanggil operasi pengemudi, dan pengemudi tidak dapat mengakses web admin.
 
-## 3.1 Alur Titik Jemput
+## 4. Validasi akun dan keamanan dasar
 
-1. Penumpang menekan `Gunakan GPS` atau `Pilih di Peta`.
-2. Flutter mendapat latitude dan longitude.
-3. Flutter meminta alamat dari `TravSLocationService`.
-4. Sistem mencoba mengubah koordinat menjadi alamat lengkap seperti jalan, desa/kelurahan, kecamatan, kabupaten/kota, dan provinsi.
-5. Alamat disimpan bersama pemesanan agar admin dan pengemudi tidak hanya melihat angka koordinat.
+Validasi utama diterapkan di Flutter **dan** Laravel. Validasi server tetap wajib karena validasi aplikasi mobile dapat dilewati.
 
-Bagian yang berpotensi ditanya saat sidang: mengapa tetap menyimpan koordinat walaupun alamat sudah ada. Jawabannya, alamat dipakai agar mudah dibaca manusia, sedangkan koordinat dipakai untuk membuka lokasi tepat di Google Maps.
+| Data | Aturan yang berlaku |
+|---|---|
+| Email | Harus format email valid dan berakhiran `@gmail.com`. |
+| Nomor HP | Hanya angka, tepat 11–12 digit, dan unik. |
+| Kata sandi | Panjang 6–8 karakter, wajib memiliki huruf dan minimal satu angka atau simbol. |
+| Foto profil | File gambar tervalidasi sebelum disimpan. |
 
-## 3.2 Alur Pembayaran Pakasir
+Pendaftaran mandiri hanya membuat akun **penumpang**. Akun pengemudi dibuat melalui admin; akun tersebut dicatat sebagai telah diverifikasi oleh admin. Penumpang baru harus menyelesaikan verifikasi kode email sebelum token login diterbitkan. Kode verifikasi disimpan dalam bentuk hash dan berlaku 15 menit.
 
-1. Penumpang memilih metode QRIS.
-2. Backend membuat draft pemesanan dan pembayaran.
-3. Backend membuat transaksi ke Pakasir melalui `PakasirService`.
-4. Backend mengirim `checkout_url` ke Flutter.
-5. Flutter membuka halaman pembayaran Pakasir.
-6. Setelah pembayaran berhasil, webhook/refresh status mengubah pembayaran menjadi berhasil dan tiket diterbitkan.
+Password di model `User` memakai cast `hashed`, sehingga yang disimpan database adalah hash, bukan kata sandi asli.
 
-Bagian penting untuk sidang: API key Pakasir tidak disimpan di Flutter. API key hanya ada di Laravel supaya lebih aman dan tidak mudah dibaca dari aplikasi mobile.
+**Catatan jujur:** token Sanctum dihapus saat logout dan seluruh token dihapus setelah reset password. Namun, dari source yang diaudit belum tampak konfigurasi masa kedaluwarsa token Sanctum secara eksplisit. Jangan menyebut token otomatis expired bila fitur itu belum ditambahkan/dikonfigurasi.
 
-Untuk demo tugas akhir, mode yang dipakai adalah **simulasi Pakasir lokal**. Artinya tidak ada transaksi uang nyata dan tidak ada callback publik dari Pakasir. Simulasi dipilih supaya demo tetap stabil di laptop, tetapi alur konsepnya tetap sama: backend memvalidasi pembayaran, status berubah, lalu tiket QR diterbitkan.
+## 5. Alur jadwal dan kursi
 
-Jika ditanya kenapa tidak pakai transaksi nyata, jawab:
+1. Admin membuat rute, kendaraan, pengemudi, lalu jadwal.
+2. Saat jadwal dibuat, sistem menyiapkan kursi per jadwal pada tabel `kursi_jadwal`.
+3. Admin dapat menonaktifkan kursi tertentu untuk **jadwal itu saja**. Konfigurasi kursi tidak lagi diletakkan pada form kendaraan.
+4. Penumpang melihat detail jadwal dan kursi yang tersedia.
+5. Penumpang memilih kursi; backend mengunci kursi sementara selama form pemesanan diisi.
 
-> Fokus tugas akhir ini adalah membuktikan konsep sistem pemesanan sampai tiket digital. Transaksi nyata butuh server publik, HTTPS, webhook URL tetap, dan konfigurasi production. Untuk demo lokal, simulasi lebih aman dan tidak mengganggu validitas alur sistem.
+Satu kendaraan atau pengemudi tidak boleh dipakai pada jadwal aktif lain di tanggal yang sama. Validasi ini mencegah bentrok penugasan operasional.
 
-Jika ditanya webhook signature verification, jawab:
+Jadwal dengan status `dibuka` otomatis menjadi `ditutup` ketika waktu keberangkatan sudah masuk H-1 jam. Penutupan dilakukan saat proses terkait berjalan dan melalui scheduler setiap menit.
 
-> Signature verification belum diperlukan pada mode simulasi lokal karena aplikasi tidak menerima callback publik dari luar. Fitur itu baru relevan saat sistem benar-benar dipasang ke server production dan menerima webhook asli dari payment gateway.
+Status jadwal yang dipakai: `draft`, `dibuka`, `ditutup`, `berangkat`, dan `selesai`.
 
-Pembayaran tunai berbeda dari QRIS/transfer. Pada metode tunai, pemesanan tetap masuk ke admin dan manifest pengemudi sebagai belum bayar. Setelah uang diterima, admin atau pengemudi yang sesuai jadwal dapat mengonfirmasi pembayaran tunai, lalu sistem menerbitkan tiket digital.
+## 6. Alur pemesanan dan dua batas waktu
 
-## 3.3 Alur Pengemudi
+Fitur ini memiliki **dua tahap waktu** yang berbeda. Ini adalah bagian penting untuk dijelaskan saat sidang.
 
-1. Pengemudi login memakai akun yang dibuat admin.
-2. Pengemudi membuka manifest perjalanan.
-3. Pengemudi membuka alamat jemput di Google Maps jika perlu.
-4. Pengemudi menandai penumpang sudah dijemput.
-5. Pengemudi scan QR tiket saat boarding.
-6. Setelah penumpang sampai tujuan, pengemudi menandai penumpang sudah turun.
-7. Status perjalanan dapat diubah menjadi berangkat dan selesai sesuai urutan.
+```text
+Pilih kursi
+  -> lock form (seat_lock_form_minutes, default 30 menit)
+  -> isi data penumpang, titik jemput/turun, barang, metode pembayaran
+  -> booking draft dibuat
+  -> lock pembayaran (seat_lock_payment_minutes, default 5 menit)
+  -> pembayaran berhasil
+  -> tiket elektronik diterbitkan
+```
 
-Sistem juga menolak jadwal yang membuat satu pengemudi mendapat dua perjalanan pada tanggal dan jam yang sama. Validasi ini penting supaya tugas pengemudi tidak bentrok secara operasional.
+### Tahap 1 — waktu pengisian form
 
-## 4. Alur Halaman Rute dan Jadwal
+- Kursi yang dipilih menjadi `terkunci` oleh user yang memilihnya.
+- Masa lock diambil dari pengaturan `seat_lock_form_minutes`; nilai awalnya 30 menit.
+- Jika form tidak selesai hingga waktunya habis, lock form dilepas dan kursi kembali `tersedia`.
+- Pada tahap ini belum ada data pemesanan draft yang disimpan.
 
-Alur halaman rute dan jadwal dibuat bertahap:
+### Tahap 2 — waktu pembayaran
 
-1. User membuka tab `Rute`.
-2. Flutter menampilkan daftar rute dalam bentuk bookmark card.
-3. User memilih salah satu rute.
-4. Flutter memfilter jadwal dari data yang sudah dimuat.
-5. User memilih jadwal dengan tombol `Detail` atau `Pesan`.
-6. Flutter membuka detail jadwal.
-7. Detail jadwal mengambil data lebih lengkap dari backend.
+- Setelah validasi form sukses, backend membuat `pemesanan` berstatus `menunggu_pembayaran`, detail penumpang, data bagasi, dan satu data pembayaran.
+- Batas pembayaran disimpan di `pemesanan.batas_pembayaran` dan `pembayaran.expired_at`.
+- Kursi tetap terkunci sampai batas pembayaran.
+- Jika pembayaran berhasil sebelum deadline, status pemesanan menjadi `terbayar`, pembayaran menjadi `berhasil`, kursi menjadi `dipesan`, dan tiket QR diterbitkan.
+- Jika deadline terlewati serta `auto_cancel_booking` aktif, pemesanan menjadi `dibatalkan`, pembayaran menjadi `kedaluwarsa`, dan kursi dilepas.
 
-Bagian penting untuk sidang:
+Proses pembatalan dipanggil dari alur booking dan scheduler `booking:auto-cancel-expired` setiap menit. Dengan demikian, data yang sudah melewati batas waktu tidak semestinya tetap menggantung sebagai `menunggu_pembayaran`.
 
-- Klik rute tidak langsung mengeksekusi query baru.
-- Jadwal difilter secara lokal dari data jadwal yang sudah diterima.
-- Chip `Semua`, `Besok`, dan `Hari/Jam` juga bekerja di data lokal, bukan query baru.
-- Card rute menampilkan gambar daerah tujuan.
-- Card jadwal menampilkan gambar mobil/kendaraan yang digunakan.
-- Query detail baru dilakukan saat user benar-benar membuka salah satu jadwal.
-- Backend tetap punya rate limit untuk melindungi endpoint jika user klik berulang.
+Jika penumpang keluar dari aplikasi setelah draft tercipta, pemesanan masih dapat dibuka dan dibayar selama `batas_pembayaran` belum lewat. Setelah lewat, backend menolak pembayaran dan menyatakan sesi telah berakhir.
 
-Cara menjelaskan saat sidang:
+Jawaban sidang:
 
-> Halaman rute memakai data jadwal yang sudah dimuat dari backend. Saat user menekan rute, aplikasi hanya memfilter data lokal, sehingga lebih ringan dan tidak membuat query berulang.
+> Lock kursi dilakukan di server dan diperiksa ulang dalam transaksi database. Jadi dua pengguna yang memilih kursi sama tidak bisa sama-sama menyimpan pemesanan.
 
-## 5. Alur Navbar dan Tombol Back
+## 7. Perhitungan harga, bagasi, dan nilai historis
 
-Navbar bawah penumpang berisi `Beranda`, `Rute`, `Pesanan`, `Tiket`, dan `Profil`. Menu aktif diberi indikator bulat yang bergeser agar user tahu sedang berada di halaman mana.
+Saat ini `BookingCalculator` menghitung:
 
-Aturan tombol back:
+```text
+subtotal_tiket = harga_tiket rute pada saat booking × jumlah kursi
+total_harga    = subtotal_tiket
+```
 
-- Beranda tidak memakai tombol back.
-- Tab selain beranda punya tombol back untuk kembali ke beranda.
-- Halaman detail tetap memakai `AppBar` dengan tombol back bawaan.
-- Halaman detail pemesanan menyediakan tombol untuk membuka halaman tiket.
+Barang bawaan tetap dicatat sebagai data operasional untuk Manifes, tetapi **tidak menambah biaya otomatis** pada versi kode saat ini. Hal ini penting agar penjelasan sidang sesuai implementasi, bukan sekadar pengaturan legacy.
 
-## 6. Konsep Rate Limit untuk Batasi Spam Klik
+Data pemesanan menyimpan `subtotal_tiket` dan `total_harga`. Karena nominal total disimpan di pemesanan ketika booking dibuat, perubahan harga rute setelahnya tidak mengubah total booking lama.
 
-Rate limit adalah pembatas jumlah request dalam waktu tertentu. Tujuannya agar user yang klik tombol berkali-kali tidak membuat backend menjalankan query terlalu banyak.
+Untuk tampilan tarif per penumpang pada detail jadwal, nilai historis dihitung dari:
 
-Di project ini rate limit dibuat di:
+```text
+subtotal_tiket / jumlah_kursi
+```
 
-- `backend/app/Providers/AppServiceProvider.php`
-- `backend/routes/api.php`
+Bukan dari harga rute saat ini. Dengan cara ini, laporan histori tetap benar jika harga rute berubah.
 
-Jenis rate limit yang dipakai:
+Pengaturan bagasi masih tersedia, misalnya batas berat gratis 10 kg, batas ukuran 160 cm, batas 2 item gratis, dan batas berat kendaraan 50 kg. Namun tarif bagasi otomatis tidak menjadi bagian dari `total_harga` pada implementasi saat audit.
 
-- `travs-read`: untuk mengambil data, misalnya jadwal dan dashboard.
-- `travs-auth`: untuk login dan register.
-- `travs-action`: untuk aksi penting, misalnya booking, pembayaran, pickup, scan tiket.
-- `travs-upload`: untuk upload foto bagasi.
+## 8. Pembayaran: digital, tunai, dan snapshot nominal
 
-Cara menjelaskan saat sidang:
+Metode yang dikenali:
 
-> Sistem memakai throttle Laravel untuk membatasi request berdasarkan user yang login atau IP address. Jika request terlalu sering, backend mengembalikan status 429, sehingga query tidak terus dijalankan.
+- QRIS;
+- virtual account beberapa bank melalui Pakasir;
+- pembayaran tunai;
+- `transfer` lama hanya dipertahankan sebagai kompatibilitas data lama.
 
-## 7. Kenapa Ada Service Class
+Pembayaran digital dibuat melalui backend menggunakan `PakasirService`; credential provider tidak dikirim atau disimpan di Flutter. Backend memvalidasi metode, membuat transaksi provider, memverifikasi nominal integer Rupiah, lalu memperbarui status berdasarkan respons gateway/webhook atau refresh status.
 
-Tidak semua logic ditulis langsung di controller. Controller cukup menerima request, memanggil service, lalu mengembalikan response.
+Setiap pembayaran menyimpan snapshot berikut:
 
-Service dipakai agar kode lebih rapi:
+| Kolom pembayaran | Makna |
+|---|---|
+| `order_id_gateway` | ID transaksi yang unik untuk gateway; berbeda dari kode booking. |
+| `nominal_transaksi` | Pendapatan tiket RuslyTravel pada transaksi tersebut. |
+| `biaya_admin_provider` | Biaya provider/Pakasir, jika diberikan provider. |
+| `total_dibayar_penumpang` | Total final yang dibayar penumpang menurut provider. |
+| `payment_number` | Nomor pembayaran/virtual account jika tersedia. |
 
-- `BookingService`: mengurus proses booking.
-- `BookingCalculator`: mengurus hitungan biaya.
-- `PakasirService`: mengurus komunikasi dengan payment gateway.
+`order_id_gateway` memiliki unique constraint. Snapshot nominal melindungi laporan histori: biaya provider atau total pada provider tidak dihitung ulang memakai pengaturan yang mungkin berubah di masa depan.
 
-Cara menjelaskan saat sidang:
+Pembayaran tunai tidak langsung menerbitkan tiket. Admin atau pengemudi yang memang ditugaskan pada jadwal dapat mengonfirmasi uang tunai; baru setelah itu pembayaran menjadi berhasil dan tiket diterbitkan. Jika jadwal diselesaikan sementara pembayaran tunai tetap belum terkonfirmasi, booking dianggap no-show, dibatalkan, dan kursinya dilepas.
 
-> Controller bertugas sebagai pintu masuk request. Service berisi aturan bisnis agar kode tidak menumpuk di controller dan lebih mudah diuji.
+Untuk demo lokal tersedia simulasi pembayaran; kode membatasi simulasi hanya pada environment `local` atau `testing`.
 
-## 8. Bagasi
+## 9. Tiket elektronik dan Manifes
 
-Fitur bagasi mendukung dua cara hitung:
+Setelah pembayaran valid, sistem membuat tiket elektronik untuk setiap detail penumpang/kursi. QR memuat identitas tiket dan diverifikasi server saat dipindai oleh pengemudi.
 
-- berat + jumlah item
-- ukuran + jumlah item
+Alur pengemudi:
 
-Aturan penting:
+1. Membuka jadwal tugas dan Manifes.
+2. Melihat penumpang yang berhak tampil: booking terbayar/selesai, serta booking tunai yang masih menunggu konfirmasi.
+3. Menandai penumpang dijemput.
+4. Scan QR untuk mencatat kehadiran/boarding.
+5. Setelah status jadwal `berangkat`, pengemudi dapat menandai penumpang turun.
+6. Mengubah jadwal secara berurutan hingga `selesai`.
 
-- maksimal gratis 2 item
-- item di atas 2 dikenakan biaya tambahan Rp 3000 per item
-- berat gratis sampai 10 kg
-- ukuran dihitung dari panjang x lebar dengan batas gratis 160 cm
-- foto bagasi dapat diupload
+Menu utama pengemudi menggunakan istilah **Perjalanan** agar mudah dipahami. Istilah **Manifes** tetap digunakan secara khusus pada detail perjalanan untuk menyebut daftar penumpang, kursi, titik jemput/turun, dan barang bawaan.
 
-Bagian yang perlu dipahami:
+Pada web admin, halaman **Monitor Tiket** diaktifkan untuk memantau tiket QR yang sudah atau belum dipindai. Halaman **Laporan Okupansi** tidak diaktifkan karena tidak termasuk kebutuhan proposal Tugas Akhir.
 
-- Input dari Flutter dikirim sebagai angka, bukan slider.
-- Backend tetap memvalidasi dan menghitung biaya tambahan.
-- Upload foto divalidasi tipe dan ukuran file.
+## 10. Detail jadwal admin
 
-## 9. Booking, Kursi, dan Lock
+Halaman **Detail Jadwal** bersifat read-only sebagai ringkasan operasional, agar tidak menggandakan form detail booking atau form biaya.
 
-Booking kursi perlu hati-hati karena bisa ada dua user memilih kursi yang sama. Karena itu backend memakai proses yang lebih aman pada bagian booking.
+Informasi yang tersedia antara lain:
 
-Konsep yang perlu dipahami:
+- rute, jadwal berangkat, estimasi tiba, armada, pengemudi, dan status jadwal;
+- total booking: menunggu pembayaran, terbayar, selesai, dan dibatalkan;
+- status penumpang: menunggu, hadir, tidak hadir, dan turun;
+- kondisi kursi: tersedia, dipesan, nonaktif;
+- pendapatan diterima, nilai yang masih menunggu pembayaran, biaya operasional, dan selisih tercatat;
+- daftar penumpang dengan tautan menuju detail pemesanan;
+- biaya operasional yang telah menjadi data final.
 
-- Satu kursi pada satu jadwal tidak boleh dipakai dua penumpang.
-- Form pemesanan punya batas waktu 30 menit.
-- Pembayaran punya batas waktu 5 menit.
-- Operasi penting memakai transaksi database.
-- Seat lock mencegah bentrok saat user booking bersamaan.
-- Mode tamu atau user yang belum login hanya boleh melihat status kursi, tidak boleh memilih kursi atau mengisi data pemesanan.
-- Tampilan kursi di mobile dibuat seperti denah mobil. Posisi kursi disusun fleksibel dari jumlah kursi pada `seat_map`, sehingga bisa menyesuaikan kendaraan kecil atau kendaraan dengan kursi lebih banyak.
+Pendapatan diterima hanya menjumlahkan booking dengan status `terbayar`/`selesai`, pembayaran `berhasil`, dan memakai `nominal_transaksi` snapshot. Biaya provider tidak dihitung sebagai pendapatan RuslyTravel.
 
-Cara menjelaskan saat sidang:
+## 11. Notifikasi operasional
 
-> Seat lock digunakan agar kursi yang sedang dipilih tidak langsung direbut user lain. Backend tetap mengecek ulang saat pemesanan disimpan supaya tidak terjadi double booking.
+Notifikasi dibedakan antara inbox admin dan riwayat notifikasi user. Halaman admin juga memiliki filter serta pengelompokan berdasarkan tanggal.
 
-> User yang belum login tidak diberi akses memilih kursi, karena proses pemilihan kursi berhubungan dengan seat lock. Dengan cara ini, kursi hanya dikunci oleh penumpang yang sudah punya sesi login.
+Event penting yang dicatat untuk admin:
 
-## 10. Pembayaran
+- pemesanan baru;
+- pembayaran tunai yang perlu konfirmasi;
+- pembayaran berhasil, gagal, atau kedaluwarsa;
+- pembayaran masuk setelah booking sudah dibatalkan, sehingga perlu pengecekan/refund manual;
+- kapasitas kursi atau berat bagasi hampir penuh;
+- jadwal mendekati keberangkatan;
+- armada benar-benar telah berangkat.
 
-Pembayaran dihubungkan melalui backend, bukan langsung dari Flutter ke payment gateway.
+Scheduler mengecek jadwal yang berangkat dalam rentang satu jam, setiap 15 menit. Notifikasi admin untuk jadwal mendekati keberangkatan tetap dibuat walaupun pengingat penumpang dimatikan pada pengaturan.
 
-Alasannya:
+`referensi_id` dapat menunjuk booking **atau** jadwal. Untuk menghindari salah tujuan bila ID keduanya sama, kode membedakan referensi jadwal menggunakan daftar judul event jadwal (`Jadwal mendekati keberangkatan`, `Armada telah berangkat`, dan sebagainya). UI kemudian hanya menampilkan tombol **Detail Jadwal** untuk referensi jadwal; notifikasi booking memakai detail pemesanan.
 
-- credential payment gateway lebih aman di backend
-- status pembayaran bisa diverifikasi backend
-- backend bisa mencocokkan pembayaran dengan booking
-- frontend cukup menampilkan instruksi pembayaran dan status terbaru
+**Catatan yang perlu diketahui:** `DepartureReminderService` masih memakai `updateOrCreate(..., ['sudah_dibaca' => false])` untuk pengingat penumpang. Bila scheduler berjalan lagi pada pengingat yang sama, notifikasi yang sebelumnya dibaca dapat kembali menjadi belum dibaca. Ini adalah risiko yang masih perlu diperbaiki sebelum mengklaim mekanisme read-state sepenuhnya idempoten.
 
-File penting:
+## 12. Web admin
 
-- `backend/app/Services/PakasirService.php`
-- `backend/app/Http/Controllers/Api/PaymentGatewayController.php`
-- `frontend/lib/features/payment/travs_payment_preview_page.dart`
+Web admin mengelola:
 
-## 11. Tiket dan QR
+- dashboard;
+- banner beranda;
+- armada kendaraan;
+- pengemudi;
+- rute;
+- jadwal dan kursi per jadwal;
+- pemesanan dan detailnya;
+- pembayaran serta konfirmasi tunai;
+- biaya operasional dan rekap biaya;
+- laporan pemesanan/transaksi, termasuk ekspor CSV/XLS;
+- notifikasi admin serta riwayat user;
+- pengaturan umum, booking, pembayaran, bagasi, dan notifikasi.
 
-Setelah pemesanan valid, sistem membuat tiket elektronik. Tiket memiliki QR untuk dipindai pengemudi.
+Laporan transaksi membedakan tiga nilai: pendapatan RuslyTravel, biaya admin Pakasir, dan total yang dibayar penumpang. Ini menghindari salah interpretasi bahwa biaya provider adalah pendapatan travel.
 
-Hal yang perlu dipahami:
+## 13. Rate limit dan respons API
 
-- QR berisi kode tiket.
-- Backend memverifikasi kode tiket.
-- QR tidak boleh bebas dipakai berkali-kali tanpa aturan.
-- Pengemudi memakai endpoint scan tiket.
-- Token rahasia QR tidak perlu ditampilkan sebagai teks mentah kepada penumpang. Halaman tiket lebih baik menampilkan informasi yang membantu, seperti jadwal, nama pengemudi, nomor kendaraan, dan foto kendaraan.
+Laravel membatasi request berdasarkan user login atau IP:
 
-## 12. Role User
+| Limiter | Batas |
+|---|---:|
+| `travs-read` | 90 request/menit |
+| `travs-auth` | 8 request/menit |
+| `travs-verification-code` | 6 request/menit per email + IP |
+| `travs-verification-resend` | 3 request/menit per email + IP |
+| `travs-action` | 20 request/menit |
+| `travs-upload` | 6 request/menit |
+| `travs-admin-action` | 12 request/menit |
+| `travs-webhook` | 60 request/menit per IP |
 
-Project memakai role agar tiap user hanya mengakses fitur yang sesuai.
+Jika batas terlampaui, Laravel memberi HTTP `429 Too Many Requests`. Tujuannya mencegah spam klik dan mengurangi beban query pada operasi penting seperti login, booking, pembayaran, dan upload.
 
-Role utama:
+## 14. Database inti
 
-- `penumpang`: booking, pembayaran, tiket.
-- `pengemudi`: melihat trip, manifest, pickup, scan tiket.
-- `admin`: mengelola data master, jadwal, pembayaran, laporan, pengaturan.
+Entitas inti sistem adalah:
 
-Tampilan mobile dibuat sesuai role:
+```text
+pengguna -> pengemudi
+pengguna -> pemesanan -> detail_pemesanan -> tiket_elektronik
+rute + kendaraan + pengemudi -> jadwal -> kursi_jadwal
+jadwal -> pemesanan
+pemesanan -> pembayaran
+pemesanan -> item_bagasi
+jadwal -> biaya_operasional_perjalanan
+pengguna -> notifikasi
+```
 
-- Tamu dapat melihat rute, jadwal, dan info pemesanan, tetapi belum bisa menyimpan pemesanan atau tiket.
-- Penumpang mendapat menu beranda, rute, pesanan, tiket, dan profil.
-- Pengemudi mendapat menu beranda, manifest, riwayat perjalanan, dan profil.
-- Form masuk dipakai bersama oleh penumpang dan pengemudi. Pendaftaran mandiri hanya untuk penumpang, sedangkan akun pengemudi dibuat admin.
-- Profil penumpang dan pengemudi memiliki pengaturan notifikasi perangkat dan pilihan bahasa. Pengaturan ini disimpan di sisi aplikasi agar user bisa menyesuaikan pengalaman penggunaan.
+Dokumen relasi, kolom, kardinalitas, dan audit ERD lengkap tersedia di [REKAP_DATABASE_DAN_AUDIT_ERD_RUSLYTRAVEL.md](REKAP_DATABASE_DAN_AUDIT_ERD_RUSLYTRAVEL.md).
 
-File penting:
+## 15. Pengujian yang tersedia
 
-- `backend/app/Http/Middleware/EnsureUserHasRole.php`
-- `backend/routes/api.php`
-- `backend/app/Models/User.php`
+Backend memiliki Feature Test untuk area penting, antara lain:
 
-Cara menjelaskan saat sidang:
+- validasi akun, email verification, reset password, serta foto profil;
+- booking flow, payment gateway, dan laporan pendapatan;
+- operasi admin, detail jadwal, notifikasi, biaya operasional, dan rate limit;
+- role/keamanan serta constraint database.
 
-> Role dipakai untuk membatasi akses. Misalnya endpoint pengemudi tidak bisa diakses oleh penumpang karena route dilindungi middleware role.
+Flutter memiliki test untuk kontrak pembayaran/booking, guard UI, data pengemudi/penumpang, notifikasi, pengaturan, validasi, serta pemilih lokasi peta.
 
-## 13. Upload Foto Bagasi
+Perintah verifikasi yang relevan:
 
-Upload foto bagasi perlu validasi agar tidak sembarang file masuk ke server.
+```powershell
+cd backend
+php artisan test
 
-Yang dicek:
+cd ..\frontend
+flutter test
+flutter analyze
+```
 
-- file harus gambar
-- ekstensi dibatasi, misalnya jpg, jpeg, png, webp
-- ukuran file dibatasi
-- path file disimpan ke database
+Jalankan scheduler pada environment deploy agar pembatalan otomatis, penutupan jadwal, dan pengingat keberangkatan benar-benar bekerja:
 
-Cara menjelaskan saat sidang:
+```powershell
+cd backend
+php artisan schedule:work
+```
 
-> Upload foto tidak langsung dipercaya. Backend mengecek tipe dan ukuran file sebelum menyimpan.
+## 16. Pertanyaan sidang yang sering muncul
 
-## 14. Bagian yang Agak Rumit tetapi Memang Perlu
+### Mengapa harga dihitung di backend?
 
-Beberapa bagian terlihat lebih rumit karena tujuannya menjaga keamanan dan konsistensi data.
+Karena data dari aplikasi dapat dimanipulasi. Backend menghitung subtotal dari harga rute dan jumlah kursi, lalu menyimpan hasilnya sebagai histori transaksi.
 
-- Transaksi database pada booking.
-- Lock kursi agar tidak double booking.
-- Integrasi payment gateway.
-- Verifikasi QR tiket.
-- Rate limit untuk mencegah spam request.
+### Mengapa perlu lock kursi dan transaksi database?
 
-Bagian tersebut sebaiknya tidak disederhanakan berlebihan karena berhubungan dengan keamanan data dan alur transaksi.
+Lock kursi memberi waktu user mengisi form. Saat booking disimpan, backend kembali mengunci data dalam transaksi database agar dua user tidak berhasil mengambil kursi yang sama.
 
-## 15. Pertanyaan yang Berpotensi Muncul Saat Sidang
+### Mengapa ada dua batas waktu?
 
-### Apa perbedaan frontend dan backend?
+Batas form mencegah kursi tertahan oleh user yang belum tentu jadi memesan. Batas pembayaran mencegah draft booking tertahan setelah form sudah selesai tetapi uang belum dibayar.
 
-Frontend adalah tampilan yang dipakai user. Backend adalah server yang menyimpan data, mengecek aturan bisnis, dan menyediakan API.
+### Mengapa detail jadwal tidak memuat semua detail penumpang?
 
-### Kenapa harga dihitung di backend?
+Detail jadwal adalah ringkasan operasional. Detail personal, pembayaran, titik lokasi, dan tiket tetap dibuka melalui halaman detail pemesanan agar informasi tidak berulang dan halaman tetap mudah dibaca.
 
-Karena input dari frontend bisa dimanipulasi. Backend harus menjadi sumber kebenaran untuk perhitungan biaya.
+### Mengapa nominal transaksi, biaya provider, dan total bayar dipisahkan?
 
-### Kenapa perlu rate limit?
+Karena pendapatan travel berbeda dari biaya payment gateway dan berbeda pula dari total yang dibayar penumpang. Pemisahan snapshot menjaga laporan histori tetap akurat.
 
-Untuk membatasi request berulang akibat spam klik. Jika request terlalu banyak, sistem mengembalikan status 429 dan query tidak terus dieksekusi.
+### Mengapa payment gateway diakses dari backend?
 
-### Kenapa perlu role?
+API key provider lebih aman disimpan di server. Backend juga dapat memvalidasi nominal, mencocokkan order ID, dan mengubah status booking secara konsisten.
 
-Supaya user hanya bisa mengakses fitur sesuai haknya. Penumpang tidak boleh mengakses fitur pengemudi atau admin.
+### Mengapa perlu Manifes?
 
-### Kenapa perlu seat lock?
-
-Untuk mencegah dua user mengambil kursi yang sama pada waktu bersamaan.
-
-### Kenapa upload foto harus divalidasi?
-
-Supaya file yang masuk benar-benar gambar dan tidak terlalu besar.
-
-### Kenapa payment gateway lewat backend?
-
-Supaya credential lebih aman dan status pembayaran bisa diverifikasi oleh server.
-
-### Apa arti status 429?
-
-Status 429 berarti terlalu banyak request. Ini muncul saat rate limit terlampaui.
+Manifes membantu pengemudi melihat penumpang per jadwal, kursi, status pembayaran yang relevan, titik jemput/turun, barang bawaan, dan status kehadiran saat operasi lapangan.
 
 ### Apa fungsi migration?
 
-Migration adalah file untuk membuat atau mengubah struktur tabel database.
+Migration adalah riwayat struktur database yang dapat dijalankan ulang secara terkontrol. Ini lebih aman daripada mengubah tabel manual.
 
-### Apa fungsi model?
+## 17. Ringkasan presentasi 30 detik
 
-Model adalah penghubung antara kode Laravel dan tabel database.
+> RuslyTravel adalah sistem pemesanan travel lintas kota berbasis Flutter dan Laravel. Penumpang memilih jadwal serta kursi, lalu backend mengunci kursi sementara, memvalidasi data, membuat booking dengan batas pembayaran, dan menerbitkan tiket QR setelah pembayaran sukses. Admin mengelola armada, rute, jadwal, pembayaran, biaya, dan laporan; pengemudi menggunakan Manifes untuk menjalankan perjalanan. Seluruh aturan penting dipusatkan di backend agar konsistensi data kursi, harga, status pembayaran, dan hak akses tetap terjaga.
 
-### Apa fungsi controller?
+## 18. Checklist sebelum sidang/demo
 
-Controller menerima request dari route, memanggil service atau model, lalu mengembalikan response.
-
-### Apa fungsi service?
-
-Service menyimpan logic bisnis agar controller tidak terlalu panjang dan lebih mudah dipahami.
-
-## 16. Cara Belajar Kode Project Ini
-
-Urutan belajar yang disarankan:
-
-1. Baca `backend/routes/api.php` untuk melihat endpoint.
-2. Pilih satu endpoint, lalu buka controllernya.
-3. Lihat service yang dipanggil controller.
-4. Lihat model dan migration yang berhubungan.
-5. Lihat test di `backend/tests/Feature`.
-6. Cocokkan dengan tampilan Flutter di folder `frontend/lib/features`.
-
-Contoh belajar fitur booking:
-
-1. Buka route `/penumpang/bookings`.
-2. Buka `BookingController`.
-3. Buka `BookingService`.
-4. Buka `BookingCalculator`.
-5. Buka model `Pemesanan`, `DetailPemesanan`, `ItemBagasi`, dan `KursiJadwal`.
-6. Buka test `BookingFlowTest`.
-
-## 17. Kalimat Singkat untuk Menjelaskan Project
-
-> Aplikasi ini memakai Flutter sebagai frontend mobile dan Laravel sebagai backend API serta web admin. Backend mengatur validasi, role user, booking kursi, perhitungan biaya, upload bagasi, pembayaran, dan tiket elektronik. Untuk mencegah spam klik, route penting diberi rate limit sehingga request berulang tidak terus mengeksekusi query.
+- Pastikan migration sudah diterapkan pada database demo.
+- Pastikan scheduler berjalan bila ingin mendemokan expiry booking atau reminder.
+- Pastikan konfigurasi mail tersedia bila ingin mendemokan verifikasi email/reset password.
+- Pastikan konfigurasi Pakasir atau mode simulasi lokal dipilih sesuai skenario demo.
+- Siapkan akun admin, pengemudi, dan penumpang beserta jadwal yang masih aktif.
+- Jangan mengklaim fitur token expiry eksplisit sebelum konfigurasi tersebut benar-benar ditambahkan.
+- Sampaikan risiko read-state notifikasi pengingat berulang secara jujur apabila penguji menanyakan idempotensi notifikasi.

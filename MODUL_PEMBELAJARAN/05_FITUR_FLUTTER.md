@@ -130,7 +130,7 @@ if (session.user.isAdmin) {
 punya **navigasi bawah** (bottom navigation).
 
 **Kenapa file ini besar?** Karena dalam satu file ada: beranda tamu, beranda penumpang, beranda
-pengemudi, halaman profil, halaman notifikasi, scanner QR, manifest pengemudi, dan riwayat. Semua
+pengemudi, halaman profil, halaman notifikasi, scanner QR, Manifes pengemudi, dan riwayat. Semua
 disatukan dan ditampilkan sesuai peran & tab yang dipilih.
 
 **Cara membacanya:** jangan baca dari atas ke bawah. Cari nama widget/method spesifik pakai Ctrl+F.
@@ -358,5 +358,13 @@ factory TravSBookingResult.fromJson(Map<String, dynamic> json) {
 | Form pesan & pembayaran | `lib/features/payment/travs_payment_preview_page.dart` |
 | Halaman tiket QR | `lib/features/ticket/travs_ticket_detail_page.dart` |
 | Cara ambil data dari server | `lib/core/services/travs_api_service.dart` |
+
+## 5.7 Pembaruan Mobile per 25 Juli 2026
+
+Halaman konfirmasi dan pembayaran mengikuti deadline dari backend. Timer Flutter hanya memberi informasi; API tetap menjadi keputusan akhir. Jika form atau pembayaran sudah kedaluwarsa, aplikasi tidak boleh mempertahankan booking sebagai `menunggu_pembayaran`.
+
+Tampilan pembayaran membedakan nominal transaksi, biaya admin Pakasir, dan total pembayaran bila provider mengirimkannya. Batas pembayaran diletakkan pada informasi perjalanan bagian atas agar mudah terlihat.
+
+Detail pemesanan memakai bahasa netral untuk titik jemput/turun dan barang bawaan. Istilah **Manifes** dipakai pada aplikasi pengemudi. Validasi registrasi/edit profil juga mengikuti backend: email `@gmail.com`, nomor HP hanya 11–12 angka, dan kata sandi 6–8 karakter dengan huruf serta angka/simbol.
 
 Lanjut ke `06_PANDUAN_UBAH_TAMPILAN.md` — ini bab paling penting untuk sidang.

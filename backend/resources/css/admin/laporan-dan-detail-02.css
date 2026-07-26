@@ -1,0 +1,244 @@
+.travs-current-vehicle-photo img {
+    width: 84px;
+    height: 54px;
+    max-width: 84px;
+    max-height: 54px;
+    border-radius: 12px;
+}
+
+.travs-photo-preview-trigger {
+    cursor: zoom-in;
+}
+
+.travs-vehicle-thumb {
+    width: 52px;
+    height: 52px;
+    max-width: 52px;
+    max-height: 52px;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border: 1px solid var(--travs-border);
+    border-radius: 14px;
+    object-fit: cover;
+    background: var(--travs-soft);
+    color: var(--travs-primary);
+}
+
+.travs-vehicle-thumb-fallback {
+    font-size: 1.15rem;
+}
+
+.travs-table-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.travs-button-link,
+.travs-button-link-danger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--travs-primary);
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.travs-button-link:hover,
+.travs-button-link-danger:hover {
+    text-decoration: underline;
+}
+
+.travs-button-link-danger {
+    color: var(--travs-danger);
+}
+
+.travs-status-stack {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.travs-detail-stack {
+    display: grid;
+    gap: 18px;
+    margin-top: 18px;
+}
+
+.travs-contact-link {
+    color: var(--travs-primary);
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.travs-contact-link:hover {
+    text-decoration: underline;
+}
+
+.travs-location-note {
+    margin-top: 4px;
+    color: var(--travs-text-soft);
+    font-size: 0.82rem;
+}
+
+.travs-bagasi-photo-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+}
+
+.travs-bagasi-thumb {
+    width: 100px;
+    height: 100px;
+    max-width: 100px;
+    max-height: 100px;
+    border: 1px solid var(--travs-border);
+    border-radius: 12px;
+    object-fit: cover;
+    background: var(--travs-soft);
+}
+
+.travs-status-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.travs-status-draft,
+.travs-status-sistem,
+.travs-status-nonaktif,
+.travs-status-kedaluwarsa {
+    color: #5c6878;
+    background: #eef2f6;
+    border-color: #d9e0ea;
+}
+
+.travs-status-aktif,
+.travs-status-terbayar,
+.travs-status-berhasil,
+.travs-status-selesai,
+.travs-status-hadir,
+.travs-status-terverifikasi {
+    color: #187a51;
+    background: #edf9f2;
+    border-color: #ccefdc;
+}
+
+.travs-status-perawatan,
+.travs-status-menunggu,
+.travs-status-menunggu_pembayaran,
+.travs-status-perjalanan,
+.travs-status-transfer {
+    color: #a05a13;
+    background: #fff3e7;
+    border-color: #ffd9b4;
+}
+
+.travs-status-dibatalkan,
+.travs-status-gagal,
+.travs-status-tidak_hadir,
+.travs-status-ditolak {
+    color: var(--travs-danger);
+    background: #fff1ef;
+    border-color: #ffd7d1;
+}
+
+.travs-status-dibuka,
+.travs-status-berangkat,
+.travs-status-pembayaran,
+.travs-status-qris {
+    color: #1a5f9a;
+    background: #edf5ff;
+    border-color: #d1e4ff;
+}
+
+.travs-status-cash {
+    color: #2f6a52;
+    background: #eef8f3;
+    border-color: #d1e9de;
+}
+
+.travs-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+.travs-description-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin: 18px 0 0;
+}
+
+.travs-description-list > div {
+    padding: 14px 16px;
+    border: 1px solid var(--travs-border);
+    border-radius: 16px;
+    background: var(--travs-surface);
+}
+
+.travs-description-list > div > dt {
+    margin-bottom: 8px;
+    color: var(--travs-text-soft);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.travs-description-list > div > dd {
+    margin: 0;
+    color: var(--travs-primary);
+    font-size: 0.94rem;
+    line-height: 1.65;
+    overflow-wrap: anywhere;
+}
+
+.travs-detail-money {
+    display: grid;
+    gap: 10px;
+    padding: 16px;
+    border: 1px solid var(--travs-border);
+    border-radius: 16px;
+    background: var(--travs-surface);
+}
+
+.travs-detail-money div {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--travs-text-soft);
+    font-size: 0.92rem;
+}
+
+.travs-detail-money strong {
+    color: var(--travs-primary);
+    font-size: 0.98rem;
+}
+
+.travs-detail-money .is-total {
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--travs-border-strong);
+}
+

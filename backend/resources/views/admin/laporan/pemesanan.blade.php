@@ -50,33 +50,36 @@
             <details class="travs-export-menu">
                 <summary class="travs-button btn btn-primary">Export Data</summary>
                 <div class="travs-export-menu__list">
-                    <a href="{{ route('admin.laporan.pemesanan.export', array_merge(request()->query(), ['format' => 'xls'])) }}">Export Excel</a>
-                    <a href="{{ route('admin.laporan.pemesanan.export', array_merge(request()->query(), ['format' => 'csv'])) }}">Export CSV</a>
+                    <button type="submit" form="booking-report-filter" formaction="{{ route('admin.laporan.pemesanan.export') }}" name="format" value="xls">Export Excel</button>
+                    <button type="submit" form="booking-report-filter" formaction="{{ route('admin.laporan.pemesanan.export') }}" name="format" value="csv">Export CSV</button>
                 </div>
             </details>
         </div>
 
-        <form method="GET" class="travs-filter-grid d-grid">
+        <form id="booking-report-filter" method="GET" class="travs-filter-grid d-grid">
             <div class="travs-field">
                 <label for="status" class="form-label">Status Pemesanan</label>
-                <select id="status" name="status" class="travs-select form-select">
+                <select id="status" name="status" class="travs-select @error('status') is-invalid @enderror form-select">
                     <option value="">Semua status</option>
                     @foreach (['menunggu_pembayaran' => 'Menunggu Pembayaran', 'terbayar' => 'Terbayar', 'dibatalkan' => 'Dibatalkan', 'selesai' => 'Selesai'] as $value => $label)
                         <option value="{{ $value }}" @selected(($filters['status'] ?? '') === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
+                @include('admin.partials.field-error', ['name' => 'status'])
             </div>
             <div class="travs-field">
                 <label for="tanggal_mulai" class="form-label">Tanggal Mulai</label>
-                <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_mulai'] ?? '' }}">
+                <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input @error('tanggal_mulai') is-invalid @enderror form-control" value="{{ $filters['tanggal_mulai'] ?? '' }}">
+                @include('admin.partials.field-error', ['name' => 'tanggal_mulai'])
             </div>
             <div class="travs-field">
                 <label for="tanggal_selesai" class="form-label">Tanggal Selesai</label>
-                <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
+                <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input @error('tanggal_selesai') is-invalid @enderror form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
+                @include('admin.partials.field-error', ['name' => 'tanggal_selesai'])
             </div>
             <div class="travs-filter-actions d-flex align-items-end flex-wrap">
                 <button type="submit" class="travs-button btn btn-primary">Terapkan Filter</button>
-                <a href="{{ route('admin.laporan.pemesanan') }}" class="travs-button-secondary btn btn-outline-secondary">Reset</a>
+                <a href="{{ route('admin.laporan.pemesanan') }}" class="travs-button-secondary btn btn-outline-secondary" data-clear-form-draft>Reset</a>
             </div>
         </form>
 

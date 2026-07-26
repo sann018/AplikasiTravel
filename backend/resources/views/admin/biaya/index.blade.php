@@ -57,7 +57,7 @@
                 </div>
                 <div class="travs-field">
                     <label for="rute_id" class="form-label">Rute</label>
-                    <select id="rute_id" name="rute_id" class="travs-select form-select">
+                    <select id="rute_id" name="rute_id" class="travs-select @error('rute_id') is-invalid @enderror form-select">
                         <option value="">Semua rute</option>
                         @foreach ($routeOptions as $rute)
                             <option value="{{ $rute->id }}" @selected((string) ($filters['rute_id'] ?? '') === (string) $rute->id)>
@@ -65,18 +65,21 @@
                             </option>
                         @endforeach
                     </select>
+                    @include('admin.partials.field-error', ['name' => 'rute_id'])
                 </div>
                 <div class="travs-field">
                     <label for="tanggal_mulai" class="form-label">Tanggal Mulai</label>
-                    <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_mulai'] ?? '' }}">
+                    <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input @error('tanggal_mulai') is-invalid @enderror form-control" value="{{ $filters['tanggal_mulai'] ?? '' }}">
+                    @include('admin.partials.field-error', ['name' => 'tanggal_mulai'])
                 </div>
                 <div class="travs-field">
                     <label for="tanggal_selesai" class="form-label">Tanggal Selesai</label>
-                    <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
+                    <input id="tanggal_selesai" name="tanggal_selesai" type="date" class="travs-input @error('tanggal_selesai') is-invalid @enderror form-control" value="{{ $filters['tanggal_selesai'] ?? '' }}">
+                    @include('admin.partials.field-error', ['name' => 'tanggal_selesai'])
                 </div>
                 <div class="travs-filter-actions d-flex align-items-end flex-wrap">
                     <button type="submit" class="travs-button btn btn-primary">Terapkan Filter</button>
-                    <a href="{{ route('admin.biaya.index') }}" class="travs-button-secondary btn btn-outline-secondary">Tampilkan Semua</a>
+                    <a href="{{ route('admin.biaya.index') }}" class="travs-button-secondary btn btn-outline-secondary" data-clear-form-draft>Tampilkan Semua</a>
                 </div>
             </form>
 

@@ -1,0 +1,58 @@
+/* Bootstrap dipasang sebagai fondasi melalui strategi dual-class.
+   Aturan kompatibilitas ini mempertahankan visual komponen travs-* yang sudah final. */
+.travs-admin-body .travs-page-frame.card:not([hidden]),
+.travs-admin-body .travs-section-card.card:not([hidden]),
+.travs-admin-body .travs-card.card:not([hidden]),
+.travs-admin-body .travs-panel.card:not([hidden]) {
+    display: block;
+    color: inherit;
+}
+
+.travs-admin-body .travs-settings-pane.card[hidden] {
+    display: none !important;
+}
+
+.travs-admin-body .travs-select.form-select {
+    appearance: auto;
+    padding-right: 16px;
+    background-image: none;
+}
+
+.travs-admin-body .travs-input.form-control:disabled,
+.travs-admin-body .travs-select.form-select:disabled,
+.travs-admin-body .travs-textarea.form-control:disabled {
+    opacity: 1;
+    background-color: var(--travs-white);
+}
+
+.travs-admin-body .travs-button-link.btn,
+.travs-admin-body .travs-button-link-danger.btn {
+    line-height: normal;
+}
+
+.travs-admin-body .travs-button.btn:disabled,
+.travs-admin-body .travs-button-secondary.btn:disabled,
+.travs-admin-body .travs-button-link.btn:disabled,
+.travs-admin-body .travs-button-link-danger.btn:disabled {
+    opacity: 1;
+}
+
+.travs-admin-body .travs-table.table {
+    --bs-table-color: inherit;
+    --bs-table-bg: transparent;
+    --bs-table-border-color: var(--travs-surface-muted);
+}
+
+.travs-admin-body .travs-table.table > :not(caption) > * > * {
+    padding: 12px 0;
+    color: inherit;
+    vertical-align: top;
+    background-color: transparent;
+    border-bottom: 1px solid var(--travs-surface-muted);
+    box-shadow: none;
+}
+
+.travs-admin-body .travs-dashboard-table-wrap .travs-table.table > :not(caption) > * > * {
+    padding: 13px 0;
+}
+

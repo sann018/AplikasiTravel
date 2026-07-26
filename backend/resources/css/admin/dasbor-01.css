@@ -1,0 +1,243 @@
+.travs-page-frame {
+    padding: 18px;
+    background: var(--travs-white);
+    border: 1px solid var(--travs-border);
+    border-radius: 22px;
+    box-shadow: var(--travs-shadow);
+}
+
+.travs-page-title {
+    margin-bottom: 18px;
+}
+
+.travs-page-title h1 {
+    margin: 0 0 8px;
+    font-size: 1.6rem;
+    color: var(--travs-primary);
+}
+
+.travs-page-title p {
+    margin: 0;
+    color: var(--travs-text-soft);
+    line-height: 1.65;
+}
+
+.travs-eyebrow-on-dark {
+    color: var(--travs-white);
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.travs-dashboard-hero-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.95fr);
+    gap: 18px;
+    margin-bottom: 18px;
+}
+
+.travs-dashboard-hero,
+.travs-dashboard-highlight-card,
+.travs-dashboard-panel {
+    box-shadow: var(--travs-shadow);
+}
+
+.travs-dashboard-hero {
+    display: grid;
+    gap: 24px;
+    padding: 28px;
+    border-radius: 28px;
+    color: var(--travs-white);
+    background: #25396f;
+}
+
+.travs-dashboard-hero-copy {
+    display: grid;
+    gap: 14px;
+    max-width: 760px;
+}
+
+.travs-dashboard-hero-copy h2 {
+    margin: 0;
+    font-size: 2rem;
+    line-height: 1.08;
+}
+
+.travs-dashboard-hero-copy p {
+    margin: 0;
+    max-width: 660px;
+    color: rgba(255, 255, 255, 0.82);
+    line-height: 1.75;
+}
+
+.travs-dashboard-hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.travs-dashboard-hero-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.travs-dashboard-hero-metric {
+    display: grid;
+    gap: 6px;
+    padding: 18px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(6px);
+}
+
+.travs-dashboard-hero-metric small {
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.travs-dashboard-hero-metric strong {
+    font-size: 1.55rem;
+    line-height: 1.15;
+}
+
+.travs-dashboard-hero-metric span {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.86rem;
+}
+
+.travs-dashboard-highlight-stack {
+    display: grid;
+    gap: 14px;
+}
+
+.travs-dashboard-highlight-card {
+    display: grid;
+    gap: 10px;
+    padding: 20px 22px;
+    border: 1px solid var(--travs-border);
+    border-radius: 22px;
+    background: var(--travs-white);
+}
+
+.travs-dashboard-highlight-card small {
+    color: var(--travs-text-soft);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.travs-dashboard-highlight-card strong {
+    color: var(--travs-primary);
+    font-size: 1.45rem;
+    line-height: 1.2;
+}
+
+.travs-dashboard-highlight-card span {
+    color: var(--travs-text-soft);
+    font-size: 0.86rem;
+    line-height: 1.65;
+}
+
+.travs-dashboard-main-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.42fr) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+}
+
+.travs-dashboard-simple,
+.travs-dashboard-panes,
+.travs-dashboard-pane {
+    display: grid;
+    gap: 18px;
+    min-width: 0;
+}
+
+.travs-dashboard-pane[hidden] {
+    display: none;
+}
+
+.travs-dashboard-panel-full {
+    width: 100%;
+    min-width: 0;
+}
+
+.travs-summary-link,
+.travs-dashboard-focus-item,
+.travs-dashboard-list-item:is(a) {
+    color: inherit;
+    text-decoration: none;
+}
+
+.travs-summary-link {
+    position: relative;
+    transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.travs-dashboard-simple .travs-summary-grid-dashboard .travs-summary-card-finance {
+    /* Ringkasan keuangan tetap mudah dipantau di kanan dan mengisi tinggi dua baris. */
+    grid-column: 4;
+    grid-row: 1 / span 2;
+    align-self: stretch;
+}
+
+.travs-summary-link::after {
+    content: "Buka";
+    justify-self: end;
+    margin-top: auto;
+    color: #435ebe;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.travs-summary-link:hover,
+.travs-summary-link:focus-visible {
+    border-color: #9eace0;
+    box-shadow: 0 8px 20px rgba(37, 57, 111, 0.1);
+    transform: translateY(-2px);
+}
+
+.travs-dashboard-focus-compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.travs-dashboard-focus-compact .travs-dashboard-focus-item {
+    align-content: start;
+    transition: border-color 160ms ease, background-color 160ms ease;
+}
+
+.travs-dashboard-focus-compact .travs-dashboard-focus-item:hover,
+.travs-dashboard-focus-compact .travs-dashboard-focus-item:focus-visible,
+.travs-dashboard-list-item:is(a):hover,
+.travs-dashboard-list-item:is(a):focus-visible {
+    border-color: #9eace0;
+    background: #ffffff;
+}
+
+.travs-dashboard-panel {
+    padding: 22px;
+    background: var(--travs-white);
+    border: 1px solid var(--travs-border);
+    border-radius: 24px;
+}
+
+.travs-dashboard-panel-wide {
+    grid-row: span 2;
+}
+
+.travs-dashboard-panel-chip {
+    display: grid;
+    gap: 4px;
+    padding: 12px 16px;
+    border-radius: 18px;
+    background: #eef2f6;
+    border: 1px solid #d9e0ea;
+    text-align: right;
+    min-width: 128px;
+}
+

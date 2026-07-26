@@ -1,0 +1,249 @@
+.travs-detail-money .is-total strong {
+    font-size: 1.08rem;
+}
+
+.travs-operational-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin-top: 14px;
+}
+
+.travs-operational-summary div {
+    display: grid;
+    gap: 4px;
+    padding: 14px;
+    border: 1px solid var(--travs-border);
+    border-radius: 16px;
+    background: var(--travs-surface);
+}
+
+.travs-operational-summary small {
+    color: var(--travs-text-soft);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.travs-operational-summary strong {
+    color: var(--travs-primary);
+    font-size: 1.08rem;
+}
+
+.travs-operational-summary span {
+    color: var(--travs-text-soft);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.travs-subsection {
+    display: grid;
+    gap: 12px;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--travs-surface-muted);
+}
+
+.travs-subsection > strong {
+    color: var(--travs-primary);
+    font-size: 0.96rem;
+}
+
+.travs-bagasi-list {
+    display: grid;
+    gap: 12px;
+}
+
+.travs-bagasi-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 14px 16px;
+    border: 1px solid var(--travs-border);
+    border-radius: 16px;
+    background: var(--travs-surface);
+}
+
+.travs-bagasi-item strong {
+    color: var(--travs-primary);
+}
+
+.travs-bagasi-item p {
+    margin: 6px 0 0;
+    color: var(--travs-text-soft);
+    font-size: 0.84rem;
+    line-height: 1.6;
+}
+
+.travs-bagasi-item span {
+    color: var(--travs-accent-deep);
+    font-size: 0.92rem;
+    font-weight: 800;
+}
+
+.travs-empty-inline {
+    margin: 0;
+    color: var(--travs-text-soft);
+    line-height: 1.7;
+}
+
+.travs-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--travs-surface-muted);
+}
+
+.travs-pagination-meta {
+    color: var(--travs-text-soft);
+    font-size: 0.84rem;
+}
+
+.travs-pagination-links {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.travs-pagination-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 10px 12px;
+    border: 1px solid var(--travs-border);
+    border-radius: 12px;
+    background: var(--travs-white);
+    color: var(--travs-text-soft);
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
+.travs-pagination-link:hover {
+    color: var(--travs-primary);
+    border-color: var(--travs-border-strong);
+}
+
+.travs-pagination-link.is-active {
+    color: var(--travs-white);
+    background: var(--travs-primary);
+    border-color: var(--travs-primary);
+}
+
+.travs-pagination-link.is-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+}
+
+@media (max-width: 1320px) {
+    .travs-dashboard-hero-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-dashboard-highlight-stack {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .travs-dashboard-main-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-dashboard-panel-wide {
+        grid-row: auto;
+    }
+
+    .travs-overview-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .travs-note-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .travs-summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .travs-summary-grid-dashboard {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .travs-filter-grid-wide {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 1080px) {
+    .travs-admin-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-sidebar {
+        position: static;
+        border-right: none;
+        border-bottom: 1px solid var(--travs-border);
+    }
+
+    .travs-topbar-menu {
+        display: inline-grid;
+    }
+
+    .travs-panel-grid,
+    .travs-settings-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-dashboard-hero-metrics {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-dashboard-focus-compact {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-split-grid,
+    .travs-cost-workspace,
+    .travs-detail-grid,
+    .travs-description-list,
+    .travs-operational-summary,
+    .travs-admin-account-head,
+    .travs-admin-account-primary,
+    .travs-form-grid-2,
+    .travs-filter-grid,
+    .travs-filter-grid-wide {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-admin-account-card {
+        padding: 18px;
+    }
+
+    .travs-admin-account-badge {
+        min-width: 0;
+    }
+
+    .travs-admin-account-actions {
+        justify-content: stretch;
+    }
+
+    .travs-admin-account-actions .travs-button {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .travs-form-card {
+        position: static;
+    }
+
+    .travs-field-span-2 {
+        grid-column: auto;
+    }
+}
+

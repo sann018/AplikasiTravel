@@ -1,0 +1,119 @@
+/* Detail admin dibuat seperti satu lembar data agar jadwal dan pemesanan konsisten. */
+.travs-admin-body .travs-admin-detail-simple {
+    padding: 20px;
+    border: 1px solid #d8e0e8;
+    border-radius: 4px;
+    background: #ffffff;
+}
+
+.travs-admin-body .travs-admin-detail-simple .travs-detail-grid,
+.travs-admin-body .travs-admin-detail-simple .travs-detail-stack {
+    display: block;
+}
+
+.travs-admin-body .travs-admin-detail-simple .travs-section-card {
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.travs-admin-body .travs-admin-detail-simple .travs-section-card + .travs-section-card,
+.travs-admin-body .travs-admin-detail-simple > .travs-detail-stack {
+    padding-top: 24px;
+    margin-top: 24px;
+    border-top: 1px solid #d8e0e8;
+}
+
+.travs-admin-body .travs-admin-detail-simple .travs-description-list,
+.travs-admin-body .travs-admin-detail-simple .travs-operational-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    border-top: 1px solid #d8e0e8;
+    border-left: 1px solid #d8e0e8;
+}
+
+.travs-admin-body .travs-admin-detail-simple .travs-description-list > div,
+.travs-admin-body .travs-admin-detail-simple .travs-operational-summary > div {
+    min-height: auto;
+    padding: 12px;
+    border: 0;
+    border-right: 1px solid #d8e0e8;
+    border-bottom: 1px solid #d8e0e8;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.travs-admin-body .travs-admin-detail-simple .travs-description-list > .travs-status-card.is-paid {
+    background: #ecfdf5;
+}
+
+.travs-admin-body .travs-admin-detail-simple .travs-description-list > .travs-status-card.is-unpaid {
+    background: #fef2f2;
+}
+
+.travs-admin-body .travs-admin-detail-simple .travs-bagasi-item {
+    padding: 14px 0;
+    border: 0;
+    border-bottom: 1px solid #d8e0e8;
+    border-radius: 0;
+    background: transparent;
+}
+
+.travs-admin-body .travs-admin-detail-simple .travs-detail-footer-actions {
+    padding-top: 20px;
+    margin-top: 20px;
+    border-top: 1px solid #d8e0e8;
+}
+
+@media (max-width: 900px) {
+    .travs-admin-body .travs-notification-statistics,
+    .travs-admin-body .travs-notification-simple-details {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .travs-admin-body .travs-notification-statistics > div:nth-child(2) {
+        border-right: 0;
+    }
+
+    .travs-admin-body .travs-notification-statistics > div:nth-child(-n + 2) {
+        border-bottom: 1px solid #d8e0e8;
+    }
+}
+
+@media (max-width: 600px) {
+    .travs-admin-body .travs-admin-simple-block {
+        padding: 16px;
+    }
+
+    .travs-admin-body .travs-notification-statistics,
+    .travs-admin-body .travs-notification-simple-details {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-admin-body .travs-notification-statistics > div {
+        border-right: 0;
+        border-bottom: 1px solid #d8e0e8;
+    }
+
+    .travs-admin-body .travs-notification-statistics > div:last-child {
+        border-bottom: 0;
+    }
+
+    .travs-admin-body .travs-notification-simple-row__header {
+        display: grid;
+    }
+
+    .travs-admin-body .travs-admin-detail-simple {
+        padding: 16px;
+    }
+
+    .travs-admin-body .travs-admin-detail-simple .travs-description-list,
+    .travs-admin-body .travs-admin-detail-simple .travs-operational-summary {
+        grid-template-columns: 1fr;
+    }
+}
+

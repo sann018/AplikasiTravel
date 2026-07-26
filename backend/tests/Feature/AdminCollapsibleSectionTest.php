@@ -19,9 +19,23 @@ class AdminCollapsibleSectionTest extends TestCase
 
     public function test_active_admin_menu_uses_the_main_navy_color(): void
     {
-        $css = file_get_contents(resource_path('css/app.css'));
+        $entryPath = resource_path('css/app.css');
+        $css = file_get_contents($entryPath);
 
         $this->assertIsString($css);
+
+        // Test warna ikut membaca modul CSS yang diimpor oleh app.css.
+        preg_match_all("/@import\s+'([^']+\.css)';/", $css, $imports);
+        foreach ($imports[1] as $relativePath) {
+            if (! str_starts_with($relativePath, './')) {
+                continue;
+            }
+
+            $module = file_get_contents(dirname($entryPath).DIRECTORY_SEPARATOR.$relativePath);
+            $this->assertIsString($module);
+            $css .= PHP_EOL.$module;
+        }
+
         $this->assertMatchesRegularExpression(
             '/\.travs-nav-link\.is-active\s*\{[^}]*background:\s*var\(--travs-primary\);/s',
             $css,

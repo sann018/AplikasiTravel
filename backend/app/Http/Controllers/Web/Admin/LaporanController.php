@@ -3,15 +3,75 @@
 namespace App\Http\Controllers\Web\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Jadwal;
 use App\Models\Pembayaran;
 use App\Models\Pemesanan;
+use App\Support\PaymentMethodCatalog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class LaporanController extends Controller
 {
+    public function okupansi(Request $request): View
+    {
+        $jadwals = $this->occupancyQuery($request)
+            ->latest('waktu_berangkat')
+            ->paginate(20)
+            ->withQueryString();
+
+        // Hitung ringkasan kursi dari status kursi jadwal yang tersimpan.
+        $jadwals->getCollection()->transform(fn (Jadwal $jadwal) => $this->appendOccupancy($jadwal));
+
+        return view('admin.laporan.okupansi', [
+            'jadwals' => $jadwals,
+            'filters' => $request->only(['status', 'tanggal_mulai', 'tanggal_selesai']),
+        ]);
+    }
+
+    public function exportOkupansi(Request $request): StreamedResponse
+    {
+        $jadwals = $this->occupancyQuery($request)
+            ->latest('waktu_berangkat')
+            ->get()
+            ->map(fn (Jadwal $jadwal) => $this->appendOccupancy($jadwal));
+
+        $rows = [[
+            'No', 'Tanggal', 'Jam', 'Rute', 'Kendaraan', 'Pengemudi',
+            'Status Jadwal', 'Kursi Terisi', 'Total Kursi', 'Kursi Tersedia',
+            'Kursi Terkunci', 'Persentase Okupansi',
+        ]];
+
+        foreach ($jadwals as $index => $jadwal) {
+            $rows[] = [
+                (string) ($index + 1),
+                $jadwal->waktu_berangkat?->format('d/m/Y') ?: '-',
+                $jadwal->waktu_berangkat?->format('H:i') ?: '-',
+                trim(($jadwal->rute?->kota_asal ?: '-').' - '.($jadwal->rute?->kota_tujuan ?: '-')),
+                $jadwal->kendaraan?->nomor_plat ?: '-',
+                $jadwal->pengemudi?->pengguna?->nama ?: '-',
+                ucwords(str_replace('_', ' ', (string) $jadwal->status)),
+                (string) $jadwal->kursi_terisi,
+                (string) $jadwal->total_kursi,
+                (string) $jadwal->kursi_tersedia,
+                (string) $jadwal->kursi_terkunci,
+                (string) $jadwal->persen_okupansi,
+            ];
+        }
+
+        return $this->downloadReport($rows, 'laporan-okupansi', $request, [
+            'title' => 'LAPORAN OKUPANSI KURSI',
+            'period' => $this->periodLabel($request),
+            'summary' => [
+                'Total jadwal' => $jadwals->count(),
+                'Total kursi terisi' => $jadwals->sum('kursi_terisi'),
+                'Total kursi' => $jadwals->sum('total_kursi'),
+            ],
+        ]);
+    }
+
     public function pemesanan(Request $request): View
     {
         $query = $this->bookingQuery($request);
@@ -103,8 +163,10 @@ class LaporanController extends Controller
                 $booking->pengguna->no_hp,
                 $booking->jadwal->rute->kota_asal.' - '.$booking->jadwal->rute->kota_tujuan,
                 $booking->jadwal->waktu_berangkat->format('Y-m-d H:i:s'),
-                $booking->status_pemesanan,
-                $booking->pembayaran?->status_bayar ?? 'draft',
+                ucwords(str_replace('_', ' ', $booking->status_pemesanan)),
+                $booking->pembayaran
+                    ? ucwords(str_replace('_', ' ', $booking->pembayaran->status_bayar))
+                    : 'Belum Tersedia',
                 (string) $booking->detail_pemesanan_count,
                 (string) (int) $booking->total_harga,
             ];
@@ -152,8 +214,8 @@ class LaporanController extends Controller
                 $transaction->pemesanan
                     ? $transaction->pemesanan->jadwal->rute->kota_asal.' - '.$transaction->pemesanan->jadwal->rute->kota_tujuan
                 : '-',
-                strtolower($transaction->metode_bayar),
-                $transaction->status_bayar,
+                PaymentMethodCatalog::label(strtolower($transaction->metode_bayar)),
+                ucwords(str_replace('_', ' ', $transaction->status_bayar)),
                 (string) ($transaction->nominal_transaksi ?? (int) $transaction->pemesanan?->total_harga),
                 (string) ($transaction->biaya_admin_provider ?? 0),
                 $transaction->total_dibayar_penumpang === null
@@ -183,6 +245,18 @@ class LaporanController extends Controller
 
     private function bookingQuery(Request $request)
     {
+        $tanggalSelesaiRules = ['nullable', 'date'];
+        if ($request->filled('tanggal_mulai')) {
+            $tanggalSelesaiRules[] = 'after_or_equal:tanggal_mulai';
+        }
+
+        // Validasi dipakai bersama oleh tampilan dan export laporan pemesanan.
+        $request->validate([
+            'status' => ['nullable', Rule::in(['menunggu_pembayaran', 'terbayar', 'dibatalkan', 'selesai'])],
+            'tanggal_mulai' => ['nullable', 'date'],
+            'tanggal_selesai' => $tanggalSelesaiRules,
+        ], $this->dateFilterMessages());
+
         $query = Pemesanan::query()
             ->with(['pengguna', 'jadwal.rute', 'pembayaran'])
             ->withCount('detailPemesanan');
@@ -202,8 +276,67 @@ class LaporanController extends Controller
         return $query;
     }
 
+    private function occupancyQuery(Request $request)
+    {
+        $tanggalSelesaiRules = ['nullable', 'date'];
+        if ($request->filled('tanggal_mulai')) {
+            $tanggalSelesaiRules[] = 'after_or_equal:tanggal_mulai';
+        }
+
+        // Filter laporan okupansi mengikuti jadwal, bukan mengubah data kursi.
+        $request->validate([
+            'status' => ['nullable', Rule::in(['draft', 'dibuka', 'ditutup', 'berangkat', 'selesai', 'dibatalkan'])],
+            'tanggal_mulai' => ['nullable', 'date'],
+            'tanggal_selesai' => $tanggalSelesaiRules,
+        ], $this->dateFilterMessages());
+
+        $query = Jadwal::query()->with(['rute', 'kendaraan', 'pengemudi.pengguna', 'kursi']);
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status'));
+        }
+        if ($request->filled('tanggal_mulai')) {
+            $query->whereDate('waktu_berangkat', '>=', $request->date('tanggal_mulai'));
+        }
+        if ($request->filled('tanggal_selesai')) {
+            $query->whereDate('waktu_berangkat', '<=', $request->date('tanggal_selesai'));
+        }
+
+        return $query;
+    }
+
+    private function appendOccupancy(Jadwal $jadwal): Jadwal
+    {
+        $kursi = $jadwal->kursi;
+        $total = $kursi->count() ?: (int) ($jadwal->kendaraan?->kapasitas_kursi ?? 0);
+        $terisi = $kursi->where('status_kursi', 'dipesan')->count();
+        $terkunci = $kursi->where('status_kursi', 'terkunci')->count();
+        $tersedia = $kursi->where('status_kursi', 'tersedia')->count();
+
+        $jadwal->setAttribute('total_kursi', $total);
+        $jadwal->setAttribute('kursi_terisi', $terisi);
+        $jadwal->setAttribute('kursi_terkunci', $terkunci);
+        $jadwal->setAttribute('kursi_tersedia', $tersedia);
+        $jadwal->setAttribute('persen_okupansi', $total > 0 ? round(($terisi / $total) * 100, 1) : 0);
+
+        return $jadwal;
+    }
+
     private function transactionQuery(Request $request)
     {
+        $tanggalSelesaiRules = ['nullable', 'date'];
+        if ($request->filled('tanggal_mulai')) {
+            $tanggalSelesaiRules[] = 'after_or_equal:tanggal_mulai';
+        }
+
+        // Metode dan status dibatasi agar hasil laporan tidak memakai filter asing.
+        $request->validate([
+            'status' => ['nullable', Rule::in(['menunggu', 'berhasil', 'gagal', 'kedaluwarsa'])],
+            'metode_bayar' => ['nullable', Rule::in(array_keys(PaymentMethodCatalog::adminOptions()))],
+            'tanggal_mulai' => ['nullable', 'date'],
+            'tanggal_selesai' => $tanggalSelesaiRules,
+        ], $this->dateFilterMessages());
+
         $query = Pembayaran::query()->with(['pemesanan.pengguna', 'pemesanan.jadwal.rute']);
 
         if ($request->filled('status')) {
@@ -225,6 +358,15 @@ class LaporanController extends Controller
         return $query;
     }
 
+    private function dateFilterMessages(): array
+    {
+        return [
+            'tanggal_mulai.date' => 'Tanggal mulai tidak valid.',
+            'tanggal_selesai.date' => 'Tanggal selesai tidak valid.',
+            'tanggal_selesai.after_or_equal' => 'Tanggal selesai harus sama atau setelah tanggal mulai.',
+        ];
+    }
+
     private function downloadReport(array $rows, string $baseName, Request $request, array $meta = [])
     {
         $format = strtolower((string) $request->query('format', 'csv'));
@@ -232,7 +374,7 @@ class LaporanController extends Controller
         $filename = $baseName.'-'.now()->format('Ymd-His');
 
         return match ($format) {
-            'xls' => $this->downloadHtmlExcel($rows, "{$filename}.xls", $baseName, $request, $meta),
+            'xls' => $this->downloadExcelXml($rows, "{$filename}.xls", $baseName, $request, $meta),
             default => $this->downloadCsv($rows, "{$filename}.csv"),
         };
     }
@@ -253,7 +395,7 @@ class LaporanController extends Controller
         ]);
     }
 
-    private function downloadHtmlExcel(array $rows, string $filename, string $baseName, Request $request, array $meta = []): StreamedResponse
+    private function downloadExcelXml(array $rows, string $filename, string $baseName, Request $request, array $meta = []): StreamedResponse
     {
         return response()->streamDownload(function () use ($rows, $baseName, $request, $meta) {
             $title = $meta['title'] ?? strtoupper(str_replace('-', ' ', $baseName));
@@ -261,30 +403,28 @@ class LaporanController extends Controller
             $printedBy = auth()->user()?->nama ?? 'Admin';
             $moneyColumns = $meta['money_columns'] ?? [];
             $headers = $rows[0] ?? [];
+            $columnCount = max(count($headers), 1);
+            $lastDataRow = 6 + max(count($rows) - 1, 0);
+            $worksheetName = mb_substr(ucwords(str_replace('-', ' ', $baseName)), 0, 31);
 
-            echo '<html><head><meta charset="UTF-8">';
-            echo '<style>
-                body{font-family:Arial,sans-serif;color:#10233f;}
-                table{border-collapse:collapse;font-size:12px;width:100%;}
-                th{background:#10233f;color:#ffffff;font-weight:bold;text-align:center;}
-                th,td{border:1px solid #cbd5e1;padding:8px;vertical-align:middle;white-space:normal;mso-wrap-style:square;}
-                td{text-align:left;}
-                .center{text-align:center;}
-                .right{text-align:right;}
-                .meta td{border:none;padding:3px 0;}
-                .brand{font-size:18px;font-weight:bold;letter-spacing:.06em;}
-                .title{font-size:15px;font-weight:bold;margin-top:4px;}
-                .summary td{font-weight:bold;background:#eef2f7;}
-            </style></head><body>';
-            echo '<div class="brand">RUSLY TRAVEL</div>';
-            echo '<div class="title">'.e($title).'</div>';
-            echo '<table class="meta" style="margin:8px 0 14px;">';
-            echo '<tr><td style="width:120px;">Periode</td><td>: '.e($period).'</td></tr>';
-            echo '<tr><td>Dicetak oleh</td><td>: '.e($printedBy).'</td></tr>';
-            echo '<tr><td>Tanggal cetak</td><td>: '.e(now()->translatedFormat('d F Y H:i')).'</td></tr>';
-            echo '</table>';
-            echo '<table>';
-            echo '<colgroup>';
+            echo '<?xml version="1.0" encoding="UTF-8"?>';
+            echo '<?mso-application progid="Excel.Sheet"?>';
+            echo '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"';
+            echo ' xmlns:o="urn:schemas-microsoft-com:office:office"';
+            echo ' xmlns:x="urn:schemas-microsoft-com:office:excel"';
+            echo ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">';
+            echo '<Styles>';
+            echo '<Style ss:ID="Default" ss:Name="Normal"><Alignment ss:Vertical="Center" ss:WrapText="1"/><Font ss:FontName="Arial" ss:Size="10"/></Style>';
+            echo '<Style ss:ID="Title"><Font ss:Bold="1" ss:Size="16" ss:Color="#10233F"/></Style>';
+            echo '<Style ss:ID="MetaLabel"><Font ss:Bold="1" ss:Color="#10233F"/></Style>';
+            echo '<Style ss:ID="Header"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Font ss:Bold="1" ss:Color="#FFFFFF"/><Interior ss:Color="#10233F" ss:Pattern="Solid"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1"/></Borders></Style>';
+            echo '<Style ss:ID="Center"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>';
+            echo '<Style ss:ID="Data"><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>';
+            echo '<Style ss:ID="Money"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><NumberFormat ss:Format="&quot;Rp&quot;#,##0"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/><Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#CBD5E1"/></Borders></Style>';
+            echo '<Style ss:ID="Summary"><Font ss:Bold="1"/><Interior ss:Color="#EEF2F7" ss:Pattern="Solid"/></Style>';
+            echo '</Styles>';
+            echo '<Worksheet ss:Name="'.$this->excelXmlEscape($worksheetName).'"><Table>';
+
             foreach ($headers as $header) {
                 $width = match ($header) {
                     'No' => 48,
@@ -293,42 +433,55 @@ class LaporanController extends Controller
                     'Penumpang' => 140,
                     default => 120,
                 };
-                echo '<col style="width:'.$width.'px;">';
+                echo '<Column ss:AutoFitWidth="0" ss:Width="'.$width.'"/>';
             }
-            echo '</colgroup>';
 
-            foreach ($rows as $rowIndex => $row) {
-                echo '<tr>';
+            echo '<Row><Cell ss:StyleID="Title" ss:MergeAcross="'.($columnCount - 1).'"><Data ss:Type="String">RUSLY TRAVEL - '.$this->excelXmlEscape($title).'</Data></Cell></Row>';
+            echo '<Row><Cell ss:StyleID="MetaLabel"><Data ss:Type="String">Periode</Data></Cell><Cell ss:MergeAcross="'.max($columnCount - 2, 0).'"><Data ss:Type="String">'.$this->excelXmlEscape($period).'</Data></Cell></Row>';
+            echo '<Row><Cell ss:StyleID="MetaLabel"><Data ss:Type="String">Dicetak oleh</Data></Cell><Cell ss:MergeAcross="'.max($columnCount - 2, 0).'"><Data ss:Type="String">'.$this->excelXmlEscape($printedBy).'</Data></Cell></Row>';
+            echo '<Row><Cell ss:StyleID="MetaLabel"><Data ss:Type="String">Tanggal cetak</Data></Cell><Cell ss:MergeAcross="'.max($columnCount - 2, 0).'"><Data ss:Type="String">'.$this->excelXmlEscape(now()->translatedFormat('d F Y H:i')).'</Data></Cell></Row>';
+            echo '<Row/>';
+            echo '<Row>';
+            foreach ($headers as $header) {
+                echo '<Cell ss:StyleID="Header"><Data ss:Type="String">'.$this->excelXmlEscape($header).'</Data></Cell>';
+            }
+            echo '</Row>';
 
+            foreach (array_slice($rows, 1) as $row) {
+                echo '<Row>';
                 foreach ($row as $cellIndex => $cell) {
-                    $tag = $rowIndex === 0 ? 'th' : 'td';
                     $header = $headers[$cellIndex] ?? '';
-                    $class = $rowIndex === 0 || in_array($header, ['No', 'Jumlah Kursi'], true)
-                        ? ' class="center"'
-                        : (in_array($header, $moneyColumns, true) ? ' class="right"' : '');
-                    $value = $rowIndex > 0 && in_array($header, $moneyColumns, true)
-                        ? $this->formatRupiah((float) $cell)
-                        : (string) $cell;
-                    echo "<{$tag}{$class}>".e($value)."</{$tag}>";
+                    $isMoney = in_array($header, $moneyColumns, true);
+                    $isNumber = $isMoney || in_array($header, ['No', 'Jumlah Kursi'], true);
+                    $style = $isMoney ? 'Money' : (in_array($header, ['No', 'Jumlah Kursi'], true) ? 'Center' : 'Data');
+                    $value = $isNumber && is_numeric($cell) ? (string) (int) $cell : (string) $cell;
+                    $type = $isNumber && is_numeric($cell) ? 'Number' : 'String';
+                    echo '<Cell ss:StyleID="'.$style.'"><Data ss:Type="'.$type.'">'.$this->excelXmlEscape($value).'</Data></Cell>';
                 }
-
-                echo '</tr>';
+                echo '</Row>';
             }
 
             if (! empty($meta['summary'])) {
-                echo '<tr class="summary"><td colspan="'.max(count($headers), 1).'">';
                 $parts = [];
                 foreach ($meta['summary'] as $label => $value) {
-                    $parts[] = $label.': '.(is_float($value) ? $this->formatRupiah($value) : number_format((float) $value, 0, ',', '.'));
+                    $parts[] = $label.': '.number_format((float) $value, 0, ',', '.');
                 }
-                echo e(implode(' | ', $parts));
-                echo '</td></tr>';
+                echo '<Row/><Row><Cell ss:StyleID="Summary" ss:MergeAcross="'.($columnCount - 1).'"><Data ss:Type="String">'.$this->excelXmlEscape(implode(' | ', $parts)).'</Data></Cell></Row>';
             }
 
-            echo '</table></body></html>';
+            echo '</Table>';
+            // AutoFilter membuat dropdown filter Excel pada setiap kolom data.
+            echo '<AutoFilter x:Range="R6C1:R'.$lastDataRow.'C'.$columnCount.'" xmlns="urn:schemas-microsoft-com:office:excel"/>';
+            echo '<WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel"><FreezePanes/><FrozenNoSplit/><SplitHorizontal>6</SplitHorizontal><TopRowBottomPane>6</TopRowBottomPane><ActivePane>2</ActivePane></WorksheetOptions>';
+            echo '</Worksheet></Workbook>';
         }, $filename, [
             'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
         ]);
+    }
+
+    private function excelXmlEscape(string $value): string
+    {
+        return htmlspecialchars($value, ENT_XML1 | ENT_QUOTES, 'UTF-8');
     }
 
     private function periodLabel(Request $request): string
@@ -346,10 +499,5 @@ class LaporanController extends Controller
             $end => "Sampai {$end}",
             default => 'Semua periode',
         };
-    }
-
-    private function formatRupiah(float $value): string
-    {
-        return 'Rp'.number_format($value, 0, ',', '.');
     }
 }
