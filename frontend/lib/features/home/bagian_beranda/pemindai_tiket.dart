@@ -45,7 +45,7 @@ class _ScanTicketPageState extends State<_ScanTicketPage> {
     setState(() {
       _isProcessing = true;
       _state = _ScanPreviewState.processing;
-      _message = 'Memvalidasi tiket ke server...';
+      _message = 'Memeriksa tiket...';
       _detailLines = const [];
     });
 
@@ -81,7 +81,7 @@ class _ScanTicketPageState extends State<_ScanTicketPage> {
         _detailLines = const [
           'Periksa ulang QR tiket.',
           'Pastikan jadwal sesuai dengan pengemudi aktif.',
-          'Hubungi admin jika tiket perlu verifikasi manual.',
+          'Hubungi petugas operasional jika tiket perlu diperiksa lebih lanjut.',
         ];
       });
     } catch (_) {

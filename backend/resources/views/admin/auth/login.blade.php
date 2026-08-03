@@ -60,14 +60,14 @@
                                 type="password"
                                 class="form-control form-control-xl"
                                 placeholder="Masukkan kata sandi"
+                                maxlength="72"
                                 required
                             >
                             <div class="form-control-icon">
                                 <i data-feather="lock"></i>
                             </div>
                             <button type="button" class="travs-password-toggle" data-password-toggle data-password-target="password" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
-                                <span data-password-show-icon><i data-feather="eye"></i></span>
-                                <span class="d-none" data-password-hide-icon><i data-feather="eye-off"></i></span>
+                                <i data-feather="eye" data-password-icon aria-hidden="true"></i>
                             </button>
                         </div>
                         <button type="submit" class="btn btn-primary btn-block btn-lg shadow-lg mt-2">

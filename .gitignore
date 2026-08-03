@@ -45,6 +45,5 @@ backend/storage/framework/views/
 .runlogs/
 
 # Local audit/tooling artifacts and database backups
-.codex-targets.txt
 database_backups/
 backend/database_backups/

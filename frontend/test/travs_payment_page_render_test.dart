@@ -44,6 +44,15 @@ void main() {
     expect(find.text('Detail Perjalanan'), findsOneWidget);
     expect(find.text('Akun Penumpang'), findsNothing);
     expect(find.textContaining('Lengkapi sebelum'), findsOneWidget);
+    expect(find.text('Alamat Jemput atau Link Google Maps'), findsOneWidget);
+    expect(find.text('Latitude'), findsNothing);
+    expect(find.text('Longitude'), findsNothing);
+
+    await tester.drag(find.byType(ListView), const Offset(0, -600));
+    await tester.pump();
+    await tester.tap(find.text('Tujuan / Turun'));
+    await tester.pump();
+    expect(find.text('Alamat Turun atau Link Google Maps'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -376,6 +385,59 @@ void main() {
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('pembayaran tunai dapat ditutup tanpa dialog keluar', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(360, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: Center(
+              child: FilledButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => TravSPaymentPreviewPage(
+                        detail: _scheduleDetail,
+                        appSettings: AppSettings.defaults,
+                        checkoutDraft: _checkoutDraft,
+                        selectedRole: AppRolePreview.passenger,
+                        session: _session,
+                        selectedSeatNumbers: const [1],
+                        baggagePlacement: 'masuk_bagasi',
+                        baggageWeight: 0,
+                        baggageItems: 0,
+                        lockExpiresAt: '2099-07-25T23:39:50+07:00',
+                        initialBooking: _cashBooking(),
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Buka Pembayaran Tunai'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Buka Pembayaran Tunai'));
+    await tester.pumpAndSettle();
+    expect(find.text('Pembayaran Tunai'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.arrow_back_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Keluar dari pembayaran?'), findsNothing);
+    expect(find.text('Buka Pembayaran Tunai'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
 

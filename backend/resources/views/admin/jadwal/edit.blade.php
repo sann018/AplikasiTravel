@@ -54,16 +54,22 @@
                     <select id="kendaraan_id" name="kendaraan_id" class="travs-select @error('kendaraan_id') is-invalid @enderror form-select" required>
                         <option value="">Pilih kendaraan</option>
                         @foreach ($kendaraanOptions as $kendaraan)
+                            @php
+                                $availability = $kendaraanAvailability[$kendaraan->id] ?? ['locked' => false, 'reason' => ''];
+                                $isVehicleLocked = (bool) $availability['locked'];
+                            @endphp
                             <option
                                 value="{{ $kendaraan->id }}"
                                 data-capacity="{{ (int) $kendaraan->kapasitas_kursi }}"
                                 data-layout='@json($kendaraan->getSeatLayoutConfig())'
                                 @selected(old('kendaraan_id', $jadwal->kendaraan_id) == $kendaraan->id)
+                                @disabled($isVehicleLocked)
                             >
-                                {{ $kendaraan->label_armada }} - {{ $kendaraan->kapasitas_kursi }} kursi
+                                {{ $kendaraan->label_armada }} - {{ $kendaraan->kapasitas_kursi }} kursi{{ $isVehicleLocked ? ' - Sedang digunakan' : '' }}
                             </option>
                         @endforeach
                     </select>
+                    <small style="color:#64748b;">Sistem memeriksa interval, posisi kota terakhir, dan jeda minimal 2 jam sebelum kendaraan dipakai kembali.</small>
                     @include('admin.partials.field-error', ['name' => 'kendaraan_id'])
                 </div>
                 <div class="travs-field travs-field-span-2">
@@ -91,7 +97,7 @@
                             </option>
                         @endforeach
                     </select>
-                    <small style="color:#64748b;">Pengemudi terkunci jika masih punya jadwal aktif pada tanggal yang sama.</small>
+                    <small style="color:#64748b;">Sistem memeriksa interval, posisi kota terakhir, dan jeda minimal 2 jam sebelum Pengemudi ditugaskan kembali.</small>
                     @include('admin.partials.field-error', ['name' => 'pengemudi_id'])
                 </div>
                 <div class="travs-field">

@@ -761,9 +761,10 @@ class TravSApiService {
     required String jenisBiaya,
     required num nominal,
     required DateTime tanggal,
-    String? keterangan,
+    required String keterangan,
     required XFile fotoBuktiNota,
   }) async {
+    final proofBytes = await fotoBuktiNota.readAsBytes();
     Object? lastError;
 
     for (final candidate in _orderedBaseUrls()) {
@@ -780,15 +781,12 @@ class TravSApiService {
           'jenis_biaya': jenisBiaya.trim(),
           'nominal': nominal.toString(),
           'tanggal': tanggal.toIso8601String(),
-          if (keterangan != null && keterangan.trim().isNotEmpty)
-            'keterangan': keterangan.trim(),
+          'keterangan': keterangan.trim(),
         });
-
-        final bytes = await fotoBuktiNota.readAsBytes();
         request.files.add(
           http.MultipartFile.fromBytes(
             'foto_bukti_nota',
-            bytes,
+            proofBytes,
             filename: fotoBuktiNota.name,
           ),
         );
@@ -809,9 +807,7 @@ class TravSApiService {
       throw lastError;
     }
 
-    throw const TravSApiException(
-      'Pencatatan biaya operasional gagal dikirim.',
-    );
+    throw const TravSApiException('Bukti biaya operasional gagal diunggah.');
   }
 
   /// Meminta tautan reset tanpa membuka token sensitif ke aplikasi mobile.
@@ -954,7 +950,7 @@ class TravSApiService {
     }
 
     throw const TravSApiException(
-      'Aplikasi belum terhubung ke server. Pastikan server aktif, lalu coba lagi.',
+      'Aplikasi belum terhubung ke layanan. Periksa koneksi, lalu coba lagi.',
     );
   }
 

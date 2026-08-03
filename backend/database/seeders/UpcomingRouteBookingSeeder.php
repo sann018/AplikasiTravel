@@ -30,7 +30,6 @@ class UpcomingRouteBookingSeeder extends Seeder
             $drivers = Pengemudi::query()
                 ->with('pengguna')
                 ->where('status', 'aktif')
-                ->where('status_verifikasi', 'terverifikasi')
                 ->whereHas('pengguna', fn ($query) => $query
                     ->where('status_aktif', true)
                     ->where('email', 'not like', 'pengemudi.rute.%@ruslytravel.test'))
@@ -50,7 +49,7 @@ class UpcomingRouteBookingSeeder extends Seeder
 
             if ($drivers->isEmpty() || $vehicles->isEmpty() || $existingPassengers->isEmpty()) {
                 throw new RuntimeException(
-                    'Jadwal uji membutuhkan rute, pengemudi terverifikasi, armada aktif, dan penumpang yang sudah tersedia.',
+                    'Jadwal uji membutuhkan rute, pengemudi aktif, armada aktif, dan penumpang yang sudah tersedia.',
                 );
             }
 

@@ -115,38 +115,47 @@
 
 .travs-password-control > .form-control,
 .travs-password-control > .travs-input {
-    padding-right: 3rem;
+    padding-right: 3.5rem;
+}
+
+/* Edge dapat menambahkan ikon bawaan sendiri. Ikon native disembunyikan agar
+   setiap field hanya memiliki satu kontrol visibilitas buatan aplikasi. */
+.travs-password-control input[type="password"]::-ms-reveal,
+.travs-password-control input[type="password"]::-ms-clear {
+    display: none;
 }
 
 .travs-password-toggle {
     position: absolute;
     top: 50%;
-    right: 0.5rem;
+    right: 0.35rem;
     z-index: 3;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2rem;
-    height: 2rem;
+    width: 2.5rem;
+    height: 2.5rem;
     padding: 0;
     border: 0;
-    border-radius: 0.25rem;
+    border-radius: 999px;
     background: transparent;
-    color: var(--travs-navy, #102a4c);
+    color: #000;
     transform: translateY(-50%);
     cursor: pointer;
 }
 
 .travs-password-toggle:hover,
 .travs-password-toggle:focus-visible {
-    background: #edf2f7;
-    color: var(--travs-navy, #102a4c);
-    outline: none;
+    background: rgba(245, 138, 42, 0.12);
+    color: #000;
+    outline: 2px solid rgba(245, 138, 42, 0.35);
+    outline-offset: 1px;
 }
 
 .travs-password-toggle svg {
-    width: 1rem;
-    height: 1rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    stroke-width: 2;
 }
 
 .travs-input::placeholder,
@@ -242,4 +251,3 @@
     border-radius: 12px;
     font-size: 0.86rem;
 }
-

@@ -217,3 +217,23 @@ Notifikasi admin mencakup pengingat jadwal, kapasitas hampir penuh, dan event ar
 > **Catatan jujur:** Sanctum digunakan untuk token API dan token dihapus saat logout/reset password. Masa kedaluwarsa token eksplisit belum tampak pada source yang diaudit, jadi jangan menyebut token otomatis expired tanpa konfigurasi tambahan.
 
 Lanjut ke `02_STRUKTUR_DAN_SETUP.md` untuk mengenal struktur folder dan cara menjalankan project.
+
+## Pembaruan Arsitektur 27 Juli 2026
+
+Koneksi aplikasi sekarang terdiri atas dua jalur:
+
+```text
+HTTP API     : data lengkap, validasi, dan transaksi
+WebSocket    : sinyal perubahan kursi melalui Laravel Reverb
+```
+
+Reverb tidak menggantikan API. Setelah Flutter menerima event `kursi.diperbarui`, aplikasi tetap
+meminta data kursi terbaru dari API. Observer baru berjalan setelah transaksi database selesai,
+dan kegagalan broadcast tidak membatalkan booking.
+
+File utama:
+
+- `backend/app/Events/SeatAvailabilityChanged.php`;
+- `backend/app/Observers/KursiJadwalObserver.php`;
+- `backend/app/Services/SeatAvailabilityRealtimeService.php`;
+- `frontend/lib/core/services/travs_seat_realtime_service.dart`.

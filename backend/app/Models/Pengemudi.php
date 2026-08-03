@@ -25,27 +25,11 @@ class Pengemudi extends Model
         'nomor_sim',
         'foto_sim',
         'status',
-        'status_verifikasi',
-        'catatan_verifikasi',
-        'verified_at',
-        'verified_by',
     ];
-
-    protected function casts(): array
-    {
-        return [
-            'verified_at' => 'datetime',
-        ];
-    }
 
     public function pengguna(): BelongsTo
     {
         return $this->belongsTo(User::class, 'pengguna_id');
-    }
-
-    public function verifikator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'verified_by');
     }
 
     public function jadwal(): HasMany

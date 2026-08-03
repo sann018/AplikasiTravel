@@ -96,13 +96,12 @@
                 <div class="travs-field travs-field-span-2">
                     <label for="password" class="form-label">Password Baru (opsional)</label>
                     <div class="travs-password-control">
-                        <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror form-control" minlength="6" maxlength="8" placeholder="Kosongkan jika tidak diubah">
+                        <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror form-control" minlength="6" maxlength="72" placeholder="Kosongkan jika tidak diubah">
                         <button type="button" class="travs-password-toggle" data-password-toggle data-password-target="password" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
-                            <span data-password-show-icon><i data-feather="eye"></i></span>
-                            <span class="d-none" data-password-hide-icon><i data-feather="eye-off"></i></span>
+                            <i data-feather="eye" data-password-icon aria-hidden="true"></i>
                         </button>
                     </div>
-                    <div class="travs-field-meta">Jika diisi, gunakan 6-8 karakter berisi huruf dan minimal satu angka atau simbol.</div>
+                    <div class="travs-field-meta">Jika diisi, gunakan minimal 6 karakter berisi huruf dan minimal satu angka atau simbol.</div>
                     @include('admin.partials.field-error', ['name' => 'password'])
                 </div>
             </div>

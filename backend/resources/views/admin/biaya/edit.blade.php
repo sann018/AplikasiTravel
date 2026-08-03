@@ -11,7 +11,7 @@
     ])
 
     <section class="travs-section-card card">
-        <form method="POST" enctype="multipart/form-data" action="{{ route('admin.biaya.update', $biaya) }}" class="travs-form-grid d-grid">
+        <form method="POST" action="{{ route('admin.biaya.update', $biaya) }}" enctype="multipart/form-data" class="travs-form-grid d-grid">
             @csrf
             @method('PUT')
 
@@ -30,15 +30,13 @@
                 </div>
 
                 <div class="travs-field">
-                    <label for="jenis_biaya" class="form-label">Jenis Biaya <span class="text-danger">*</span></label>
-                    <input
-                        id="jenis_biaya"
-                        name="jenis_biaya"
-                        class="travs-input @error('jenis_biaya') is-invalid @enderror form-control"
-                        value="{{ old('jenis_biaya', $biaya->jenis_biaya) }}"
-                        required
-                        placeholder="Contoh: BBM, Tol, Parkir"
-                    >
+                    <label for="jenis_biaya" class="form-label">Kategori Pengeluaran <span class="text-danger">*</span></label>
+                    <select id="jenis_biaya" name="jenis_biaya" class="travs-select @error('jenis_biaya') is-invalid @enderror form-select" required>
+                        <option value="">Pilih kategori pengeluaran</option>
+                        @foreach ($expenseCategories as $category)
+                            <option value="{{ $category }}" @selected(old('jenis_biaya', $biaya->jenis_biaya) === $category)>{{ $category }}</option>
+                        @endforeach
+                    </select>
                     @include('admin.partials.field-error', ['name' => 'jenis_biaya'])
                 </div>
 
@@ -84,34 +82,37 @@
                 </div>
 
                 <div class="travs-field travs-field-span-2">
-                    <label for="bukti_nota" class="form-label">Foto Bukti Nota <span class="text-danger">*</span></label>
+                    <label for="foto_bukti_nota" class="form-label">
+                        Foto Bukti/Nota
+                        @if (! $biaya->bukti_url)
+                            <span class="text-danger">*</span>
+                        @endif
+                    </label>
+                    @if ($biaya->bukti_url)
+                        <p class="mb-2">
+                            <a
+                                href="{{ asset('storage/'.ltrim($biaya->bukti_url, '/')) }}"
+                                target="_blank"
+                                rel="noopener"
+                                class="travs-button-link"
+                            >Lihat Bukti Saat Ini</a>
+                        </p>
+                    @endif
                     <input
-                        id="bukti_nota"
-                        name="bukti_nota"
+                        id="foto_bukti_nota"
+                        name="foto_bukti_nota"
                         type="file"
                         accept="image/jpeg,image/png,image/webp"
-                        class="travs-input @error('bukti_nota') is-invalid @enderror form-control"
+                        class="travs-input @error('foto_bukti_nota') is-invalid @enderror form-control"
                         @required(! $biaya->bukti_url)
                     >
-                    <div class="travs-field-meta">
-                        @if ($biaya->bukti_url)
-                            Bukti saat ini tetap digunakan jika tidak memilih file baru.
-                        @else
-                            Bukti wajib berupa JPG, JPEG, PNG, atau WEBP dengan ukuran maksimal 3 MB.
-                        @endif
-                    </div>
-                    @include('admin.partials.field-error', ['name' => 'bukti_nota'])
-                    @if ($biaya->bukti_url)
-                        <button
-                            type="button"
-                            class="travs-photo-preview-trigger mt-2"
-                            data-preview-src="{{ asset('storage/'.ltrim($biaya->bukti_url, '/')) }}"
-                            aria-label="Lihat bukti nota yang tersimpan"
-                        >
-                            <img src="{{ asset('storage/'.ltrim($biaya->bukti_url, '/')) }}" alt="Bukti nota {{ $biaya->jenis_biaya }}" width="100" height="100" style="width:100px;height:100px;object-fit:cover;border-radius:8px;">
-                        </button>
-                    @endif
+                    <small class="form-text text-muted">
+                        {{ $biaya->bukti_url ? 'Kosongkan jika bukti tidak diganti.' : 'Bukti wajib dilengkapi untuk data lama ini.' }}
+                        Format JPG, PNG, atau WebP; maksimal 3 MB.
+                    </small>
+                    @include('admin.partials.field-error', ['name' => 'foto_bukti_nota'])
                 </div>
+
             </div>
 
             <div class="travs-form-actions travs-inline d-flex justify-content-end align-items-center flex-wrap">

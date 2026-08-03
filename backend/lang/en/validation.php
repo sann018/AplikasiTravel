@@ -43,8 +43,6 @@ return [
         'password' => 'password',
         'password_confirmation' => 'konfirmasi password',
         'status' => 'status',
-        'status_verifikasi' => 'status verifikasi',
-        'catatan_verifikasi' => 'catatan verifikasi',
         'nomor_plat' => 'nomor plat',
         'merk_kendaraan' => 'merk kendaraan',
         'warna' => 'warna',

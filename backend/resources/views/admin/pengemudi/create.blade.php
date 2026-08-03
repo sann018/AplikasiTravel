@@ -77,7 +77,12 @@
                 </div>
                 <div class="travs-field travs-field-span-2">
                     <label for="password" class="form-label">Password Awal</label>
-                    <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror form-control" required minlength="6" maxlength="8" placeholder="6-8 karakter">
+                    <div class="travs-password-control">
+                        <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror form-control" required minlength="6" maxlength="72" autocomplete="new-password" placeholder="Minimal 6 karakter">
+                        <button type="button" class="travs-password-toggle" data-password-toggle data-password-target="password" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
+                            <i data-feather="eye" data-password-icon aria-hidden="true"></i>
+                        </button>
+                    </div>
                     <div class="travs-field-meta">Wajib mengandung huruf dan minimal satu angka atau simbol.</div>
                     @include('admin.partials.field-error', ['name' => 'password'])
                 </div>

@@ -23,8 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
             button.setAttribute('aria-label', label);
             button.setAttribute('title', label);
             button.setAttribute('aria-pressed', String(shouldShow));
-            button.querySelector('[data-password-show-icon]')?.classList.toggle('d-none', shouldShow);
-            button.querySelector('[data-password-hide-icon]')?.classList.toggle('d-none', !shouldShow);
+            const iconName = shouldShow ? 'eye-off' : 'eye';
+            button.innerHTML = feather.icons[iconName].toSvg({
+                'data-password-icon': '',
+                'aria-hidden': 'true',
+            });
         });
     });
 

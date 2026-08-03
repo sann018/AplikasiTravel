@@ -233,3 +233,42 @@ php artisan schedule:work
 Pembatalan booking kedaluwarsa dan penutupan jadwal berjalan setiap menit. Pengingat keberangkatan diproses setiap 15 menit untuk jadwal dalam satu jam ke depan. Migration terbaru juga menambah unique constraint `order_id_gateway` serta snapshot nominal pembayaran; jalankan migration hanya pada database environment yang tepat dan backup data penting sebelum perubahan schema.
 
 Lanjut ke `03_DATABASE_DAN_MODEL.md` untuk mendalami struktur database (bahan BAB 4.3).
+
+## Menjalankan Realtime di Windows, LDPlayer, dan Chrome
+
+Cara gabungan:
+
+```powershell
+cd backend
+composer run dev
+```
+
+Cara beberapa terminal:
+
+```powershell
+php artisan serve
+php artisan reverb:start
+php artisan schedule:work
+```
+
+Hubungkan LDPlayer setelah port `8000` dan `6001` aktif:
+
+```powershell
+cd frontend
+.\tool\connect_android_backend.ps1 -Port 8000
+.\tool\connect_android_backend.ps1 -Port 6001
+flutter run
+```
+
+Pengujian Chrome:
+
+```powershell
+flutter run -d chrome `
+  --dart-define=API_BASE_URL=http://127.0.0.1:8000
+```
+
+Laravel Pail tidak masuk `composer run dev` pada Windows karena memerlukan `pcntl`. Gunakan:
+
+```powershell
+Get-Content .\storage\logs\laravel.log -Tail 50 -Wait
+```

@@ -444,48 +444,69 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     );
   }
 
-  /// Mengubah koordinat yang diketik manual menjadi alamat yang mudah dibaca.
-  /// Fungsi ini dijalankan setelah pengguna selesai mengisi latitude/longitude.
-  Future<void> _autoResolveAddressFromCoordinates() async {
-    final latitude = double.tryParse(_pickupLatitudeController.text.trim());
-    final longitude = double.tryParse(_pickupLongitudeController.text.trim());
-
-    // Pencarian alamat hanya dijalankan jika kedua koordinat sudah valid.
-    if (latitude == null || longitude == null) return;
-    if (latitude < -90 || latitude > 90) return;
-    if (longitude < -180 || longitude > 180) return;
-
-    setState(() {
-      _isResolvingPickup = true;
-    });
-
-    try {
-      final pickup = await _locationService.resolvePickupFromCoordinates(
-        latitude: latitude,
-        longitude: longitude,
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        _pickupAddressController.text = pickup.address;
-        _isResolvingPickup = false;
-      });
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _isResolvingPickup = false;
-        });
-      }
-    }
-  }
-
   void _applyPickup(TravSPickupPoint pickup) {
     setState(() {
       _pickupLatitudeController.text = pickup.latitude.toStringAsFixed(6);
       _pickupLongitudeController.text = pickup.longitude.toStringAsFixed(6);
       _pickupAddressController.text = pickup.address;
     });
+  }
+
+  void _markPickupAddressChanged(String _) {
+    if (_pickupLatitudeController.text.isEmpty &&
+        _pickupLongitudeController.text.isEmpty) {
+      return;
+    }
+
+    // Koordinat lama dibuang agar alamat baru tidak tersimpan dengan pin lama.
+    setState(() {
+      _pickupLatitudeController.clear();
+      _pickupLongitudeController.clear();
+    });
+  }
+
+  Future<void> _reviewPickupFromAddress() async {
+    setState(() {
+      _isResolvingPickup = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final resolved = await _locationService.resolvePickupFromInput(
+        _pickupAddressController.text,
+      );
+      if (!mounted) return;
+
+      final reviewed = await Navigator.of(context).push<TravSPickupPoint>(
+        MaterialPageRoute<TravSPickupPoint>(
+          builder: (_) => TravSPickupMapPickerPage(
+            initialPickup: resolved,
+            title: 'Periksa Titik Jemput',
+            locationLabel: 'titik jemput',
+          ),
+        ),
+      );
+      if (reviewed != null && mounted) {
+        _applyPickup(reviewed);
+      }
+    } on TravSLocationException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = error.message;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isResolvingPickup = false;
+        });
+      }
+    }
   }
 
   Future<void> _pickFromCurrentLocation() async {
@@ -537,30 +558,63 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     }
   }
 
-  Future<void> _autoResolveDropoffAddress() async {
-    final latitude = double.tryParse(_dropoffLatitudeController.text.trim());
-    final longitude = double.tryParse(_dropoffLongitudeController.text.trim());
+  void _applyDropoff(TravSPickupPoint dropoff) {
+    setState(() {
+      _dropoffLatitudeController.text = dropoff.latitude.toStringAsFixed(6);
+      _dropoffLongitudeController.text = dropoff.longitude.toStringAsFixed(6);
+      _dropoffAddressController.text = dropoff.address;
+    });
+  }
 
-    if (latitude == null || longitude == null) return;
-    if (latitude < -90 || latitude > 90) return;
-    if (longitude < -180 || longitude > 180) return;
+  void _markDropoffAddressChanged(String _) {
+    if (_dropoffLatitudeController.text.isEmpty &&
+        _dropoffLongitudeController.text.isEmpty) {
+      return;
+    }
 
+    // Alamat dan pin harus selalu berasal dari pilihan lokasi yang sama.
+    setState(() {
+      _dropoffLatitudeController.clear();
+      _dropoffLongitudeController.clear();
+    });
+  }
+
+  Future<void> _reviewDropoffFromAddress() async {
     setState(() {
       _isResolvingDropoff = true;
+      _errorMessage = null;
     });
 
     try {
-      final dropoff = await _locationService.resolvePickupFromCoordinates(
-        latitude: latitude,
-        longitude: longitude,
+      final resolved = await _locationService.resolvePickupFromInput(
+        _dropoffAddressController.text,
       );
+      if (!mounted) return;
 
+      final reviewed = await Navigator.of(context).push<TravSPickupPoint>(
+        MaterialPageRoute<TravSPickupPoint>(
+          builder: (_) => TravSPickupMapPickerPage(
+            initialPickup: resolved,
+            title: 'Periksa Titik Turun',
+            locationLabel: 'titik turun',
+            showCurrentLocationButton: false,
+          ),
+        ),
+      );
+      if (reviewed != null && mounted) {
+        _applyDropoff(reviewed);
+      }
+    } on TravSLocationException catch (error) {
       if (!mounted) return;
       setState(() {
-        _dropoffAddressController.text = dropoff.address;
+        _errorMessage = error.message;
       });
-    } catch (_) {
-      // Alamat tetap bisa diketik manual jika layanan geocoding sedang gagal.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.message),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -568,14 +622,6 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
         });
       }
     }
-  }
-
-  void _applyDropoff(TravSPickupPoint dropoff) {
-    setState(() {
-      _dropoffLatitudeController.text = dropoff.latitude.toStringAsFixed(6);
-      _dropoffLongitudeController.text = dropoff.longitude.toStringAsFixed(6);
-      _dropoffAddressController.text = dropoff.address;
-    });
   }
 
   Future<void> _pickDropoffFromMap() async {
@@ -1320,24 +1366,20 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     );
   }
 
-  String? _validateCoordinate(
+  String? _validateResolvedLocation(
     String? value, {
     required String label,
-    required double min,
-    required double max,
+    required String latitude,
+    required String longitude,
   }) {
     final raw = value?.trim() ?? '';
     if (raw.isEmpty) {
       return '$label wajib diisi.';
     }
 
-    final parsed = double.tryParse(raw);
-    if (parsed == null) {
-      return '$label harus berupa angka desimal.';
-    }
-
-    if (parsed < min || parsed > max) {
-      return '$label berada di luar rentang yang valid.';
+    if (!_isCoordinateInputValid(latitude, min: -90, max: 90) ||
+        !_isCoordinateInputValid(longitude, min: -180, max: 180)) {
+      return 'Klik Cari & Tinjau Lokasi atau pilih titik melalui peta.';
     }
 
     return null;
@@ -1453,6 +1495,14 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
 
     _isLeavingPage = true;
     var booking = _createdBooking;
+
+    // Metode tunai sudah tersimpan di backend dan dibayar saat penjemputan,
+    // sehingga pengguna dapat kembali tanpa peringatan pembayaran digital.
+    if (_isConfirmedCashPayment(booking)) {
+      Navigator.of(context).pop(false);
+      return;
+    }
+
     if (booking != null && !booking.isPaid) {
       TravSBookingResult? refreshedBooking;
       try {
@@ -1475,6 +1525,11 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
         return;
       }
       booking = refreshedBooking;
+    }
+
+    if (_isConfirmedCashPayment(booking)) {
+      Navigator.of(context).pop(false);
+      return;
     }
 
     if (booking?.isPaid ?? false) {
@@ -1548,6 +1603,15 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     }
 
     _isLeavingPage = false;
+  }
+
+  bool _isConfirmedCashPayment(TravSBookingResult? booking) {
+    if (booking == null || booking.payment.isAwaitingMethodSelection) {
+      return false;
+    }
+
+    return booking.payment.methodFamily == 'cash' ||
+        booking.payment.method == 'cash';
   }
 
   Future<void> _releaseFormSeatLocks() async {
@@ -1659,7 +1723,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     return _SectionCard(
       title: 'Lokasi Perjalanan',
       subtitle:
-          'Lengkapi titik jemput dan titik tujuan. Isian tetap tersimpan saat tab berpindah.',
+          'Gunakan GPS, pilih pin di peta, atau tempel alamat maupun link Google Maps.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1704,7 +1768,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
               ),
               Offstage(
                 offstage: _selectedLocationTab != _CheckoutLocationTab.dropoff,
-                child: _buildDropoffFields(context),
+                child: _buildDropoffFields(),
               ),
             ],
           ),
@@ -1717,10 +1781,41 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        TextFormField(
+          controller: _pickupAddressController,
+          minLines: 2,
+          maxLines: 3,
+          inputFormatters: [LengthLimitingTextInputFormatter(1000)],
+          decoration: InputDecoration(
+            labelText: 'Alamat Jemput atau Link Google Maps',
+            hintText:
+                'Tempel alamat lengkap, koordinat, atau link Google Maps.',
+            helperText: _isResolvingPickup
+                ? 'Mencari lokasi...'
+                : _draftPickupPoint != null
+                ? 'Lokasi sudah memiliki pin dan siap digunakan.'
+                : 'Setelah mengisi, tekan Cari & Tinjau Lokasi.',
+          ),
+          onChanged: _markPickupAddressChanged,
+          validator: (value) => _validateResolvedLocation(
+            value,
+            label: 'Alamat jemput',
+            latitude: _pickupLatitudeController.text,
+            longitude: _pickupLongitudeController.text,
+          ),
+        ),
+        const SizedBox(height: 14),
         Wrap(
           spacing: 12,
           runSpacing: 12,
           children: [
+            OutlinedButton.icon(
+              onPressed: _isResolvingPickup ? null : _reviewPickupFromAddress,
+              icon: Icon(
+                _isResolvingPickup ? Icons.sync_rounded : Icons.search_rounded,
+              ),
+              label: const Text('Cari & Tinjau Lokasi'),
+            ),
             OutlinedButton.icon(
               onPressed: _isResolvingPickup ? null : _pickFromCurrentLocation,
               icon: Icon(
@@ -1740,61 +1835,6 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
           ],
         ),
         const SizedBox(height: 14),
-        _ResponsiveCoordinateFields(
-          first: TextFormField(
-            controller: _pickupLatitudeController,
-            keyboardType: const TextInputType.numberWithOptions(
-              decimal: true,
-              signed: true,
-            ),
-            decoration: const InputDecoration(
-              labelText: 'Latitude',
-              hintText: '-0.0263',
-            ),
-            validator: (value) => _validateCoordinate(
-              value,
-              label: 'Latitude',
-              min: -90,
-              max: 90,
-            ),
-            // Cari nama alamat setelah pengguna selesai mengisi koordinat.
-            onEditingComplete: _autoResolveAddressFromCoordinates,
-          ),
-          second: TextFormField(
-            controller: _pickupLongitudeController,
-            keyboardType: const TextInputType.numberWithOptions(
-              decimal: true,
-              signed: true,
-            ),
-            decoration: const InputDecoration(
-              labelText: 'Longitude',
-              hintText: '109.3425',
-            ),
-            validator: (value) => _validateCoordinate(
-              value,
-              label: 'Longitude',
-              min: -180,
-              max: 180,
-            ),
-            // Cari nama alamat setelah pengguna selesai mengisi koordinat.
-            onEditingComplete: _autoResolveAddressFromCoordinates,
-          ),
-        ),
-        const SizedBox(height: 14),
-        TextFormField(
-          controller: _pickupAddressController,
-          minLines: 2,
-          maxLines: 3,
-          decoration: InputDecoration(
-            labelText: 'Titik Jemput Anda',
-            hintText: 'Terisi otomatis dari koordinat GPS atau peta.',
-            helperText: _isResolvingPickup
-                ? 'Mengambil nama alamat dari koordinat...'
-                : null,
-          ),
-          validator: (value) => _validateRequiredText(value, 'Alamat jemput'),
-        ),
-        const SizedBox(height: 14),
         TextFormField(
           controller: _pickupNoteController,
           minLines: 2,
@@ -1811,133 +1851,51 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     );
   }
 
-  Widget _buildDropoffFields(BuildContext context) {
-    final theme = Theme.of(context);
-
+  Widget _buildDropoffFields() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        OutlinedButton.icon(
-          onPressed: _isResolvingDropoff ? null : _pickDropoffFromMap,
-          icon: const Icon(Icons.map_rounded),
-          label: const Text('Pilih Titik Turun di Peta'),
-        ),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: TravSTheme.orangeSoft,
-            borderRadius: BorderRadius.circular(18),
-          ),
-          child: Text(
-            'Tips: pilih titik turun lewat peta aplikasi. Jika ingin memakai Google Maps, salin latitude dan longitude tujuan, lalu isi patokan seperti nama toko, simpang, gerbang, atau ciri bangunan terdekat.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: TravSTheme.navy,
-              height: 1.45,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        if (_hasDropoffDraft) ...[
-          const SizedBox(height: 14),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: TravSTheme.surfaceSoft,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Tujuan Penumpang',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: TravSTheme.navy,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _dropoffAddressController.text.trim(),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: TravSTheme.navy,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Koordinat',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: TravSTheme.navyMuted,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${_dropoffLatitudeController.text.trim()}, ${_dropoffLongitudeController.text.trim()}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: TravSTheme.navy,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-        const SizedBox(height: 14),
-        _ResponsiveCoordinateFields(
-          first: TextFormField(
-            controller: _dropoffLatitudeController,
-            keyboardType: const TextInputType.numberWithOptions(
-              decimal: true,
-              signed: true,
-            ),
-            decoration: const InputDecoration(
-              labelText: 'Latitude Tujuan',
-              hintText: '0.1285',
-            ),
-            validator: (value) => _validateCoordinate(
-              value,
-              label: 'Latitude tujuan',
-              min: -90,
-              max: 90,
-            ),
-            onEditingComplete: _autoResolveDropoffAddress,
-          ),
-          second: TextFormField(
-            controller: _dropoffLongitudeController,
-            keyboardType: const TextInputType.numberWithOptions(
-              decimal: true,
-              signed: true,
-            ),
-            decoration: const InputDecoration(
-              labelText: 'Longitude Tujuan',
-              hintText: '111.4986',
-            ),
-            validator: (value) => _validateCoordinate(
-              value,
-              label: 'Longitude tujuan',
-              min: -180,
-              max: 180,
-            ),
-            onEditingComplete: _autoResolveDropoffAddress,
-          ),
-        ),
-        const SizedBox(height: 14),
         TextFormField(
           controller: _dropoffAddressController,
           minLines: 2,
           maxLines: 3,
+          inputFormatters: [LengthLimitingTextInputFormatter(1000)],
           decoration: InputDecoration(
-            labelText: 'Alamat Tujuan / Tempat Turun',
-            hintText: 'Pilih melalui peta atau isi alamat tujuan lengkap.',
+            labelText: 'Alamat Turun atau Link Google Maps',
+            hintText:
+                'Tempel alamat lengkap, koordinat, atau link Google Maps.',
             helperText: _isResolvingDropoff
-                ? 'Mengambil nama alamat tujuan...'
-                : null,
+                ? 'Mencari lokasi...'
+                : _hasDropoffDraft
+                ? 'Lokasi sudah memiliki pin dan siap digunakan.'
+                : 'Setelah mengisi, tekan Cari & Tinjau Lokasi.',
           ),
-          validator: (value) => _validateRequiredText(value, 'Alamat tujuan'),
+          onChanged: _markDropoffAddressChanged,
+          validator: (value) => _validateResolvedLocation(
+            value,
+            label: 'Alamat tujuan',
+            latitude: _dropoffLatitudeController.text,
+            longitude: _dropoffLongitudeController.text,
+          ),
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _isResolvingDropoff ? null : _reviewDropoffFromAddress,
+              icon: Icon(
+                _isResolvingDropoff ? Icons.sync_rounded : Icons.search_rounded,
+              ),
+              label: const Text('Cari & Tinjau Lokasi'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _isResolvingDropoff ? null : _pickDropoffFromMap,
+              icon: const Icon(Icons.map_rounded),
+              label: const Text('Pilih di Peta'),
+            ),
+          ],
         ),
         const SizedBox(height: 14),
         TextFormField(

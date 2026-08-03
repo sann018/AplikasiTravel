@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Models\KursiJadwal;
+use App\Observers\KursiJadwalObserver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
@@ -13,9 +15,7 @@ class AppServiceProvider extends ServiceProvider
     /**
      * Tempat mendaftarkan service tambahan jika nanti dibutuhkan aplikasi.
      */
-    public function register(): void
-    {
-    }
+    public function register(): void {}
 
     /**
      * Menyiapkan pembagian halaman dan batas permintaan saat aplikasi mulai berjalan.
@@ -24,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
     {
         Paginator::defaultView('vendor.pagination.travs');
         Paginator::defaultSimpleView('vendor.pagination.travs');
+        KursiJadwal::observe(KursiJadwalObserver::class);
 
         $this->configureRateLimiters();
     }

@@ -14,8 +14,7 @@ class GuestController extends Controller
     public function __construct(
         private readonly BookingService $bookingService,
         private readonly ScheduleLifecycleService $scheduleLifecycleService,
-    ) {
-    }
+    ) {}
 
     public function schedules(Request $request): JsonResponse
     {
@@ -31,6 +30,8 @@ class GuestController extends Controller
         $query = Jadwal::query()
             ->with(['rute', 'kendaraan', 'pengemudi.pengguna', 'kursi'])
             ->where('status', 'dibuka')
+            // Jadwal penuh tidak ditawarkan lagi kepada penumpang atau tamu.
+            ->whereHas('kursi', fn ($builder) => $builder->where('status_kursi', 'tersedia'))
             ->orderBy('waktu_berangkat');
 
         if (! empty($validated['asal'])) {

@@ -31,6 +31,8 @@ class SystemSettingSeeder extends Seeder
             ['group' => 'payment', 'key' => 'payment_cash_enabled', 'value' => 'true', 'type' => 'boolean', 'description' => 'Mengaktifkan pilihan pembayaran tunai.'],
             ['group' => 'payment', 'key' => 'payment_cash_note', 'value' => 'Pembayaran tunai dilakukan kepada pengemudi sebelum keberangkatan.', 'type' => 'text', 'description' => 'Petunjuk pembayaran tunai untuk penumpang.'],
 
+            ['group' => 'operational', 'key' => 'operational_expense_categories', 'value' => json_encode(['BBM', 'Tol', 'Parkir', 'Makan Pengemudi', 'Perawatan Darurat', 'Lainnya'], JSON_UNESCAPED_UNICODE), 'type' => 'text', 'description' => 'Daftar kategori pengeluaran yang dapat dipilih admin dan pengemudi.'],
+
             ['group' => 'baggage', 'key' => 'baggage_weight_enabled', 'value' => 'true', 'type' => 'boolean', 'description' => 'Mengaktifkan perhitungan bagasi berdasarkan berat.'],
             ['group' => 'baggage', 'key' => 'baggage_size_enabled', 'value' => 'true', 'type' => 'boolean', 'description' => 'Mengaktifkan perhitungan bagasi berdasarkan ukuran.'],
             ['group' => 'baggage', 'key' => 'baggage_item_enabled', 'value' => 'true', 'type' => 'boolean', 'description' => 'Mengaktifkan perhitungan bagasi berdasarkan jumlah item.'],

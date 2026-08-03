@@ -40,7 +40,7 @@ class _HeroCard extends StatelessWidget {
                     ? 'Mode Pengemudi'
                     : selectedRole == AppRolePreview.passenger
                     ? 'Mode Penumpang'
-                    : 'Mode Guest',
+                    : 'Mode Tamu',
                 color: Colors.white,
                 textColor: TravSTheme.navy,
               ),

@@ -29,10 +29,9 @@
                             <div class="travs-field">
                                 <label for="current_password" class="form-label">Password Lama</label>
                                 <div class="travs-password-control">
-                                    <input id="current_password" name="current_password" type="password" class="travs-input @error('current_password') is-invalid @enderror form-control" required autocomplete="current-password" placeholder="Masukkan password lama">
+                                    <input id="current_password" name="current_password" type="password" class="travs-input @error('current_password') is-invalid @enderror form-control" required autocomplete="current-password" maxlength="72" placeholder="Masukkan password lama">
                                     <button type="button" class="travs-password-toggle" data-password-toggle data-password-target="current_password" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
-                                        <span data-password-show-icon><i data-feather="eye"></i></span>
-                                        <span class="d-none" data-password-hide-icon><i data-feather="eye-off"></i></span>
+                                        <i data-feather="eye" data-password-icon aria-hidden="true"></i>
                                     </button>
                                 </div>
                                 <div class="travs-field-meta">Diperlukan untuk mengonfirmasi perubahan email atau password.</div>
@@ -42,16 +41,15 @@
                         <div class="travs-admin-password-panel">
                             <div class="travs-admin-password-copy">
                                 <h4>Ganti Password</h4>
-                                <p>Gunakan 6-8 karakter berisi huruf dan minimal satu angka atau simbol.</p>
+                                <p>Gunakan minimal 6 karakter berisi huruf dan minimal satu angka atau simbol.</p>
                             </div>
                             <div class="travs-form-grid-2 d-grid">
                                 <div class="travs-field">
                                     <label for="password" class="form-label">Password Baru</label>
                                     <div class="travs-password-control">
-                                        <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror form-control" autocomplete="new-password" minlength="6" maxlength="8" placeholder="6-8 karakter">
+                                        <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror form-control" autocomplete="new-password" minlength="6" maxlength="72" placeholder="Minimal 6 karakter">
                                         <button type="button" class="travs-password-toggle" data-password-toggle data-password-target="password" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
-                                            <span data-password-show-icon><i data-feather="eye"></i></span>
-                                            <span class="d-none" data-password-hide-icon><i data-feather="eye-off"></i></span>
+                                            <i data-feather="eye" data-password-icon aria-hidden="true"></i>
                                         </button>
                                     </div>
                                     @include('admin.partials.field-error', ['name' => 'password'])
@@ -59,10 +57,9 @@
                                 <div class="travs-field">
                                     <label for="password_confirmation" class="form-label">Konfirmasi Password Baru</label>
                                     <div class="travs-password-control">
-                                        <input id="password_confirmation" name="password_confirmation" type="password" class="travs-input form-control" autocomplete="new-password" minlength="6" maxlength="8" placeholder="Ulangi password baru">
+                                        <input id="password_confirmation" name="password_confirmation" type="password" class="travs-input form-control" autocomplete="new-password" minlength="6" maxlength="72" placeholder="Ulangi password baru">
                                         <button type="button" class="travs-password-toggle" data-password-toggle data-password-target="password_confirmation" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
-                                            <span data-password-show-icon><i data-feather="eye"></i></span>
-                                            <span class="d-none" data-password-hide-icon><i data-feather="eye-off"></i></span>
+                                            <i data-feather="eye" data-password-icon aria-hidden="true"></i>
                                         </button>
                                     </div>
                                 </div>

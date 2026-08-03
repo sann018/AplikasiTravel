@@ -25,7 +25,10 @@
                 <a href="{{ route('admin.rute.index', array_filter(['search' => $ruteTerpopuler['search']])) }}" class="travs-summary-card travs-summary-link card">
                     <small>Rute Paling Banyak Dikunjungi</small>
                     <strong>{{ $ruteTerpopuler['label'] }}</strong>
-                    <span>{{ number_format($ruteTerpopuler['jumlah_penumpang'], 0, ',', '.') }} penumpang dari perjalanan yang sudah selesai.</span>
+                    <span>
+                        {{ number_format($ruteTerpopuler['jumlah_pemesanan'], 0, ',', '.') }} pemesanan selesai
+                        &middot; {{ number_format($ruteTerpopuler['jumlah_penumpang'], 0, ',', '.') }} penumpang
+                    </span>
                 </a>
                 <a href="{{ route('admin.pemesanan.index', ['status' => 'menunggu_pembayaran']) }}" class="travs-summary-card travs-summary-link card">
                     <small>Menunggu Pembayaran</small>
@@ -42,26 +45,11 @@
 
         <section aria-labelledby="dashboard-operational-title">
             <div class="travs-panel-title mb-3">
-                <h3 id="dashboard-operational-title">Kesiapan Operasional</h3>
-                <p>Ringkasan sumber daya aktif dan biaya operasional hari ini.</p>
+                <h3 id="dashboard-operational-title">Ringkasan Biaya Operasional</h3>
+                <p>Total biaya operasional yang tercatat pada hari ini.</p>
             </div>
 
-            <div class="travs-summary-grid">
-                <a href="{{ route('admin.kendaraan.index') }}" class="travs-summary-card travs-summary-link card">
-                    <small>Armada Aktif</small>
-                    <strong>{{ number_format($stats['armada_aktif'], 0, ',', '.') }}</strong>
-                    <span>Dari {{ number_format($stats['total_armada'], 0, ',', '.') }} armada terdaftar.</span>
-                </a>
-                <a href="{{ route('admin.pengemudi.index') }}" class="travs-summary-card travs-summary-link card">
-                    <small>Pengemudi Aktif</small>
-                    <strong>{{ number_format($stats['pengemudi_aktif'], 0, ',', '.') }}</strong>
-                    <span>Dari {{ number_format($stats['jumlah_pengemudi'], 0, ',', '.') }} pengemudi terdaftar.</span>
-                </a>
-                <a href="{{ route('admin.rute.index') }}" class="travs-summary-card travs-summary-link card">
-                    <small>Rute Aktif</small>
-                    <strong>{{ number_format($stats['rute_aktif'], 0, ',', '.') }}</strong>
-                    <span>Rute yang tersedia untuk penyusunan jadwal.</span>
-                </a>
+            <div class="travs-summary-grid travs-summary-grid-auto">
                 <a href="{{ route('admin.biaya.index') }}" class="travs-summary-card travs-summary-link card">
                     <small>Biaya Operasional Hari Ini</small>
                     <strong>Rp{{ number_format($stats['biaya_harian'], 0, ',', '.') }}</strong>

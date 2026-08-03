@@ -61,35 +61,6 @@ class _CheckoutFormView extends StatelessWidget {
   }
 }
 
-class _ResponsiveCoordinateFields extends StatelessWidget {
-  const _ResponsiveCoordinateFields({
-    required this.first,
-    required this.second,
-  });
-
-  final Widget first;
-  final Widget second;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 380) {
-          return Column(children: [first, const SizedBox(height: 12), second]);
-        }
-
-        return Row(
-          children: [
-            Expanded(child: first),
-            const SizedBox(width: 12),
-            Expanded(child: second),
-          ],
-        );
-      },
-    );
-  }
-}
-
 class _SectionCard extends StatelessWidget {
   const _SectionCard({
     required this.title,

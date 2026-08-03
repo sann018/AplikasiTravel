@@ -13,12 +13,21 @@ class TiketMonitorController extends Controller
 {
     public function index(Request $request): View
     {
+        $endDateRules = ['nullable', 'date'];
+        if ($request->filled('tanggal_mulai')) {
+            $endDateRules[] = 'after_or_equal:tanggal_mulai';
+        }
+
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:80'],
             'status_scan' => ['nullable', Rule::in(['sudah_dipindai', 'belum_dipindai'])],
             'jadwal_id' => ['nullable', 'integer', 'exists:jadwal,id'],
             'tanggal_mulai' => ['nullable', 'date'],
-            'tanggal_selesai' => ['nullable', 'date'],
+            'tanggal_selesai' => $endDateRules,
+        ], [
+            'tanggal_mulai.date' => 'Tanggal mulai tidak valid.',
+            'tanggal_selesai.date' => 'Tanggal selesai tidak valid.',
+            'tanggal_selesai.after_or_equal' => 'Tanggal selesai tidak boleh lebih awal dari tanggal mulai.',
         ]);
 
         $query = TiketElektronik::query()
@@ -29,7 +38,7 @@ class TiketMonitorController extends Controller
             ]);
 
         if (filled($filters['search'] ?? null)) {
-            $search = addcslashes((string) $filters['search'], "\\%_");
+            $search = addcslashes((string) $filters['search'], '\\%_');
             $query->where(function ($builder) use ($search) {
                 $builder
                     ->where('kode_qr', 'like', "%{$search}%")

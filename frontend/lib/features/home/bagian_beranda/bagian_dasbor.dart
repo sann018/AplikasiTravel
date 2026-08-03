@@ -868,7 +868,7 @@ class _AssignedVehicleContent extends StatelessWidget {
           Expanded(
             child: Text(
               message ??
-                  'Belum ada kendaraan yang ditugaskan. Kendaraan akan tampil setelah admin membuat jadwal perjalanan.',
+                  'Belum ada kendaraan yang ditugaskan untuk perjalanan aktif.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: TravSTheme.navyMuted,
               ),

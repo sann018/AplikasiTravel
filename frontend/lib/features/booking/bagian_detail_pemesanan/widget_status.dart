@@ -107,7 +107,7 @@ class _BookingErrorState extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Coba refresh lagi. Jika masih gagal, silakan login ulang.',
+                  'Coba muat ulang. Jika masih gagal, silakan masuk kembali.',
                   style: Theme.of(
                     context,
                   ).textTheme.bodyMedium?.copyWith(color: TravSTheme.navyMuted),
@@ -177,7 +177,7 @@ void _showPhotoPreview(BuildContext context, String imageUrl) {
               color: Colors.white,
               shape: const CircleBorder(),
               child: IconButton(
-                tooltip: 'Tutup preview',
+                tooltip: 'Tutup pratinjau',
                 onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.close_rounded),
               ),

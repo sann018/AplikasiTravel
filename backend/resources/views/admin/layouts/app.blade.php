@@ -21,9 +21,8 @@
                     ['label' => 'Armada Kendaraan', 'route' => 'admin.kendaraan.index', 'active' => 'admin.kendaraan.*', 'icon' => 'truck'],
                     ['label' => 'Pengemudi', 'route' => 'admin.pengemudi.index', 'active' => 'admin.pengemudi.*', 'icon' => 'users'],
                     ['label' => 'Rute Perjalanan', 'route' => 'admin.rute.index', 'active' => 'admin.rute.*', 'icon' => 'map'],
-                    ['label' => 'Jadwal Perjalanan', 'route' => 'admin.jadwal.index', 'active' => 'admin.jadwal.*', 'icon' => 'calendar'],
+                    ['label' => 'Manajemen Jadwal', 'route' => 'admin.jadwal.index', 'active' => 'admin.jadwal.*', 'icon' => 'calendar'],
                     ['label' => 'Pemesanan', 'route' => 'admin.pemesanan.index', 'active' => 'admin.pemesanan.*', 'icon' => 'book-open'],
-                    ['label' => 'Monitor Tiket', 'route' => 'admin.tiket-monitor.index', 'active' => 'admin.tiket-monitor.*', 'icon' => 'check-square'],
                 ],
             ],
             [

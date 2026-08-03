@@ -72,7 +72,7 @@ Validasi utama diterapkan di Flutter **dan** Laravel. Validasi server tetap waji
 |---|---|
 | Email | Harus format email valid dan berakhiran `@gmail.com`. |
 | Nomor HP | Hanya angka, tepat 11–12 digit, dan unik. |
-| Kata sandi | Panjang 6–8 karakter, wajib memiliki huruf dan minimal satu angka atau simbol. |
+| Kata sandi | Minimal 6 karakter, wajib memiliki huruf dan minimal satu angka atau simbol; batas teknis 72 karakter. |
 | Foto profil | File gambar tervalidasi sebelum disimpan. |
 
 Pendaftaran mandiri hanya membuat akun **penumpang**. Akun pengemudi dibuat melalui admin; akun tersebut dicatat sebagai telah diverifikasi oleh admin. Penumpang baru harus menyelesaikan verifikasi kode email sebelum token login diterbitkan. Kode verifikasi disimpan dalam bentuk hash dan berlaku 15 menit.
@@ -364,3 +364,67 @@ Migration adalah riwayat struktur database yang dapat dijalankan ulang secara te
 - Siapkan akun admin, pengemudi, dan penumpang beserta jadwal yang masih aktif.
 - Jangan mengklaim fitur token expiry eksplisit sebelum konfigurasi tersebut benar-benar ditambahkan.
 - Sampaikan risiko read-state notifikasi pengingat berulang secara jujur apabila penguji menanyakan idempotensi notifikasi.
+
+## Pembaruan Sistem 27 Juli 2026
+
+### Realtime kursi
+
+- Backend memakai Laravel Reverb `v1.11.0`.
+- Server lokal Reverb berjalan pada port `6001`.
+- Channel bersifat publik per jadwal: `jadwal.{id}`.
+- Payload hanya memuat ID jadwal dan waktu perubahan.
+- Observer berjalan setelah transaksi database selesai.
+- Event memakai `ShouldBroadcastNow`.
+- Kegagalan broadcast dicatat tetapi tidak membatalkan booking.
+- Flutter memakai `web_socket_channel`, reconnect otomatis, dan polling API sebagai fallback.
+- Event hanya sinyal; data kursi final selalu diambil dari API.
+
+Jawaban sidang:
+
+> Realtime mempercepat penyegaran tampilan kursi, sedangkan keamanan data tetap dijaga oleh
+> transaksi database, locking baris, dan validasi backend.
+
+### Menjalankan demo
+
+```powershell
+# Backend
+php artisan serve
+php artisan reverb:start
+php artisan schedule:work
+
+# Frontend LDPlayer
+.\tool\connect_android_backend.ps1 -Port 8000
+.\tool\connect_android_backend.ps1 -Port 6001
+flutter run
+```
+
+Chrome:
+
+```powershell
+flutter run -d chrome `
+  --dart-define=API_BASE_URL=http://127.0.0.1:8000
+```
+
+### Statistik admin yang perlu dikuasai
+
+1. Pendapatan Minggu Ini menjumlahkan `nominal_transaksi` pembayaran berhasil dari Senin sampai
+   hari ini, hanya untuk booking `terbayar` atau `selesai`.
+2. Rute Paling Banyak Dikunjungi memakai pemesanan `selesai`, lalu menghitung:
+
+```text
+jumlah pemesanan = COUNT(pemesanan.id)
+jumlah penumpang = SUM(pemesanan.jumlah_kursi)
+```
+
+3. Total Biaya Periode menjumlahkan nominal biaya sesuai filter.
+4. Jumlah Transaksi Biaya menghitung catatan biaya sesuai filter.
+5. Rute Biaya Tertinggi mengelompokkan biaya per rute lalu mengambil total terbesar.
+6. Ringkasan laporan pemesanan menghitung total, terbayar, dibatalkan, selesai, dan total nilai
+   dari query filter yang sama.
+7. Pendapatan tahun/bulan/filter aktif memakai `nominal_transaksi`, bukan biaya admin provider.
+
+Jumlah kunjungan tidak ditambahkan sebagai kolom tabel rute karena merupakan hasil agregasi yang
+lebih aman dihitung langsung dari transaksi.
+
+Dokumen rinci:
+`BAHAN_LAPORAN_DAN_SIDANG_TA/10_STATISTIK_DASBOR_DAN_LAPORAN.md`.

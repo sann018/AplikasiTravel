@@ -103,10 +103,6 @@ class TravSDemoSeeder extends Seeder
             [
                 'nomor_sim' => '6171010101010001',
                 'status' => 'aktif',
-                'status_verifikasi' => 'terverifikasi',
-                'catatan_verifikasi' => 'Dokumen lengkap dan siap dijadwalkan.',
-                'verified_at' => now()->subDays(5),
-                'verified_by' => $admin->id,
             ],
         );
 
@@ -115,10 +111,6 @@ class TravSDemoSeeder extends Seeder
             [
                 'nomor_sim' => '6171010101010002',
                 'status' => 'aktif',
-                'status_verifikasi' => 'terverifikasi',
-                'catatan_verifikasi' => 'SIM dan kontak sudah tervalidasi.',
-                'verified_at' => now()->subDays(2),
-                'verified_by' => $admin->id,
             ],
         );
 
@@ -127,10 +119,6 @@ class TravSDemoSeeder extends Seeder
             [
                 'nomor_sim' => '6171010101010003',
                 'status' => 'nonaktif',
-                'status_verifikasi' => 'menunggu',
-                'catatan_verifikasi' => 'Menunggu unggahan foto SIM yang lebih jelas.',
-                'verified_at' => null,
-                'verified_by' => null,
             ],
         );
 

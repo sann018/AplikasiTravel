@@ -54,7 +54,7 @@ class AuthController extends Controller
                 'required',
                 'string',
                 'min:6',
-                'max:8',
+                'max:72',
                 'regex:/^(?=.*[A-Za-z])(?=.*(?:[0-9]|[^A-Za-z0-9\s]))\S+$/',
                 'confirmed',
             ],
@@ -70,7 +70,7 @@ class AuthController extends Controller
             'no_hp.unique' => 'Nomor HP sudah terdaftar. Silakan masuk atau gunakan nomor lain.',
             'password.required' => 'Kata sandi wajib diisi.',
             'password.min' => 'Kata sandi minimal 6 karakter.',
-            'password.max' => 'Kata sandi maksimal 8 karakter.',
+            'password.max' => 'Kata sandi maksimal 72 karakter untuk keamanan pemrosesan.',
             'password.regex' => 'Kata sandi wajib mengandung huruf dan minimal satu angka atau simbol.',
             'password.confirmed' => 'Konfirmasi kata sandi belum sama.',
         ]);
@@ -231,7 +231,7 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'login' => ['required', 'string', 'max:100'],
-            'password' => ['required', 'string'],
+            'password' => ['required', 'string', 'max:72'],
             'device_name' => ['nullable', 'string', 'max:100'],
         ]);
 
@@ -328,7 +328,7 @@ class AuthController extends Controller
         foreach ($blockedVehicleFields as $field) {
             if ($request->exists($field) || $request->hasFile($field)) {
                 throw ValidationException::withMessages([
-                    $field => ['Data kendaraan hanya dapat diubah oleh admin melalui menu Armada Kendaraan.'],
+                    $field => ['Data kendaraan hanya dapat diperbarui oleh petugas pengelola.'],
                 ]);
             }
         }
@@ -440,19 +440,19 @@ class AuthController extends Controller
         $user = $request->user();
 
         $validated = $request->validate([
-            'current_password' => ['required', 'string'],
+            'current_password' => ['required', 'string', 'max:72'],
             'password' => [
                 'required',
                 'string',
                 'min:6',
-                'max:8',
+                'max:72',
                 'different:current_password',
                 'regex:/^(?=.*[A-Za-z])(?=.*(?:[0-9]|[^A-Za-z0-9\s]))\S+$/',
                 'confirmed',
             ],
         ], [
             'password.min' => 'Kata sandi baru minimal 6 karakter.',
-            'password.max' => 'Kata sandi baru maksimal 8 karakter.',
+            'password.max' => 'Kata sandi baru maksimal 72 karakter untuk keamanan pemrosesan.',
             'password.different' => 'Kata sandi baru harus berbeda dari kata sandi saat ini.',
             'password.regex' => 'Kata sandi baru wajib mengandung huruf dan minimal satu angka atau simbol.',
             'password.confirmed' => 'Konfirmasi kata sandi baru belum sama.',
@@ -540,8 +540,8 @@ class AuthController extends Controller
         ]);
     }
 
-    /// Mengirim tautan reset melalui password broker resmi Laravel.
-    /// Respons tetap umum agar orang lain tidak dapat menebak email terdaftar.
+    // / Mengirim tautan reset melalui password broker resmi Laravel.
+    // / Respons tetap umum agar orang lain tidak dapat menebak email terdaftar.
     public function forgotPassword(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -564,8 +564,8 @@ class AuthController extends Controller
         ]);
     }
 
-    /// Endpoint API dipertahankan untuk kompatibilitas, tetapi pemeriksaan token
-    /// sepenuhnya memakai password broker Laravel yang sama dengan halaman web.
+    // / Endpoint API dipertahankan untuk kompatibilitas, tetapi pemeriksaan token
+    // / sepenuhnya memakai password broker Laravel yang sama dengan halaman web.
     public function resetPassword(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -575,13 +575,13 @@ class AuthController extends Controller
                 'required',
                 'string',
                 'min:6',
-                'max:8',
+                'max:72',
                 'regex:/^(?=.*[A-Za-z])(?=.*(?:[0-9]|[^A-Za-z0-9\s]))\S+$/',
                 'confirmed',
             ],
         ], [
             'password.min' => 'Kata sandi baru minimal 6 karakter.',
-            'password.max' => 'Kata sandi baru maksimal 8 karakter.',
+            'password.max' => 'Kata sandi baru maksimal 72 karakter untuk keamanan pemrosesan.',
             'password.regex' => 'Kata sandi baru wajib mengandung huruf dan minimal satu angka atau simbol.',
             'password.confirmed' => 'Konfirmasi kata sandi baru belum sama.',
         ]);

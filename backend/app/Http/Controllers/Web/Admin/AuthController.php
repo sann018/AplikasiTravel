@@ -23,7 +23,7 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'login' => ['required', 'string', 'max:100'],
-            'password' => ['required', 'string'],
+            'password' => ['required', 'string', 'max:72'],
         ]);
 
         $credentials = filter_var($validated['login'], FILTER_VALIDATE_EMAIL)

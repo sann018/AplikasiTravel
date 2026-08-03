@@ -3,6 +3,7 @@ part of '../travs_home_page.dart';
 class _DriverJourneyDetailPage extends StatefulWidget {
   const _DriverJourneyDetailPage({
     required this.record,
+    required this.expenseCategories,
     required this.onOpenScanner,
     required this.onStartJourney,
     required this.onRecordExpense,
@@ -12,6 +13,7 @@ class _DriverJourneyDetailPage extends StatefulWidget {
   });
 
   final _DriverJourneyRecord record;
+  final List<String> expenseCategories;
   final VoidCallback onOpenScanner;
   final Future<_DriverJourneyRecord?> Function(int tripId) onStartJourney;
   final Future<bool> Function({
@@ -109,6 +111,7 @@ class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
       backgroundColor: Colors.transparent,
       builder: (sheetContext) => _DriverOperationalExpenseSheet(
         routeLabel: _record.route,
+        expenseCategories: widget.expenseCategories,
         onSubmit:
             ({
               required jenisBiaya,
@@ -852,28 +855,13 @@ class _DriverJourneyDetailPageState extends State<_DriverJourneyDetailPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _HeroStatTile(
-                            stat: _HeroStat(
-                              label: 'Penumpang',
-                              value: '${record.passengerCount}',
-                            ),
-                            dark: true,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _HeroStatTile(
-                            stat: _HeroStat(
-                              label: 'Pendapatan',
-                              value: _formatCurrency(record.revenue),
-                            ),
-                            dark: true,
-                          ),
-                        ),
-                      ],
+                    // Pengemudi cukup melihat informasi operasional penumpang.
+                    _HeroStatTile(
+                      stat: _HeroStat(
+                        label: 'Penumpang',
+                        value: '${record.passengerCount}',
+                      ),
+                      dark: true,
                     ),
                   ],
                 ),
@@ -982,10 +970,12 @@ typedef _DriverExpenseSubmitCallback =
 class _DriverOperationalExpenseSheet extends StatefulWidget {
   const _DriverOperationalExpenseSheet({
     required this.routeLabel,
+    required this.expenseCategories,
     required this.onSubmit,
   });
 
   final String routeLabel;
+  final List<String> expenseCategories;
   final _DriverExpenseSubmitCallback onSubmit;
 
   @override
@@ -996,46 +986,20 @@ class _DriverOperationalExpenseSheet extends StatefulWidget {
 class _DriverOperationalExpenseSheetState
     extends State<_DriverOperationalExpenseSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _jenisController = TextEditingController();
   final _nominalController = TextEditingController();
   final _keteranganController = TextEditingController();
   final _imagePicker = ImagePicker();
   DateTime _tanggal = DateTime.now();
+  String? _selectedCategory;
   XFile? _fotoBuktiNota;
+  String? _fotoBuktiError;
   bool _isSubmitting = false;
-  String? _photoError;
 
   @override
   void dispose() {
-    _jenisController.dispose();
     _nominalController.dispose();
     _keteranganController.dispose();
     super.dispose();
-  }
-
-  Future<void> _pickReceipt(ImageSource source) async {
-    try {
-      final photo = await _imagePicker.pickImage(
-        source: source,
-        imageQuality: 75,
-        maxWidth: 1600,
-      );
-      if (!mounted || photo == null) {
-        return;
-      }
-
-      setState(() {
-        _fotoBuktiNota = photo;
-        _photoError = null;
-      });
-      _formKey.currentState?.validate();
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _photoError = 'Foto nota belum dapat dipilih. Coba kembali.';
-        });
-      }
-    }
   }
 
   Future<void> _pickDate() async {
@@ -1062,16 +1026,39 @@ class _DriverOperationalExpenseSheetState
     });
   }
 
+  Future<void> _pickProof(ImageSource source) async {
+    try {
+      final selected = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 82,
+        maxWidth: 1600,
+        maxHeight: 1600,
+      );
+      if (!mounted || selected == null) {
+        return;
+      }
+
+      setState(() {
+        _fotoBuktiNota = selected;
+        _fotoBuktiError = null;
+      });
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _fotoBuktiError =
+              'Foto belum dapat dipilih. Periksa izin kamera atau galeri.';
+        });
+      }
+    }
+  }
+
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
-    if (!(_formKey.currentState?.validate() ?? false)) {
-      return;
-    }
-
+    final formValid = _formKey.currentState?.validate() ?? false;
     if (_fotoBuktiNota == null) {
-      setState(() {
-        _photoError = 'Foto bukti nota wajib dilampirkan.';
-      });
+      setState(() => _fotoBuktiError = 'Foto bukti/nota wajib dipilih.');
+    }
+    if (!formValid || _fotoBuktiNota == null) {
       return;
     }
 
@@ -1082,7 +1069,7 @@ class _DriverOperationalExpenseSheetState
 
     setState(() => _isSubmitting = true);
     final saved = await widget.onSubmit(
-      jenisBiaya: _jenisController.text.trim(),
+      jenisBiaya: _selectedCategory!,
       nominal: nominal,
       tanggal: _tanggal,
       keterangan: _keteranganController.text.trim(),
@@ -1138,16 +1125,27 @@ class _DriverOperationalExpenseSheetState
                 ).textTheme.bodyMedium?.copyWith(color: TravSTheme.slate),
               ),
               const SizedBox(height: 20),
-              TextFormField(
-                controller: _jenisController,
-                textCapitalization: TextCapitalization.sentences,
+              DropdownButtonFormField<String>(
+                initialValue: _selectedCategory,
+                isExpanded: true,
                 decoration: const InputDecoration(
-                  labelText: 'Jenis biaya',
-                  hintText: 'Contoh: BBM, parkir, tol, atau makan',
+                  labelText: 'Kategori pengeluaran',
+                  hintText: 'Pilih kategori',
                   prefixIcon: Icon(Icons.category_outlined),
                 ),
+                items: widget.expenseCategories
+                    .map(
+                      (category) => DropdownMenuItem<String>(
+                        value: category,
+                        child: Text(category),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: _isSubmitting
+                    ? null
+                    : (value) => setState(() => _selectedCategory = value),
                 validator: (value) => value == null || value.trim().isEmpty
-                    ? 'Jenis biaya wajib diisi.'
+                    ? 'Kategori pengeluaran wajib dipilih.'
                     : null,
               ),
               const SizedBox(height: 14),
@@ -1202,85 +1200,83 @@ class _DriverOperationalExpenseSheetState
                   return null;
                 },
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 18),
               Text(
-                'Foto bukti nota (wajib)',
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                'Foto bukti/nota *',
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
                   color: TravSTheme.navy,
                   fontWeight: FontWeight.w700,
                 ),
               ),
+              const SizedBox(height: 5),
+              Text(
+                'Ambil atau pilih foto nota/struk. Format gambar maksimal 3 MB.',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: TravSTheme.slate),
+              ),
               const SizedBox(height: 10),
-              if (_fotoBuktiNota != null) ...[
-                Stack(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(14),
-                      child: FutureBuilder<Uint8List>(
-                        future: _fotoBuktiNota!.readAsBytes(),
-                        builder: (context, snapshot) {
-                          if (!snapshot.hasData) {
-                            return const SizedBox(
-                              width: 120,
-                              height: 120,
-                              child: Center(child: CircularProgressIndicator()),
-                            );
-                          }
-                          return Image.memory(
-                            snapshot.data!,
-                            width: 120,
-                            height: 120,
-                            fit: BoxFit.cover,
-                          );
-                        },
-                      ),
-                    ),
-                    Positioned(
-                      right: 4,
-                      top: 4,
-                      child: IconButton.filled(
-                        tooltip: 'Hapus foto nota',
-                        onPressed: () {
-                          setState(() {
-                            _fotoBuktiNota = null;
-                            _photoError = 'Foto bukti nota wajib dilampirkan.';
-                          });
-                          _formKey.currentState?.validate();
-                        },
-                        icon: const Icon(Icons.close_rounded, size: 18),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-              ],
-              Row(
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
                 children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _isSubmitting
-                          ? null
-                          : () => _pickReceipt(ImageSource.camera),
-                      icon: const Icon(Icons.photo_camera_outlined),
-                      label: const Text('Kamera'),
-                    ),
+                  OutlinedButton.icon(
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => _pickProof(ImageSource.camera),
+                    icon: const Icon(Icons.photo_camera_outlined),
+                    label: const Text('Kamera'),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: _isSubmitting
-                          ? null
-                          : () => _pickReceipt(ImageSource.gallery),
-                      icon: const Icon(Icons.photo_library_outlined),
-                      label: const Text('Galeri'),
-                    ),
+                  OutlinedButton.icon(
+                    onPressed: _isSubmitting
+                        ? null
+                        : () => _pickProof(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library_outlined),
+                    label: const Text('Galeri'),
                   ),
                 ],
               ),
-              if (_photoError != null) ...[
-                const SizedBox(height: 8),
+              if (_fotoBuktiNota != null) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: TravSTheme.surfaceSoft,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.check_circle_outline_rounded,
+                        color: TravSTheme.success,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _fotoBuktiNota!.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: 'Hapus foto',
+                        visualDensity: VisualDensity.compact,
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => setState(() => _fotoBuktiNota = null),
+                        icon: const Icon(Icons.close_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (_fotoBuktiError != null) ...[
+                const SizedBox(height: 7),
                 Text(
-                  _photoError!,
+                  _fotoBuktiError!,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.error,
                   ),

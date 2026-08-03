@@ -30,7 +30,7 @@ class PasswordResetController extends Controller
                 'required',
                 'string',
                 'min:6',
-                'max:8',
+                'max:72',
                 'regex:/^(?=.*[A-Za-z])(?=.*(?:[0-9]|[^A-Za-z0-9\s]))\S+$/',
                 'confirmed',
             ],
@@ -40,7 +40,7 @@ class PasswordResetController extends Controller
             'password.required' => 'Kata sandi baru wajib diisi.',
             'password.confirmed' => 'Konfirmasi kata sandi belum sama.',
             'password.min' => 'Kata sandi minimal 6 karakter.',
-            'password.max' => 'Kata sandi maksimal 8 karakter.',
+            'password.max' => 'Kata sandi maksimal 72 karakter untuk keamanan pemrosesan.',
             'password.regex' => 'Kata sandi wajib mengandung huruf dan minimal satu angka atau simbol.',
         ]);
 

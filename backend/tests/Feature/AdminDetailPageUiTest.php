@@ -31,7 +31,9 @@ class AdminDetailPageUiTest extends TestCase
             ->assertSee('travs-detail-page__header', false)
             ->assertSee('Ringkasan Operasional')
             ->assertSee('Kapasitas')
-            ->assertSee('Surplus/Defisit')
+            ->assertSee('Pendapatan Kotor RuslyTravel')
+            ->assertSee('Total Biaya Operasional')
+            ->assertSee('Pendapatan Bersih')
             ->assertDontSee('Selisih Tercatat');
     }
 

@@ -41,7 +41,7 @@ void main() {
     await tester.pumpWidget(const TravSApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Lupa Password?'));
+    await tester.tap(find.text('Lupa Kata Sandi?'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField), 'alamat@');

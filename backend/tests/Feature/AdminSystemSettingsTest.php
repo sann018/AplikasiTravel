@@ -48,6 +48,8 @@ class AdminSystemSettingsTest extends TestCase
             ->assertDontSee('Control Center')
             ->assertDontSee('Seat Lock Form')
             ->assertDontSee('Seat Lock Payment')
+            ->assertDontSee('data-settings-tab="payment"', false)
+            ->assertDontSee('Instruksi Pembayaran Tunai')
             ->assertDontSee('Simpan Banner');
     }
 
@@ -164,7 +166,7 @@ class AdminSystemSettingsTest extends TestCase
             ]);
     }
 
-    public function test_payment_tab_only_updates_visible_payment_note_and_preserves_legacy_settings(): void
+    public function test_payment_compatibility_endpoint_preserves_existing_settings(): void
     {
         SystemSetting::query()->where('kunci', 'payment_cash_enabled')->update(['nilai' => 'true']);
         SystemSetting::query()->where('kunci', 'bank_account_number')->update(['nilai' => '1234567890']);
@@ -192,12 +194,13 @@ class AdminSystemSettingsTest extends TestCase
         ]);
     }
 
-    public function test_payment_tab_hides_cash_toggle_and_transfer_account_fields(): void
+    public function test_payment_tab_is_not_available_from_settings_page(): void
     {
         $this->actingAs($this->admin())
             ->get(route('admin.settings.index', ['tab' => 'payment']))
             ->assertOk()
-            ->assertSee('Instruksi Pembayaran Tunai')
+            ->assertDontSee('data-settings-tab="payment"', false)
+            ->assertDontSee('Instruksi Pembayaran Tunai')
             ->assertDontSee('Metode tunai hanya muncul di mobile saat status ini aktif.')
             ->assertDontSee('Rekening Transfer')
             ->assertDontSee('name="payment_cash_enabled"', false)

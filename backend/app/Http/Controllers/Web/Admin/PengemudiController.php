@@ -96,7 +96,6 @@ class PengemudiController extends Controller
                 'nomor_sim' => $payload['nomor_sim'],
                 'foto_sim' => $simPhotoPath,
                 'status' => $normalizedStatus['status'],
-                ...$this->adminManagedVerificationAttributes($request->user()->id),
             ]);
         });
 
@@ -131,7 +130,6 @@ class PengemudiController extends Controller
                 'nomor_sim' => $payload['nomor_sim'],
                 ...($simPhotoPath ? ['foto_sim' => $simPhotoPath] : []),
                 'status' => $normalizedStatus['status'],
-                ...$this->adminManagedVerificationAttributes($request->user()->id, $pengemudi),
             ]);
 
             if ($profilePhotoPath) {
@@ -196,7 +194,7 @@ class PengemudiController extends Controller
                 $pengemudi ? 'nullable' : 'required',
                 'string',
                 'min:6',
-                'max:8',
+                'max:72',
                 'regex:/^(?=.*[A-Za-z])(?=.*(?:[0-9]|[^A-Za-z0-9\s]))\S+$/',
             ],
             'foto_profil' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
@@ -222,7 +220,7 @@ class PengemudiController extends Controller
             'status.in' => 'Status akun yang dipilih tidak valid.',
             'password.required' => 'Kata sandi awal wajib diisi.',
             'password.min' => 'Kata sandi minimal 6 karakter.',
-            'password.max' => 'Kata sandi maksimal 8 karakter.',
+            'password.max' => 'Kata sandi maksimal 72 karakter untuk keamanan pemrosesan.',
             'password.regex' => 'Kata sandi wajib mengandung huruf dan minimal satu angka atau simbol.',
             'foto_profil.image' => 'Foto profil harus berupa file gambar.',
             'foto_profil.mimes' => 'Foto profil hanya menerima format JPG, JPEG, PNG, atau WEBP.',
@@ -258,15 +256,4 @@ class PengemudiController extends Controller
         ];
     }
 
-    private function adminManagedVerificationAttributes(int $adminId, ?Pengemudi $pengemudi = null): array
-    {
-        return [
-            // Akun pengemudi dibuat langsung oleh admin, jadi kolom legacy verifikasi
-            // diisi otomatis agar validasi penjadwalan lama tetap kompatibel.
-            'status_verifikasi' => 'terverifikasi',
-            'catatan_verifikasi' => null,
-            'verified_at' => $pengemudi?->verified_at ?? now(),
-            'verified_by' => $adminId,
-        ];
-    }
 }

@@ -8,6 +8,7 @@ class AppSettings {
     required this.seatLockPaymentMinutes,
     required this.paymentCashEnabled,
     required this.paymentCashNote,
+    required this.operationalExpenseCategories,
     required this.baggageWeightEnabled,
     required this.baggageSizeEnabled,
     required this.baggageItemEnabled,
@@ -29,6 +30,7 @@ class AppSettings {
     required this.baggageHeavyItemFee,
     required this.baggageOtherLargeItemFee,
     required this.baggageMaxTotalWeightPerVehicle,
+    required this.realtime,
   });
 
   static const AppSettings defaults = AppSettings(
@@ -40,6 +42,14 @@ class AppSettings {
     seatLockPaymentMinutes: 5,
     paymentCashEnabled: false,
     paymentCashNote: 'Pembayaran tunai dilakukan kepada pengemudi.',
+    operationalExpenseCategories: <String>[
+      'BBM',
+      'Tol',
+      'Parkir',
+      'Makan Pengemudi',
+      'Perawatan Darurat',
+      'Lainnya',
+    ],
     baggageWeightEnabled: true,
     baggageSizeEnabled: true,
     baggageItemEnabled: true,
@@ -61,6 +71,7 @@ class AppSettings {
     baggageHeavyItemFee: 0,
     baggageOtherLargeItemFee: 0,
     baggageMaxTotalWeightPerVehicle: 50,
+    realtime: TravSRealtimeSettings.disabled,
   );
 
   final String appName;
@@ -71,6 +82,7 @@ class AppSettings {
   final int seatLockPaymentMinutes;
   final bool paymentCashEnabled;
   final String paymentCashNote;
+  final List<String> operationalExpenseCategories;
   final bool baggageWeightEnabled;
   final bool baggageSizeEnabled;
   final bool baggageItemEnabled;
@@ -92,6 +104,7 @@ class AppSettings {
   final double baggageHeavyItemFee;
   final double baggageOtherLargeItemFee;
   final double baggageMaxTotalWeightPerVehicle;
+  final TravSRealtimeSettings realtime;
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
     return AppSettings(
@@ -120,6 +133,10 @@ class AppSettings {
       paymentCashNote: _readString(
         json['payment_cash_note'],
         defaults.paymentCashNote,
+      ),
+      operationalExpenseCategories: _readStringList(
+        json['operational_expense_categories'],
+        defaults.operationalExpenseCategories,
       ),
       baggageWeightEnabled: _readBool(
         json['baggage_weight_enabled'],
@@ -205,6 +222,7 @@ class AppSettings {
         json['baggage_max_total_weight_per_vehicle'],
         defaults.baggageMaxTotalWeightPerVehicle,
       ),
+      realtime: TravSRealtimeSettings.fromJson(_readMap(json['realtime'])),
     );
   }
 
@@ -217,6 +235,7 @@ class AppSettings {
     'seat_lock_payment_minutes': seatLockPaymentMinutes,
     'payment_cash_enabled': paymentCashEnabled,
     'payment_cash_note': paymentCashNote,
+    'operational_expense_categories': operationalExpenseCategories,
     'baggage_weight_enabled': baggageWeightEnabled,
     'baggage_size_enabled': baggageSizeEnabled,
     'baggage_item_enabled': baggageItemEnabled,
@@ -238,6 +257,62 @@ class AppSettings {
     'baggage_heavy_item_fee': baggageHeavyItemFee,
     'baggage_other_large_item_fee': baggageOtherLargeItemFee,
     'baggage_max_total_weight_per_vehicle': baggageMaxTotalWeightPerVehicle,
+    'realtime': realtime.toJson(),
+  };
+}
+
+class TravSRealtimeSettings {
+  const TravSRealtimeSettings({
+    required this.enabled,
+    required this.appKey,
+    required this.host,
+    required this.port,
+    required this.scheme,
+    required this.seatChannelPrefix,
+    required this.seatEvent,
+  });
+
+  static const TravSRealtimeSettings disabled = TravSRealtimeSettings(
+    enabled: false,
+    appKey: '',
+    host: '',
+    port: 6001,
+    scheme: 'ws',
+    seatChannelPrefix: 'jadwal.',
+    seatEvent: 'kursi.diperbarui',
+  );
+
+  final bool enabled;
+  final String appKey;
+  final String host;
+  final int port;
+  final String scheme;
+  final String seatChannelPrefix;
+  final String seatEvent;
+
+  bool get isConfigured =>
+      enabled && appKey.isNotEmpty && host.isNotEmpty && port > 0;
+
+  factory TravSRealtimeSettings.fromJson(Map<String, dynamic> json) {
+    return TravSRealtimeSettings(
+      enabled: _readBool(json['enabled'], false),
+      appKey: _readString(json['app_key'], ''),
+      host: _readString(json['host'], ''),
+      port: _readInt(json['port'], 6001),
+      scheme: _readString(json['scheme'], 'ws'),
+      seatChannelPrefix: _readString(json['seat_channel_prefix'], 'jadwal.'),
+      seatEvent: _readString(json['seat_event'], 'kursi.diperbarui'),
+    );
+  }
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'enabled': enabled,
+    'app_key': appKey,
+    'host': host,
+    'port': port,
+    'scheme': scheme,
+    'seat_channel_prefix': seatChannelPrefix,
+    'seat_event': seatEvent,
   };
 }
 
@@ -263,4 +338,24 @@ bool _readBool(dynamic value, bool fallback) {
   if (text == 'true' || text == '1') return true;
   if (text == 'false' || text == '0') return false;
   return fallback;
+}
+
+Map<String, dynamic> _readMap(dynamic value) {
+  if (value is Map<String, dynamic>) return value;
+  if (value is Map) return Map<String, dynamic>.from(value);
+  return const <String, dynamic>{};
+}
+
+List<String> _readStringList(dynamic value, List<String> fallback) {
+  if (value is! List) {
+    return fallback;
+  }
+
+  final values = value
+      .map((item) => item?.toString().trim() ?? '')
+      .where((item) => item.isNotEmpty)
+      .toSet()
+      .toList(growable: false);
+
+  return values.isEmpty ? fallback : values;
 }

@@ -120,6 +120,10 @@ class AdminCollapsibleSectionTest extends TestCase
             ->assertSee('name="rute_id"', false)
             ->assertSee('Tampilkan Semua')
             ->assertSee('travs-cost-table-section', false)
+            ->assertSee('travs-cost-amount-column', false)
+            ->assertSee('travs-cost-source-column', false)
+            ->assertSee('travs-cost-total-column', false)
+            ->assertSee('travs-cost-latest-column', false)
             ->assertDontSee('name="jenis_biaya"', false);
 
         $this->actingAs($admin)
@@ -127,7 +131,7 @@ class AdminCollapsibleSectionTest extends TestCase
             ->assertOk()
             ->assertSee('Tambah Biaya Operasional')
             ->assertSee('name="jenis_biaya"', false)
-            ->assertSee('name="bukti_nota"', false);
+            ->assertDontSee('name="bukti_nota"', false);
     }
 
     public function test_old_recap_page_redirects_to_operational_cost_page(): void

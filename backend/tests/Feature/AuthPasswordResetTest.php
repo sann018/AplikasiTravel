@@ -67,8 +67,8 @@ class AuthPasswordResetTest extends TestCase
         $response = $this->postJson('/api/auth/reset-password', [
             'email' => $user->email,
             'token' => $token,
-            'password' => 'Baru12!',
-            'password_confirmation' => 'Baru12!',
+            'password' => 'PasswordBaru2026!',
+            'password_confirmation' => 'PasswordBaru2026!',
         ]);
 
         $response
@@ -83,7 +83,7 @@ class AuthPasswordResetTest extends TestCase
             'email' => $user->email,
         ]);
         $this->assertTrue(Hash::check(
-            'Baru12!',
+            'PasswordBaru2026!',
             $user->fresh()->password,
         ));
     }

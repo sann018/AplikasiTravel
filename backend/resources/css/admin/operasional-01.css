@@ -33,6 +33,25 @@
     margin-top: 0;
 }
 
+/* Beri ruang antar-kolom angka dan keterangannya agar teks tidak terlihat menyatu. */
+.travs-admin-body .travs-cost-table-section .travs-cost-amount-column {
+    min-width: 120px;
+}
+
+.travs-admin-body .travs-cost-table-section .travs-cost-source-column {
+    min-width: 190px;
+    padding-left: 28px;
+}
+
+.travs-admin-body #cost-recap-route-body .travs-cost-total-column {
+    min-width: 140px;
+}
+
+.travs-admin-body #cost-recap-route-body .travs-cost-latest-column {
+    min-width: 175px;
+    padding-left: 28px;
+}
+
 .travs-rekap-panel-grid {
     align-items: start;
 }
@@ -240,4 +259,3 @@
     height: 1.5px;
     background: var(--travs-border-strong);
 }
-

@@ -380,3 +380,26 @@ Untuk pengembangan aplikasi di masa mendatang, disarankan beberapa hal berikut:
 > **Pengingat:** BAB IV dan BAB V di atas adalah draft. Sesuaikan bahasa dengan gaya penulisan
 > kampusmu, tambahkan nomor gambar/tabel yang benar, dan sisipkan screenshot serta ERD. Pastikan
 > setiap klaim di kesimpulan memang sudah kamu buktikan di BAB IV.
+
+## Tambahan Materi Implementasi 27 Juli 2026
+
+Narasi BAB IV:
+
+> Pembaruan ketersediaan kursi diterapkan menggunakan Laravel Reverb dan
+> `web_socket_channel`. Setelah perubahan kursi tersimpan, backend mengirim event pada channel
+> jadwal terkait. Event hanya berfungsi sebagai sinyal; aplikasi tetap mengambil data kursi
+> terbaru melalui API. Pendekatan ini mempertahankan validasi dan transaksi backend sebagai
+> sumber kebenaran sekaligus mempercepat pembaruan antarpengguna.
+
+Narasi statistik:
+
+> Statistik admin dibentuk melalui agregasi data transaksi pada controller. Pendapatan memakai
+> nominal transaksi RuslyTravel tanpa biaya admin provider. Rute terpopuler ditentukan dari
+> pemesanan selesai menggunakan jumlah booking dan total kursi. Nilai agregasi tidak disimpan
+> sebagai kolom tabel rute untuk menghindari duplikasi dan ketidaksinkronan data.
+
+Saran BAB V:
+
+> Reverb dapat dikembangkan pada lingkungan hosting dengan koneksi `wss` dan proses server yang
+> selalu aktif. Cakupan event juga dapat diperluas untuk status pembayaran dan perjalanan tanpa
+> mengirim data pribadi pada channel publik.

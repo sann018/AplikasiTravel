@@ -365,6 +365,27 @@ Halaman konfirmasi dan pembayaran mengikuti deadline dari backend. Timer Flutter
 
 Tampilan pembayaran membedakan nominal transaksi, biaya admin Pakasir, dan total pembayaran bila provider mengirimkannya. Batas pembayaran diletakkan pada informasi perjalanan bagian atas agar mudah terlihat.
 
-Detail pemesanan memakai bahasa netral untuk titik jemput/turun dan barang bawaan. Istilah **Manifes** dipakai pada aplikasi pengemudi. Validasi registrasi/edit profil juga mengikuti backend: email `@gmail.com`, nomor HP hanya 11–12 angka, dan kata sandi 6–8 karakter dengan huruf serta angka/simbol.
+Detail pemesanan memakai bahasa netral untuk titik jemput/turun dan barang bawaan. Istilah **Manifes** dipakai pada aplikasi pengemudi. Validasi registrasi/edit profil juga mengikuti backend: email `@gmail.com`, nomor HP hanya 11–12 angka, dan kata sandi minimal 6 karakter dengan huruf serta angka/simbol.
 
 Lanjut ke `06_PANDUAN_UBAH_TAMPILAN.md` — ini bab paling penting untuk sidang.
+
+## Realtime Kursi pada Flutter
+
+`TravSSeatRealtimeService` melakukan:
+
+1. membuka koneksi ke Reverb;
+2. berlangganan channel `jadwal.{id}`;
+3. menangani ping/pong;
+4. memanggil callback refresh API ketika event kursi diterima;
+5. reconnect bertahap saat koneksi terputus;
+6. menutup subscription dan timer saat halaman dibuang.
+
+```dart
+if (eventName == _settings.seatEvent &&
+    message['channel']?.toString() == _channelName) {
+  await _onSeatChanged();
+}
+```
+
+Event bukan sumber data kursi. Data final tetap berasal dari API. Polling lama dipertahankan
+sebagai fallback ketika Reverb tidak dapat dihubungi.

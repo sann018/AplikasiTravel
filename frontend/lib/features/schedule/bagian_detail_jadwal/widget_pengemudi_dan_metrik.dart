@@ -17,7 +17,7 @@ class _DriverBriefCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Brief Pengemudi',
+              'Ringkasan Pengemudi',
               style: theme.textTheme.titleLarge?.copyWith(
                 color: TravSTheme.navy,
                 fontWeight: FontWeight.w800,

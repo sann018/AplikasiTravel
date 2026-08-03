@@ -30,6 +30,46 @@
         </div>
     </section>
 
+    <article class="travs-section-card card">
+        <div class="travs-panel-title">
+            <h3>Kelola Kategori Pengeluaran</h3>
+            <p>Daftar ini menjadi pilihan dropdown yang sama pada form admin dan aplikasi pengemudi.</p>
+        </div>
+
+        <form method="POST" action="{{ route('admin.biaya.categories.store') }}" class="travs-filter-grid d-grid">
+            @csrf
+            <div class="travs-field">
+                <label for="nama_kategori" class="form-label">Nama Kategori Baru</label>
+                <input
+                    id="nama_kategori"
+                    name="nama_kategori"
+                    class="travs-input @error('nama_kategori') is-invalid @enderror form-control"
+                    value="{{ old('nama_kategori') }}"
+                    maxlength="60"
+                    required
+                    placeholder="Contoh: Cuci Kendaraan"
+                >
+                @include('admin.partials.field-error', ['name' => 'nama_kategori'])
+            </div>
+            <div class="travs-filter-actions d-flex align-items-end">
+                <button type="submit" class="travs-button btn btn-primary">Tambah Kategori</button>
+            </div>
+        </form>
+
+        <div class="d-flex flex-wrap gap-2 mt-3" aria-label="Kategori pengeluaran aktif">
+            @foreach ($expenseCategories as $category)
+                <form method="POST" action="{{ route('admin.biaya.categories.destroy') }}" class="d-inline-flex">
+                    @csrf
+                    @method('DELETE')
+                    <input type="hidden" name="nama_kategori" value="{{ $category }}">
+                    <button type="submit" class="travs-button-secondary btn btn-outline-secondary">
+                        {{ $category }} <span aria-hidden="true">&times;</span>
+                    </button>
+                </form>
+            @endforeach
+        </div>
+    </article>
+
     <article class="travs-section-card collapsible-section card" data-collapsible-section>
         <div class="travs-panel-header collapsible-section__header d-flex align-items-start justify-content-between" data-collapse-header>
             <div class="travs-panel-title">
@@ -90,9 +130,9 @@
                             <th>Tanggal</th>
                             <th>Jenis Biaya</th>
                             <th>Rute</th>
-                            <th class="text-end">Nominal</th>
-                            <th>Sumber Pencatatan</th>
-                            <th class="text-center">Bukti</th>
+                            <th class="travs-cost-amount-column text-end">Nominal</th>
+                            <th class="travs-cost-source-column">Sumber Pencatatan</th>
+                            <th>Bukti</th>
                             <th class="text-end">Aksi</th>
                         </tr>
                     </thead>
@@ -105,16 +145,21 @@
                                     <div class="travs-table-subcopy">{{ $item->keterangan ?: 'Tanpa keterangan' }}</div>
                                 </td>
                                 <td>{{ $item->jadwal->rute->kota_asal }} - {{ $item->jadwal->rute->kota_tujuan }}</td>
-                                <td class="text-end text-nowrap">Rp{{ number_format($item->nominal, 0, ',', '.') }}</td>
-                                <td>
+                                <td class="travs-cost-amount-column text-end text-nowrap">Rp{{ number_format($item->nominal, 0, ',', '.') }}</td>
+                                <td class="travs-cost-source-column">
                                     <strong>{{ $item->pencatat?->nama ?? 'Pencatat tidak tersedia' }}</strong>
                                     <div class="travs-table-subcopy">{{ $item->pencatat?->peran === 'pengemudi' ? 'Dicatat pengemudi' : 'Dicatat admin' }}</div>
                                 </td>
-                                <td class="text-center">
+                                <td>
                                     @if ($item->bukti_url)
-                                        <button type="button" class="travs-button-link travs-photo-preview-trigger btn btn-link" data-preview-src="{{ asset('storage/'.ltrim($item->bukti_url, '/')) }}" aria-label="Lihat bukti {{ $item->jenis_biaya }}">Lihat Bukti</button>
+                                        <a
+                                            href="{{ asset('storage/'.ltrim($item->bukti_url, '/')) }}"
+                                            target="_blank"
+                                            rel="noopener"
+                                            class="travs-button-link btn btn-link"
+                                        >Lihat Bukti</a>
                                     @else
-                                        <span class="travs-table-subcopy">Bukti lama tidak tersedia</span>
+                                        <span class="text-muted">Data lama tanpa bukti</span>
                                     @endif
                                 </td>
                                 <td class="text-end">
@@ -156,8 +201,8 @@
                     <tr>
                         <th>Rute</th>
                         <th class="text-center">Jumlah Item</th>
-                        <th class="text-end">Total Biaya</th>
-                        <th>Catatan Terakhir</th>
+                        <th class="travs-cost-total-column text-end">Total Biaya</th>
+                        <th class="travs-cost-latest-column">Catatan Terakhir</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -165,8 +210,8 @@
                         <tr>
                             <td>{{ $item['route'] }}</td>
                             <td class="text-center">{{ number_format($item['count']) }}</td>
-                            <td class="text-end text-nowrap">Rp{{ number_format($item['total'], 0, ',', '.') }}</td>
-                            <td>{{ $item['latest_date'] ? \Illuminate\Support\Carbon::parse($item['latest_date'])->translatedFormat('d M Y H:i') : '-' }}</td>
+                            <td class="travs-cost-total-column text-end text-nowrap">Rp{{ number_format($item['total'], 0, ',', '.') }}</td>
+                            <td class="travs-cost-latest-column text-nowrap">{{ $item['latest_date'] ? \Illuminate\Support\Carbon::parse($item['latest_date'])->translatedFormat('d M Y H:i') : '-' }}</td>
                         </tr>
                     @empty
                         <tr>

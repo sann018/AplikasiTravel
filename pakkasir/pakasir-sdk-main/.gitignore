@@ -1,0 +1,12 @@
+node_modules
+pnpm-lock*
+dist
+rolldown*
+
+test*
+.session
+.temp
+tsup*
+tsup.config.ts
+
+example/test*

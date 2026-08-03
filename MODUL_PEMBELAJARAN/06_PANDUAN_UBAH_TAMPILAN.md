@@ -502,3 +502,29 @@ flutter analyze        # cek error kode tanpa menjalankan
 | Ubah bentuk sudut mobile | `travs_theme.dart` / widget (`BorderRadius.circular`) | ubah angka |
 
 Lanjut ke `07_MATERI_BAB4_BAB5.md` untuk bahan laporan.
+
+## Mengubah Tampilan Card Statistik dengan Aman
+
+File Blade card:
+
+- `admin/dashboard/index.blade.php`;
+- `admin/biaya/index.blade.php`;
+- `admin/laporan/pemesanan.blade.php`;
+- `admin/laporan/transaksi.blade.php`.
+
+Aturan:
+
+1. ubah susunan, label, atau class di Blade;
+2. ubah warna dan spacing pada CSS admin;
+3. jangan menghitung `COUNT`, `SUM`, pendapatan, atau fee di Blade;
+4. jangan mengganti key array controller tanpa memperbarui test;
+5. uji angka nol, data kosong, dan nilai besar.
+
+Card rute terpopuler memakai dua key:
+
+```blade
+$ruteTerpopuler['jumlah_pemesanan']
+$ruteTerpopuler['jumlah_penumpang']
+```
+
+Keduanya mempunyai arti berbeda dan tidak boleh digabung menjadi satu angka.

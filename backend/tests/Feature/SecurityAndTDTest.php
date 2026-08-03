@@ -8,6 +8,7 @@ use App\Models\KursiJadwal;
 use App\Models\Notifikasi;
 use App\Models\Pemesanan;
 use App\Models\Pengemudi;
+use App\Models\Rute;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -222,7 +223,7 @@ class SecurityAndTDTest extends TestCase
         ]);
     }
 
-    public function test_admin_cannot_assign_driver_to_active_schedule_on_same_day(): void
+    public function test_admin_cannot_assign_driver_to_overlapping_active_schedule(): void
     {
         $admin = User::query()->where('email', 'admin@travs.com')->firstOrFail();
         $existingSchedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
@@ -245,14 +246,13 @@ class SecurityAndTDTest extends TestCase
         $this->assertSame($scheduleCount, Jadwal::query()->count());
     }
 
-    public function test_admin_cannot_assign_vehicle_to_active_schedule_on_same_day(): void
+    public function test_admin_cannot_assign_vehicle_to_overlapping_active_schedule(): void
     {
         $admin = User::query()->where('email', 'admin@travs.com')->firstOrFail();
         $existingSchedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
         $availableDriver = Pengemudi::query()
             ->whereKeyNot($existingSchedule->pengemudi_id)
             ->where('status', 'aktif')
-            ->where('status_verifikasi', 'terverifikasi')
             ->firstOrFail();
         $scheduleCount = Jadwal::query()->count();
 
@@ -300,6 +300,92 @@ class SecurityAndTDTest extends TestCase
         $response->assertRedirect(route('admin.jadwal.index'));
         $response->assertSessionHasNoErrors();
         $this->assertSame($scheduleCount + 1, Jadwal::query()->count());
+    }
+
+    public function test_admin_can_reuse_driver_and_vehicle_after_interval_location_and_break_are_valid(): void
+    {
+        $admin = User::query()->where('email', 'admin@travs.com')->firstOrFail();
+        $existingSchedule = Jadwal::query()
+            ->with('rute')
+            ->where('status', 'dibuka')
+            ->whereNotNull('estimasi_tiba')
+            ->firstOrFail();
+
+        // Jadwal lain dinonaktifkan agar test hanya mengukur batas interval
+        // jadwal yang sedang diperiksa, bukan data contoh dari seeder.
+        Jadwal::query()
+            ->whereKeyNot($existingSchedule->id)
+            ->where(function ($query) use ($existingSchedule) {
+                $query
+                    ->where('pengemudi_id', $existingSchedule->pengemudi_id)
+                    ->orWhere('kendaraan_id', $existingSchedule->kendaraan_id);
+            })
+            ->update(['status' => 'dibatalkan']);
+
+        $scheduleCount = Jadwal::query()->count();
+        $nextDeparture = $existingSchedule->estimasi_tiba->copy()->addHours(2);
+        $returnRoute = Rute::query()->create([
+            'kota_asal' => $existingSchedule->rute->kota_tujuan,
+            'kota_tujuan' => $existingSchedule->rute->kota_asal,
+            'deskripsi_jalur' => 'Rute balik untuk pengujian penugasan sumber daya.',
+            'jarak_km' => $existingSchedule->rute->jarak_km,
+            'estimasi_durasi_menit' => $existingSchedule->rute->estimasi_durasi_menit,
+            'harga_tiket' => $existingSchedule->rute->harga_tiket,
+            'status_aktif' => true,
+        ]);
+
+        $response = $this
+            ->actingAs($admin)
+            ->from(route('admin.jadwal.create'))
+            ->post(route('admin.jadwal.store'), [
+                'kendaraan_id' => $existingSchedule->kendaraan_id,
+                'rute_id' => $returnRoute->id,
+                'pengemudi_id' => $existingSchedule->pengemudi_id,
+                'waktu_berangkat' => $nextDeparture->format('Y-m-d H:i'),
+                'status' => 'dibuka',
+            ]);
+
+        $response
+            ->assertRedirect(route('admin.jadwal.index'))
+            ->assertSessionHasNoErrors();
+        $this->assertSame($scheduleCount + 1, Jadwal::query()->count());
+    }
+
+    public function test_schedule_conflict_still_works_when_trip_crosses_midnight(): void
+    {
+        $admin = User::query()->where('email', 'admin@travs.com')->firstOrFail();
+        $existingSchedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+
+        Jadwal::query()
+            ->whereKeyNot($existingSchedule->id)
+            ->where(function ($query) use ($existingSchedule) {
+                $query
+                    ->where('pengemudi_id', $existingSchedule->pengemudi_id)
+                    ->orWhere('kendaraan_id', $existingSchedule->kendaraan_id);
+            })
+            ->update(['status' => 'selesai']);
+
+        $existingSchedule->update([
+            'waktu_berangkat' => '2099-08-10 22:00:00',
+            'estimasi_tiba' => '2099-08-11 04:00:00',
+        ]);
+        $scheduleCount = Jadwal::query()->count();
+
+        $response = $this
+            ->actingAs($admin)
+            ->from(route('admin.jadwal.create'))
+            ->post(route('admin.jadwal.store'), [
+                'kendaraan_id' => $existingSchedule->kendaraan_id,
+                'rute_id' => $existingSchedule->rute_id,
+                'pengemudi_id' => $existingSchedule->pengemudi_id,
+                'waktu_berangkat' => '2099-08-11 01:00',
+                'status' => 'dibuka',
+            ]);
+
+        $response
+            ->assertRedirect(route('admin.jadwal.create'))
+            ->assertSessionHasErrors('pengemudi_id');
+        $this->assertSame($scheduleCount, Jadwal::query()->count());
     }
 
     public function test_admin_schedule_creation_notifies_assigned_driver(): void

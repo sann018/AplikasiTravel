@@ -44,6 +44,7 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
   late String _selectedAddress;
   bool _isResolvingAddress = false;
   bool _isResolvingInitialPoint = false;
+  bool _hasSelectedPoint = false;
   _TravSMapLayer _mapLayer = _TravSMapLayer.standard;
   int _lookupToken = 0;
   Timer? _mapMoveDebounce;
@@ -57,6 +58,7 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
     if (initialPickup != null) {
       _selectedPoint = LatLng(initialPickup.latitude, initialPickup.longitude);
       _selectedAddress = initialPickup.address;
+      _hasSelectedPoint = true;
     } else {
       // Fallback aman memakai pusat peta existing; bukan koordinat hardcode per kota.
       _selectedPoint = _pontianakCenter;
@@ -125,11 +127,13 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
     final point = camera.center;
     setState(() {
       _selectedPoint = point;
+      _hasSelectedPoint = true;
     });
 
     _mapMoveDebounce?.cancel();
     _mapMoveDebounce = Timer(
-      const Duration(milliseconds: 500),
+      // Jeda mencegah pencarian alamat berulang saat peta masih digeser.
+      const Duration(milliseconds: 1100),
       () => _resolveAddress(point),
     );
   }
@@ -137,6 +141,7 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
   Future<void> _selectPoint(LatLng point) async {
     setState(() {
       _selectedPoint = point;
+      _hasSelectedPoint = true;
     });
     await _resolveAddress(point);
   }
@@ -190,6 +195,7 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
       setState(() {
         _selectedPoint = target;
         _selectedAddress = pickup.address;
+        _hasSelectedPoint = true;
       });
     } on TravSLocationException catch (error) {
       if (!mounted) {
@@ -219,6 +225,18 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
   }
 
   void _confirmSelection() {
+    if (!_hasSelectedPoint) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Ketuk atau geser peta untuk menentukan ${widget.locationLabel} terlebih dahulu.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
     Navigator.of(context).pop(
       TravSPickupPoint(
         latitude: _selectedPoint.latitude,
@@ -255,7 +273,7 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Tap pada peta untuk memilih ${widget.locationLabel}',
+                    'Ketuk peta untuk memilih ${widget.locationLabel}',
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -263,7 +281,7 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Alamat akan diisi otomatis berdasarkan titik yang dipilih. Kamu juga bisa langsung pakai lokasi perangkat saat ini.',
+                    'Geser atau ketuk peta, lalu periksa pin sebelum menggunakan lokasi.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: Colors.white.withValues(alpha: 0.88),
                     ),
@@ -455,7 +473,7 @@ class _TravSPickupMapPickerPageState extends State<TravSPickupMapPickerPage> {
                         ],
                         Expanded(
                           child: ElevatedButton.icon(
-                            onPressed: _isResolvingAddress
+                            onPressed: _isResolvingAddress || !_hasSelectedPoint
                                 ? null
                                 : _confirmSelection,
                             icon: const Icon(

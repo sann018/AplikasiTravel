@@ -27,10 +27,6 @@ class BiayaOperasionalPerjalanan extends Model
         'keterangan',
         'tanggal_biaya',
         'bukti_url',
-        'status_verifikasi',
-        'diverifikasi_oleh',
-        'diverifikasi_pada',
-        'catatan_verifikasi',
         'created_by',
     ];
 
@@ -39,21 +35,16 @@ class BiayaOperasionalPerjalanan extends Model
         return [
             'nominal' => 'decimal:2',
             'tanggal_biaya' => 'datetime',
-            'diverifikasi_pada' => 'datetime',
         ];
     }
 
     /**
-     * Kolom verifikasi dipertahankan untuk data lama. Pencatatan versi saat ini
-     * langsung berstatus disetujui agar dapat masuk ke rekap tanpa alur approval.
+     * Semua biaya yang tersimpan merupakan pencatatan final. Scope dipertahankan
+     * agar query laporan lama tetap kompatibel setelah atribut verifikasi dihapus.
      */
     public function scopeFinalized(Builder $query): Builder
     {
-        return $query->where(function (Builder $builder) {
-            $builder
-                ->where('status_verifikasi', 'disetujui')
-                ->orWhereNull('status_verifikasi');
-        });
+        return $query;
     }
 
     public function jadwal(): BelongsTo
@@ -66,8 +57,4 @@ class BiayaOperasionalPerjalanan extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
-    public function verifikator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'diverifikasi_oleh');
-    }
 }

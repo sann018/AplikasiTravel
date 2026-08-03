@@ -27,7 +27,6 @@ class SettingsController extends Controller
             'account' => 'Akun Admin',
             'general' => 'Umum',
             'booking' => 'Pemesanan',
-            'payment' => 'Pembayaran',
             'banner' => 'Banner Beranda',
         ];
 

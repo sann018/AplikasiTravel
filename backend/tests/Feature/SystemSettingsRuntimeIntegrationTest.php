@@ -173,6 +173,54 @@ class SystemSettingsRuntimeIntegrationTest extends TestCase
             ->assertJsonPath('data.payment.expired_at', null);
     }
 
+    public function test_digital_payment_deadline_does_not_exceed_admin_setting(): void
+    {
+        $this->setSettings(['seat_lock_payment_minutes' => 7]);
+
+        config()->set('services.pakasir.enabled', true);
+        config()->set('services.pakasir.base_url', 'https://app.pakasir.test/api');
+        config()->set('services.pakasir.project', 'travs-test');
+        config()->set('services.pakasir.api_key', 'secret-test-key');
+
+        Http::fake(fn ($request) => Http::response([
+            'payment' => [
+                'project' => 'travs-test',
+                'order_id' => $request['order_id'],
+                'payment_method' => 'qris',
+                'payment_number' => 'QRIS-DEADLINE-TEST',
+                'amount' => $request['amount'],
+                'fee' => 0,
+                'total_payment' => $request['amount'],
+                // Pakasir memberi waktu lebih lama, tetapi batas Admin tetap berlaku.
+                'expired_at' => now()->addMinutes(60)->toIso8601String(),
+            ],
+        ]));
+
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $schedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        $seat = $this->availableSeats($schedule, 1)[0];
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/penumpang/bookings/lock-form', [
+            'jadwal_id' => $schedule->id,
+            'seat_numbers' => [$seat],
+        ])->assertOk();
+
+        $bookingResponse = $this->postJson(
+            '/api/penumpang/bookings',
+            $this->bookingPayload($schedule, $seat, 'qris'),
+        )->assertCreated();
+        $adminDeadline = $bookingResponse->json('data.batas_pembayaran');
+
+        $this->putJson(
+            '/api/penumpang/bookings/'.$bookingResponse->json('data.id').'/payment',
+            ['payment_method' => 'qris'],
+        )
+            ->assertOk()
+            ->assertJsonPath('data.batas_pembayaran', $adminDeadline)
+            ->assertJsonPath('data.payment.expired_at', $adminDeadline);
+    }
+
     public function test_expired_booking_is_not_cancelled_when_auto_cancel_is_disabled(): void
     {
         $this->setSettings(['auto_cancel_booking' => false]);

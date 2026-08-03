@@ -49,18 +49,22 @@
                     </dd>
                 </div>
                 <div>
-                    <dt>Pendapatan Diterima</dt>
+                    <dt>Pendapatan Kotor RuslyTravel</dt>
                     <dd><strong>{{ $formatRupiah($summary['confirmed_revenue']) }}</strong></dd>
                 </div>
                 <div>
-                    <dt>Biaya Operasional</dt>
+                    <dt>Total Biaya Operasional</dt>
                     <dd><strong>{{ $formatRupiah($summary['operational_cost']) }}</strong></dd>
                 </div>
                 <div>
-                    <dt>Surplus/Defisit</dt>
+                    <dt>Pendapatan Bersih</dt>
                     <dd>
-                        <strong>{{ $balanceContext }} &middot; {{ $formatRupiah($summary['recorded_balance']) }}</strong>
-                        <span>Pendapatan dikurangi biaya operasional yang tercatat.</span>
+                        <strong>{{ $formatRupiah($summary['recorded_balance']) }}</strong>
+                        <span>
+                            {{ $formatRupiah($summary['confirmed_revenue']) }}
+                            &minus; {{ $formatRupiah($summary['operational_cost']) }}
+                            &middot; {{ $balanceContext }}
+                        </span>
                     </dd>
                 </div>
             </dl>

@@ -21,8 +21,8 @@ class AuthEmailVerificationTest extends TestCase
             'nama' => 'Penumpang Baru',
             'email' => 'penumpang.baru@gmail.com',
             'no_hp' => '081234567899',
-            'password' => 'Pass12!',
-            'password_confirmation' => 'Pass12!',
+            'password' => 'PasswordPenumpang12!',
+            'password_confirmation' => 'PasswordPenumpang12!',
             'device_name' => 'pengujian',
         ]);
 
@@ -43,7 +43,7 @@ class AuthEmailVerificationTest extends TestCase
 
         $this->postJson('/api/auth/login', [
             'login' => $user->email,
-            'password' => 'Pass12!',
+            'password' => 'PasswordPenumpang12!',
         ])
             ->assertForbidden()
             ->assertJsonPath('data.requires_email_verification', true);

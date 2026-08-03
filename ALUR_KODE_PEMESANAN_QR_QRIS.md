@@ -556,3 +556,76 @@ Berdasarkan kode yang dianalisis:
 - Status pembayaran QRIS tetap perlu disinkronkan dari Pakasir.
 - QR tiket baru aktif setelah pembayaran berhasil atau pembayaran tunai dikonfirmasi sesuai alur sistem.
 
+## Pembaruan 27 Juli 2026 — Realtime Ketersediaan Kursi
+
+### Alur event
+
+```text
+status kursi berubah
+→ transaksi database selesai
+→ KursiJadwalObserver
+→ SeatAvailabilityRealtimeService
+→ SeatAvailabilityChanged
+→ channel jadwal.{id}
+→ Flutter menerima event
+→ Flutter mengambil ulang kursi dari API
+```
+
+Event backend:
+
+```php
+class SeatAvailabilityChanged implements ShouldBroadcastNow
+{
+    public function broadcastOn(): Channel
+    {
+        return new Channel('jadwal.'.$this->scheduleId);
+    }
+
+    public function broadcastAs(): string
+    {
+        return 'kursi.diperbarui';
+    }
+}
+```
+
+Listener Flutter:
+
+```dart
+if (eventName == _settings.seatEvent &&
+    message['channel']?.toString() == _channelName) {
+  await _onSeatChanged();
+}
+```
+
+Realtime tidak mengubah alur transaksi QRIS, VA, tunai, atau penerbitan tiket. Fungsinya hanya
+mempercepat pembaruan status kursi pada perangkat lain. Apabila Reverb gagal, booking tetap
+diproses oleh backend dan polling API tetap menjadi fallback.
+
+### Menjalankan lokal dengan LDPlayer
+
+```powershell
+php artisan serve
+php artisan reverb:start
+php artisan schedule:work
+
+.\tool\connect_android_backend.ps1 -Port 8000
+.\tool\connect_android_backend.ps1 -Port 6001
+flutter run
+```
+
+Flutter Web/Chrome memakai `http://127.0.0.1:8000`. Ngrok tidak diperlukan untuk pengujian pada
+laptop yang sama.
+
+## Statistik yang Berhubungan dengan Pemesanan
+
+Rute terpopuler tidak dihitung dari booking pending atau batal. Query hanya memakai pemesanan
+`selesai`:
+
+```php
+->where('pemesanan.status_pemesanan', 'selesai')
+->selectRaw('COUNT(pemesanan.id) as jumlah_pemesanan')
+->selectRaw('SUM(pemesanan.jumlah_kursi) as jumlah_penumpang')
+```
+
+Jumlah tersebut dihitung dari tabel transaksi, bukan disimpan sebagai kolom baru pada tabel
+`rute`.

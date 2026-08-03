@@ -23,7 +23,6 @@
         'account' => 'Akun Admin',
         'general' => 'Umum',
         'booking' => 'Pemesanan',
-        'payment' => 'Pembayaran',
         'banner' => 'Banner Beranda',
     ];
 @endphp
@@ -62,7 +61,6 @@
             @include('admin.pengaturan.partials.umum')
             @include('admin.pengaturan.partials.informasi-penting')
             @include('admin.pengaturan.partials.pemesanan')
-            @include('admin.pengaturan.partials.pembayaran')
             @include('admin.pengaturan.partials.bagasi-lama')
             @include('admin.pengaturan.partials.banner')
 

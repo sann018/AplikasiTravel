@@ -227,3 +227,25 @@ Centang saat sudah bisa:
 
 Selamat belajar. Kalau kamu sudah menuntaskan seluruh checklist di Bagian 3, kamu sudah sangat siap
 untuk sesi buka kode di sidang. Semangat!
+
+## Latihan Tambahan 27 Juli 2026
+
+**T: Apakah realtime berarti kursi dipercaya dari WebSocket?**
+
+> Tidak. Event hanya menandakan perubahan. Flutter mengambil ulang seat map dari API, sedangkan
+> konsistensi dijaga transaksi dan locking database.
+
+**T: Mengapa Reverb tidak membutuhkan queue untuk event kursi ini?**
+
+> Event mengimplementasikan `ShouldBroadcastNow`, sehingga broadcast dilakukan langsung. Queue
+> masih dapat dibutuhkan fitur lain, tetapi bukan syarat event kursi tersebut.
+
+**T: Mengapa jumlah kunjungan tidak disimpan pada tabel rute?**
+
+> Karena jumlah kunjungan merupakan data turunan. Nilainya dihitung dari pemesanan selesai memakai
+> `COUNT` booking dan `SUM` jumlah kursi agar selalu sesuai dengan data transaksi.
+
+**T: Apa beda jumlah pemesanan dan jumlah penumpang?**
+
+> Satu pemesanan dapat memiliki beberapa kursi. COUNT menghasilkan banyak booking, sedangkan SUM
+> jumlah kursi menghasilkan banyak penumpang.

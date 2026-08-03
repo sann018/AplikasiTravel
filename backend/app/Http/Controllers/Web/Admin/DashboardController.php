@@ -5,11 +5,8 @@ namespace App\Http\Controllers\Web\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\BiayaOperasionalPerjalanan;
 use App\Models\Jadwal;
-use App\Models\Kendaraan;
 use App\Models\Pembayaran;
 use App\Models\Pemesanan;
-use App\Models\Pengemudi;
-use App\Models\Rute;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -49,6 +46,8 @@ class DashboardController extends Controller
             ->join('rute', 'rute.id', '=', 'jadwal.rute_id')
             ->where('pemesanan.status_pemesanan', 'selesai')
             ->select(['rute.id', 'rute.kota_asal', 'rute.kota_tujuan'])
+            // Jumlah pemesanan dan penumpang dihitung langsung agar tidak perlu kolom rekap pada tabel rute.
+            ->selectRaw('COUNT(pemesanan.id) as jumlah_pemesanan')
             ->selectRaw('SUM(pemesanan.jumlah_kursi) as jumlah_penumpang')
             ->groupBy('rute.id', 'rute.kota_asal', 'rute.kota_tujuan')
             ->orderByDesc('jumlah_penumpang')
@@ -58,16 +57,12 @@ class DashboardController extends Controller
             'label' => $ruteTerpopulerRecord
                 ? $ruteTerpopulerRecord->kota_asal.' - '.$ruteTerpopulerRecord->kota_tujuan
                 : 'Belum tersedia',
+            'jumlah_pemesanan' => (int) ($ruteTerpopulerRecord?->jumlah_pemesanan ?? 0),
             'jumlah_penumpang' => (int) ($ruteTerpopulerRecord?->jumlah_penumpang ?? 0),
             'search' => $ruteTerpopulerRecord?->kota_tujuan,
         ];
 
         $stats = [
-            'total_armada' => Kendaraan::query()->count(),
-            'armada_aktif' => Kendaraan::query()->where('status_kendaraan', 'aktif')->count(),
-            'jumlah_pengemudi' => Pengemudi::query()->count(),
-            'pengemudi_aktif' => Pengemudi::query()->where('status', 'aktif')->count(),
-            'rute_aktif' => Rute::query()->where('status_aktif', true)->count(),
             'jadwal_hari_ini' => Jadwal::query()->whereDate('waktu_berangkat', $today)->count(),
             'pemesanan_hari_ini' => Pemesanan::query()->whereDate('created_at', $today)->count(),
             'booking_menunggu' => Pemesanan::query()->where('status_pemesanan', 'menunggu_pembayaran')->count(),

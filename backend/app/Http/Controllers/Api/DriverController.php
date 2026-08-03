@@ -11,6 +11,7 @@ use App\Models\Pengemudi;
 use App\Models\TiketElektronik;
 use App\Services\AdminOperationalNotificationService;
 use App\Services\BookingService;
+use App\Services\OperationalExpenseCategoryService;
 use App\Services\ScheduleLifecycleService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 class DriverController extends Controller
 {
@@ -25,6 +27,7 @@ class DriverController extends Controller
         private readonly BookingService $bookingService,
         private readonly ScheduleLifecycleService $scheduleLifecycleService,
         private readonly AdminOperationalNotificationService $adminNotification,
+        private readonly OperationalExpenseCategoryService $expenseCategoryService,
     ) {}
 
     public function dashboard(Request $request): JsonResponse
@@ -53,7 +56,6 @@ class DriverController extends Controller
                     'nomor_sim' => $pengemudi->nomor_sim,
                     'foto_sim_url' => $this->publicStorageUrl($pengemudi->foto_sim),
                     'status' => $pengemudi->status,
-                    'status_verifikasi' => $pengemudi->status_verifikasi,
                 ],
                 'kendaraan_ditugaskan' => $assignedVehicleTrip
                     ? $this->formatAssignedVehicle($assignedVehicleTrip)
@@ -63,7 +65,7 @@ class DriverController extends Controller
                     : null,
                 'kendaraan_ditugaskan_message' => $assignedVehicleTrip
                     ? null
-                    : 'Belum ada kendaraan yang ditugaskan. Kendaraan akan tampil setelah admin membuat jadwal perjalanan.',
+                    : 'Belum ada kendaraan yang ditugaskan untuk perjalanan aktif.',
                 'summary' => [
                     'jadwal_aktif' => $jadwalAktif->count(),
                     'penumpang_terdaftar' => $jadwalAktif->sum(
@@ -784,7 +786,7 @@ class DriverController extends Controller
     {
         return response()->json([
             'success' => false,
-            'message' => 'Data kendaraan hanya dapat diubah oleh admin melalui menu Armada Kendaraan.',
+            'message' => 'Data kendaraan hanya dapat diperbarui oleh petugas pengelola.',
         ], 403);
     }
 
@@ -807,38 +809,55 @@ class DriverController extends Controller
         }
 
         $validated = $request->validate([
-            'jenis_biaya' => ['required', 'string', 'max:100'],
+            'jenis_biaya' => [
+                'required',
+                'string',
+                'max:60',
+                Rule::in($this->expenseCategoryService->categories()),
+            ],
             'nominal' => ['required', 'numeric', 'min:1'],
             'tanggal' => ['required', 'date'],
             'keterangan' => ['required', 'string', 'min:10', 'max:1000'],
-            'foto_bukti_nota' => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:3072'],
+            'foto_bukti_nota' => [
+                'required',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:3072',
+            ],
         ], [
             'jenis_biaya.required' => 'Jenis biaya wajib diisi.',
+            'jenis_biaya.in' => 'Kategori pengeluaran tidak tersedia. Muat ulang aplikasi lalu pilih kategori yang tersedia.',
             'nominal.required' => 'Nominal biaya wajib diisi.',
             'nominal.min' => 'Nominal biaya minimal Rp1.',
             'tanggal.required' => 'Tanggal biaya wajib diisi.',
             'keterangan.required' => 'Keterangan biaya wajib diisi.',
             'keterangan.min' => 'Keterangan biaya minimal 10 karakter.',
-            'foto_bukti_nota.required' => 'Foto bukti nota wajib dilampirkan.',
-            'foto_bukti_nota.image' => 'Bukti nota harus berupa gambar.',
-            'foto_bukti_nota.mimes' => 'Bukti nota harus JPG, PNG, atau WEBP.',
-            'foto_bukti_nota.max' => 'Ukuran bukti nota maksimal 3 MB.',
+            'foto_bukti_nota.required' => 'Foto bukti/nota wajib diunggah.',
+            'foto_bukti_nota.image' => 'Bukti pengeluaran harus berupa gambar.',
+            'foto_bukti_nota.mimes' => 'Format bukti harus JPG, JPEG, PNG, atau WebP.',
+            'foto_bukti_nota.max' => 'Ukuran foto bukti maksimal 3 MB.',
         ]);
 
-        $buktiPath = $request->file('foto_bukti_nota')->store('driver-expenses', 'public');
+        // Foto wajib disimpan pada disk publik agar dapat dibuka Admin dari
+        // rekap. File dibersihkan jika pencatatan database gagal.
+        $proofPath = $validated['foto_bukti_nota']->store('biaya-operasional', 'public');
 
-        // Biaya langsung menjadi pencatatan final. Status internal disetujui
-        // dipertahankan agar query laporan lama tetap dapat membaca data ini.
-        $expense = BiayaOperasionalPerjalanan::query()->create([
-            'jadwal_id' => $jadwal->id,
-            'jenis_biaya' => $validated['jenis_biaya'],
-            'nominal' => $validated['nominal'],
-            'tanggal_biaya' => $validated['tanggal'],
-            'keterangan' => $validated['keterangan'] ?? null,
-            'bukti_url' => $buktiPath,
-            'created_by' => $request->user()->id,
-            'status_verifikasi' => 'disetujui',
-        ]);
+        // Biaya langsung menjadi pencatatan final tanpa alur verifikasi.
+        try {
+            $expense = BiayaOperasionalPerjalanan::query()->create([
+                'jadwal_id' => $jadwal->id,
+                'jenis_biaya' => $validated['jenis_biaya'],
+                'nominal' => $validated['nominal'],
+                'tanggal_biaya' => $validated['tanggal'],
+                'keterangan' => $validated['keterangan'],
+                'bukti_url' => $proofPath,
+                'created_by' => $request->user()->id,
+            ]);
+        } catch (Throwable $exception) {
+            Storage::disk('public')->delete($proofPath);
+
+            throw $exception;
+        }
 
         return response()->json([
             'success' => true,
@@ -846,8 +865,6 @@ class DriverController extends Controller
             'data' => [
                 'id' => $expense->id,
                 'status' => 'tercatat',
-                // Field lama tetap dikirim untuk kompatibilitas aplikasi lama.
-                'status_verifikasi' => $expense->status_verifikasi,
                 'bukti_url' => $this->publicStorageUrl($expense->bukti_url),
             ],
         ], 201);

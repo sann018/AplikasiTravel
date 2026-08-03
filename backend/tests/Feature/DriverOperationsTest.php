@@ -184,7 +184,7 @@ class DriverOperationsTest extends TestCase
         $response
             ->assertForbidden()
             ->assertJsonPath('success', false)
-            ->assertJsonPath('message', 'Data kendaraan hanya dapat diubah oleh admin melalui menu Armada Kendaraan.');
+            ->assertJsonPath('message', 'Data kendaraan hanya dapat diperbarui oleh petugas pengelola.');
 
         $this->assertSame($jadwal->kendaraan->foto_kendaraan, $jadwal->kendaraan->fresh()->foto_kendaraan);
     }
@@ -201,7 +201,7 @@ class DriverOperationsTest extends TestCase
         ])->assertForbidden();
     }
 
-    public function test_driver_can_record_operational_expense_without_admin_verification(): void
+    public function test_driver_can_record_operational_expense_with_required_receipt(): void
     {
         Storage::fake('public');
         $driver = User::query()->where('email', 'pengemudi@travs.com')->firstOrFail();
@@ -213,11 +213,11 @@ class DriverOperationsTest extends TestCase
         Sanctum::actingAs($driver);
 
         $response = $this->post("/api/pengemudi/trips/{$jadwal->id}/expenses", [
-            'jenis_biaya' => 'BBM perjalanan',
+            'jenis_biaya' => 'BBM',
             'nominal' => 125000,
             'tanggal' => now()->toDateString(),
             'keterangan' => 'Pengisian BBM sebelum keberangkatan.',
-            'foto_bukti_nota' => UploadedFile::fake()->image('nota-bbm.jpg'),
+            'foto_bukti_nota' => UploadedFile::fake()->image('nota-bbm.jpg', 900, 600),
         ], [
             'Accept' => 'application/json',
         ]);
@@ -227,15 +227,22 @@ class DriverOperationsTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('message', 'Biaya operasional berhasil dicatat.')
             ->assertJsonPath('data.status', 'tercatat')
-            ->assertJsonPath('data.status_verifikasi', 'disetujui');
+            ->assertJsonMissingPath('data.status_verifikasi');
 
         $this->assertDatabaseHas('biaya_operasional_perjalanan', [
             'jadwal_id' => $jadwal->id,
-            'jenis_biaya' => 'BBM perjalanan',
+            'jenis_biaya' => 'BBM',
             'nominal' => 125000,
-            'status_verifikasi' => 'disetujui',
             'created_by' => $driver->id,
         ]);
+
+        $expense = BiayaOperasionalPerjalanan::query()
+            ->where('jadwal_id', $jadwal->id)
+            ->where('jenis_biaya', 'BBM')
+            ->firstOrFail();
+        $this->assertNotNull($expense->bukti_url);
+        Storage::disk('public')->assertExists($expense->bukti_url);
+        $response->assertJsonPath('data.bukti_url', '/storage/'.$expense->bukti_url);
 
         $this->assertSame(125000.0, (float) BiayaOperasionalPerjalanan::query()
             ->finalized()
@@ -243,7 +250,7 @@ class DriverOperationsTest extends TestCase
             ->sum('nominal'));
     }
 
-    public function test_driver_expense_requires_receipt_and_clear_description(): void
+    public function test_driver_expense_requires_clear_description_and_receipt(): void
     {
         $driver = User::query()->where('email', 'pengemudi@travs.com')->firstOrFail();
         $jadwal = Jadwal::query()
@@ -259,12 +266,51 @@ class DriverOperationsTest extends TestCase
             'tanggal' => now()->toDateString(),
         ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['keterangan', 'foto_bukti_nota']);
+            ->assertJsonValidationErrors([
+                'keterangan',
+                'foto_bukti_nota',
+            ]);
+
+        $this->post("/api/pengemudi/trips/{$jadwal->id}/expenses", [
+            'jenis_biaya' => 'Parkir',
+            'nominal' => 10000,
+            'tanggal' => now()->toDateString(),
+            'keterangan' => 'Biaya parkir kendaraan saat perjalanan.',
+            'foto_bukti_nota' => UploadedFile::fake()->create(
+                'bukti-parkir.pdf',
+                100,
+                'application/pdf',
+            ),
+        ], [
+            'Accept' => 'application/json',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('foto_bukti_nota');
 
         $this->assertDatabaseMissing('biaya_operasional_perjalanan', [
             'jadwal_id' => $jadwal->id,
             'jenis_biaya' => 'Parkir',
         ]);
+    }
+
+    public function test_driver_cannot_submit_expense_category_outside_admin_dropdown(): void
+    {
+        $driver = User::query()->where('email', 'pengemudi@travs.com')->firstOrFail();
+        $jadwal = Jadwal::query()
+            ->whereHas('pengemudi.pengguna', fn ($query) => $query->whereKey($driver->id))
+            ->firstOrFail();
+        $jadwal->update(['status' => 'dibuka']);
+
+        Sanctum::actingAs($driver);
+
+        $this->postJson("/api/pengemudi/trips/{$jadwal->id}/expenses", [
+            'jenis_biaya' => 'Kategori buatan sendiri',
+            'nominal' => 10000,
+            'tanggal' => now()->toDateString(),
+            'keterangan' => 'Pengeluaran dengan kategori yang tidak terdaftar.',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['jenis_biaya']);
     }
 
     public function test_driver_cannot_record_expense_for_inactive_trip(): void

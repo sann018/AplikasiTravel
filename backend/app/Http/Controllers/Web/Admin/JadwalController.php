@@ -76,7 +76,9 @@ class JadwalController extends Controller
         }
 
         $jadwal = $query
-            ->orderBy('waktu_berangkat')
+            // Jadwal keberangkatan terbaru ditampilkan lebih dahulu.
+            ->orderByDesc('waktu_berangkat')
+            ->orderByDesc('id')
             ->paginate(10)
             ->withQueryString();
 
@@ -102,19 +104,33 @@ class JadwalController extends Controller
         $pengemudiOptions = Pengemudi::query()
             ->with('pengguna')
             ->where('status', 'aktif')
-            ->where('status_verifikasi', 'terverifikasi')
             ->orderBy('nomor_sim')
             ->get();
+        $kendaraanOptions = Kendaraan::query()
+            ->where('status_kendaraan', 'aktif')
+            ->orderBy('nomor_plat')
+            ->get();
         $availabilityDeparture = $this->parseAvailabilityDeparture($request->old('waktu_berangkat'));
+        $availabilityArrival = $this->availabilityArrival(
+            $availabilityDeparture,
+            $request->old('rute_id') ? (int) $request->old('rute_id') : null,
+        );
 
         return view('admin.jadwal.create', [
-            'kendaraanOptions' => Kendaraan::query()
-                ->where('status_kendaraan', 'aktif')
-                ->orderBy('nomor_plat')
-                ->get(),
+            'kendaraanOptions' => $kendaraanOptions,
+            'kendaraanAvailability' => $this->driverAvailabilityService
+                ->vehicleAvailabilityForOptions(
+                    $kendaraanOptions,
+                    $availabilityDeparture,
+                    $availabilityArrival,
+                ),
             'pengemudiOptions' => $pengemudiOptions,
             'pengemudiAvailability' => $this->driverAvailabilityService
-                ->availabilityForOptions($pengemudiOptions, $availabilityDeparture),
+                ->availabilityForOptions(
+                    $pengemudiOptions,
+                    $availabilityDeparture,
+                    $availabilityArrival,
+                ),
             'ruteOptions' => Rute::query()
                 ->where('status_aktif', true)
                 ->orderBy('kota_asal')
@@ -194,22 +210,38 @@ class JadwalController extends Controller
         $pengemudiOptions = Pengemudi::query()
             ->with('pengguna')
             ->where('status', 'aktif')
-            ->where('status_verifikasi', 'terverifikasi')
             ->orderBy('nomor_sim')
+            ->get();
+        $kendaraanOptions = Kendaraan::query()
+            ->where('status_kendaraan', 'aktif')
+            ->orderBy('nomor_plat')
             ->get();
         $availabilityDeparture = $this->parseAvailabilityDeparture(
             $request->old('waktu_berangkat') ?: $jadwal->waktu_berangkat?->format('Y-m-d H:i'),
         );
+        $availabilityArrival = $this->availabilityArrival(
+            $availabilityDeparture,
+            (int) ($request->old('rute_id') ?: $jadwal->rute_id),
+        );
 
         return view('admin.jadwal.edit', [
             'jadwal' => $jadwal,
-            'kendaraanOptions' => Kendaraan::query()
-                ->where('status_kendaraan', 'aktif')
-                ->orderBy('nomor_plat')
-                ->get(),
+            'kendaraanOptions' => $kendaraanOptions,
+            'kendaraanAvailability' => $this->driverAvailabilityService
+                ->vehicleAvailabilityForOptions(
+                    $kendaraanOptions,
+                    $availabilityDeparture,
+                    $availabilityArrival,
+                    $jadwal,
+                ),
             'pengemudiOptions' => $pengemudiOptions,
             'pengemudiAvailability' => $this->driverAvailabilityService
-                ->availabilityForOptions($pengemudiOptions, $availabilityDeparture, $jadwal),
+                ->availabilityForOptions(
+                    $pengemudiOptions,
+                    $availabilityDeparture,
+                    $availabilityArrival,
+                    $jadwal,
+                ),
             'ruteOptions' => Rute::query()
                 ->where('status_aktif', true)
                 ->orderBy('kota_asal')
@@ -226,6 +258,11 @@ class JadwalController extends Controller
         unset($payload['kursi_ditutup']);
 
         DB::transaction(function () use ($payload, $closedSeatNumbers) {
+            // Penguncian baris sumber daya menutup celah dua admin menyimpan
+            // kendaraan/pengemudi yang sama secara bersamaan.
+            $this->lockScheduleResources($payload);
+            $this->ensureScheduleResourcesAvailable($payload);
+
             $jadwal = Jadwal::query()->create($payload);
             $this->syncSeatMap($jadwal->fresh('kendaraan'), $closedSeatNumbers);
 
@@ -250,6 +287,8 @@ class JadwalController extends Controller
             $lockedJadwal = Jadwal::query()
                 ->lockForUpdate()
                 ->findOrFail($jadwal->id);
+            $this->lockScheduleResources($payload);
+            $this->ensureScheduleResourcesAvailable($payload, $lockedJadwal);
 
             // Status selesai adalah kondisi akhir perjalanan. Penguncian di
             // backend mencegah status diputar balik melalui request manual.
@@ -354,15 +393,27 @@ class JadwalController extends Controller
 
         $pengemudi = Pengemudi::query()->findOrFail($validated['pengemudi_id']);
 
-        if ($pengemudi->status !== 'aktif' || $pengemudi->status_verifikasi !== 'terverifikasi') {
+        if ($pengemudi->status !== 'aktif') {
             throw ValidationException::withMessages([
                 'pengemudi_id' => 'Pengemudi harus berstatus aktif sebelum dimasukkan ke jadwal.',
             ]);
         }
 
+        $this->ensureScheduleResourcesAvailable($validated, $currentJadwal);
+
+        return $validated;
+    }
+
+    private function ensureScheduleResourcesAvailable(
+        array $payload,
+        ?Jadwal $currentJadwal = null,
+    ): void {
+        $departureTime = Carbon::parse($payload['waktu_berangkat']);
+        $arrivalTime = Carbon::parse($payload['estimasi_tiba']);
         $conflictingSchedule = $this->driverAvailabilityService->conflictingSchedule(
-            (int) $validated['pengemudi_id'],
+            (int) $payload['pengemudi_id'],
             $departureTime,
+            $arrivalTime,
             $currentJadwal,
         );
 
@@ -372,45 +423,62 @@ class JadwalController extends Controller
             ]);
         }
 
-        $conflictingVehicleSchedule = $this->conflictingVehicleSchedule(
-            (int) $validated['kendaraan_id'],
+        $conflictingVehicleSchedule = $this->driverAvailabilityService->conflictingVehicleSchedule(
+            (int) $payload['kendaraan_id'],
             $departureTime,
+            $arrivalTime,
             $currentJadwal,
         );
 
         if ($conflictingVehicleSchedule) {
             throw ValidationException::withMessages([
-                'kendaraan_id' => $this->vehicleConflictMessage($conflictingVehicleSchedule),
+                'kendaraan_id' => $this->driverAvailabilityService
+                    ->vehicleConflictMessage($conflictingVehicleSchedule),
             ]);
         }
 
-        return $validated;
+        $candidateRoute = Rute::query()->findOrFail((int) $payload['rute_id']);
+        $driverContinuityIssue = $this->driverAvailabilityService->driverContinuityIssue(
+            (int) $payload['pengemudi_id'],
+            $candidateRoute,
+            $departureTime,
+            $arrivalTime,
+            $currentJadwal,
+        );
+
+        if ($driverContinuityIssue) {
+            throw ValidationException::withMessages([
+                'pengemudi_id' => $driverContinuityIssue,
+            ]);
+        }
+
+        $vehicleContinuityIssue = $this->driverAvailabilityService->vehicleContinuityIssue(
+            (int) $payload['kendaraan_id'],
+            $candidateRoute,
+            $departureTime,
+            $arrivalTime,
+            $currentJadwal,
+        );
+
+        if ($vehicleContinuityIssue) {
+            throw ValidationException::withMessages([
+                'kendaraan_id' => $vehicleContinuityIssue,
+            ]);
+        }
     }
 
-    private function conflictingVehicleSchedule(
-        int $vehicleId,
-        Carbon $departureTime,
-        ?Jadwal $currentJadwal = null,
-    ): ?Jadwal {
-        // Kendaraan dipasangkan di jadwal, bukan di profil pengemudi.
-        // Validasi ini mencegah admin memakai armada yang sama untuk dua tugas aktif pada hari yang sama.
-        return Jadwal::query()
-            ->with('rute')
-            ->where('kendaraan_id', $vehicleId)
-            ->whereIn('status', $this->driverAvailabilityService->activeScheduleStatuses())
-            ->whereDate('waktu_berangkat', $departureTime->toDateString())
-            ->when($currentJadwal, fn ($query) => $query->whereKeyNot($currentJadwal->id))
-            ->orderBy('waktu_berangkat')
-            ->first();
-    }
-
-    private function vehicleConflictMessage(Jadwal $schedule): string
+    private function lockScheduleResources(array $payload): void
     {
-        $departure = $schedule->waktu_berangkat?->format('d M Y H:i') ?? 'tanggal yang sama';
-        $route = $this->routeLabel($schedule);
-        $status = ucfirst((string) $schedule->status);
-
-        return "Kendaraan ini sudah digunakan pada jadwal aktif {$departure} ({$route}, status {$status}). Tutup atau selesaikan jadwal itu dulu sebelum memakai kendaraan yang sama.";
+        // Urutan lock selalu kendaraan lalu pengemudi supaya transaksi
+        // pembuatan dan perubahan jadwal tidak saling menunggu terbalik.
+        Kendaraan::query()
+            ->whereKey((int) $payload['kendaraan_id'])
+            ->lockForUpdate()
+            ->firstOrFail();
+        Pengemudi::query()
+            ->whereKey((int) $payload['pengemudi_id'])
+            ->lockForUpdate()
+            ->firstOrFail();
     }
 
     private function parseAvailabilityDeparture(?string $value): ?Carbon
@@ -426,6 +494,21 @@ class JadwalController extends Controller
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    private function availabilityArrival(?Carbon $departureTime, ?int $routeId): ?Carbon
+    {
+        if (! $departureTime || ! $routeId) {
+            return null;
+        }
+
+        $durationMinutes = (int) Rute::query()
+            ->whereKey($routeId)
+            ->value('estimasi_durasi_menit');
+
+        return $durationMinutes > 0
+            ? $departureTime->copy()->addMinutes($durationMinutes)
+            : null;
     }
 
     private function normalizeClosedSeats(array $seatNumbers, int $capacity): array

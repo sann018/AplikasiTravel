@@ -120,5 +120,58 @@
         </div>
 
         {{ $pemesanan->links() }}
+
+        <section class="border-top pt-4 mt-4">
+            <div class="mb-3">
+                <h3 class="h6 mb-1">Hapus Riwayat Pemesanan Lama</h3>
+                <p class="text-muted small mb-0">Pilih rentang tanggal pemesanan yang akan dihapus.</p>
+            </div>
+
+            <form
+                method="POST"
+                action="{{ route('admin.pemesanan.old.destroy') }}"
+                class="row g-3 align-items-end"
+                onsubmit="const mulai = this.elements['hapus_tanggal_mulai'].value.split('-').reverse().join('/'); const selesai = this.elements['hapus_tanggal_selesai'].value.split('-').reverse().join('/'); return confirm('Apakah Anda yakin ingin menghapus data pemesanan tanggal ' + mulai + ' sampai ' + selesai + '?')"
+            >
+                @csrf
+                @method('DELETE')
+
+                <div class="col-12 col-md-5">
+                    <label for="hapus_tanggal_mulai" class="form-label">Tanggal Mulai <span class="text-danger">*</span></label>
+                    <input
+                        id="hapus_tanggal_mulai"
+                        name="hapus_tanggal_mulai"
+                        type="date"
+                        max="{{ now()->subDay()->format('Y-m-d') }}"
+                        value="{{ old('hapus_tanggal_mulai') }}"
+                        class="travs-input @error('hapus_tanggal_mulai') is-invalid @enderror form-control"
+                        required
+                    >
+                    @include('admin.partials.field-error', ['name' => 'hapus_tanggal_mulai'])
+                </div>
+
+                <div class="col-12 col-md-5">
+                    <label for="hapus_tanggal_selesai" class="form-label">Tanggal Selesai <span class="text-danger">*</span></label>
+                    <input
+                        id="hapus_tanggal_selesai"
+                        name="hapus_tanggal_selesai"
+                        type="date"
+                        max="{{ now()->subDay()->format('Y-m-d') }}"
+                        value="{{ old('hapus_tanggal_selesai') }}"
+                        class="travs-input @error('hapus_tanggal_selesai') is-invalid @enderror form-control"
+                        required
+                    >
+                    @include('admin.partials.field-error', ['name' => 'hapus_tanggal_selesai'])
+                </div>
+
+                <div class="col-12 col-md-2">
+                    <button type="submit" class="btn btn-danger w-100">Hapus</button>
+                </div>
+            </form>
+
+            <p class="form-text mt-3 mb-0">
+                Hanya pemesanan selesai atau dibatalkan yang dihapus. Lakukan pencadangan data terlebih dahulu.
+            </p>
+        </section>
     </article>
 @endsection

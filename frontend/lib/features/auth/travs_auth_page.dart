@@ -185,7 +185,7 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
 
       setState(() {
         _errorMessage =
-            'Proses masuk gagal. Aplikasi belum terhubung ke server. Pastikan server aktif, lalu coba lagi.';
+            'Proses masuk gagal. Aplikasi belum terhubung ke layanan. Periksa koneksi, lalu coba lagi.';
       });
     } finally {
       if (mounted) {
@@ -393,6 +393,7 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         obscureText: _loginPasswordHidden,
         style: const TextStyle(color: TravSTheme.navy),
         textInputAction: TextInputAction.done,
+        inputFormatters: [LengthLimitingTextInputFormatter(72)],
         decoration: InputDecoration(
           labelText: 'Kata sandi',
           hintText: 'Masukkan kata sandi',
@@ -407,6 +408,7 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
               _loginPasswordHidden
                   ? Icons.visibility_off_outlined
                   : Icons.visibility_outlined,
+              color: Colors.black,
             ),
           ),
         ),
@@ -424,7 +426,7 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         child: TextButton(
           onPressed: _isSubmitting ? null : _openForgotPassword,
           child: const Text(
-            'Lupa Password?',
+            'Lupa Kata Sandi?',
             style: TextStyle(
               color: TravSTheme.navy,
               fontWeight: FontWeight.w600,
@@ -515,11 +517,11 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         controller: _registerPasswordController,
         obscureText: _registerPasswordHidden,
         textInputAction: TextInputAction.next,
-        inputFormatters: [LengthLimitingTextInputFormatter(8)],
+        inputFormatters: [LengthLimitingTextInputFormatter(72)],
         style: const TextStyle(color: TravSTheme.navy),
         decoration: InputDecoration(
           labelText: 'Kata sandi',
-          hintText: '6-8 karakter, huruf + angka/simbol',
+          hintText: 'Minimal 6 karakter, huruf + angka/simbol',
           prefixIcon: const Icon(Icons.lock_outline_rounded),
           suffixIcon: IconButton(
             onPressed: () {
@@ -531,6 +533,7 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
               _registerPasswordHidden
                   ? Icons.visibility_off_outlined
                   : Icons.visibility_outlined,
+              color: Colors.black,
             ),
           ),
         ),
@@ -538,8 +541,8 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
           if (value == null || value.isEmpty) {
             return 'Kata sandi wajib diisi.';
           }
-          if (value.length < 6 || value.length > 8) {
-            return 'Kata sandi harus terdiri dari 6 sampai 8 karakter.';
+          if (value.length < 6) {
+            return 'Kata sandi minimal 6 karakter.';
           }
           final hasLetter = RegExp(r'[A-Za-z]').hasMatch(value);
           final hasNumberOrSymbol = RegExp(
@@ -556,7 +559,7 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         controller: _registerConfirmPasswordController,
         obscureText: _registerConfirmPasswordHidden,
         textInputAction: TextInputAction.done,
-        inputFormatters: [LengthLimitingTextInputFormatter(8)],
+        inputFormatters: [LengthLimitingTextInputFormatter(72)],
         style: const TextStyle(color: TravSTheme.navy),
         decoration: InputDecoration(
           labelText: 'Konfirmasi kata sandi',
@@ -573,6 +576,7 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
               _registerConfirmPasswordHidden
                   ? Icons.visibility_off_outlined
                   : Icons.visibility_outlined,
+              color: Colors.black,
             ),
           ),
         ),

@@ -382,3 +382,21 @@ Yang perlu kamu tampilkan di BAB 4.3:
 > (cache/jobs/sessions) tidak perlu ditampilkan detail.
 
 Lanjut ke `04_FITUR_BACKEND.md` untuk memahami logika bisnis tiap fitur.
+
+## Data Turunan Tidak Menjadi Kolom Baru
+
+Jumlah pemesanan dan penumpang pada rute terpopuler tidak disimpan di tabel `rute`.
+
+```text
+jumlah pemesanan = COUNT(pemesanan selesai)
+jumlah penumpang = SUM(jumlah_kursi pemesanan selesai)
+```
+
+Query menggunakan relasi:
+
+```text
+rute 1—N jadwal 1—N pemesanan
+```
+
+WebSocket juga tidak menambah tabel bisnis. Event dikirim setelah perubahan `kursi_jadwal`
+tersimpan, sehingga ERD utama tetap sama.

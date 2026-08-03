@@ -8,6 +8,7 @@ import '../../core/models/app_role_preview.dart';
 import '../../core/models/app_settings.dart';
 import '../../core/models/travs_user_session.dart';
 import '../../core/services/travs_api_service.dart';
+import '../../core/services/travs_seat_realtime_service.dart';
 import '../../core/theme/travs_theme.dart';
 import '../../core/widgets/travs_async_state.dart';
 import '../payment/travs_payment_preview_page.dart';
@@ -84,7 +85,7 @@ void _showScheduleImagePreview(
               color: Colors.white,
               shape: const CircleBorder(),
               child: IconButton(
-                tooltip: 'Tutup preview',
+                tooltip: 'Tutup pratinjau',
                 onPressed: () => Navigator.of(dialogContext).pop(),
                 icon: const Icon(Icons.close_rounded),
               ),
@@ -115,7 +116,8 @@ class TravSScheduleDetailPage extends StatefulWidget {
       _TravSScheduleDetailPageState();
 }
 
-class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
+class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage>
+    with WidgetsBindingObserver {
   final TravSApiService _apiService = TravSApiService();
   late Future<TravSScheduleDetail> _future;
 
@@ -124,6 +126,7 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
   bool _isPreparingCheckout = false;
   bool _isRefreshingSeatAvailability = false;
   Timer? _seatRefreshTimer;
+  late final TravSSeatRealtimeService _seatRealtimeService;
 
   bool get _canUseBookingForm =>
       widget.selectedRole == AppRolePreview.passenger && widget.session != null;
@@ -143,7 +146,14 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _future = _loadDetail();
+    _seatRealtimeService = TravSSeatRealtimeService(
+      settings: widget.appSettings.realtime,
+      scheduleId: widget.schedule.id,
+      onSeatChanged: _refreshSeatAvailability,
+    );
+    unawaited(_seatRealtimeService.connect());
     // Status kursi disegarkan berkala agar lock dari perangkat lain segera
     // terlihat dan kursi yang dilepas dapat dipilih kembali tanpa buka ulang halaman.
     _seatRefreshTimer = Timer.periodic(
@@ -154,8 +164,19 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _seatRefreshTimer?.cancel();
+    unawaited(_seatRealtimeService.dispose());
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Sambungkan ulang setelah aplikasi kembali dari background.
+      unawaited(_seatRealtimeService.reconnect());
+      unawaited(_refreshSeatAvailability());
+    }
   }
 
   Future<TravSScheduleDetail> _loadDetail() async {
@@ -349,9 +370,9 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage> {
                     if (isDriver)
                       _DriverBriefCard(
                         detail: detail,
-                        onPrimaryAction: () => _showStageMessage(
-                          'Fitur manifes detail akan segera tersedia.',
-                        ),
+                        // Halaman induk membuka manifes lengkap untuk jadwal ini.
+                        onPrimaryAction: () =>
+                            Navigator.of(context).pop('open_driver_manifest'),
                       )
                     else
                       _CheckoutPreviewCard(

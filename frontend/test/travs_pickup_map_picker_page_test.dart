@@ -147,6 +147,24 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('titik pusat fallback tidak dapat disimpan sebelum dipilih', (
+    tester,
+  ) async {
+    final locationService = _FakeLocationService();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TravSPickupMapPickerPage(locationService: locationService),
+      ),
+    );
+    await tester.pump();
+
+    final saveButton = tester.widget<ElevatedButton>(
+      find.widgetWithText(ElevatedButton, 'Gunakan Titik Ini'),
+    );
+    expect(saveButton.onPressed, isNull);
+  });
 }
 
 Future<void> _pumpPicker(

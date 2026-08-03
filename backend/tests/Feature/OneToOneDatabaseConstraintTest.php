@@ -36,7 +36,6 @@ class OneToOneDatabaseConstraintTest extends TestCase
             'pengguna_id' => $driver->pengguna_id,
             'nomor_sim' => '6102233435419999',
             'status' => 'aktif',
-            'status_verifikasi' => 'terverifikasi',
         ]);
     }
 
@@ -51,7 +50,6 @@ class OneToOneDatabaseConstraintTest extends TestCase
             'pengguna_id' => $user->id,
             'nomor_sim' => '6102233435419998',
             'status' => 'aktif',
-            'status_verifikasi' => 'terverifikasi',
         ]);
 
         $this->assertSame($user->id, $driver->pengguna_id);

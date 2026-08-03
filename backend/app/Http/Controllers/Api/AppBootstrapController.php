@@ -26,6 +26,8 @@ class AppBootstrapController extends Controller
         $jadwal = Jadwal::query()
             ->with(['rute', 'kendaraan', 'pengemudi.pengguna', 'kursi'])
             ->where('status', 'dibuka')
+            // Filter dilakukan sebelum limit agar jadwal penuh tidak menutup jadwal tersedia.
+            ->whereHas('kursi', fn ($builder) => $builder->where('status_kursi', 'tersedia'))
             ->orderBy('waktu_berangkat')
             ->limit(4)
             ->get();

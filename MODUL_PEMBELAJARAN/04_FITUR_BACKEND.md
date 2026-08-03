@@ -499,3 +499,37 @@ Lanjut ke `05_FITUR_FLUTTER.md` untuk memahami sisi aplikasi mobile.
 5. **Notifikasi jadwal:** admin diberi notifikasi H-1 jam dan ketika pengemudi mengubah status menjadi `berangkat`; notifikasi jadwal menggunakan rujukan jadwal sehingga tombol Detail Jadwal tidak tertukar dengan detail booking.
 
 > **Risiko yang masih ada:** pengingat keberangkatan penumpang menggunakan `updateOrCreate` dengan nilai `sudah_dibaca = false`; scheduler berikutnya dapat mengubah notifikasi yang sudah dibaca menjadi belum dibaca lagi. Jangan mengklaim bagian ini sudah sepenuhnya idempoten sebelum diperbaiki.
+
+## MODUL 15 — Realtime Ketersediaan Kursi
+
+Observer:
+
+```php
+public function updated(KursiJadwal $seat): void
+{
+    if (! $seat->wasChanged([
+        'status_kursi',
+        'dikunci_oleh',
+        'locked_at',
+        'lock_expires_at',
+    ])) {
+        return;
+    }
+
+    $this->realtimeService->publish((int) $seat->jadwal_id);
+}
+```
+
+Event:
+
+```php
+return new Channel('jadwal.'.$this->scheduleId);
+```
+
+Urutannya adalah data kursi berubah, transaksi selesai, observer berjalan, lalu service mengirim
+event. Payload tidak membawa data pemesan.
+
+## MODUL 16 — Statistik Admin
+
+Card statistik memakai `COUNT`, `SUM`, `GROUP BY`, dan filter status pada controller. Pelajari
+potongan kode lengkap pada `09_STATISTIK_DASBOR_DAN_LAPORAN.md`.

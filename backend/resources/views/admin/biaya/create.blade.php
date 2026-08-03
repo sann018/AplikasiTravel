@@ -11,7 +11,7 @@
     ])
 
     <section class="travs-section-card card">
-        <form method="POST" enctype="multipart/form-data" action="{{ route('admin.biaya.store') }}" class="travs-form-grid d-grid">
+        <form method="POST" action="{{ route('admin.biaya.store') }}" enctype="multipart/form-data" class="travs-form-grid d-grid">
             @csrf
 
             <div class="travs-form-grid-2 d-grid">
@@ -29,15 +29,13 @@
                 </div>
 
                 <div class="travs-field">
-                    <label for="jenis_biaya" class="form-label">Jenis Biaya <span class="text-danger">*</span></label>
-                    <input
-                        id="jenis_biaya"
-                        name="jenis_biaya"
-                        class="travs-input @error('jenis_biaya') is-invalid @enderror form-control"
-                        value="{{ old('jenis_biaya') }}"
-                        required
-                        placeholder="Contoh: BBM, Tol, Parkir"
-                    >
+                    <label for="jenis_biaya" class="form-label">Kategori Pengeluaran <span class="text-danger">*</span></label>
+                    <select id="jenis_biaya" name="jenis_biaya" class="travs-select @error('jenis_biaya') is-invalid @enderror form-select" required>
+                        <option value="">Pilih kategori pengeluaran</option>
+                        @foreach ($expenseCategories as $category)
+                            <option value="{{ $category }}" @selected(old('jenis_biaya') === $category)>{{ $category }}</option>
+                        @endforeach
+                    </select>
                     @include('admin.partials.field-error', ['name' => 'jenis_biaya'])
                 </div>
 
@@ -83,18 +81,19 @@
                 </div>
 
                 <div class="travs-field travs-field-span-2">
-                    <label for="bukti_nota" class="form-label">Foto Bukti Nota <span class="text-danger">*</span></label>
+                    <label for="foto_bukti_nota" class="form-label">Foto Bukti/Nota <span class="text-danger">*</span></label>
                     <input
-                        id="bukti_nota"
-                        name="bukti_nota"
+                        id="foto_bukti_nota"
+                        name="foto_bukti_nota"
                         type="file"
                         accept="image/jpeg,image/png,image/webp"
-                        class="travs-input @error('bukti_nota') is-invalid @enderror form-control"
+                        class="travs-input @error('foto_bukti_nota') is-invalid @enderror form-control"
                         required
                     >
-                    <div class="travs-field-meta">Bukti wajib berupa JPG, JPEG, PNG, atau WEBP dengan ukuran maksimal 3 MB.</div>
-                    @include('admin.partials.field-error', ['name' => 'bukti_nota'])
+                    <small class="form-text text-muted">Unggah JPG, PNG, atau WebP dengan ukuran maksimal 3 MB.</small>
+                    @include('admin.partials.field-error', ['name' => 'foto_bukti_nota'])
                 </div>
+
             </div>
 
             <div class="travs-form-actions travs-inline d-flex justify-content-end align-items-center flex-wrap">

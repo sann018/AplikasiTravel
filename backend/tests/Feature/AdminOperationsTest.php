@@ -12,6 +12,7 @@ use Database\Seeders\TravSDemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -131,14 +132,14 @@ class AdminOperationsTest extends TestCase
             ->put(route('admin.pengaturan.account.update'), [
                 'email' => 'adminpassword@gmail.com',
                 'current_password' => 'admin12345',
-                'password' => 'Baru12!',
-                'password_confirmation' => 'Baru12!',
+                'password' => 'PasswordAdminBaru12!',
+                'password_confirmation' => 'PasswordAdminBaru12!',
             ]);
 
         $response->assertRedirect(route('admin.settings.index', ['tab' => 'account']));
         $response->assertSessionHasNoErrors();
 
-        $this->assertTrue(Hash::check('Baru12!', $admin->fresh()->password));
+        $this->assertTrue(Hash::check('PasswordAdminBaru12!', $admin->fresh()->password));
     }
 
     public function test_admin_can_export_booking_report_as_csv(): void
@@ -199,7 +200,7 @@ class AdminOperationsTest extends TestCase
                 'no_hp' => '081111111111',
                 'nomor_sim' => '6102233435410001',
                 'status' => 'aktif',
-                'password' => 'Drv12!',
+                'password' => 'PasswordDriver12!',
             ]);
 
         $response->assertRedirect(route('admin.pengemudi.index'));
@@ -210,8 +211,10 @@ class AdminOperationsTest extends TestCase
             ->firstOrFail();
 
         $this->assertSame('aktif', $pengemudi->status);
-        $this->assertSame('terverifikasi', $pengemudi->status_verifikasi);
         $this->assertTrue($pengemudi->pengguna->status_aktif);
+        foreach (['status_verifikasi', 'catatan_verifikasi', 'verified_at', 'verified_by'] as $column) {
+            $this->assertFalse(Schema::hasColumn('pengemudi', $column));
+        }
     }
 
     public function test_admin_can_upload_driver_profile_photo_from_driver_form(): void

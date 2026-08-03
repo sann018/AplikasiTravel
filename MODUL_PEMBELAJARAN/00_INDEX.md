@@ -22,6 +22,7 @@ Baca berurutan dari atas ke bawah. Tiap file punya fokus berbeda:
 | `06_PANDUAN_UBAH_TAMPILAN.md` | **Cara ganti warna, ukuran, posisi, dan perbaiki bug** | **PALING PENTING untuk sidang** |
 | `07_MATERI_BAB4_BAB5.md` | Draft siap pakai untuk BAB IV & BAB V laporan | Menyusun laporan |
 | `08_LATIHAN_SIDANG.md` | Simulasi tanya-jawab + latihan tugas ubah UI | Latihan praktik |
+| `09_STATISTIK_DASBOR_DAN_LAPORAN.md` | Asal angka setiap card statistik beserta query | Memahami agregasi data |
 
 ---
 
@@ -69,7 +70,7 @@ Baca berurutan dari atas ke bawah. Tiap file punya fokus berbeda:
 
 ---
 
-## Status Implementasi Terkini — 26 Juli 2026
+## Status Implementasi Terkini — 27 Juli 2026
 
 Modul ini sudah diselaraskan dengan perbaikan terbaru. Saat belajar, perhatikan empat perubahan penting:
 
@@ -78,5 +79,9 @@ Modul ini sudah diselaraskan dengan perbaikan terbaru. Saat belajar, perhatikan 
 3. Admin memiliki halaman **Detail Jadwal** sebagai ringkasan operasional; detail booking dan biaya tetap dibuka dari halaman masing-masing.
 4. Menu utama pengemudi memakai istilah **Perjalanan**; istilah **Manifes** dipakai khusus untuk daftar penumpang pada detail perjalanan.
 5. Web admin memiliki **Monitor Tiket** untuk memantau tiket QR yang sudah atau belum dipindai. **Laporan Okupansi tidak diaktifkan** karena tidak termasuk ruang lingkup proposal.
+6. Ketersediaan kursi memakai Laravel Reverb pada port `6001`; event hanya menjadi sinyal agar
+   Flutter memuat data terbaru dari API.
+7. Dasbor membedakan jumlah pemesanan selesai dan jumlah penumpang pada rute terpopuler tanpa
+   menambah kolom database.
 
 Untuk rangkuman paling baru sebelum sidang, baca juga file `../RANGKUMAN_BELAJAR_SIDANG.md`.

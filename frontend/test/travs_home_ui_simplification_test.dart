@@ -46,6 +46,16 @@ void main() {
     expect(combinedSource, contains("'Manifes Penumpang'"));
   });
 
+  test('detail perjalanan pengemudi tidak menampilkan pendapatan', () {
+    final source = File(
+      'lib/features/home/bagian_beranda/detail_perjalanan_pengemudi.dart',
+    ).readAsStringSync();
+
+    expect(source, isNot(contains("label: 'Pendapatan'")));
+    expect(source, isNot(contains('record.revenue')));
+    expect(source, contains("label: 'Penumpang'"));
+  });
+
   Future<void> pumpHome(
     WidgetTester tester, {
     TravSUserSession? session,
@@ -151,6 +161,10 @@ void main() {
     expect(find.text('Tiket aktif'), findsOneWidget);
     expect(find.text('Tiket Selesai'), findsOneWidget);
     expect(find.text('Tiket aktif dan QR keberangkatan.'), findsNothing);
+    expect(
+      find.text('Buka detail tiket untuk melihat QR unik per kursi penumpang.'),
+      findsNothing,
+    );
     expect(
       find.text(
         'Tiket muncul setelah pembayaran terverifikasi dan QR diterbitkan.',
@@ -258,7 +272,10 @@ void main() {
     expect(find.text('Ganti Password'), findsOneWidget);
     expect(find.text('Nama lengkap'), findsOneWidget);
     expect(find.text('Password baru'), findsOneWidget);
-    expect(find.text('6-8 karakter, huruf + angka/simbol'), findsOneWidget);
+    expect(
+      find.text('Minimal 6 karakter, huruf + angka/simbol'),
+      findsOneWidget,
+    );
     expect(
       find.text('Ubah data yang dipakai untuk identitas akun.'),
       findsNothing,

@@ -137,9 +137,21 @@ void main() {
     expect(paymentSource, contains("title: 'Lokasi Perjalanan'"));
     expect(paymentSource, contains('SegmentedButton<_CheckoutLocationTab>'));
     expect(paymentSource, contains('_buildPickupFields()'));
-    expect(paymentSource, contains('_buildDropoffFields(context)'));
+    expect(paymentSource, contains('_buildDropoffFields()'));
     expect(paymentSource, contains('Offstage('));
     expect(paymentSource, contains('final isFormValid = form.validate();'));
+    expect(
+      paymentSource,
+      contains("labelText: 'Alamat Jemput atau Link Google Maps'"),
+    );
+    expect(
+      paymentSource,
+      contains("labelText: 'Alamat Turun atau Link Google Maps'"),
+    );
+    expect(paymentSource, contains('_reviewPickupFromAddress'));
+    expect(paymentSource, contains('_reviewDropoffFromAddress'));
+    expect(paymentSource, isNot(contains("labelText: 'Latitude'")));
+    expect(paymentSource, isNot(contains("labelText: 'Longitude'")));
     expect(paymentSource, contains("'Lengkapi data pada tab Titik Jemput.'"));
     expect(
       paymentSource,

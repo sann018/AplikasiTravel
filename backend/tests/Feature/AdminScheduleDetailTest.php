@@ -35,7 +35,7 @@ class AdminScheduleDetailTest extends TestCase
             ->assertSee('Status dan Keuangan')
             ->assertSee('Pemesanan dan Penumpang')
             ->assertSee('Biaya Operasional')
-            ->assertSee('Pendapatan Diterima');
+            ->assertSee('Pendapatan Kotor RuslyTravel');
     }
 
     public function test_schedule_detail_uses_historical_booking_fare_after_route_price_changes(): void

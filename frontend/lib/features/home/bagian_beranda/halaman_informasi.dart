@@ -57,10 +57,10 @@ class _DriverInfoPage extends StatelessWidget {
             const _InfoCard(
               title: 'Periksa jadwal tugas',
               description:
-                  'Buka halaman Beranda atau Perjalanan untuk melihat jadwal yang ditugaskan admin. Periksa rute, waktu berangkat, kendaraan, dan jumlah penumpang sebelum perjalanan dimulai.\n\n'
-                  '1. Jadwal aktif muncul setelah admin membuat penugasan.\n'
+                  'Buka halaman Beranda atau Perjalanan untuk melihat jadwal tugas Anda. Periksa rute, waktu berangkat, kendaraan, dan jumlah penumpang sebelum perjalanan dimulai.\n\n'
+                  '1. Jadwal aktif muncul setelah tugas perjalanan tersedia.\n'
                   '2. Kendaraan mengikuti data jadwal, bukan data profil.\n'
-                  '3. Jika jadwal tidak sesuai, hubungi admin sebelum berangkat.',
+                  '3. Jika jadwal tidak sesuai, hubungi petugas operasional sebelum berangkat.',
               justifyDescription: true,
             ),
             const SizedBox(height: 12),
@@ -90,7 +90,7 @@ class _DriverInfoPage extends StatelessWidget {
                   'Saat penumpang naik, pindai QR tiket dari aplikasi penumpang. Pemindaian dipakai untuk mencatat kehadiran dan memastikan tiket yang digunakan sesuai pemesanan.\n\n'
                   '1. Jangan memindai tiket milik penumpang lain.\n'
                   '2. Jika QR tidak terbaca, periksa kembali data manifes.\n'
-                  '3. Laporkan kendala tiket kepada admin.',
+                  '3. Laporkan kendala tiket kepada petugas operasional.',
               justifyDescription: true,
             ),
             const SizedBox(height: 22),
@@ -103,10 +103,10 @@ class _DriverInfoPage extends StatelessWidget {
             const _InfoCard(
               title: 'Ikuti jadwal dan kendaraan tugas',
               description:
-                  'Pengemudi menjalankan perjalanan sesuai jadwal yang dibuat admin. Data rute, kendaraan, waktu keberangkatan, dan manifes tidak boleh diubah sendiri melalui aplikasi pengemudi.\n\n'
+                  'Pengemudi menjalankan perjalanan sesuai jadwal operasional. Data rute, kendaraan, waktu keberangkatan, dan manifes tidak dapat diubah melalui aplikasi pengemudi.\n\n'
                   '1. Kendaraan ditentukan dari jadwal.\n'
-                  '2. Perubahan rute atau jadwal dilakukan oleh admin.\n'
-                  '3. Jika ada kendala kendaraan, segera konfirmasi ke admin.',
+                  '2. Perubahan rute atau jadwal dilakukan oleh petugas operasional.\n'
+                  '3. Jika ada kendala kendaraan, segera hubungi petugas operasional.',
               justifyDescription: true,
             ),
             const SizedBox(height: 12),
@@ -123,10 +123,10 @@ class _DriverInfoPage extends StatelessWidget {
             const _InfoCard(
               title: 'Catat pembayaran tunai dengan benar',
               description:
-                  'Jika penumpang memilih pembayaran tunai, konfirmasi hanya setelah pembayaran benar-benar diterima. Status pembayaran digital tetap mengikuti sistem pembayaran yang digunakan.\n\n'
+                  'Jika penumpang memilih pembayaran tunai, konfirmasi hanya setelah pembayaran benar-benar diterima. Status pembayaran digital tetap mengikuti penyedia pembayaran yang digunakan.\n\n'
                   '1. Jangan mengonfirmasi tunai sebelum uang diterima.\n'
                   '2. Pembayaran digital tidak diubah manual oleh pengemudi.\n'
-                  '3. Laporkan selisih pembayaran kepada admin.',
+                  '3. Laporkan selisih pembayaran kepada petugas operasional.',
               justifyDescription: true,
             ),
           ],
@@ -149,7 +149,7 @@ class _BookingInfoSections extends StatelessWidget {
         const _InfoCard(
           title: 'Data penumpang wajib benar',
           description:
-              'Gunakan nama lengkap dan nomor HP aktif agar admin atau pengemudi bisa menghubungi Anda jika ada perubahan jadwal.\n\n'
+              'Gunakan nama lengkap dan nomor HP aktif agar Anda dapat dihubungi jika ada perubahan jadwal.\n\n'
               '1. Nama penumpang dipakai pada tiket dan manifes.\n'
               '2. Nomor HP dipakai untuk komunikasi keberangkatan.\n'
               '3. Data yang salah dapat menyulitkan proses penjemputan.',
@@ -169,9 +169,9 @@ class _BookingInfoSections extends StatelessWidget {
         const _InfoCard(
           title: 'Pembayaran mengikuti batas waktu',
           description:
-              'Setelah pemesanan dibuat, pembayaran harus diselesaikan sebelum batas waktu berakhir. Jika melewati batas dan belum berhasil dibayar, pemesanan dapat dibatalkan oleh sistem.\n\n'
-              '1. QRIS atau Virtual Account mengikuti status dari sistem pembayaran.\n'
-              '2. Pembayaran tunai dikonfirmasi oleh pengemudi atau admin.\n'
+              'Setelah pemesanan dibuat, pembayaran harus diselesaikan sebelum batas waktu berakhir. Jika melewati batas dan belum berhasil dibayar, pemesanan dapat dibatalkan secara otomatis.\n\n'
+              '1. Status QRIS atau Virtual Account mengikuti penyedia pembayaran.\n'
+              '2. Pembayaran tunai dikonfirmasi setelah uang diterima petugas.\n'
               '3. Tiket QR hanya valid setelah pembayaran dinyatakan lunas.',
           justifyDescription: true,
         ),
@@ -183,7 +183,7 @@ class _BookingInfoSections extends StatelessWidget {
               '1. Patokan bisa berupa toko, gang, bangunan, atau warna rumah.\n'
               '2. Isi nama atau keterangan barang yang dibawa.\n'
               '3. Foto barang bersifat opsional dan membantu pengecekan.\n'
-              '4. Sepeda, sepeda motor, dan barang berukuran besar wajib dikonfirmasi langsung kepada admin.\n'
+              '4. Sepeda, sepeda motor, dan barang berukuran besar wajib dikonfirmasi melalui layanan RuslyTravel.\n'
               '5. Barang besar tidak dihitung atau diterima otomatis oleh aplikasi.',
           justifyDescription: true,
         ),
@@ -211,7 +211,7 @@ class _BookingInfoSections extends StatelessWidget {
         const _InfoCard(
           title: '3. Isi barang bawaan',
           description:
-              'Pilih apakah Anda membawa barang, lalu isi nama atau keterangan barang yang dibawa. Foto dapat ditambahkan untuk membantu pengemudi mengenali barang. Untuk sepeda, sepeda motor, atau barang berukuran besar, hubungi admin terlebih dahulu sebelum membuat pemesanan.',
+              'Pilih apakah Anda membawa barang, lalu isi nama atau keterangan barang yang dibawa. Foto dapat ditambahkan untuk membantu pengemudi mengenali barang. Untuk sepeda, sepeda motor, atau barang berukuran besar, hubungi layanan RuslyTravel terlebih dahulu sebelum membuat pemesanan.',
           justifyDescription: true,
         ),
         const SizedBox(height: 12),
@@ -238,7 +238,7 @@ class _BookingInfoSections extends StatelessWidget {
         const _InfoCard(
           title: 'Isi data sesuai kondisi sebenarnya',
           description:
-              'Gunakan data penumpang, titik jemput, titik turun, dan barang bawaan yang benar. Data ini dipakai admin dan pengemudi untuk menyiapkan perjalanan, menghubungi penumpang, dan memastikan kapasitas kendaraan tetap aman.',
+              'Gunakan data penumpang, titik jemput, titik turun, dan barang bawaan yang benar agar penjemputan dapat disiapkan dengan aman dan tepat.',
           justifyDescription: true,
         ),
         const SizedBox(height: 12),
@@ -259,7 +259,7 @@ class _BookingInfoSections extends StatelessWidget {
         const _InfoCard(
           title: 'Pahami batas waktu dan pembatalan',
           description:
-              'Kursi hanya dikunci sementara saat pemesanan dan pembayaran. Jika waktu habis atau pembayaran belum selesai, pemesanan dapat dibatalkan oleh sistem agar kursi tersedia kembali untuk penumpang lain.',
+              'Kursi hanya dikunci sementara saat pemesanan dan pembayaran. Jika waktu habis atau pembayaran belum selesai, pemesanan dapat dibatalkan secara otomatis agar kursi tersedia kembali untuk penumpang lain.',
           justifyDescription: true,
         ),
       ],

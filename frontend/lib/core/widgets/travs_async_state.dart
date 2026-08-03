@@ -80,11 +80,11 @@ class TravSAsyncState extends StatelessWidget {
     }
 
     if (raw.contains('timeout')) {
-      return 'Koneksi ke server terlalu lama. Coba lagi dalam beberapa saat.';
+      return 'Layanan membutuhkan waktu terlalu lama. Coba lagi dalam beberapa saat.';
     }
 
     if (raw.contains('formatexception') || raw.contains('json')) {
-      return 'Server mengirim data yang tidak dapat dibaca. Hubungi admin jika masalah berlanjut.';
+      return 'Data belum dapat ditampilkan. Silakan coba beberapa saat lagi.';
     }
 
     return 'Terjadi kendala yang tidak terduga. Silakan coba lagi.';

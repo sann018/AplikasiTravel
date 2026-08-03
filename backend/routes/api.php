@@ -86,7 +86,7 @@ Route::middleware(['auth:sanctum', 'role:pengemudi'])->group(function () {
     Route::post('/pengemudi/trips/{jadwal}/passengers/{detail}/confirm-cash', [DriverController::class, 'confirmPassengerCash'])->middleware('throttle:travs-action');
     Route::post('/pengemudi/trips/{jadwal}/passengers/{detail}/dropoff', [DriverController::class, 'markPassengerDropoff'])->middleware('throttle:travs-action');
     Route::post('/pengemudi/trips/{jadwal}/status', [DriverController::class, 'updateTripStatus'])->middleware('throttle:travs-action');
-    Route::post('/pengemudi/trips/{jadwal}/expenses', [DriverController::class, 'storeOperationalExpense'])->middleware('throttle:travs-upload');
+    Route::post('/pengemudi/trips/{jadwal}/expenses', [DriverController::class, 'storeOperationalExpense'])->middleware('throttle:travs-action');
     Route::post('/pengemudi/tickets/scan', [DriverController::class, 'scanTicket'])->middleware('throttle:travs-action');
     Route::post('/pengemudi/upload-photo', [DriverController::class, 'uploadDriverPhoto'])->middleware('throttle:travs-upload');
     Route::post('/pengemudi/vehicle/photo', [DriverController::class, 'uploadAssignedVehiclePhoto'])->middleware('throttle:travs-upload');

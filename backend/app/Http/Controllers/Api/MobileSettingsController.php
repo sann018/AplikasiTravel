@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\OperationalExpenseCategoryService;
 use App\Services\SettingService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class MobileSettingsController extends Controller
 {
@@ -39,9 +41,12 @@ class MobileSettingsController extends Controller
         'baggage_max_total_weight_per_vehicle',
     ];
 
-    public function __construct(private readonly SettingService $settingService) {}
+    public function __construct(
+        private readonly SettingService $settingService,
+        private readonly OperationalExpenseCategoryService $expenseCategoryService,
+    ) {}
 
-    public function __invoke(): JsonResponse
+    public function __invoke(Request $request): JsonResponse
     {
         $allSettings = $this->settingService->all();
 
@@ -62,11 +67,38 @@ class MobileSettingsController extends Controller
             'app_logo',
             'travs-logo.svg',
         );
+        $safeSettings['operational_expense_categories'] = $this->expenseCategoryService->categories();
+        $safeSettings['realtime'] = $this->realtimeSettings($request);
 
         return response()->json([
             'success' => true,
             'message' => 'Pengaturan aplikasi berhasil dimuat.',
             'data' => $safeSettings,
         ]);
+    }
+
+    /**
+     * Konfigurasi publik ini hanya berisi alamat koneksi dan app key Reverb.
+     * App secret tetap berada di backend dan tidak pernah dikirim ke mobile.
+     *
+     * @return array<string, bool|int|string>
+     */
+    private function realtimeSettings(Request $request): array
+    {
+        $appKey = trim((string) config('broadcasting.connections.reverb.key', ''));
+        $configuredHost = trim((string) config('realtime.public_host', ''));
+        $host = $configuredHost !== '' ? $configuredHost : $request->getHost();
+
+        return [
+            'enabled' => (bool) config('realtime.seat_updates_enabled', false)
+                && config('broadcasting.default') === 'reverb'
+                && $appKey !== '',
+            'app_key' => $appKey,
+            'host' => $host,
+            'port' => (int) config('realtime.public_port', 6001),
+            'scheme' => (string) config('realtime.public_scheme', 'ws'),
+            'seat_channel_prefix' => 'jadwal.',
+            'seat_event' => 'kursi.diperbarui',
+        ];
     }
 }

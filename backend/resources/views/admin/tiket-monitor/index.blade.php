@@ -2,7 +2,7 @@
 
 @section('title', 'Monitoring Tiket QR')
 @section('page-title', 'Monitoring Tiket QR')
-@section('page-description', 'Pantau status scan tiket QR penumpang.')
+@section('page-description', 'Pantau status pemindaian tiket QR penumpang.')
 
 @section('content')
     <article class="travs-section-card card">
@@ -17,7 +17,7 @@
                 <input id="search" name="search" class="travs-input form-control" value="{{ $filters['search'] ?? '' }}" placeholder="Kode QR, kode pemesanan, nama penumpang">
             </div>
             <div class="travs-field">
-                <label for="status_scan" class="form-label">Status Scan</label>
+                <label for="status_scan" class="form-label">Status Pemindaian</label>
                 <select id="status_scan" name="status_scan" class="travs-select form-select">
                     <option value="">Semua status</option>
                     <option value="sudah_dipindai" @selected(($filters['status_scan'] ?? '') === 'sudah_dipindai')>Sudah Dipindai</option>
@@ -59,8 +59,8 @@
                         <th>Penumpang</th>
                         <th>Kursi</th>
                         <th>Rute</th>
-                        <th>Status Scan</th>
-                        <th>Waktu Scan</th>
+                        <th>Status Pemindaian</th>
+                        <th>Waktu Pemindaian</th>
                     </tr>
                 </thead>
                 <tbody>

@@ -131,7 +131,7 @@ void _showTravSImagePreview(
               color: Colors.white,
               shape: const CircleBorder(),
               child: IconButton(
-                tooltip: 'Tutup preview',
+                tooltip: 'Tutup pratinjau',
                 onPressed: () => Navigator.of(context).pop(),
                 icon: const Icon(Icons.close_rounded),
               ),
@@ -408,6 +408,12 @@ class _TravSHomePageState extends State<TravSHomePage> {
       await _refresh();
       if (!mounted) return;
       setState(() => _selectedTabIndex = 3);
+      return;
+    }
+
+    if (result == 'open_driver_manifest') {
+      // ID jadwal yang sama dipakai untuk memuat manifes perjalanan pengemudi.
+      await _openDriverJourneyById(schedule.id);
       return;
     }
 
@@ -782,6 +788,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
       MaterialPageRoute<void>(
         builder: (_) => _DriverJourneyDetailPage(
           record: record,
+          expenseCategories: _appSettings.operationalExpenseCategories,
           onOpenScanner: _openScanner,
           onStartJourney: _startDriverJourney,
           onRecordExpense: _recordDriverOperationalExpense,
@@ -1195,7 +1202,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
           const _EmptyStateCard(
             title: 'Tidak ada perjalanan yang tersedia saat ini.',
             subtitle:
-                'Jadwal akan tampil setelah admin membuka perjalanan baru untuk penumpang.',
+                'Jadwal perjalanan baru belum tersedia. Silakan periksa kembali nanti.',
           ),
           const SizedBox(height: 18),
         ],
@@ -1516,13 +1523,13 @@ class _TravSHomePageState extends State<TravSHomePage> {
             onTap: () => _openDriverJourney(nextTrip),
           ),
         if (nextTrip != null) const SizedBox(height: 16),
-        const _SectionHeader(eyebrow: 'Perjalanan', title: 'Trip aktif'),
+        const _SectionHeader(eyebrow: 'Perjalanan', title: 'Perjalanan aktif'),
         const SizedBox(height: 12),
         if (records.isEmpty)
           const _EmptyStateCard(
             title: 'Tidak ada perjalanan yang tersedia hari ini.',
             subtitle:
-                'Jadwal aktif akan muncul setelah admin menugaskan perjalanan yang masih dibuka atau sedang berjalan.',
+                'Perjalanan aktif yang ditugaskan kepada Anda akan muncul di sini.',
           )
         else
           ...records
@@ -1674,7 +1681,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
           const _EmptyStateCard(
             title: 'Tidak ada perjalanan yang tersedia saat ini.',
             subtitle:
-                'Jadwal akan tampil setelah admin membuka perjalanan baru. Silakan cek kembali nanti.',
+                'Belum ada jadwal perjalanan yang dapat dipesan. Silakan periksa kembali nanti.',
           ),
         ],
         if (availableSchedules.isNotEmpty) ...[
@@ -1735,7 +1742,8 @@ class _TravSHomePageState extends State<TravSHomePage> {
           if (routes.isEmpty)
             const _EmptyStateCard(
               title: 'Belum ada rute tersedia.',
-              subtitle: 'Data rute akan muncul setelah jadwal dibuka admin.',
+              subtitle:
+                  'Rute akan tersedia ketika jadwal perjalanan baru telah dibuka.',
             )
           else
             ...routes.map(
@@ -1812,7 +1820,8 @@ class _TravSHomePageState extends State<TravSHomePage> {
         if (filteredSchedules.isEmpty)
           const _EmptyStateCard(
             title: 'Jadwal belum tersedia.',
-            subtitle: 'Coba pilih rute lain atau tarik halaman untuk refresh.',
+            subtitle:
+                'Coba pilih rute lain atau tarik halaman untuk memuat ulang.',
           )
         else
           ...filteredSchedules.map(

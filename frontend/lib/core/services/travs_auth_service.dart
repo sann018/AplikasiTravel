@@ -113,7 +113,7 @@ class TravSAuthService {
 
     if (registeredEmail.isEmpty) {
       throw const TravSAuthException(
-        'Email akun tidak diterima dari server. Silakan coba lagi.',
+        'Email akun belum dapat dibaca. Silakan coba lagi.',
       );
     }
 
@@ -199,13 +199,15 @@ class TravSAuthService {
         decoded['data'] as Map<String, dynamic>? ?? <String, dynamic>{};
     final session = TravSUserSession.fromJson(data);
     if (session.token.isEmpty) {
-      throw const TravSAuthException('Token login tidak diterima dari server.');
+      throw const TravSAuthException(
+        'Sesi masuk belum dapat dibuat. Silakan coba lagi.',
+      );
     }
 
     if (session.user.isAdmin) {
       await _revokeUnsupportedAdminSession(session.token);
       throw const TravSAuthException(
-        'Akun admin dikelola lewat web admin, bukan lewat aplikasi mobile.',
+        'Akun pengelola hanya dapat digunakan melalui dasbor pengelola.',
       );
     }
 

@@ -112,14 +112,21 @@ class PaymentRevenueReportTest extends TestCase
             ->assertDontSee('Pemesanan Berhasil Bulan Ini')
             ->assertSee('Menunggu Pembayaran')
             ->assertSee('Keberangkatan Hari Ini')
-            ->assertSee('Kesiapan Operasional');
+            ->assertSee('Ringkasan Biaya Operasional')
+            ->assertSee('Biaya Operasional Hari Ini')
+            ->assertDontSee('Armada Aktif')
+            ->assertDontSee('Pengemudi Aktif')
+            ->assertDontSee('Rute Aktif');
 
         $this->assertSame(400000, $response->viewData('stats')['pendapatan_minggu_ini']);
         $this->assertSame(
             $booking->jadwal->rute->kota_asal.' - '.$booking->jadwal->rute->kota_tujuan,
             $response->viewData('ruteTerpopuler')['label'],
         );
+        $this->assertSame(1, $response->viewData('ruteTerpopuler')['jumlah_pemesanan']);
         $this->assertSame(2, $response->viewData('ruteTerpopuler')['jumlah_penumpang']);
+        $response->assertSee('1 pemesanan selesai');
+        $response->assertSee('2 penumpang');
     }
 
     public function test_transaction_report_shows_current_month_and_year_revenue_cards(): void

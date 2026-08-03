@@ -14,7 +14,6 @@ use App\Http\Controllers\Web\Admin\PengaturanController;
 use App\Http\Controllers\Web\Admin\PengemudiController;
 use App\Http\Controllers\Web\Admin\RuteController;
 use App\Http\Controllers\Web\Admin\SettingsController;
-use App\Http\Controllers\Web\Admin\TiketMonitorController;
 use App\Http\Controllers\Web\PasswordResetController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -82,9 +81,11 @@ Route::prefix('admin')->group(function () {
         Route::delete('/jadwal/{jadwal}', [JadwalController::class, 'destroy'])->middleware('throttle:travs-admin-action')->name('admin.jadwal.destroy');
 
         Route::get('/pemesanan', [PemesananController::class, 'index'])->name('admin.pemesanan.index');
+        Route::delete('/pemesanan/riwayat-lama', [PemesananController::class, 'destroyOld'])->middleware('throttle:travs-admin-action')->name('admin.pemesanan.old.destroy');
         Route::get('/pemesanan/{pemesanan}', [PemesananController::class, 'show'])->name('admin.pemesanan.show');
         Route::put('/pemesanan/{pemesanan}', [PemesananController::class, 'update'])->middleware('throttle:travs-admin-action')->name('admin.pemesanan.update');
-        Route::get('/tiket-monitor', [TiketMonitorController::class, 'index'])->name('admin.tiket-monitor.index');
+        // Monitor tiket web Admin sengaja tidak didaftarkan. Verifikasi tiket
+        // tetap dilakukan Pengemudi melalui pemindai QR pada aplikasi mobile.
 
         Route::get('/pembayaran', [PembayaranController::class, 'index'])->name('admin.pembayaran.index');
         Route::get('/pembayaran/{pembayaran}', [PembayaranController::class, 'show'])->name('admin.pembayaran.show');
@@ -93,10 +94,11 @@ Route::prefix('admin')->group(function () {
         Route::get('/biaya-operasional', [BiayaOperasionalController::class, 'index'])->name('admin.biaya.index');
         Route::get('/biaya-operasional/create', [BiayaOperasionalController::class, 'create'])->name('admin.biaya.create');
         Route::get('/biaya-operasional/export', [BiayaOperasionalController::class, 'export'])->name('admin.biaya.export');
+        Route::post('/biaya-operasional/categories', [BiayaOperasionalController::class, 'storeCategory'])->middleware('throttle:travs-admin-action')->name('admin.biaya.categories.store');
+        Route::delete('/biaya-operasional/categories', [BiayaOperasionalController::class, 'destroyCategory'])->middleware('throttle:travs-admin-action')->name('admin.biaya.categories.destroy');
         Route::get('/biaya-operasional/{biayaOperasional}/edit', [BiayaOperasionalController::class, 'edit'])->name('admin.biaya.edit');
         Route::post('/biaya-operasional', [BiayaOperasionalController::class, 'store'])->middleware('throttle:travs-admin-action')->name('admin.biaya.store');
         Route::put('/biaya-operasional/{biayaOperasional}', [BiayaOperasionalController::class, 'update'])->middleware('throttle:travs-admin-action')->name('admin.biaya.update');
-        Route::patch('/biaya-operasional/{biayaOperasional}/verifikasi', [BiayaOperasionalController::class, 'verify'])->middleware('throttle:travs-admin-action')->name('admin.biaya.verify');
         Route::delete('/biaya-operasional/{biayaOperasional}', [BiayaOperasionalController::class, 'destroy'])->middleware('throttle:travs-admin-action')->name('admin.biaya.destroy');
         Route::get('/rekap-biaya', [BiayaOperasionalController::class, 'rekap'])->name('admin.biaya.rekap');
 

@@ -92,19 +92,25 @@ class BookingService
         $this->ensureSeatSelectionValid($seatNumbers);
 
         return DB::transaction(function () use ($user, $scheduleId, $seatNumbers) {
-            return KursiJadwal::query()
+            $lockedSeats = KursiJadwal::query()
                 ->where('jadwal_id', $scheduleId)
                 ->whereIn('nomor_kursi', $seatNumbers->all())
                 ->where('status_kursi', 'terkunci')
                 ->where('dikunci_oleh', $user->id)
                 ->whereDoesntHave('detailPemesanan')
-                ->update([
-                    'status_kursi' => 'tersedia',
-                    'dikunci_oleh' => null,
-                    'locked_at' => null,
-                    'lock_expires_at' => null,
-                    'updated_at' => now(),
-                ]);
+                ->lockForUpdate()
+                ->get();
+
+            // Update per model diperlukan agar observer mengirim perubahan ke perangkat lain.
+            $lockedSeats->each(fn (KursiJadwal $seat) => $seat->update([
+                'status_kursi' => 'tersedia',
+                'dikunci_oleh' => null,
+                'locked_at' => null,
+                'lock_expires_at' => null,
+                'updated_at' => now(),
+            ]));
+
+            return $lockedSeats->count();
         });
     }
 
@@ -271,13 +277,14 @@ class BookingService
         if ($expiredFormLockIds->isNotEmpty()) {
             KursiJadwal::query()
                 ->whereKey($expiredFormLockIds)
-                ->update([
+                ->get()
+                ->each(fn (KursiJadwal $seat) => $seat->update([
                     'status_kursi' => 'tersedia',
                     'dikunci_oleh' => null,
                     'locked_at' => null,
                     'lock_expires_at' => null,
                     'updated_at' => $now,
-                ]);
+                ]));
 
             $released += $expiredFormLockIds->count();
         }
@@ -685,13 +692,13 @@ class BookingService
     {
         if (! $this->pakasirService->isConfigured()) {
             throw ValidationException::withMessages([
-                'project' => 'Layanan pembayaran Pakasir belum aktif pada sistem ini.',
+                'project' => 'Layanan pembayaran Pakasir belum aktif.',
             ]);
         }
 
         if (! $this->pakasirService->validateProject((string) $payload['project'])) {
             throw ValidationException::withMessages([
-                'project' => 'Identitas layanan Pakasir tidak sesuai dengan konfigurasi sistem.',
+                'project' => 'Identitas layanan Pakasir tidak sesuai dengan konfigurasi pembayaran.',
             ]);
         }
 
@@ -837,9 +844,14 @@ class BookingService
                 throw new PakasirException('Data pembayaran lokal tidak ditemukan.');
             }
 
-            $expiredAt = $providerExpiredAt
-                ?? $lockedBooking->batas_pembayaran
+            $adminDeadline = $lockedBooking->batas_pembayaran
                 ?? $this->resolvePaymentLockDeadline(now(), $lockedBooking->jadwal, $paymentMethod);
+
+            // Deadline aplikasi tidak boleh diperpanjang oleh masa berlaku Pakasir.
+            // Jika provider berakhir lebih cepat, gunakan batas provider agar pembayaran tetap valid.
+            $expiredAt = $providerExpiredAt !== null && $providerExpiredAt->lessThan($adminDeadline)
+                ? $providerExpiredAt
+                : $adminDeadline;
 
             $payment->update([
                 'order_id_gateway' => (string) data_get($paymentPayload, 'order_id', $gatewayOrderId),

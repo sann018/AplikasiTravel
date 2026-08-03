@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\BiayaOperasionalPerjalanan;
 use App\Models\Jadwal;
 use App\Models\Rute;
+use App\Services\OperationalExpenseCategoryService;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -14,9 +15,14 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class BiayaOperasionalController extends Controller
 {
+    public function __construct(
+        private readonly OperationalExpenseCategoryService $expenseCategoryService,
+    ) {}
+
     public function index(Request $request): View
     {
         $query = $this->filteredQuery($request);
@@ -63,6 +69,7 @@ class BiayaOperasionalController extends Controller
                     ->count(),
             ],
             'filters' => $request->only(['search', 'rute_id', 'tanggal_mulai', 'tanggal_selesai']),
+            'expenseCategories' => $this->expenseCategoryService->categories(),
             'rekap' => $rekap,
             'periodSummary' => [
                 'total_biaya' => (int) $rekapRecords->sum('nominal'),
@@ -78,6 +85,7 @@ class BiayaOperasionalController extends Controller
     {
         return view('admin.biaya.create', [
             'jadwalOptions' => $this->scheduleOptions(),
+            'expenseCategories' => $this->expenseCategoryService->categories(),
         ]);
     }
 
@@ -86,6 +94,8 @@ class BiayaOperasionalController extends Controller
         return view('admin.biaya.edit', [
             'biaya' => $biayaOperasional,
             'jadwalOptions' => $this->scheduleOptions(),
+            'expenseCategories' => $this->expenseCategoryService
+                ->categoriesForEdit($biayaOperasional->jenis_biaya),
         ]);
     }
 
@@ -116,14 +126,21 @@ class BiayaOperasionalController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $payload = $this->validatedPayload($request);
-        unset($payload['bukti_nota']);
-        $payload['created_by'] = $request->user()->id;
-        $payload['bukti_url'] = $request->file('bukti_nota')->store('biaya-operasional', 'public');
-        // Status internal tetap diisi agar query lama tetap kompatibel, tetapi
-        // pencatatan biaya tidak lagi melalui proses persetujuan.
-        $payload['status_verifikasi'] = 'disetujui';
+        $proofFile = $payload['foto_bukti_nota'];
+        unset($payload['foto_bukti_nota']);
 
-        BiayaOperasionalPerjalanan::query()->create($payload);
+        // Bukti disimpan sebelum data dibuat dan dibersihkan kembali apabila
+        // penyimpanan database gagal agar tidak meninggalkan file yatim.
+        $proofPath = $proofFile->store('biaya-operasional', 'public');
+        $payload['created_by'] = $request->user()->id;
+        $payload['bukti_url'] = $proofPath;
+        try {
+            BiayaOperasionalPerjalanan::query()->create($payload);
+        } catch (Throwable $exception) {
+            Storage::disk('public')->delete($proofPath);
+
+            throw $exception;
+        }
 
         return redirect()
             ->route('admin.biaya.index')
@@ -133,22 +150,67 @@ class BiayaOperasionalController extends Controller
     public function update(Request $request, BiayaOperasionalPerjalanan $biayaOperasional): RedirectResponse
     {
         $payload = $this->validatedPayload($request, $biayaOperasional);
-        unset($payload['bukti_nota']);
-        $oldProofPath = $biayaOperasional->bukti_url;
+        $proofFile = $payload['foto_bukti_nota'] ?? null;
+        unset($payload['foto_bukti_nota']);
 
-        if ($request->hasFile('bukti_nota')) {
-            $payload['bukti_url'] = $request->file('bukti_nota')->store('biaya-operasional', 'public');
+        $oldProofPath = $biayaOperasional->bukti_url;
+        $newProofPath = $proofFile?->store('biaya-operasional', 'public');
+        if ($newProofPath) {
+            $payload['bukti_url'] = $newProofPath;
         }
 
-        $biayaOperasional->update($payload);
+        try {
+            $biayaOperasional->update($payload);
+        } catch (Throwable $exception) {
+            if ($newProofPath) {
+                Storage::disk('public')->delete($newProofPath);
+            }
 
-        if (isset($payload['bukti_url']) && $oldProofPath && $oldProofPath !== $payload['bukti_url']) {
+            throw $exception;
+        }
+
+        if ($newProofPath && $oldProofPath && $oldProofPath !== $newProofPath) {
             Storage::disk('public')->delete($oldProofPath);
         }
 
         return redirect()
             ->route('admin.biaya.index')
             ->with('status', 'Biaya operasional berhasil diperbarui.');
+    }
+
+    public function storeCategory(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'nama_kategori' => ['required', 'string', 'max:60'],
+        ], [
+            'nama_kategori.required' => 'Nama kategori pengeluaran wajib diisi.',
+            'nama_kategori.max' => 'Nama kategori pengeluaran maksimal 60 karakter.',
+        ]);
+
+        $this->expenseCategoryService->add(
+            $validated['nama_kategori'],
+            (int) $request->user()->id,
+        );
+
+        return redirect()
+            ->route('admin.biaya.index')
+            ->with('status', 'Kategori pengeluaran berhasil ditambahkan.');
+    }
+
+    public function destroyCategory(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'nama_kategori' => ['required', 'string', 'max:60'],
+        ]);
+
+        $this->expenseCategoryService->remove(
+            $validated['nama_kategori'],
+            (int) $request->user()->id,
+        );
+
+        return redirect()
+            ->route('admin.biaya.index')
+            ->with('status', 'Kategori pengeluaran berhasil dihapus dari pilihan input.');
     }
 
     public function destroy(BiayaOperasionalPerjalanan $biayaOperasional): RedirectResponse
@@ -166,13 +228,6 @@ class BiayaOperasionalController extends Controller
         }
 
         return back()->with('status', 'Biaya operasional berhasil dihapus.');
-    }
-
-    public function verify(Request $request, BiayaOperasionalPerjalanan $biayaOperasional): RedirectResponse
-    {
-        // Route lama dipertahankan agar tautan lama tidak error, tetapi proses
-        // setujui/tolak sudah tidak digunakan pada pencatatan biaya saat ini.
-        return back()->with('status', 'Pencatatan biaya operasional tidak memerlukan verifikasi.');
     }
 
     public function rekap(): RedirectResponse
@@ -245,6 +300,7 @@ class BiayaOperasionalController extends Controller
             'Nominal',
             'Pencatat',
             'Keterangan',
+            'URL Bukti',
         ]];
 
         foreach ($records as $index => $item) {
@@ -260,6 +316,9 @@ class BiayaOperasionalController extends Controller
                 (float) $item->nominal,
                 $item->pencatat?->nama ?? '-',
                 $item->keterangan ?: '-',
+                $item->bukti_url
+                    ? url(Storage::disk('public')->url($item->bukti_url))
+                    : '-',
             ];
         }
 
@@ -524,29 +583,35 @@ class BiayaOperasionalController extends Controller
         Request $request,
         ?BiayaOperasionalPerjalanan $biayaOperasional = null,
     ): array {
-        // Bukti wajib untuk pencatatan baru. Saat edit, bukti lama boleh tetap
-        // dipakai agar admin tidak perlu mengunggah ulang file yang sama.
-        $proofPresenceRule = $biayaOperasional?->bukti_url ? 'nullable' : 'required';
+        $allowedCategories = $biayaOperasional
+            ? $this->expenseCategoryService->categoriesForEdit($biayaOperasional->jenis_biaya)
+            : $this->expenseCategoryService->categories();
 
         return $request->validate([
             'jadwal_id' => ['required', 'exists:jadwal,id'],
-            'jenis_biaya' => ['required', 'string', 'max:100'],
+            'jenis_biaya' => ['required', 'string', 'max:60', Rule::in($allowedCategories)],
             'nominal' => ['required', 'numeric', 'min:1'],
             'keterangan' => ['required', 'string', 'min:10', 'max:1000'],
             'tanggal_biaya' => ['required', 'date'],
-            'bukti_nota' => [$proofPresenceRule, 'image', 'mimes:jpg,jpeg,png,webp', 'max:3072'],
+            'foto_bukti_nota' => [
+                $biayaOperasional?->bukti_url ? 'nullable' : 'required',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:3072',
+            ],
         ], [
             'jadwal_id.required' => 'Jadwal terkait wajib dipilih.',
             'jenis_biaya.required' => 'Jenis biaya wajib diisi.',
+            'jenis_biaya.in' => 'Kategori pengeluaran tidak tersedia. Pilih kategori yang dikelola admin.',
             'nominal.required' => 'Nominal biaya wajib diisi.',
             'nominal.min' => 'Nominal biaya minimal Rp1.',
             'keterangan.required' => 'Keterangan biaya wajib diisi.',
             'keterangan.min' => 'Keterangan biaya minimal 10 karakter agar mudah diperiksa.',
             'tanggal_biaya.required' => 'Tanggal biaya wajib diisi.',
-            'bukti_nota.required' => 'Foto bukti nota wajib dilampirkan.',
-            'bukti_nota.image' => 'Bukti nota harus berupa gambar.',
-            'bukti_nota.mimes' => 'Bukti nota harus berformat JPG, JPEG, PNG, atau WEBP.',
-            'bukti_nota.max' => 'Ukuran bukti nota maksimal 3 MB.',
+            'foto_bukti_nota.required' => 'Foto bukti/nota wajib diunggah.',
+            'foto_bukti_nota.image' => 'Bukti pengeluaran harus berupa gambar.',
+            'foto_bukti_nota.mimes' => 'Format bukti harus JPG, JPEG, PNG, atau WebP.',
+            'foto_bukti_nota.max' => 'Ukuran foto bukti maksimal 3 MB.',
         ]);
     }
 

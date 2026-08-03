@@ -37,7 +37,7 @@ class AccountValidationTest extends TestCase
             ->assertJsonPath('data.user.no_hp', '08123456789');
     }
 
-    public function test_mobile_password_change_uses_complex_six_to_eight_character_password(): void
+    public function test_mobile_password_change_accepts_complex_password_longer_than_eight_characters(): void
     {
         $user = User::factory()->create([
             'peran' => 'pengemudi',
@@ -63,10 +63,10 @@ class AccountValidationTest extends TestCase
 
         $this->postJson('/api/auth/change-password', [
             'current_password' => 'Lama12!',
-            'password' => 'Baru34!',
-            'password_confirmation' => 'Baru34!',
+            'password' => 'BaruPassword2026!',
+            'password_confirmation' => 'BaruPassword2026!',
         ])->assertOk();
 
-        $this->assertTrue(Hash::check('Baru34!', $user->fresh()->password));
+        $this->assertTrue(Hash::check('BaruPassword2026!', $user->fresh()->password));
     }
 }

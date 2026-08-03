@@ -29,6 +29,9 @@ class _EditProfilePageState extends State<_EditProfilePage> {
       TextEditingController();
   XFile? _selectedPhoto;
   Uint8List? _selectedPhotoBytes;
+  bool _currentPasswordHidden = true;
+  bool _newPasswordHidden = true;
+  bool _confirmPasswordHidden = true;
   bool _isSaving = false;
   String? _errorMessage;
 
@@ -327,10 +330,23 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                       const _ProfileFieldLabel('Password lama'),
                       TextFormField(
                         controller: _currentPasswordController,
-                        obscureText: true,
+                        obscureText: _currentPasswordHidden,
+                        inputFormatters: [LengthLimitingTextInputFormatter(72)],
                         decoration: _profileInputDecoration(
                           hint: 'Password lama',
                           icon: Icons.lock_outline_rounded,
+                          suffixIcon: IconButton(
+                            onPressed: () => setState(
+                              () => _currentPasswordHidden =
+                                  !_currentPasswordHidden,
+                            ),
+                            icon: Icon(
+                              _currentPasswordHidden
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: Colors.black,
+                            ),
+                          ),
                         ),
                         validator: _validateOptionalPasswordGroup,
                       ),
@@ -338,11 +354,22 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                       const _ProfileFieldLabel('Password baru'),
                       TextFormField(
                         controller: _newPasswordController,
-                        obscureText: true,
-                        inputFormatters: [LengthLimitingTextInputFormatter(8)],
+                        obscureText: _newPasswordHidden,
+                        inputFormatters: [LengthLimitingTextInputFormatter(72)],
                         decoration: _profileInputDecoration(
-                          hint: '6-8 karakter, huruf + angka/simbol',
+                          hint: 'Minimal 6 karakter, huruf + angka/simbol',
                           icon: Icons.lock_reset_rounded,
+                          suffixIcon: IconButton(
+                            onPressed: () => setState(
+                              () => _newPasswordHidden = !_newPasswordHidden,
+                            ),
+                            icon: Icon(
+                              _newPasswordHidden
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: Colors.black,
+                            ),
+                          ),
                         ),
                         validator: _validateNewPassword,
                       ),
@@ -350,11 +377,23 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                       const _ProfileFieldLabel('Konfirmasi password baru'),
                       TextFormField(
                         controller: _confirmPasswordController,
-                        obscureText: true,
-                        inputFormatters: [LengthLimitingTextInputFormatter(8)],
+                        obscureText: _confirmPasswordHidden,
+                        inputFormatters: [LengthLimitingTextInputFormatter(72)],
                         decoration: _profileInputDecoration(
                           hint: 'Konfirmasi password baru',
                           icon: Icons.verified_user_outlined,
+                          suffixIcon: IconButton(
+                            onPressed: () => setState(
+                              () => _confirmPasswordHidden =
+                                  !_confirmPasswordHidden,
+                            ),
+                            icon: Icon(
+                              _confirmPasswordHidden
+                                  ? Icons.visibility_off_outlined
+                                  : Icons.visibility_outlined,
+                              color: Colors.black,
+                            ),
+                          ),
                         ),
                         validator: _validateConfirmPassword,
                       ),
@@ -388,10 +427,12 @@ class _EditProfilePageState extends State<_EditProfilePage> {
   InputDecoration _profileInputDecoration({
     required String hint,
     required IconData icon,
+    Widget? suffixIcon,
   }) {
     return InputDecoration(
       hintText: hint,
       prefixIcon: Icon(icon),
+      suffixIcon: suffixIcon,
       filled: true,
       fillColor: Colors.white,
       floatingLabelBehavior: FloatingLabelBehavior.never,
@@ -441,8 +482,8 @@ class _EditProfilePageState extends State<_EditProfilePage> {
     if (!shouldChangePassword) {
       return null;
     }
-    if (value == null || value.length < 6 || value.length > 8) {
-      return 'Password baru harus terdiri dari 6 sampai 8 karakter.';
+    if (value == null || value.length < 6) {
+      return 'Password baru minimal 6 karakter.';
     }
     if (!RegExp(r'[A-Za-z]').hasMatch(value) ||
         !RegExp(r'[0-9]|[^A-Za-z0-9\s]').hasMatch(value)) {

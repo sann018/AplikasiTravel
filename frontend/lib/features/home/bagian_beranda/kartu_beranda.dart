@@ -737,37 +737,39 @@ class _TicketPreviewCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: isCompleted
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(18),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.verified_outlined,
-                    color: isCompleted ? TravSTheme.success : Colors.white,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      isCompleted
-                          ? 'Perjalanan selesai. Tiket ini tersimpan sebagai riwayat.'
-                          : booking.isPaid
-                          ? 'Buka detail tiket untuk melihat QR unik per kursi penumpang.'
-                          : 'Pemesanan ini masih menunggu pembayaran, jadi QR belum aktif.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: isCompleted ? TravSTheme.navy : Colors.white,
+            // Tiket aktif sudah mempunyai ikon QR dan dapat diketuk, sehingga
+            // keterangan pembuka detail tidak perlu diulang di dalam card.
+            if (isCompleted || !booking.isPaid) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: isCompleted
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.verified_outlined,
+                      color: isCompleted ? TravSTheme.success : Colors.white,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        isCompleted
+                            ? 'Perjalanan selesai. Tiket ini tersimpan sebagai riwayat.'
+                            : 'Pemesanan ini masih menunggu pembayaran, jadi QR belum aktif.',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: isCompleted ? TravSTheme.navy : Colors.white,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
+            ],
           ],
         ),
       ),

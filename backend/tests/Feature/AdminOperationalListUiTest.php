@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\Jadwal;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class AdminOperationalListUiTest extends TestCase
@@ -29,6 +31,28 @@ class AdminOperationalListUiTest extends TestCase
             ->assertSee('Booking')
             ->assertSee('Terisi')
             ->assertDontSee('tersedia /');
+    }
+
+    public function test_schedule_list_orders_latest_departure_first(): void
+    {
+        $admin = User::query()->where('email', 'admin@travs.com')->firstOrFail();
+        $schedules = Jadwal::query()->orderBy('id')->limit(2)->get();
+
+        $this->assertCount(2, $schedules);
+
+        $schedules[0]->update([
+            'waktu_berangkat' => Carbon::parse('2099-01-10 08:00:00'),
+            'estimasi_tiba' => Carbon::parse('2099-01-10 12:00:00'),
+        ]);
+        $schedules[1]->update([
+            'waktu_berangkat' => Carbon::parse('2099-02-20 08:00:00'),
+            'estimasi_tiba' => Carbon::parse('2099-02-20 12:00:00'),
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.jadwal.index'));
+
+        $response->assertOk()
+            ->assertSeeInOrder(['20 Feb 2099', '10 Jan 2099']);
     }
 
     public function test_booking_monitoring_only_shows_main_statuses_in_the_list(): void
