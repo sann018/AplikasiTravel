@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('email')->unique();
             $table->string('no_hp', 20)->unique();
             $table->string('foto_profil')->nullable();
-            $table->enum('peran', ['penumpang', 'pengemudi', 'admin'])->default('penumpang');
+            $table->enum('peran', ['penumpang', 'pengemudi', 'petugas_loket', 'admin'])->default('penumpang');
             $table->string('token_push')->nullable();
             $table->boolean('status_aktif')->default(true);
             $table->timestamp('email_verified_at')->nullable();

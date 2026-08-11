@@ -9,6 +9,7 @@ use App\Http\Controllers\Web\Admin\KendaraanController;
 use App\Http\Controllers\Web\Admin\LaporanController;
 use App\Http\Controllers\Web\Admin\NotifikasiController;
 use App\Http\Controllers\Web\Admin\PembayaranController;
+use App\Http\Controllers\Web\Admin\PetugasLoketController;
 use App\Http\Controllers\Web\Admin\PemesananController;
 use App\Http\Controllers\Web\Admin\PengaturanController;
 use App\Http\Controllers\Web\Admin\PengemudiController;
@@ -64,6 +65,15 @@ Route::prefix('admin')->group(function () {
         Route::get('/pengemudi/{pengemudi}/edit', [PengemudiController::class, 'edit'])->name('admin.pengemudi.edit');
         Route::put('/pengemudi/{pengemudi}', [PengemudiController::class, 'update'])->middleware('throttle:travs-admin-action')->name('admin.pengemudi.update');
         Route::delete('/pengemudi/{pengemudi}', [PengemudiController::class, 'destroy'])->middleware('throttle:travs-admin-action')->name('admin.pengemudi.destroy');
+
+        Route::get('/petugas-loket', [PetugasLoketController::class, 'index'])->name('admin.petugas-loket.index');
+        Route::get('/petugas-loket/create', [PetugasLoketController::class, 'create'])->name('admin.petugas-loket.create');
+        Route::post('/petugas-loket', [PetugasLoketController::class, 'store'])->middleware('throttle:travs-admin-action')->name('admin.petugas-loket.store');
+        Route::get('/petugas-loket/{petugas}', [PetugasLoketController::class, 'show'])->name('admin.petugas-loket.show');
+        Route::get('/petugas-loket/{petugas}/edit', [PetugasLoketController::class, 'edit'])->name('admin.petugas-loket.edit');
+        Route::put('/petugas-loket/{petugas}', [PetugasLoketController::class, 'update'])->middleware('throttle:travs-admin-action')->name('admin.petugas-loket.update');
+        Route::patch('/petugas-loket/{petugas}/status', [PetugasLoketController::class, 'toggleStatus'])->middleware('throttle:travs-admin-action')->name('admin.petugas-loket.status');
+        Route::post('/petugas-loket/{petugas}/aktivasi', [PetugasLoketController::class, 'sendActivation'])->middleware('throttle:travs-admin-action')->name('admin.petugas-loket.aktivasi');
 
         Route::get('/rute', [RuteController::class, 'index'])->name('admin.rute.index');
         Route::get('/rute/create', [RuteController::class, 'create'])->name('admin.rute.create');

@@ -7,6 +7,7 @@ import 'package:gal/gal.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../core/models/travs_booking_contract.dart';
 import '../../core/models/travs_user_session.dart';
@@ -52,7 +53,6 @@ class TravSTicketDetailPage extends StatefulWidget {
 class _TravSTicketDetailPageState extends State<TravSTicketDetailPage> {
   late final TravSApiService _apiService;
   late Future<TravSBookingResult> _future;
-  final GlobalKey _ticketCaptureKey = GlobalKey();
   int _selectedTicketIndex = 0;
   bool _isSavingTicket = false;
 
@@ -64,10 +64,15 @@ class _TravSTicketDetailPageState extends State<TravSTicketDetailPage> {
   }
 
   Future<TravSBookingResult> _loadBooking() {
-    return _apiService.loadPassengerBookingDetail(
-      token: widget.session.token,
-      bookingId: widget.bookingId,
-    );
+    return widget.session.user.isCounterStaff
+        ? _apiService.loadCounterBookingDetail(
+            token: widget.session.token,
+            bookingId: widget.bookingId,
+          )
+        : _apiService.loadPassengerBookingDetail(
+            token: widget.session.token,
+            bookingId: widget.bookingId,
+          );
   }
 
   Future<void> _refresh() async {
@@ -88,28 +93,14 @@ class _TravSTicketDetailPageState extends State<TravSTicketDetailPage> {
   ) async {
     if (_isSavingTicket) return;
 
-    setState(() => _isSavingTicket = true);
+    // Tandai proses tanpa membangun ulang card sebelum gambar diambil.
+    _isSavingTicket = true;
     try {
       if (!await _ensureGalleryAccess()) {
         return;
       }
 
-      // Card yang terlihat dirender langsung agar file sama dengan tampilan.
-      final boundary =
-          _ticketCaptureKey.currentContext?.findRenderObject()
-              as RenderRepaintBoundary?;
-      if (boundary == null) {
-        throw StateError('Card tiket belum siap.');
-      }
-
-      final image = await boundary.toImage(pixelRatio: 3);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      image.dispose();
-      if (byteData == null) {
-        throw StateError('Gambar tiket belum dapat dibuat.');
-      }
-
-      final bytes = byteData.buffer.asUint8List();
+      final bytes = await _renderTicketImage(booking, passenger);
       final fileName = _ticketFileName(booking, passenger);
       final customSaver = widget.saveTicketImage;
       if (customSaver != null) {
@@ -144,6 +135,103 @@ class _TravSTicketDetailPageState extends State<TravSTicketDetailPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Tiket belum dapat disimpan. Silakan coba kembali.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isSavingTicket = false);
+    }
+  }
+
+  Future<Uint8List> _renderTicketImage(
+    TravSBookingResult booking,
+    TravSBookingPassengerInfo passenger,
+  ) async {
+    // Tiket landscape dirender pada overlay transparan agar ukurannya tidak
+    // dibatasi lebar layar ponsel dan tidak mengubah pratinjau vertikal.
+    final captureKey = GlobalKey();
+    final overlay = Overlay.of(context, rootOverlay: true);
+    final entry = OverlayEntry(
+      builder: (_) => Positioned.fill(
+        child: IgnorePointer(
+          child: ExcludeSemantics(
+            child: Opacity(
+              // Nilai kecil tetapi tetap dilukis; 0.001 dibulatkan menjadi
+              // transparan penuh oleh engine sehingga PNG belum siap.
+              opacity: 0.01,
+              child: Center(
+                child: FittedBox(
+                  fit: BoxFit.contain,
+                  child: SizedBox(
+                    width: 1200,
+                    height: 675,
+                    child: RepaintBoundary(
+                      key: captureKey,
+                      child: _TicketLandscapeDownloadCard(
+                        booking: booking,
+                        passenger: passenger,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay.insert(entry);
+    try {
+      // Pastikan overlay mendapat satu frame penuh sebelum dijadikan PNG.
+      WidgetsBinding.instance.scheduleFrame();
+      await WidgetsBinding.instance.endOfFrame;
+      final boundary =
+          captureKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+      if (boundary == null) {
+        throw StateError('Card tiket belum siap.');
+      }
+
+      final image = await boundary.toImage(pixelRatio: 2);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
+      if (byteData == null) {
+        throw StateError('Gambar tiket belum dapat dibuat.');
+      }
+
+      return byteData.buffer.asUint8List();
+    } finally {
+      entry.remove();
+    }
+  }
+
+  Future<void> _shareTicket(
+    TravSBookingResult booking,
+    TravSBookingPassengerInfo passenger,
+  ) async {
+    if (_isSavingTicket) return;
+
+    // Card harus tetap memakai frame yang sudah selesai dicat saat dibagikan.
+    _isSavingTicket = true;
+    try {
+      final bytes = await _renderTicketImage(booking, passenger);
+      final fileName = _ticketFileName(booking, passenger);
+
+      // Dialog berbagi memungkinkan admin memilih WhatsApp atau aplikasi lain.
+      await SharePlus.instance.share(
+        ShareParams(
+          text:
+              'Tiket perjalanan RuslyTravel untuk ${passenger.namaPenumpang}.',
+          files: [XFile.fromData(bytes, mimeType: 'image/png')],
+          fileNameOverrides: [fileName],
+        ),
+      );
+    } catch (error) {
+      debugPrint('Gagal membagikan tiket: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tiket belum dapat dibagikan. Silakan coba kembali.'),
         ),
       );
     } finally {
@@ -285,46 +373,55 @@ class _TravSTicketDetailPageState extends State<TravSTicketDetailPage> {
                           ),
                           const SizedBox(height: 16),
                         ],
-                        RepaintBoundary(
-                          key: _ticketCaptureKey,
-                          child: KeyedSubtree(
-                            key: const Key('active-ticket-card'),
-                            child: Column(
-                              children: [
-                                _TicketHeaderCard(booking: booking),
-                                const SizedBox(height: 16),
-                                _TicketCard(
-                                  booking: booking,
-                                  passenger: selectedPassenger!,
-                                ),
-                              ],
-                            ),
+                        KeyedSubtree(
+                          key: const Key('active-ticket-card'),
+                          child: Column(
+                            children: [
+                              _TicketHeaderCard(booking: booking),
+                              const SizedBox(height: 16),
+                              _TicketCard(
+                                booking: booking,
+                                passenger: selectedPassenger!,
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: _isSavingTicket
-                                ? null
-                                : () => _downloadTicket(
-                                    booking,
-                                    selectedPassenger,
-                                  ),
-                            icon: _isSavingTicket
-                                ? const SizedBox.square(
-                                    dimension: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Icons.download_rounded),
-                            label: Text(
-                              _isSavingTicket
-                                  ? 'Menyimpan Tiket...'
-                                  : 'Download Tiket',
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _isSavingTicket
+                                    ? null
+                                    : () => _shareTicket(
+                                        booking,
+                                        selectedPassenger,
+                                      ),
+                                icon: const Icon(Icons.share_rounded),
+                                label: const Text('Bagikan'),
+                              ),
                             ),
-                          ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: _isSavingTicket
+                                    ? null
+                                    : () => _downloadTicket(
+                                        booking,
+                                        selectedPassenger,
+                                      ),
+                                icon: _isSavingTicket
+                                    ? const SizedBox.square(
+                                        dimension: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.download_rounded),
+                                label: const Text('Unduh Tiket'),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ],

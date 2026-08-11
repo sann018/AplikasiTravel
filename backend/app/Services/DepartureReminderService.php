@@ -36,11 +36,16 @@ class DepartureReminderService
                 : 'perjalanan Anda';
 
             foreach ($schedule->pemesanan->where('status_pemesanan', 'terbayar') as $booking) {
+                // Booking loket tanpa akun tidak mempunyai kotak notifikasi pengguna.
+                if ($booking->pengguna_id === null) {
+                    continue;
+                }
+
                 $message = $this->notificationTemplate->renderFromSetting(
                     'notif_departure_reminder_template',
                     'Perjalanan {rute} berangkat pada {tanggal} pukul {jam}.',
                     [
-                        'nama' => $booking->pengguna?->nama ?? 'Penumpang',
+                        'nama' => $booking->namaKontakPemesan(),
                         'rute' => $route,
                         'tanggal' => $schedule->waktu_berangkat?->translatedFormat('d F Y') ?? '-',
                         'jam' => $schedule->waktu_berangkat?->format('H.i') ?? '-',

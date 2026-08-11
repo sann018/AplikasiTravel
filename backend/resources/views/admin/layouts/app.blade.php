@@ -3,7 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#10233f">
     <title>@yield('title', 'Admin') - {{ config('app.name') }}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('rusly-travel-icon.svg') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="travs-admin-body">
@@ -20,6 +22,7 @@
                 'items' => [
                     ['label' => 'Armada Kendaraan', 'route' => 'admin.kendaraan.index', 'active' => 'admin.kendaraan.*', 'icon' => 'truck'],
                     ['label' => 'Pengemudi', 'route' => 'admin.pengemudi.index', 'active' => 'admin.pengemudi.*', 'icon' => 'users'],
+                    ['label' => 'Petugas Loket', 'route' => 'admin.petugas-loket.index', 'active' => 'admin.petugas-loket.*', 'icon' => 'user-check'],
                     ['label' => 'Rute Perjalanan', 'route' => 'admin.rute.index', 'active' => 'admin.rute.*', 'icon' => 'map'],
                     ['label' => 'Manajemen Jadwal', 'route' => 'admin.jadwal.index', 'active' => 'admin.jadwal.*', 'icon' => 'calendar'],
                     ['label' => 'Pemesanan', 'route' => 'admin.pemesanan.index', 'active' => 'admin.pemesanan.*', 'icon' => 'book-open'],
@@ -153,7 +156,7 @@
                                     @endif
                                 </div>
                                 <div class="travs-user-copy">
-                                    <strong>Admin Rusly Travel</strong>
+                                    <strong></strong>
                                 </div>
                         </div>
                     </div>
@@ -161,17 +164,7 @@
             </header>
 
             <div id="main-content">
-                @if (session('status'))
-                    <div class="travs-alert travs-alert-success mb-4 alert alert-success">
-                        {{ session('status') }}
-                    </div>
-                @endif
-
-                @if (session('error'))
-                    <div class="travs-alert travs-alert-danger mb-4 alert alert-danger">
-                        {{ session('error') }}
-                    </div>
-                @endif
+                @include('admin.partials.flash-message')
 
                 @yield('content')
             </div>

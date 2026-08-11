@@ -35,7 +35,8 @@
             <div class="travs-form-grid-2 d-grid">
                 <div class="travs-field">
                     <label for="nama" class="form-label">Nama Lengkap</label>
-                    <input id="nama" name="nama" class="travs-input @error('nama') is-invalid @enderror form-control" value="{{ old('nama', $pengemudi->pengguna->nama) }}" required>
+                    <input id="nama" name="nama" class="travs-input @error('nama') is-invalid @enderror form-control" value="{{ old('nama', $pengemudi->pengguna->nama) }}" required maxlength="100" pattern="[A-Za-z ]+" title="Nama hanya boleh berisi huruf dan spasi" oninput="this.value = this.value.replace(/[^A-Za-z ]/g, '').slice(0, 100)">
+                    <div class="travs-field-meta">Maksimal 100 karakter. Hanya gunakan huruf dan spasi; angka tidak diperbolehkan.</div>
                     @include('admin.partials.field-error', ['name' => 'nama'])
                 </div>
                 <div class="travs-field">
@@ -46,8 +47,8 @@
                 </div>
                 <div class="travs-field">
                     <label for="email" class="form-label">Email</label>
-                    <input id="email" name="email" type="email" class="travs-input @error('email') is-invalid @enderror form-control" value="{{ old('email', $pengemudi->pengguna->email) }}" required pattern="[A-Za-z0-9._%+-]+@gmail\.com">
-                    <div class="travs-field-meta">Gunakan alamat email @gmail.com.</div>
+                    <input id="email" name="email" type="email" class="travs-input @error('email') is-invalid @enderror form-control" value="{{ old('email', $pengemudi->pengguna->email) }}" required maxlength="100">
+                    <div class="travs-field-meta">Gunakan alamat email aktif dari domain apa pun, misalnya Gmail, Yahoo, atau email kampus.</div>
                     @include('admin.partials.field-error', ['name' => 'email'])
                 </div>
                 <div class="travs-field">
@@ -96,12 +97,12 @@
                 <div class="travs-field travs-field-span-2">
                     <label for="password" class="form-label">Password Baru (opsional)</label>
                     <div class="travs-password-control">
-                        <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror form-control" minlength="6" maxlength="72" placeholder="Kosongkan jika tidak diubah">
+                        <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror form-control" minlength="6" maxlength="20" placeholder="Kosongkan jika tidak diubah">
                         <button type="button" class="travs-password-toggle" data-password-toggle data-password-target="password" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
                             <i data-feather="eye" data-password-icon aria-hidden="true"></i>
                         </button>
                     </div>
-                    <div class="travs-field-meta">Jika diisi, gunakan minimal 6 karakter berisi huruf dan minimal satu angka atau simbol.</div>
+                    <div class="travs-field-meta">Jika diisi, gunakan 6–20 karakter berisi huruf dan minimal satu angka atau simbol.</div>
                     @include('admin.partials.field-error', ['name' => 'password'])
                 </div>
             </div>

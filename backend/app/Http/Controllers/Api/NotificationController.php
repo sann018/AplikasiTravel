@@ -9,12 +9,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
-/**
- * Menyediakan data notifikasi untuk aplikasi mobile.
- *
- * Flutter mengecek notifikasi secara berkala. Setiap query selalu dibatasi
- * dengan ID pengguna supaya satu akun tidak bisa membaca notifikasi akun lain.
- */
 class NotificationController extends Controller
 {
     public function __construct(private readonly NotificationHistoryService $notificationHistoryService)

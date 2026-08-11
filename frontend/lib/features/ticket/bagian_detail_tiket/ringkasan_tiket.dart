@@ -7,10 +7,6 @@ class _TicketHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final departure = DateTime.tryParse(booking.waktuBerangkat)?.toLocal();
-    final isCompleted =
-        booking.status == 'selesai' ||
-        (departure != null && departure.isBefore(DateTime.now()));
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -30,25 +26,6 @@ class _TicketHeaderCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              isCompleted
-                  ? 'Perjalanan Selesai'
-                  : booking.isPaid
-                  ? 'Tiket Aktif'
-                  : 'Tiket Belum Aktif',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
           Text(
             booking.rute,
             style: Theme.of(context).textTheme.headlineSmall?.copyWith(

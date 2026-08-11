@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Jadwal;
 use App\Models\Pemesanan;
+use App\Models\User;
 use App\Services\BookingCalculator;
 use App\Services\BookingService;
 use App\Services\PakasirService;
@@ -84,8 +85,6 @@ class BookingController extends Controller
                     'free_weight_kg' => 0,
                     'max_weight_per_person_kg' => 0,
                     'extra_fee_per_kg' => 0,
-                    // Ukuran/cm sudah tidak dipakai di alur pemesanan versi ini.
-                    // Field tetap dikirim sebagai nilai aman agar aplikasi lama tidak error.
                     'size_enabled' => false,
                     'free_size_cm' => 0,
                     'max_size_per_person_cm' => 0,
@@ -188,7 +187,7 @@ class BookingController extends Controller
     /** Membuat booking lebih dulu tanpa memilih metode atau memanggil Pakasir. */
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
+        $rules = [
             'jadwal_id' => ['required', 'integer', 'exists:jadwal,id'],
             'seat_numbers' => ['required', 'array', 'min:1'],
             'seat_numbers.*' => ['required', 'integer', 'min:1'],
@@ -204,7 +203,8 @@ class BookingController extends Controller
             'dropoff.note' => ['required', 'string', 'max:500'],
             'passengers' => ['required', 'array', 'min:1'],
             'passengers.*.seat_number' => ['required', 'integer', 'min:1'],
-            'passengers.*.nama_penumpang' => ['required', 'string', 'max:100'],
+            // Nama pada tiket hanya menerima huruf dan spasi.
+            'passengers.*.nama_penumpang' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z ]+$/'],
             'passengers.*.no_hp_penumpang' => ['required', 'string', 'regex:/^[0-9]{11,12}$/'],
             'baggage_items' => ['nullable', 'array'],
             'baggage_items.*.deskripsi_item' => ['required_with:baggage_items', 'string', 'max:255'],
@@ -220,17 +220,48 @@ class BookingController extends Controller
             'baggage_items.*.foto_url' => ['nullable', 'string', 'max:255'],
             'baggage_items.*.foto_urls' => ['nullable', 'array', 'max:3'],
             'baggage_items.*.foto_urls.*' => ['nullable', 'string', 'max:255'],
-        ], [
+        ];
+
+        if ($request->user()->isPetugasLoket()) {
+            $rules += [
+                'customer' => ['required', 'array'],
+                'customer.name' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z ]+$/'],
+                'customer.phone' => ['required', 'string', 'regex:/^[0-9]{11,12}$/'],
+                'customer.email' => ['nullable', 'email:rfc', 'max:100'],
+                'passenger_account_id' => [
+                    'nullable',
+                    'integer',
+                    Rule::exists('pengguna', 'id')->where('peran', 'penumpang'),
+                ],
+            ];
+        }
+
+        $validated = $request->validate($rules, [
             'baggage_items.*.foto_urls.max' => 'Foto barang bawaan maksimal 3 foto untuk setiap pemesanan.',
             'pickup.address.required' => 'Alamat titik jemput wajib diisi.',
             'pickup.note.required' => 'Catatan atau patokan titik jemput wajib diisi.',
             'dropoff.address.required' => 'Alamat titik turun wajib diisi.',
             'dropoff.note.required' => 'Catatan atau patokan titik turun wajib diisi.',
             'passengers.*.nama_penumpang.required' => 'Nama penumpang wajib diisi.',
+            'passengers.*.nama_penumpang.regex' => 'Nama penumpang hanya boleh berisi huruf dan spasi.',
             'passengers.*.no_hp_penumpang.required' => 'Nomor HP penumpang wajib diisi.',
             'passengers.*.no_hp_penumpang.regex' => 'Nomor HP penumpang harus terdiri dari 11 sampai 12 digit angka.',
+            'customer.name.required' => 'Nama pemesan loket wajib diisi.',
+            'customer.name.regex' => 'Nama pemesan hanya boleh berisi huruf dan spasi.',
+            'customer.phone.required' => 'Nomor HP pemesan loket wajib diisi.',
+            'customer.phone.regex' => 'Nomor HP pemesan harus terdiri dari 11 sampai 12 digit angka.',
+            'customer.email.email' => 'Format email pemesan belum valid.',
         ]);
-        $booking = $this->bookingService->createDraft($request->user(), $validated);
+
+        $booking = $request->user()->isPetugasLoket()
+            ? $this->bookingService->createCounterDraft(
+                $request->user(),
+                isset($validated['passenger_account_id'])
+                    ? User::query()->find((int) $validated['passenger_account_id'])
+                    : null,
+                $validated,
+            )
+            : $this->bookingService->createDraft($request->user(), $validated);
 
         return response()->json([
             'success' => true,
@@ -242,7 +273,7 @@ class BookingController extends Controller
     /** Memilih metode pembayaran setelah booking berhasil dibuat. */
     public function choosePayment(Request $request, Pemesanan $booking): JsonResponse
     {
-        abort_unless($booking->pengguna_id === $request->user()->id, 404);
+        $this->bookingService->ensureUserCanAccessBooking($booking, $request->user());
 
         $validated = $request->validate([
             'payment_method' => ['required', 'string', Rule::in(PaymentMethodCatalog::selectableCodes())],
@@ -293,13 +324,20 @@ class BookingController extends Controller
         $bookings = Pemesanan::query()
             ->with([
                 'pengguna',
+                'dibuatOleh',
                 'jadwal.rute',
                 'jadwal.kendaraan',
                 'jadwal.pengemudi.pengguna',
                 'detailPemesanan.tiketElektronik',
                 'pembayaran',
             ])
-            ->where('pengguna_id', $request->user()->id)
+            ->when(
+                $request->user()->isPetugasLoket(),
+                fn ($query) => $query
+                    ->where('sumber_pemesanan', 'loket')
+                    ->where('dibuat_oleh', $request->user()->id),
+                fn ($query) => $query->where('pengguna_id', $request->user()->id),
+            )
             ->latest()
             ->get();
 
@@ -312,13 +350,14 @@ class BookingController extends Controller
     public function show(Request $request, Pemesanan $booking): JsonResponse
     {
         $this->bookingService->releaseExpiredResources($booking->jadwal_id);
-        abort_unless($booking->pengguna_id === $request->user()->id, 404);
+        $this->bookingService->ensureUserCanAccessBooking($booking, $request->user());
 
         // Route model binding terjadi sebelum proses kedaluwarsa dijalankan.
         // Muat ulang atribut supaya respons tidak membawa status lama.
         $booking->refresh();
         $booking->load([
             'pengguna',
+            'dibuatOleh',
             'jadwal.rute',
             'jadwal.kendaraan',
             'jadwal.pengemudi.pengguna',
@@ -346,19 +385,31 @@ class BookingController extends Controller
 
     public function refreshPaymentStatus(Request $request, Pemesanan $booking): JsonResponse
     {
-        abort_unless($booking->pengguna_id === $request->user()->id, 404);
+        $this->bookingService->ensureUserCanAccessBooking($booking, $request->user());
 
         $booking = $this->bookingService->refreshGatewayPaymentStatus($booking, $request->user());
 
         return response()->json([
             'success' => true,
-            'message' => 'Status pembayaran berhasil diperbarui.',
+            'message' => 'Pemeriksaan status pembayaran selesai.',
+            'data' => $this->formatBooking($booking, true),
+        ]);
+    }
+
+    public function confirmCash(Request $request, Pemesanan $booking): JsonResponse
+    {
+        $this->bookingService->ensureUserCanAccessBooking($booking, $request->user());
+        $booking = $this->bookingService->confirmCashPayment($booking, $request->user());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Pembayaran tunai berhasil dikonfirmasi dan tiket telah diterbitkan.',
             'data' => $this->formatBooking($booking, true),
         ]);
     }
 
     /** Menyusun data booking dan pembayaran yang dikirim ke aplikasi mobile. */
-    private function formatBooking(Pemesanan $booking, bool $full = false): array
+    public function formatBooking(Pemesanan $booking, bool $full = false): array
     {
         $gatewayMeta = $this->pakasirService->decodeGatewayResponse($booking->pembayaran?->gateway_response);
         $createPayment = data_get($gatewayMeta, 'create_payment', []);
@@ -424,6 +475,7 @@ class BookingController extends Controller
         $response = [
             'id' => $booking->id,
             'booking_id' => $booking->id,
+            'jadwal_id' => $booking->jadwal_id,
             'kode_booking' => $booking->kode_booking,
             'order_id' => $booking->kode_booking,
             'status' => $booking->status_pemesanan,
@@ -432,10 +484,15 @@ class BookingController extends Controller
             'batas_pembayaran' => $booking->batas_pembayaran?->toIso8601String(),
             'subtotal_tiket' => (int) $booking->subtotal_tiket,
             'total_harga' => (int) $booking->total_harga,
+            'sumber_pemesanan' => $booking->sumber_pemesanan ?: 'aplikasi_penumpang',
+            'dibuat_oleh' => $booking->dibuatOleh ? [
+                'id' => $booking->dibuatOleh->id,
+                'nama' => $booking->dibuatOleh->nama,
+            ] : null,
             'pemesan' => [
-                'nama' => $booking->pengguna?->nama,
-                'email' => $booking->pengguna?->email,
-                'no_hp' => $booking->pengguna?->no_hp,
+                'nama' => $booking->namaKontakPemesan(),
+                'email' => $booking->emailKontakPemesan(),
+                'no_hp' => $booking->nomorKontakPemesan(),
                 'foto_url' => $this->publicStorageUrl($booking->pengguna?->foto_profil),
             ],
             'rute' => $booking->jadwal?->rute

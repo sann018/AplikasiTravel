@@ -49,7 +49,7 @@ class AdminPasswordToggleUiTest extends TestCase
         $this->assertStringContainsString('::-ms-reveal', $style);
     }
 
-    public function test_reset_password_uses_one_black_icon_without_eight_character_limit(): void
+    public function test_reset_password_uses_one_black_icon_with_twenty_character_limit(): void
     {
         $source = file_get_contents(resource_path('views/auth/reset-password.blade.php'));
 
@@ -60,6 +60,6 @@ class AdminPasswordToggleUiTest extends TestCase
         $this->assertSame(2, substr_count($source, 'data-password-icon'));
         $this->assertStringContainsString('color: #000;', $source);
         $this->assertStringNotContainsString('maxlength="8"', $source);
-        $this->assertStringContainsString('maxlength="72"', $source);
+        $this->assertStringContainsString('maxlength="20"', $source);
     }
 }

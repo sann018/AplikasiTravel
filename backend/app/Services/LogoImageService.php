@@ -1,7 +1,6 @@
 <?php
 
 namespace App\Services;
-
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -10,14 +9,12 @@ use RuntimeException;
 class LogoImageService
 {
     private const MAX_SIDE = 512;
-
     public function store(UploadedFile $file): string
     {
         $binary = file_get_contents($file->getRealPath());
         if ($binary === false) {
             throw new RuntimeException('File logo tidak dapat dibaca.');
         }
-
         return $this->storeResizedBinary($binary);
     }
 

@@ -21,7 +21,7 @@ class AdminOperationalNotificationService
 
         $this->notifyAdmins(
             'Pemesanan baru masuk',
-            "Pemesanan dari {$booking->pengguna?->nama} untuk rute {$route} dengan jadwal keberangkatan {$departure} baru dibuat.",
+            "Pemesanan dari {$booking->namaKontakPemesan()} untuk rute {$route} dengan jadwal keberangkatan {$departure} baru dibuat.",
             'sistem',
             $booking->id,
         );
@@ -49,7 +49,7 @@ class AdminOperationalNotificationService
         [$title, $message] = match ($status) {
             'berhasil' => [
                 'Pembayaran berhasil',
-                "Pembayaran jadwal keberangkatan {$departure} milik {$booking->pengguna?->nama} berhasil dikonfirmasi.",
+                "Pembayaran jadwal keberangkatan {$departure} milik {$booking->namaKontakPemesan()} berhasil dikonfirmasi.",
             ],
             'gagal' => [
                 'Pembayaran gagal',
@@ -75,7 +75,7 @@ class AdminOperationalNotificationService
 
         $this->notifyAdmins(
             'Pembayaran masuk pada pemesanan yang sudah batal',
-            "Pembayaran untuk jadwal keberangkatan {$departure} milik {$booking->pengguna?->nama} berhasil, "
+            "Pembayaran untuk jadwal keberangkatan {$departure} milik {$booking->namaKontakPemesan()} berhasil, "
                 .'tetapi pemesanan sudah dibatalkan/kedaluwarsa sehingga tiket tidak dapat diterbitkan. '
                 .'Periksa transaksi dan proses pengembalian dana secara manual.',
             'pembayaran',

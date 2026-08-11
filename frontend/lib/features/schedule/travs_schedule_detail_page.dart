@@ -103,6 +103,7 @@ class TravSScheduleDetailPage extends StatefulWidget {
     required this.selectedRole,
     required this.appSettings,
     this.session,
+    this.onRequireAuthentication,
     super.key,
   });
 
@@ -110,6 +111,7 @@ class TravSScheduleDetailPage extends StatefulWidget {
   final AppRolePreview selectedRole;
   final AppSettings appSettings;
   final TravSUserSession? session;
+  final VoidCallback? onRequireAuthentication;
 
   @override
   State<TravSScheduleDetailPage> createState() =>
@@ -129,7 +131,9 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage>
   late final TravSSeatRealtimeService _seatRealtimeService;
 
   bool get _canUseBookingForm =>
-      widget.selectedRole == AppRolePreview.passenger && widget.session != null;
+      (widget.selectedRole == AppRolePreview.passenger ||
+          widget.selectedRole == AppRolePreview.counterStaff) &&
+      widget.session != null;
 
   String get _bookingLockedMessage {
     if (widget.selectedRole == AppRolePreview.guest) {
@@ -138,6 +142,10 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage>
 
     if (widget.selectedRole == AppRolePreview.driver) {
       return 'Mode pengemudi hanya bisa melihat informasi kursi untuk kebutuhan manifes.';
+    }
+
+    if (widget.selectedRole == AppRolePreview.counterStaff) {
+      return 'Sesi Petugas Loket belum aktif. Silakan masuk ulang sebelum membuat pemesanan.';
     }
 
     return 'Sesi penumpang belum aktif. Silakan masuk ulang sebelum memilih kursi.';
@@ -300,6 +308,18 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage>
     );
   }
 
+  void _openAuthentication() {
+    final callback = widget.onRequireAuthentication;
+    if (callback == null) {
+      Navigator.of(context).pop('open_login');
+      return;
+    }
+
+    // Tutup detail jadwal dahulu, lalu buka autentikasi dari halaman induk.
+    Navigator.of(context).pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) => callback());
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -390,7 +410,7 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage>
                           // penguncian kursi tercatat pada pengguna yang benar.
                           if (widget.selectedRole == AppRolePreview.guest ||
                               widget.session == null) {
-                            Navigator.of(context).pop('open_login');
+                            _openAuthentication();
                             return;
                           }
 
@@ -412,6 +432,8 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage>
                                   scheduleId: detail.schedule.id,
                                   seatNumbers: _selectedSeatNumbers.toList()
                                     ..sort(),
+                                  counterMode:
+                                      widget.session!.user.isCounterStaff,
                                 );
 
                             if (!context.mounted) {

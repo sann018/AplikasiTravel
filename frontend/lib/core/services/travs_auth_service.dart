@@ -45,7 +45,7 @@ class TravSAuthService {
     try {
       final decoded = jsonDecode(encoded) as Map<String, dynamic>;
       final session = TravSUserSession.fromJson(decoded);
-      if (session.token.isEmpty || session.user.isAdmin) {
+      if (session.token.isEmpty) {
         await clearSession();
         return null;
       }
@@ -204,13 +204,6 @@ class TravSAuthService {
       );
     }
 
-    if (session.user.isAdmin) {
-      await _revokeUnsupportedAdminSession(session.token);
-      throw const TravSAuthException(
-        'Akun pengelola hanya dapat digunakan melalui dasbor pengelola.',
-      );
-    }
-
     await saveSession(session);
     return session;
   }
@@ -244,17 +237,6 @@ class TravSAuthService {
     }
 
     return session;
-  }
-
-  Future<void> _revokeUnsupportedAdminSession(String token) async {
-    try {
-      await TravSApiService.postWithFallback(
-        '/api/auth/logout',
-        headers: TravSApiService.jsonHeaders(token: token),
-      );
-    } catch (_) {
-      // Kegagalan logout admin tidak perlu menghentikan pesan utama ke pengguna.
-    }
   }
 
   Map<String, dynamic> _decodeBody(String body) {

@@ -23,7 +23,10 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'login' => ['required', 'string', 'max:100'],
-            'password' => ['required', 'string', 'max:72'],
+            'password' => ['required', 'string', 'min:6', 'max:20'],
+        ], [
+            'password.min' => 'Kata sandi minimal 6 karakter.',
+            'password.max' => 'Kata sandi maksimal 20 karakter.',
         ]);
 
         $credentials = filter_var($validated['login'], FILTER_VALIDATE_EMAIL)

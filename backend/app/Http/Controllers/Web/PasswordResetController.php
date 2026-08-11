@@ -30,7 +30,7 @@ class PasswordResetController extends Controller
                 'required',
                 'string',
                 'min:6',
-                'max:72',
+                'max:20',
                 'regex:/^(?=.*[A-Za-z])(?=.*(?:[0-9]|[^A-Za-z0-9\s]))\S+$/',
                 'confirmed',
             ],
@@ -40,7 +40,7 @@ class PasswordResetController extends Controller
             'password.required' => 'Kata sandi baru wajib diisi.',
             'password.confirmed' => 'Konfirmasi kata sandi belum sama.',
             'password.min' => 'Kata sandi minimal 6 karakter.',
-            'password.max' => 'Kata sandi maksimal 72 karakter untuk keamanan pemrosesan.',
+            'password.max' => 'Kata sandi maksimal 20 karakter.',
             'password.regex' => 'Kata sandi wajib mengandung huruf dan minimal satu angka atau simbol.',
         ]);
 
@@ -49,6 +49,10 @@ class PasswordResetController extends Controller
             function (User $user, string $password): void {
                 $user->forceFill([
                     'password' => $password,
+                    // Tautan aktivasi Petugas Loket sekaligus memverifikasi email internalnya.
+                    ...($user->isPetugasLoket() && $user->email_verified_at === null
+                        ? ['email_verified_at' => now()]
+                        : []),
                 ])->setRememberToken(Str::random(60));
                 $user->save();
 

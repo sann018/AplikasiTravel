@@ -108,7 +108,10 @@
                             <td>{{ $transaction->order_id_gateway ?: '-' }}</td>
                             <td>
                                 {{ $transaction->pemesanan?->kode_booking ?: '-' }}
-                                <div class="travs-table-subcopy">{{ $transaction->pemesanan?->pengguna?->nama ?: 'Tanpa penumpang' }}</div>
+                                <div class="travs-table-subcopy">{{ $transaction->pemesanan?->namaKontakPemesan() ?: 'Tanpa penumpang' }}</div>
+                                @if ($transaction->pemesanan?->isPemesananLoket())
+                                    <div class="travs-table-subcopy">Loket &middot; {{ $transaction->pemesanan->dibuatOleh?->nama ?: 'Admin tidak tersedia' }}</div>
+                                @endif
                             </td>
                             <td>
                                 <span class="travs-status-pill travs-status-{{ strtolower($transaction->metode_bayar) }} badge rounded-pill">

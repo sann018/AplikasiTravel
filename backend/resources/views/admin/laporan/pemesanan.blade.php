@@ -68,6 +68,15 @@
                 @include('admin.partials.field-error', ['name' => 'status'])
             </div>
             <div class="travs-field">
+                <label for="source" class="form-label">Sumber Pemesanan</label>
+                <select id="source" name="source" class="travs-select @error('source') is-invalid @enderror form-select">
+                    <option value="">Semua sumber</option>
+                    <option value="aplikasi_penumpang" @selected(($filters['source'] ?? '') === 'aplikasi_penumpang')>Aplikasi Penumpang</option>
+                    <option value="loket" @selected(($filters['source'] ?? '') === 'loket')>Loket</option>
+                </select>
+                @include('admin.partials.field-error', ['name' => 'source'])
+            </div>
+            <div class="travs-field">
                 <label for="tanggal_mulai" class="form-label">Tanggal Mulai</label>
                 <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input @error('tanggal_mulai') is-invalid @enderror form-control" value="{{ $filters['tanggal_mulai'] ?? '' }}">
                 @include('admin.partials.field-error', ['name' => 'tanggal_mulai'])
@@ -89,6 +98,7 @@
                     <tr>
                         <th>Kode Pemesanan</th>
                         <th>Penumpang</th>
+                        <th class="text-center">Sumber</th>
                         <th>Rute</th>
                         <th class="text-center">Status</th>
                         <th class="text-center">Kursi</th>
@@ -99,7 +109,13 @@
                     @forelse ($bookings as $booking)
                         <tr>
                             <td>{{ $booking->kode_booking }}</td>
-                            <td>{{ $booking->pengguna->nama }}</td>
+                            <td>
+                                {{ $booking->namaKontakPemesan() }}
+                                @if ($booking->isPemesananLoket() && $booking->dibuatOleh)
+                                    <div class="travs-table-subcopy">Dicatat {{ $booking->dibuatOleh->nama }}</div>
+                                @endif
+                            </td>
+                            <td class="text-center">{{ $booking->isPemesananLoket() ? 'Loket' : 'Aplikasi Penumpang' }}</td>
                             <td>{{ $booking->jadwal->rute->kota_asal }} - {{ $booking->jadwal->rute->kota_tujuan }}</td>
                             <td class="text-center">
                                 <span class="travs-status-pill travs-status-{{ $booking->status_pemesanan }} badge rounded-pill">
@@ -111,7 +127,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6" class="travs-table-empty">Tidak ada pemesanan yang sesuai dengan filter yang dipilih.</td>
+                            <td colspan="7" class="travs-table-empty">Tidak ada pemesanan yang sesuai dengan filter yang dipilih.</td>
                         </tr>
                     @endforelse
                 </tbody>

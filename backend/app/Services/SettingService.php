@@ -52,7 +52,7 @@ class SettingService
 
     /**
      * Informasi penting disimpan sebagai JSON agar admin dapat menambah atau
-     * menghapus pengumuman tanpa menambah tabel baru untuk data yang sederhana.
+     * menghapus pengumuman.
      *
      * @return array<int, array{id:string, title:string, description:string}>
      */

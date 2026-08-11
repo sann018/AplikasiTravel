@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/models/travs_user_session.dart';
 import 'core/models/app_settings.dart';
@@ -92,6 +93,8 @@ class _TravSAppState extends State<TravSApp> {
       title: _appSettings.appName,
       debugShowCheckedModeBanner: false,
       theme: TravSTheme.light(),
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      supportedLocales: const [Locale('id', 'ID'), Locale('en', 'US')],
       home: AnimatedSwitcher(
         duration: const Duration(milliseconds: 240),
         child: _buildHome(),

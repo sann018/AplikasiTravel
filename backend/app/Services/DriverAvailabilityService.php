@@ -10,8 +10,7 @@ use Illuminate\Support\Collection;
 class DriverAvailabilityService
 {
     /**
-     * Dua jam dipakai sebagai jeda operasional tetap tanpa menambah setting,
-     * tabel, atau kolom baru pada database.
+     * Dua jam dipakai sebagai jeda operasional
      */
     private const MINIMUM_TURNAROUND_MINUTES = 120;
 

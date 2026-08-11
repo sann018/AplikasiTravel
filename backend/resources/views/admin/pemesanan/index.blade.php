@@ -37,6 +37,15 @@
                 @include('admin.partials.field-error', ['name' => 'payment_status'])
             </div>
             <div class="travs-field">
+                <label for="source" class="form-label">Sumber Pemesanan</label>
+                <select id="source" name="source" class="travs-select @error('source') is-invalid @enderror form-select">
+                    <option value="">Semua sumber</option>
+                    <option value="aplikasi_penumpang" @selected(($filters['source'] ?? '') === 'aplikasi_penumpang')>Aplikasi Penumpang</option>
+                    <option value="loket" @selected(($filters['source'] ?? '') === 'loket')>Loket</option>
+                </select>
+                @include('admin.partials.field-error', ['name' => 'source'])
+            </div>
+            <div class="travs-field">
                 <label for="tanggal_mulai" class="form-label">Tanggal Mulai</label>
                 <input id="tanggal_mulai" name="tanggal_mulai" type="date" class="travs-input @error('tanggal_mulai') is-invalid @enderror form-control" value="{{ $filters['tanggal_mulai'] ?? '' }}">
                 @include('admin.partials.field-error', ['name' => 'tanggal_mulai'])
@@ -68,23 +77,36 @@
                 </thead>
                 <tbody>
                     @forelse ($pemesanan as $booking)
+                        @php
+                            $contactName = $booking->namaKontakPemesan();
+                            $contactPhone = $booking->nomorKontakPemesan();
+                            $profilePhoto = $booking->pengguna?->foto_profil;
+                        @endphp
                         <tr>
                             <td>
                                 <strong>{{ $booking->kode_booking }}</strong>
                                 <div class="travs-table-subcopy">{{ $booking->created_at->translatedFormat('d M Y H:i') }}</div>
+                                <span class="travs-status-pill badge rounded-pill mt-1">
+                                    {{ $booking->isPemesananLoket() ? 'Loket' : 'Aplikasi Penumpang' }}
+                                </span>
+                                @if ($booking->isPemesananLoket() && $booking->dibuatOleh)
+                                    <div class="travs-counter-source-note mt-2">
+                                        Dicatat oleh Petugas Loket: <strong>{{ $booking->dibuatOleh->nama }}</strong>
+                                    </div>
+                                @endif
                             </td>
                             <td>
                                 <div class="travs-person-cell d-flex align-items-center">
                                     <div class="travs-avatar">
-                                        @if ($booking->pengguna->foto_profil)
-                                            <img class="travs-avatar-image travs-photo-preview-trigger" src="/storage/{{ ltrim($booking->pengguna->foto_profil, '/') }}" alt="Foto {{ $booking->pengguna->nama }}">
+                                        @if ($profilePhoto)
+                                            <img class="travs-avatar-image travs-photo-preview-trigger" src="/storage/{{ ltrim($profilePhoto, '/') }}" alt="Foto {{ $contactName }}">
                                         @else
-                                            <span>{{ strtoupper(mb_substr($booking->pengguna->nama, 0, 1)) }}</span>
+                                            <span>{{ strtoupper(mb_substr($contactName, 0, 1)) }}</span>
                                         @endif
                                     </div>
                                     <div>
-                                        <strong>{{ $booking->pengguna->nama }}</strong>
-                                        <div class="travs-table-subcopy">{{ $booking->pengguna->no_hp }}</div>
+                                        <strong>{{ $contactName }}</strong>
+                                        <div class="travs-table-subcopy">{{ $contactPhone ?: '—' }}</div>
                                     </div>
                                 </div>
                             </td>

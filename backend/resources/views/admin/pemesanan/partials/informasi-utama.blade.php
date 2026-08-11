@@ -1,3 +1,9 @@
+        @php
+            $contactName = $pemesanan->namaKontakPemesan();
+            $contactEmail = $pemesanan->emailKontakPemesan();
+            $contactPhone = $pemesanan->nomorKontakPemesan();
+            $profilePhoto = $pemesanan->pengguna?->foto_profil;
+        @endphp
         <section class="travs-detail-card-grid">
             <article class="travs-section-card card">
                 <div class="travs-panel-title">
@@ -56,24 +62,34 @@
                         <dd>
                             <div class="travs-person-cell d-flex align-items-center">
                                 <div class="travs-avatar">
-                                    @if ($pemesanan->pengguna->foto_profil)
-                                        <img class="travs-avatar-image travs-photo-preview-trigger" src="{{ $storageUrl($pemesanan->pengguna->foto_profil) }}" alt="Foto {{ $pemesanan->pengguna->nama }}">
+                                    @if ($profilePhoto)
+                                        <img class="travs-avatar-image travs-photo-preview-trigger" src="{{ $storageUrl($profilePhoto) }}" alt="Foto {{ $contactName }}">
                                     @else
-                                        <span>{{ strtoupper(mb_substr($pemesanan->pengguna->nama, 0, 1)) }}</span>
+                                        <span>{{ strtoupper(mb_substr($contactName, 0, 1)) }}</span>
                                     @endif
                                 </div>
-                                <strong>{{ $pemesanan->pengguna->nama }}</strong>
+                                <strong>{{ $contactName }}</strong>
                             </div>
                         </dd>
                     </div>
                     <div>
                         <dt>Email</dt>
-                        <dd>{{ $pemesanan->pengguna->email ?: '—' }}</dd>
+                        <dd>{{ $contactEmail ?: '—' }}</dd>
                     </div>
                     <div>
                         <dt>Nomor HP</dt>
-                        <dd>{{ $pemesanan->pengguna->no_hp ?: '—' }}</dd>
+                        <dd>{{ $contactPhone ?: '—' }}</dd>
                     </div>
+                    <div>
+                        <dt>Sumber Pemesanan</dt>
+                        <dd>{{ $pemesanan->isPemesananLoket() ? 'Loket' : 'Aplikasi Penumpang' }}</dd>
+                    </div>
+                    @if ($pemesanan->isPemesananLoket())
+                    <div>
+                        <dt>Petugas Loket Pencatat</dt>
+                        <dd>{{ $pemesanan->dibuatOleh?->nama ?: '—' }}</dd>
+                    </div>
+                    @endif
                     <div>
                         <dt>Jumlah Kursi</dt>
                         <dd>{{ number_format($pemesanan->jumlah_kursi) }} kursi</dd>

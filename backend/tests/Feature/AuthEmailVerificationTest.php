@@ -19,7 +19,7 @@ class AuthEmailVerificationTest extends TestCase
 
         $response = $this->postJson('/api/auth/register', [
             'nama' => 'Penumpang Baru',
-            'email' => 'penumpang.baru@gmail.com',
+            'email' => 'penumpang.baru@polnep.ac.id',
             'no_hp' => '081234567899',
             'password' => 'PasswordPenumpang12!',
             'password_confirmation' => 'PasswordPenumpang12!',
@@ -33,13 +33,18 @@ class AuthEmailVerificationTest extends TestCase
             ->assertJsonMissingPath('data.token');
 
         $user = User::query()
-            ->where('email', 'penumpang.baru@gmail.com')
+            ->where('email', 'penumpang.baru@polnep.ac.id')
             ->firstOrFail();
         $verificationCode = $this->verificationCodeSentTo($user);
 
         $this->assertNotNull($user->otp_code);
         $this->assertTrue(Hash::check($verificationCode, $user->otp_code));
         $this->assertNull($user->email_verified_at);
+        $this->assertEqualsWithDelta(
+            now()->addMinutes(15)->timestamp,
+            $user->otp_expires_at->timestamp,
+            5,
+        );
 
         $this->postJson('/api/auth/login', [
             'login' => $user->email,
@@ -163,17 +168,70 @@ class AuthEmailVerificationTest extends TestCase
         Mail::assertSent(AccountVerificationCodeMail::class, 2);
     }
 
-    public function test_registration_rejects_non_gmail_phone_outside_limit_and_weak_password(): void
+    public function test_registration_rejects_invalid_email_phone_outside_limit_and_weak_password(): void
     {
         $this->postJson('/api/auth/register', [
-            'nama' => 'Penumpang Tidak Valid',
-            'email' => 'penumpang@example.com',
+            'nama' => 'Penumpang Tidak Valid 123',
+            'email' => 'penumpang@',
             'no_hp' => '08123abc',
             'password' => 'abcdef',
             'password_confirmation' => 'abcdef',
         ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['email', 'no_hp', 'password']);
+            ->assertJsonValidationErrors(['nama', 'email', 'no_hp', 'password']);
+
+        $tooLongPassword = str_repeat('A', 20).'1';
+        $this->postJson('/api/auth/register', [
+            'nama' => 'Penumpang Valid',
+            'email' => 'penumpang.valid@yahoo.com',
+            'no_hp' => '081234567890',
+            'password' => $tooLongPassword,
+            'password_confirmation' => $tooLongPassword,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('password');
+
+        $this->postJson('/api/auth/register', [
+            'nama' => str_repeat('A', 51),
+            'email' => 'nama.panjang@proton.me',
+            'no_hp' => '081234567891',
+            'password' => 'PassValid12!',
+            'password_confirmation' => 'PassValid12!',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('nama');
+    }
+
+    public function test_registration_accepts_common_valid_email_domains(): void
+    {
+        Mail::fake();
+
+        $emails = [
+            'penumpang.proton@proton.me',
+            'penumpang.yahoo@yahoo.com',
+            'penumpang.outlook@outlook.com',
+            'penumpang.kampus@polnep.ac.id',
+        ];
+
+        foreach ($emails as $index => $email) {
+            $response = $this->postJson('/api/auth/register', [
+                'nama' => 'Penumpang Uji',
+                'email' => $email,
+                'no_hp' => '08123456'.str_pad((string) $index, 4, '0', STR_PAD_LEFT),
+                'password' => 'PassValid12!',
+                'password_confirmation' => 'PassValid12!',
+            ]);
+
+            $response
+                ->assertCreated()
+                ->assertJsonPath('data.email', $email)
+                ->assertJsonPath('data.expires_in_minutes', 15);
+
+            Mail::assertSent(
+                AccountVerificationCodeMail::class,
+                fn (AccountVerificationCodeMail $mail): bool => $mail->hasTo($email),
+            );
+        }
     }
 
     private function verificationCodeSentTo(User $user): string

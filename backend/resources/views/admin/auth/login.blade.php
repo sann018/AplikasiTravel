@@ -3,7 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#10233f">
     <title>Login Admin - {{ config('app.name') }}</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('rusly-travel-icon.svg') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="travs-admin-auth">
@@ -60,7 +62,8 @@
                                 type="password"
                                 class="form-control form-control-xl"
                                 placeholder="Masukkan kata sandi"
-                                maxlength="72"
+                                minlength="6"
+                                maxlength="20"
                                 required
                             >
                             <div class="form-control-icon">

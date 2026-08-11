@@ -12,7 +12,7 @@ class AccountValidationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_mobile_profile_requires_gmail_and_an_eleven_to_twelve_digit_phone(): void
+    public function test_mobile_profile_accepts_valid_email_domains_and_requires_an_eleven_to_twelve_digit_phone(): void
     {
         $user = User::factory()->create([
             'email' => 'penumpang@gmail.com',
@@ -22,22 +22,32 @@ class AccountValidationTest extends TestCase
         Sanctum::actingAs($user);
 
         $this->putJson('/api/auth/profile', [
-            'email' => 'penumpang@example.com',
+            'nama' => 'Penumpang123',
+            'email' => 'penumpang@',
             'no_hp' => '08123abc',
         ])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['email', 'no_hp']);
+            ->assertJsonValidationErrors(['nama', 'email', 'no_hp']);
 
         $this->putJson('/api/auth/profile', [
-            'email' => 'PENUMPANG.BARU@GMAIL.COM',
+            'nama' => 'Penumpang Baru',
+            'email' => 'PENUMPANG.BARU@YAHOO.COM',
             'no_hp' => '08123456789',
         ])
             ->assertOk()
-            ->assertJsonPath('data.user.email', 'penumpang.baru@gmail.com')
+            ->assertJsonPath('data.user.nama', 'Penumpang Baru')
+            ->assertJsonPath('data.user.email', 'penumpang.baru@yahoo.com')
             ->assertJsonPath('data.user.no_hp', '08123456789');
+
+        $this->putJson('/api/auth/profile', [
+            'email' => 'mahasiswa@polnep.ac.id',
+            'no_hp' => '08123456789',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.user.email', 'mahasiswa@polnep.ac.id');
     }
 
-    public function test_mobile_password_change_accepts_complex_password_longer_than_eight_characters(): void
+    public function test_mobile_password_change_accepts_six_to_twenty_characters_and_rejects_more(): void
     {
         $user = User::factory()->create([
             'peran' => 'pengemudi',
@@ -57,6 +67,15 @@ class AccountValidationTest extends TestCase
             'current_password' => 'Lama12!',
             'password' => 'Lama12!',
             'password_confirmation' => 'Lama12!',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('password');
+
+        $tooLongPassword = str_repeat('A', 20).'1';
+        $this->postJson('/api/auth/change-password', [
+            'current_password' => 'Lama12!',
+            'password' => $tooLongPassword,
+            'password_confirmation' => $tooLongPassword,
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('password');

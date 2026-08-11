@@ -123,6 +123,49 @@ class BookingService
      */
     public function createDraft(User $user, array $payload): Pemesanan
     {
+        return $this->createDraftForActor(
+            actor: $user,
+            passengerAccount: $user,
+            payload: $payload,
+            source: 'aplikasi_penumpang',
+        );
+    }
+
+    /** Membuat pemesanan loket dengan akun penumpang yang bersifat opsional. */
+    public function createCounterDraft(User $counterStaff, ?User $passengerAccount, array $payload): Pemesanan
+    {
+        if (! $counterStaff->isPetugasLoket()) {
+            throw ValidationException::withMessages([
+                'booking' => 'Hanya Petugas Loket yang dapat membuat pemesanan loket.',
+            ]);
+        }
+
+        if ($passengerAccount !== null && ! $passengerAccount->isPenumpang()) {
+            throw ValidationException::withMessages([
+                'passenger_account_id' => 'Akun yang dipilih bukan akun penumpang.',
+            ]);
+        }
+
+        return $this->createDraftForActor(
+            actor: $counterStaff,
+            passengerAccount: $passengerAccount,
+            payload: $payload,
+            source: 'loket',
+        );
+    }
+
+    /**
+     * Jalur inti pemesanan untuk penumpang dan Petugas Loket.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function createDraftForActor(
+        User $actor,
+        ?User $passengerAccount,
+        array $payload,
+        string $source,
+    ): Pemesanan
+    {
         $scheduleId = (int) $payload['jadwal_id'];
         $seatNumbers = $this->normalizeSeatNumbers($payload['seat_numbers'] ?? []);
         $this->ensureSeatSelectionValid($seatNumbers);
@@ -132,7 +175,15 @@ class BookingService
 
         $this->releaseExpiredResources($scheduleId);
 
-        $booking = DB::transaction(function () use ($user, $payload, $scheduleId, $seatNumbers, $passengers) {
+        $booking = DB::transaction(function () use (
+            $actor,
+            $passengerAccount,
+            $payload,
+            $source,
+            $scheduleId,
+            $seatNumbers,
+            $passengers,
+        ) {
             $schedule = Jadwal::query()
                 ->with(['rute', 'kendaraan'])
                 ->lockForUpdate()
@@ -143,10 +194,10 @@ class BookingService
 
             $selectedSeats = $this->loadSeatRowsForUpdate($schedule->id, $seatNumbers);
             $this->ensureSeatRowsMatchSelection($selectedSeats, $seatNumbers);
-            $this->ensureSeatsCanBeUsedByUser($selectedSeats, $user->id);
+            $this->ensureSeatsCanBeUsedByUser($selectedSeats, $actor->id);
 
             $now = now();
-            $this->ensureActiveFormLocksOwnedByUser($selectedSeats, $user->id, $now);
+            $this->ensureActiveFormLocksOwnedByUser($selectedSeats, $actor->id, $now);
 
             $totals = $this->calculator->calculate(
                 $schedule,
@@ -161,7 +212,12 @@ class BookingService
                 ->first();
 
             $booking = Pemesanan::query()->create([
-                'pengguna_id' => $user->id,
+                'pengguna_id' => $passengerAccount?->id,
+                'dibuat_oleh' => $source === 'loket' ? $actor->id : null,
+                'sumber_pemesanan' => $source,
+                'nama_pemesan' => data_get($payload, 'customer.name', $passengerAccount?->nama),
+                'no_hp_pemesan' => data_get($payload, 'customer.phone', $passengerAccount?->no_hp),
+                'email_pemesan' => data_get($payload, 'customer.email', $passengerAccount?->email),
                 'jadwal_id' => $schedule->id,
                 'kode_booking' => $this->generateBookingCode(),
                 'jumlah_kursi' => $seatNumbers->count(),
@@ -194,7 +250,7 @@ class BookingService
 
                 $seat->update([
                     'status_kursi' => 'terkunci',
-                    'dikunci_oleh' => $user->id,
+                    'dikunci_oleh' => $actor->id,
                     'locked_at' => $now,
                     'lock_expires_at' => $paymentDeadline,
                     'updated_at' => $now,
@@ -295,11 +351,7 @@ class BookingService
     /** Memilih metode lalu membuat pembayaran; booking sudah dibuat sebelumnya. */
     public function choosePaymentMethod(Pemesanan $booking, User $user, string $paymentMethod): Pemesanan
     {
-        if ($booking->pengguna_id !== $user->id) {
-            throw ValidationException::withMessages([
-                'booking' => 'Pemesanan tidak ditemukan.',
-            ]);
-        }
+        $this->ensureUserCanAccessBooking($booking, $user);
 
         $this->ensurePaymentMethodEnabled($paymentMethod);
 
@@ -450,11 +502,7 @@ class BookingService
             ]);
         }
 
-        if ($booking->pengguna_id !== $user->id) {
-            throw ValidationException::withMessages([
-                'booking' => 'Pemesanan ini bukan milik akun Anda.',
-            ]);
-        }
+        $this->ensureUserCanAccessBooking($booking, $user);
 
         if (! $booking->pembayaran()->exists()) {
             throw ValidationException::withMessages([
@@ -517,19 +565,23 @@ class BookingService
     }
 
     /**
-     * Menyimpan hasil pembayaran tunai yang sudah dikonfirmasi admin.
+     * Menyimpan hasil pembayaran tunai dari Petugas Loket atau Admin Web.
      *
      * @throws ValidationException
      */
-    public function confirmCashPayment(Pemesanan $booking, User $admin): Pemesanan
+    public function confirmCashPayment(Pemesanan $booking, User $actor): Pemesanan
     {
-        if (! $admin->isAdmin()) {
+        if (! $actor->isPetugasLoket() && ! $actor->isAdmin()) {
             throw ValidationException::withMessages([
-                'payment' => 'Hanya admin yang dapat memverifikasi pembayaran tunai.',
+                'payment' => 'Hanya Petugas Loket atau Admin yang dapat memverifikasi pembayaran tunai.',
             ]);
         }
 
-        return $this->confirmCashPaymentForActor($booking, $admin, 'admin_cash_confirm');
+        $source = $actor->isPetugasLoket()
+            ? 'counter_staff_cash_confirm'
+            : 'admin_cash_confirm';
+
+        return $this->confirmCashPaymentForActor($booking, $actor, $source);
     }
 
     /**
@@ -587,6 +639,14 @@ class BookingService
                 throw ValidationException::withMessages([
                     'payment' => 'Proses ini hanya digunakan untuk konfirmasi pembayaran tunai.',
                 ]);
+            }
+
+            if (
+                in_array($lockedBooking->status_pemesanan, ['terbayar', 'selesai'], true)
+                && $payment->status_bayar === 'berhasil'
+            ) {
+                // Klik ulang tetap aman dan tidak menerbitkan tiket kedua.
+                return $this->freshBookingWithRelations($lockedBooking->id);
             }
 
             if (
@@ -652,11 +712,7 @@ class BookingService
         User $user,
         bool $strictPendingState = false,
     ): Pemesanan {
-        if ($booking->pengguna_id !== $user->id) {
-            throw ValidationException::withMessages([
-                'booking' => 'Pemesanan ini bukan milik akun Anda.',
-            ]);
-        }
+        $this->ensureUserCanAccessBooking($booking, $user);
 
         if (! $booking->pembayaran()->exists()) {
             throw ValidationException::withMessages([
@@ -1191,6 +1247,11 @@ class BookingService
 
     private function createPaymentSuccessNotification(Pemesanan $booking): void
     {
+        // Pemesanan loket tanpa akun tetap berhasil tanpa notifikasi pengguna.
+        if ($booking->pengguna_id === null) {
+            return;
+        }
+
         $booking->loadMissing(['jadwal.rute']);
 
         $routeName = $booking->jadwal?->rute
@@ -1201,7 +1262,7 @@ class BookingService
         $message = $this->notificationTemplate->render(
             'Pembayaran Anda untuk rute {rute} telah berhasil dikonfirmasi.',
             [
-                'nama' => $booking->pengguna?->nama ?? 'Penumpang',
+                'nama' => $booking->namaKontakPemesan(),
                 'rute' => $routeName,
                 // Placeholder lama tetap didukung, tetapi nilainya tidak lagi
                 // membuka kode internal pemesanan pada notifikasi pengguna.
@@ -1303,6 +1364,7 @@ class BookingService
     {
         return Pemesanan::query()->with([
             'pengguna',
+            'dibuatOleh',
             'jadwal.rute',
             'jadwal.kendaraan',
             'jadwal.pengemudi.pengguna',
@@ -1460,6 +1522,21 @@ class BookingService
             throw ValidationException::withMessages([
                 'seat_numbers' => 'Jumlah kursi melebihi batas maksimal dalam satu pemesanan.',
             ]);
+        }
+    }
+
+    /** Memastikan pemesanan hanya dibuka oleh pemilik atau Petugas Loket pembuatnya. */
+    public function ensureUserCanAccessBooking(Pemesanan $booking, User $user): void
+    {
+        $isPassengerOwner = $user->isPenumpang()
+            && (int) $booking->pengguna_id === (int) $user->id;
+        $isCounterCreator = $user->isPetugasLoket()
+            && $booking->isPemesananLoket()
+            && (int) $booking->dibuat_oleh === (int) $user->id;
+
+        if (! $isPassengerOwner && ! $isCounterCreator) {
+            // Respons 404 mencegah pengguna menebak ID pemesanan milik orang lain.
+            abort(404, 'Pemesanan tidak ditemukan untuk akun ini.');
         }
     }
 

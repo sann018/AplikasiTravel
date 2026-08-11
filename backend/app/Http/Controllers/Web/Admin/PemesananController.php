@@ -35,6 +35,7 @@ class PemesananController extends Controller
             'search' => ['nullable', 'string', 'max:80'],
             'status' => ['nullable', Rule::in(['menunggu_pembayaran', 'terbayar', 'dibatalkan', 'selesai'])],
             'payment_status' => ['nullable', Rule::in(['menunggu', 'berhasil', 'gagal', 'kedaluwarsa'])],
+            'source' => ['nullable', Rule::in(['aplikasi_penumpang', 'loket'])],
             'tanggal_mulai' => ['nullable', 'date'],
             'tanggal_selesai' => $tanggalSelesaiRules,
         ], [
@@ -44,7 +45,7 @@ class PemesananController extends Controller
         ]);
 
         $query = Pemesanan::query()
-            ->with(['pengguna', 'jadwal.rute', 'pembayaran'])
+            ->with(['pengguna', 'dibuatOleh', 'jadwal.rute', 'pembayaran'])
             ->withCount([
                 'detailPemesanan',
                 'detailPemesanan as penumpang_hadir_count' => fn ($detailQuery) => $detailQuery
@@ -59,6 +60,9 @@ class PemesananController extends Controller
             $query->where(function ($builder) use ($search) {
                 $builder
                     ->where('kode_booking', 'like', "%{$search}%")
+                    ->orWhere('nama_pemesan', 'like', "%{$search}%")
+                    ->orWhere('no_hp_pemesan', 'like', "%{$search}%")
+                    ->orWhereHas('dibuatOleh', fn ($petugasQuery) => $petugasQuery->where('nama', 'like', "%{$search}%"))
                     ->orWhereHas('pengguna', fn ($penggunaQuery) => $penggunaQuery->where('nama', 'like', "%{$search}%"))
                     ->orWhereHas('jadwal.rute', function ($ruteQuery) use ($search) {
                         $ruteQuery
@@ -74,6 +78,10 @@ class PemesananController extends Controller
 
         if (filled($filters['payment_status'] ?? null)) {
             $query->whereHas('pembayaran', fn ($paymentQuery) => $paymentQuery->where('status_bayar', $filters['payment_status']));
+        }
+
+        if (filled($filters['source'] ?? null)) {
+            $query->where('sumber_pemesanan', $filters['source']);
         }
 
         if (filled($filters['tanggal_mulai'] ?? null)) {
@@ -102,6 +110,7 @@ class PemesananController extends Controller
     {
         $pemesanan->load([
             'pengguna',
+            'dibuatOleh',
             'jadwal.rute',
             'jadwal.kendaraan',
             'jadwal.pengemudi.pengguna',
@@ -176,7 +185,8 @@ class PemesananController extends Controller
                 foreach ($lockedPemesanan->detailPemesanan as $detail) {
                     $detail->kursiJadwal?->update([
                         'status_kursi' => 'terkunci',
-                        'dikunci_oleh' => $lockedPemesanan->pengguna_id,
+                        // Pemesanan loket memakai admin pencatat sebagai pemilik kunci.
+                        'dikunci_oleh' => $lockedPemesanan->dibuat_oleh ?: $lockedPemesanan->pengguna_id,
                         'locked_at' => now(),
                         'lock_expires_at' => $deadline,
                         'updated_at' => now(),

@@ -3,7 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#10233f">
     <title>Atur Ulang Kata Sandi - Rusly Travel</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('rusly-travel-icon.svg') }}">
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; font-family: Arial, sans-serif; background: #f4f7fb; color: #102a4c; }
@@ -53,7 +55,7 @@
 
             <label for="password">Kata Sandi Baru</label>
             <div class="password-field">
-                <input id="password" type="password" name="password" required minlength="6" maxlength="72" autocomplete="new-password" placeholder="Minimal 6 karakter, huruf + angka/simbol">
+                <input id="password" type="password" name="password" required minlength="6" maxlength="20" autocomplete="new-password" placeholder="6–20 karakter, huruf + angka/simbol">
                 <button type="button" class="password-toggle" data-password-toggle data-password-target="password" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
                     <svg data-password-icon aria-hidden="true" viewBox="0 0 24 24">
                         <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path>
@@ -65,7 +67,7 @@
 
             <label for="password_confirmation">Konfirmasi Kata Sandi</label>
             <div class="password-field">
-                <input id="password_confirmation" type="password" name="password_confirmation" required minlength="6" maxlength="72" autocomplete="new-password" placeholder="Ulangi kata sandi baru">
+                <input id="password_confirmation" type="password" name="password_confirmation" required minlength="6" maxlength="20" autocomplete="new-password" placeholder="Ulangi kata sandi baru">
                 <button type="button" class="password-toggle" data-password-toggle data-password-target="password_confirmation" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
                     <svg data-password-icon aria-hidden="true" viewBox="0 0 24 24">
                         <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path>

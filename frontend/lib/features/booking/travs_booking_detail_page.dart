@@ -5,9 +5,11 @@ import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/models/travs_booking_contract.dart';
+import '../../core/models/app_settings.dart';
 import '../../core/models/travs_user_session.dart';
 import '../../core/services/travs_api_service.dart';
 import '../../core/theme/travs_theme.dart';
+import '../payment/travs_payment_preview_page.dart';
 import '../ticket/travs_ticket_detail_page.dart';
 
 // Bagian besar dipisah per fungsi agar file utama lebih mudah dipelajari.
@@ -87,10 +89,16 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
   }
 
   Future<TravSBookingResult> _loadBooking() async {
-    final booking = await _apiService.loadPassengerBookingDetail(
-      token: widget.session.token,
-      bookingId: widget.bookingId,
-    );
+    // Petugas membaca pemesanan loket melalui endpoint khusus milik loket.
+    final booking = widget.session.user.isCounterStaff
+        ? await _apiService.loadCounterBookingDetail(
+            token: widget.session.token,
+            bookingId: widget.bookingId,
+          )
+        : await _apiService.loadPassengerBookingDetail(
+            token: widget.session.token,
+            bookingId: widget.bookingId,
+          );
     if (booking.payment.canChoose && _paymentMethods == null) {
       try {
         _paymentMethods = await _apiService.loadPaymentMethods();
@@ -108,6 +116,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
       final refreshedBooking = await _apiService.refreshPaymentStatus(
         token: widget.session.token,
         bookingId: widget.bookingId,
+        counterMode: widget.session.user.isCounterStaff,
       );
       if (refreshedBooking.isPaid) {
         _shouldRefreshParent = true;
@@ -149,6 +158,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
         token: widget.session.token,
         bookingId: booking.id,
         paymentMethod: method,
+        counterMode: widget.session.user.isCounterStaff,
       );
       if (!mounted) return;
       setState(() {
@@ -236,30 +246,58 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
   }
 
   Future<void> _continuePayment(TravSBookingResult booking) async {
-    final uri = Uri.tryParse(booking.payment.checkoutUrl);
-    if (uri == null || !uri.hasScheme) {
+    if (booking.jadwalId <= 0) {
       if (!mounted) {
         return;
       }
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Tautan pembayaran belum tersedia.'),
+          content: Text('Detail jadwal pembayaran belum tersedia.'),
           behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
 
-    _paymentCheckoutOpened = true;
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!opened && mounted) {
-      _paymentCheckoutOpened = false;
+    setState(() => _isRefreshingPayment = true);
+    try {
+      // Booking dibuka kembali ke halaman pembayaran internal yang sama.
+      final detail = await _apiService.loadScheduleDetailById(booking.jadwalId);
+      AppSettings settings;
+      try {
+        settings = await _apiService.loadMobileSettings();
+      } catch (_) {
+        settings = AppSettings.defaults;
+      }
+
+      if (!mounted) return;
+      setState(() => _isRefreshingPayment = false);
+      final shouldRefresh = await Navigator.of(context).push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (_) => TravSPaymentPreviewPage.resume(
+            detail: detail,
+            appSettings: settings,
+            session: widget.session,
+            booking: booking,
+            apiService: _apiService,
+          ),
+        ),
+      );
+      if (!mounted) return;
+      if (shouldRefresh == true) {
+        _shouldRefreshParent = true;
+      }
+      await _refresh();
+    } on TravSApiException catch (error) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Halaman pembayaran belum dapat dibuka.'),
+        SnackBar(
+          content: Text(error.message),
           behavior: SnackBarBehavior.floating,
         ),
       );
+    } finally {
+      if (mounted) setState(() => _isRefreshingPayment = false);
     }
   }
 
@@ -282,6 +320,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
       final refreshedBooking = await _apiService.refreshPaymentStatus(
         token: widget.session.token,
         bookingId: widget.bookingId,
+        counterMode: widget.session.user.isCounterStaff,
       );
 
       if (!mounted) {
@@ -554,6 +593,10 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
                     children: [
                       _BookingHeaderCard(booking: booking),
+                      if (booking.isCounterBooking) ...[
+                        const SizedBox(height: 12),
+                        _CounterBookingNotice(booking: booking),
+                      ],
                       const SizedBox(height: 16),
                       _DetailSectionCard(
                         title: 'Informasi Pemesanan',
@@ -816,6 +859,54 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CounterBookingNotice extends StatelessWidget {
+  const _CounterBookingNotice({required this.booking});
+
+  final TravSBookingResult booking;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: TravSTheme.orangeSoft,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: TravSTheme.orange.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.storefront_rounded, color: TravSTheme.orange),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Pemesanan Loket',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: TravSTheme.navy,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Dicatat oleh Petugas Loket: ${booking.dibuatOlehNama ?? 'Petugas tidak tersedia'}.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: TravSTheme.navyMuted,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -27,7 +27,7 @@ class LaporanController extends Controller
 
         return view('admin.laporan.okupansi', [
             'jadwals' => $jadwals,
-            'filters' => $request->only(['status', 'tanggal_mulai', 'tanggal_selesai']),
+            'filters' => $request->only(['status', 'source', 'tanggal_mulai', 'tanggal_selesai']),
         ]);
     }
 
@@ -146,6 +146,8 @@ class LaporanController extends Controller
             'Tanggal Pemesanan',
             'Penumpang',
             'No HP',
+            'Sumber Pemesanan',
+            'Admin Pencatat',
             'Rute',
             'Waktu Berangkat',
             'Status Pemesanan',
@@ -159,8 +161,10 @@ class LaporanController extends Controller
                 (string) ($index + 1),
                 $booking->kode_booking,
                 $booking->created_at->format('Y-m-d H:i:s'),
-                $booking->pengguna->nama,
-                $booking->pengguna->no_hp,
+                $booking->namaKontakPemesan(),
+                $booking->nomorKontakPemesan() ?: '-',
+                $booking->isPemesananLoket() ? 'Loket' : 'Aplikasi Penumpang',
+                $booking->dibuatOleh?->nama ?: '-',
                 $booking->jadwal->rute->kota_asal.' - '.$booking->jadwal->rute->kota_tujuan,
                 $booking->jadwal->waktu_berangkat->format('Y-m-d H:i:s'),
                 ucwords(str_replace('_', ' ', $booking->status_pemesanan)),
@@ -194,6 +198,8 @@ class LaporanController extends Controller
             'Kode Transaksi',
             'Kode Pemesanan',
             'Penumpang',
+            'Sumber Pemesanan',
+            'Admin Pencatat',
             'Rute',
             'Metode Bayar',
             'Status Bayar',
@@ -210,7 +216,9 @@ class LaporanController extends Controller
                 (string) ($index + 1),
                 $transaction->order_id_gateway ?: '-',
                 $transaction->pemesanan?->kode_booking ?: '-',
-                $transaction->pemesanan?->pengguna?->nama ?: '-',
+                $transaction->pemesanan?->namaKontakPemesan() ?: '-',
+                $transaction->pemesanan?->isPemesananLoket() ? 'Loket' : 'Aplikasi Penumpang',
+                $transaction->pemesanan?->dibuatOleh?->nama ?: '-',
                 $transaction->pemesanan
                     ? $transaction->pemesanan->jadwal->rute->kota_asal.' - '.$transaction->pemesanan->jadwal->rute->kota_tujuan
                 : '-',
@@ -253,16 +261,21 @@ class LaporanController extends Controller
         // Validasi dipakai bersama oleh tampilan dan export laporan pemesanan.
         $request->validate([
             'status' => ['nullable', Rule::in(['menunggu_pembayaran', 'terbayar', 'dibatalkan', 'selesai'])],
+            'source' => ['nullable', Rule::in(['aplikasi_penumpang', 'loket'])],
             'tanggal_mulai' => ['nullable', 'date'],
             'tanggal_selesai' => $tanggalSelesaiRules,
         ], $this->dateFilterMessages());
 
         $query = Pemesanan::query()
-            ->with(['pengguna', 'jadwal.rute', 'pembayaran'])
+            ->with(['pengguna', 'dibuatOleh', 'jadwal.rute', 'pembayaran'])
             ->withCount('detailPemesanan');
 
         if ($request->filled('status')) {
             $query->where('status_pemesanan', $request->string('status'));
+        }
+
+        if ($request->filled('source')) {
+            $query->where('sumber_pemesanan', $request->string('source'));
         }
 
         if ($request->filled('tanggal_mulai')) {
@@ -337,7 +350,11 @@ class LaporanController extends Controller
             'tanggal_selesai' => $tanggalSelesaiRules,
         ], $this->dateFilterMessages());
 
-        $query = Pembayaran::query()->with(['pemesanan.pengguna', 'pemesanan.jadwal.rute']);
+        $query = Pembayaran::query()->with([
+            'pemesanan.pengguna',
+            'pemesanan.dibuatOleh',
+            'pemesanan.jadwal.rute',
+        ]);
 
         if ($request->filled('status')) {
             $query->where('status_bayar', $request->string('status'));

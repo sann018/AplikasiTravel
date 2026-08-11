@@ -356,6 +356,39 @@ class BookingFlowTest extends TestCase
             ->assertStatus(429);
     }
 
+    public function test_booking_rejects_passenger_name_containing_numbers(): void
+    {
+        $user = User::query()->where('peran', 'penumpang')->firstOrFail();
+        $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        [$seatNumber] = $this->availableSeatNumbers($jadwal, 1);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/penumpang/bookings', [
+            'jadwal_id' => $jadwal->id,
+            'seat_numbers' => [$seatNumber],
+            'pickup' => [
+                'latitude' => -0.0225,
+                'longitude' => 109.3425,
+                'address' => 'Jalan Ahmad Yani Pontianak',
+                'note' => 'Depan gerbang utama',
+            ],
+            'dropoff' => [
+                'latitude' => 0.1285,
+                'longitude' => 111.4986,
+                'address' => 'Terminal Sintang',
+                'note' => 'Pintu masuk terminal',
+            ],
+            'passengers' => [[
+                'seat_number' => $seatNumber,
+                'nama_penumpang' => 'Penumpang123',
+                'no_hp_penumpang' => '081200000001',
+            ]],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['passengers.0.nama_penumpang']);
+    }
+
     public function test_passenger_can_create_booking_draft_and_lock_selected_seats(): void
     {
         $user = User::query()->where('peran', 'penumpang')->firstOrFail();
@@ -385,12 +418,12 @@ class BookingFlowTest extends TestCase
             'passengers' => [
                 [
                     'seat_number' => $seatA,
-                    'nama_penumpang' => 'Penumpang Test 1',
+                    'nama_penumpang' => 'Penumpang Test Satu',
                     'no_hp_penumpang' => '081200000001',
                 ],
                 [
                     'seat_number' => $seatB,
-                    'nama_penumpang' => 'Penumpang Test 2',
+                    'nama_penumpang' => 'Penumpang Test Dua',
                     'no_hp_penumpang' => '081200000002',
                 ],
             ],
@@ -800,9 +833,9 @@ class BookingFlowTest extends TestCase
             'batas_kunci_kursi' => now()->addMinutes(30),
             'batas_pembayaran' => now()->addMinutes(5),
             'alamat_jemput' => 'Pickup existing',
-                'subtotal_tiket' => 225000,
-                'total_harga' => 225000,
-                'status_pemesanan' => 'menunggu_pembayaran',
+            'subtotal_tiket' => 225000,
+            'total_harga' => 225000,
+            'status_pemesanan' => 'menunggu_pembayaran',
         ]);
 
         $existingBooking->itemBagasi()->create([

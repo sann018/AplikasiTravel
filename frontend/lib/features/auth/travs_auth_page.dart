@@ -327,31 +327,60 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
                               ),
                               if (!_isRegisterMode) ...[
                                 const SizedBox(height: 10),
-                                OutlinedButton.icon(
+                                OutlinedButton(
                                   onPressed: _isSubmitting
                                       ? null
                                       : widget.onContinueAsGuest,
-                                  icon: const Icon(Icons.visibility_outlined),
-                                  label: const Text('Lanjut Sebagai Tamu'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: TravSTheme.orange,
+                                    backgroundColor: TravSTheme.orangeSoft,
+                                    side: BorderSide(
+                                      color: TravSTheme.orange.withValues(
+                                        alpha: 0.55,
+                                      ),
+                                    ),
+                                    textStyle: const TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  child: const Text('Tamu'),
                                 ),
                               ],
                               const SizedBox(height: 10),
-                              Text(
-                                _isRegisterMode
-                                    ? 'Sudah punya akun?'
-                                    : 'Belum punya akun?',
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: TravSTheme.navyMuted,
-                                ),
-                              ),
-                              TextButton(
-                                onPressed: _isSubmitting ? null : _toggleMode,
-                                child: Text(
-                                  _isRegisterMode
-                                      ? 'Kembali ke Masuk'
-                                      : 'Daftar Akun Penumpang',
-                                ),
+                              Wrap(
+                                alignment: WrapAlignment.center,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Text(
+                                    _isRegisterMode
+                                        ? 'Sudah punya akun?'
+                                        : 'Belum punya akun?',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: TravSTheme.navyMuted,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  TextButton(
+                                    onPressed: _isSubmitting
+                                        ? null
+                                        : _toggleMode,
+                                    style: TextButton.styleFrom(
+                                      minimumSize: Size.zero,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 5,
+                                        vertical: 4,
+                                      ),
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      textStyle: const TextStyle(fontSize: 12),
+                                    ),
+                                    child: Text(
+                                      _isRegisterMode
+                                          ? 'Masuk'
+                                          : 'Daftar Sekarang',
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -368,6 +397,37 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
     );
   }
 
+  /// Teks bantuan dan validasi dibuat kecil serta dapat membungkus agar
+  /// seluruh batasan input tetap terbaca pada layar ponsel yang sempit.
+  InputDecoration _authInputDecoration({
+    required String labelText,
+    required String hintText,
+    required IconData prefixIcon,
+    String? helperText,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      labelText: labelText,
+      hintText: hintText,
+      prefixIcon: Icon(prefixIcon),
+      suffixIcon: suffixIcon,
+      helperText: helperText,
+      helperMaxLines: 3,
+      errorMaxLines: 3,
+      helperStyle: const TextStyle(
+        color: TravSTheme.navyMuted,
+        fontSize: 10.5,
+        height: 1.3,
+      ),
+      errorStyle: const TextStyle(
+        color: TravSTheme.danger,
+        fontSize: 10.5,
+        height: 1.3,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+
   List<Widget> _buildLoginFields() {
     return [
       TextFormField(
@@ -375,10 +435,11 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         keyboardType: TextInputType.emailAddress,
         textInputAction: TextInputAction.next,
         style: const TextStyle(color: TravSTheme.navy),
-        decoration: const InputDecoration(
+        decoration: _authInputDecoration(
           labelText: 'Email atau nomor HP',
           hintText: 'contoh: penumpang@travs.com',
-          prefixIcon: Icon(Icons.alternate_email_rounded),
+          prefixIcon: Icons.alternate_email_rounded,
+          helperText: 'Gunakan email atau nomor HP 11–12 digit yang terdaftar.',
         ),
         validator: (value) {
           if (value == null || value.trim().isEmpty) {
@@ -393,11 +454,12 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         obscureText: _loginPasswordHidden,
         style: const TextStyle(color: TravSTheme.navy),
         textInputAction: TextInputAction.done,
-        inputFormatters: [LengthLimitingTextInputFormatter(72)],
-        decoration: InputDecoration(
+        inputFormatters: [LengthLimitingTextInputFormatter(20)],
+        decoration: _authInputDecoration(
           labelText: 'Kata sandi',
           hintText: 'Masukkan kata sandi',
-          prefixIcon: const Icon(Icons.lock_outline_rounded),
+          prefixIcon: Icons.lock_outline_rounded,
+          helperText: 'Masukkan kata sandi akun sebanyak 6–20 karakter.',
           suffixIcon: IconButton(
             onPressed: () {
               setState(() {
@@ -415,6 +477,12 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         validator: (value) {
           if (value == null || value.isEmpty) {
             return 'Kata sandi wajib diisi.';
+          }
+          if (value.length < 6) {
+            return 'Kata sandi minimal 6 karakter.';
+          }
+          if (value.length > 20) {
+            return 'Kata sandi maksimal 20 karakter.';
           }
           return null;
         },
@@ -449,15 +517,26 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
       TextFormField(
         controller: _registerNameController,
         textInputAction: TextInputAction.next,
+        inputFormatters: [
+          // Nama akun hanya menerima huruf dan spasi.
+          FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z ]')),
+          LengthLimitingTextInputFormatter(50),
+        ],
         style: const TextStyle(color: TravSTheme.navy),
-        decoration: const InputDecoration(
+        decoration: _authInputDecoration(
           labelText: 'Nama lengkap',
           hintText: 'Masukkan nama lengkap',
-          prefixIcon: Icon(Icons.person_outline_rounded),
+          prefixIcon: Icons.person_outline_rounded,
+          helperText:
+              'Hanya gunakan huruf dan spasi; angka tidak diperbolehkan.',
         ),
         validator: (value) {
-          if (value == null || value.trim().isEmpty) {
+          final name = value?.trim() ?? '';
+          if (name.isEmpty) {
             return 'Nama lengkap wajib diisi.';
+          }
+          if (!RegExp(r'^[A-Za-z ]+$').hasMatch(name)) {
+            return 'Nama lengkap hanya boleh berisi huruf dan spasi.';
           }
           return null;
         },
@@ -467,21 +546,20 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         controller: _registerEmailController,
         keyboardType: TextInputType.emailAddress,
         textInputAction: TextInputAction.next,
+        inputFormatters: [LengthLimitingTextInputFormatter(100)],
         style: const TextStyle(color: TravSTheme.navy),
-        decoration: const InputDecoration(
+        decoration: _authInputDecoration(
           labelText: 'Email',
-          hintText: 'nama@gmail.com',
-          prefixIcon: Icon(Icons.mail_outline_rounded),
+          hintText: 'nama@contoh.com',
+          prefixIcon: Icons.mail_outline_rounded,
+          helperText: 'Gunakan email yang terdaftar.',
         ),
         validator: (value) {
           if (value == null || value.trim().isEmpty) {
             return 'Email wajib diisi.';
           }
-          if (!RegExp(
-            r'^[^@\s]+@gmail\.com$',
-            caseSensitive: false,
-          ).hasMatch(value.trim())) {
-            return 'Email wajib menggunakan alamat @gmail.com.';
+          if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim())) {
+            return 'Masukkan alamat email yang valid.';
           }
           return null;
         },
@@ -496,10 +574,11 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
           LengthLimitingTextInputFormatter(12),
         ],
         style: const TextStyle(color: TravSTheme.navy),
-        decoration: const InputDecoration(
+        decoration: _authInputDecoration(
           labelText: 'Nomor HP',
           hintText: '08xxxxxxxxxx',
-          prefixIcon: Icon(Icons.phone_outlined),
+          prefixIcon: Icons.phone_outlined,
+          helperText: 'Masukkan 11–12 digit angka tanpa spasi atau tanda baca.',
         ),
         validator: (value) {
           if (value == null || value.trim().isEmpty) {
@@ -517,12 +596,14 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         controller: _registerPasswordController,
         obscureText: _registerPasswordHidden,
         textInputAction: TextInputAction.next,
-        inputFormatters: [LengthLimitingTextInputFormatter(72)],
+        inputFormatters: [LengthLimitingTextInputFormatter(20)],
         style: const TextStyle(color: TravSTheme.navy),
-        decoration: InputDecoration(
+        decoration: _authInputDecoration(
           labelText: 'Kata sandi',
-          hintText: 'Minimal 6 karakter, huruf + angka/simbol',
-          prefixIcon: const Icon(Icons.lock_outline_rounded),
+          hintText: 'Masukkan kata sandi',
+          prefixIcon: Icons.lock_outline_rounded,
+          helperText:
+              'Minimal 6 karakter dan maksimal 20 karakter, berisi huruf serta angka atau simbol.',
           suffixIcon: IconButton(
             onPressed: () {
               setState(() {
@@ -544,6 +625,9 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
           if (value.length < 6) {
             return 'Kata sandi minimal 6 karakter.';
           }
+          if (value.length > 20) {
+            return 'Kata sandi maksimal 20 karakter.';
+          }
           final hasLetter = RegExp(r'[A-Za-z]').hasMatch(value);
           final hasNumberOrSymbol = RegExp(
             r'[0-9]|[^A-Za-z0-9\s]',
@@ -559,12 +643,12 @@ class _TravSAuthPageState extends State<TravSAuthPage> {
         controller: _registerConfirmPasswordController,
         obscureText: _registerConfirmPasswordHidden,
         textInputAction: TextInputAction.done,
-        inputFormatters: [LengthLimitingTextInputFormatter(72)],
+        inputFormatters: [LengthLimitingTextInputFormatter(20)],
         style: const TextStyle(color: TravSTheme.navy),
-        decoration: InputDecoration(
+        decoration: _authInputDecoration(
           labelText: 'Konfirmasi kata sandi',
           hintText: 'Ulangi kata sandi',
-          prefixIcon: const Icon(Icons.verified_user_outlined),
+          prefixIcon: Icons.verified_user_outlined,
           suffixIcon: IconButton(
             onPressed: () {
               setState(() {

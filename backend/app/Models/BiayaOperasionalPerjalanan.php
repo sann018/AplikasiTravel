@@ -9,14 +9,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class BiayaOperasionalPerjalanan extends Model
 {
     /**
-     * Nama tabel database yang digunakan model ini.
      *
      * @var string
      */
     protected $table = 'biaya_operasional_perjalanan';
 
     /**
-     * Kolom yang boleh diisi sekaligus saat membuat atau memperbarui data.
      *
      * @var array<int, string>
      */
@@ -39,8 +37,6 @@ class BiayaOperasionalPerjalanan extends Model
     }
 
     /**
-     * Semua biaya yang tersimpan merupakan pencatatan final. Scope dipertahankan
-     * agar query laporan lama tetap kompatibel setelah atribut verifikasi dihapus.
      */
     public function scopeFinalized(Builder $query): Builder
     {
@@ -56,5 +52,4 @@ class BiayaOperasionalPerjalanan extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
-
 }

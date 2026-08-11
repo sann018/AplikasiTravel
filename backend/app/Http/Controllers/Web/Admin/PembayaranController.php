@@ -39,7 +39,7 @@ class PembayaranController extends Controller
         ]);
 
         $query = Pembayaran::query()
-            ->with(['pemesanan.pengguna', 'pemesanan.jadwal.rute']);
+            ->with(['pemesanan.pengguna', 'pemesanan.dibuatOleh', 'pemesanan.jadwal.rute']);
 
         if (filled($filters['search'] ?? null)) {
             $search = $this->escapeLikeValue((string) $filters['search']);
@@ -50,6 +50,8 @@ class PembayaranController extends Controller
                     ->orWhereHas('pemesanan', function (Builder $bookingQuery) use ($search) {
                         $bookingQuery
                             ->where('kode_booking', 'like', "%{$search}%")
+                            ->orWhere('nama_pemesan', 'like', "%{$search}%")
+                            ->orWhere('no_hp_pemesan', 'like', "%{$search}%")
                             ->orWhereHas('pengguna', fn (Builder $userQuery) => $userQuery->where('nama', 'like', "%{$search}%"))
                             ->orWhereHas('jadwal.rute', function (Builder $routeQuery) use ($search) {
                                 $routeQuery
@@ -99,6 +101,7 @@ class PembayaranController extends Controller
     {
         $pembayaran->load([
             'pemesanan.pengguna',
+            'pemesanan.dibuatOleh',
             'pemesanan.jadwal.rute',
         ]);
 

@@ -1024,6 +1024,8 @@ class PaymentGatewayTest extends TestCase
 
         $response
             ->assertOk()
+            ->assertJsonPath('message', 'Pemeriksaan status pembayaran selesai.')
+            ->assertJsonPath('data.jadwal_id', $booking->jadwal_id)
             ->assertJsonPath('data.status', 'terbayar')
             ->assertJsonPath('data.payment.status', 'berhasil');
 

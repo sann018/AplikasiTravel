@@ -9,7 +9,6 @@ class NotificationHistoryService
 {
     /**
      * Menandai hanya notifikasi yang benar-benar ditampilkan kepada pemiliknya.
-     * Cara ini menjaga proses polling agar tidak menghabiskan badge sebelum daftar dibuka.
      */
     public function markDisplayedAsRead(int $userId, Collection $notifications): int
     {

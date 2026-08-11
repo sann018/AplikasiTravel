@@ -21,9 +21,12 @@ use Throwable;
 
 class AuthController extends Controller
 {
+    private const OTP_EXPIRATION_MINUTES = 15;
+
     public function register(Request $request): JsonResponse
     {
         $request->merge([
+            'nama' => trim((string) $request->input('nama')),
             'email' => Str::lower(trim((string) $request->input('email'))),
             'no_hp' => trim((string) $request->input('no_hp')),
         ]);
@@ -36,12 +39,12 @@ class AuthController extends Controller
             ->first();
 
         $validated = $request->validate([
-            'nama' => ['required', 'string', 'max:100'],
+            // Nama akun hanya menerima huruf dan spasi agar tidak berisi angka.
+            'nama' => ['required', 'string', 'max:50', 'regex:/^[A-Za-z ]+$/'],
             'email' => [
                 'required',
-                'email',
+                'email:rfc',
                 'max:100',
-                'regex:/^[^@\s]+@gmail\.com$/i',
                 Rule::unique('pengguna', 'email')->ignore($pendingUser?->id),
             ],
             'no_hp' => [
@@ -54,23 +57,24 @@ class AuthController extends Controller
                 'required',
                 'string',
                 'min:6',
-                'max:72',
+                'max:20',
                 'regex:/^(?=.*[A-Za-z])(?=.*(?:[0-9]|[^A-Za-z0-9\s]))\S+$/',
                 'confirmed',
             ],
             'device_name' => ['nullable', 'string', 'max:100'],
         ], [
             'nama.required' => 'Nama lengkap wajib diisi.',
+            'nama.max' => 'Nama lengkap maksimal 50 karakter.',
+            'nama.regex' => 'Nama lengkap hanya boleh berisi huruf dan spasi.',
             'email.required' => 'Email wajib diisi.',
             'email.email' => 'Format email belum valid.',
-            'email.regex' => 'Email wajib menggunakan alamat @gmail.com.',
             'email.unique' => 'Email sudah terdaftar. Silakan masuk atau gunakan email lain.',
             'no_hp.required' => 'Nomor HP wajib diisi.',
             'no_hp.regex' => 'Nomor HP harus terdiri dari 11 sampai 12 digit angka.',
             'no_hp.unique' => 'Nomor HP sudah terdaftar. Silakan masuk atau gunakan nomor lain.',
             'password.required' => 'Kata sandi wajib diisi.',
             'password.min' => 'Kata sandi minimal 6 karakter.',
-            'password.max' => 'Kata sandi maksimal 72 karakter untuk keamanan pemrosesan.',
+            'password.max' => 'Kata sandi maksimal 20 karakter.',
             'password.regex' => 'Kata sandi wajib mengandung huruf dan minimal satu angka atau simbol.',
             'password.confirmed' => 'Konfirmasi kata sandi belum sama.',
         ]);
@@ -86,7 +90,7 @@ class AuthController extends Controller
             'password' => $validated['password'],
             // Kode asli hanya dikirim melalui email; database menyimpan hash.
             'otp_code' => Hash::make($verificationCode),
-            'otp_expires_at' => now()->addMinutes(15),
+            'otp_expires_at' => now()->addMinutes(self::OTP_EXPIRATION_MINUTES),
         ];
 
         if ($pendingUser) {
@@ -119,7 +123,7 @@ class AuthController extends Controller
             'message' => 'Registrasi berhasil. Kode verifikasi telah dikirim ke email Anda.',
             'data' => [
                 'email' => $user->email,
-                'expires_in_minutes' => 15,
+                'expires_in_minutes' => self::OTP_EXPIRATION_MINUTES,
                 'requires_email_verification' => true,
                 'user' => $this->formatUser($user, $request),
             ],
@@ -129,7 +133,7 @@ class AuthController extends Controller
     public function verifyEmail(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'email' => ['required', 'email', 'max:100'],
+            'email' => ['required', 'email:rfc', 'max:100'],
             'code' => ['required', 'digits:6'],
             'device_name' => ['nullable', 'string', 'max:100'],
         ], [
@@ -167,7 +171,10 @@ class AuthController extends Controller
             'otp_expires_at' => null,
         ])->save();
 
-        $token = $user->createToken($validated['device_name'] ?? 'travs-mobile')->plainTextToken;
+        $token = $user->createToken(
+            $validated['device_name'] ?? 'travs-mobile',
+            $this->mobileTokenAbilities($user),
+        )->plainTextToken;
 
         return response()->json([
             'success' => true,
@@ -182,7 +189,7 @@ class AuthController extends Controller
     public function resendVerificationCode(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'email' => ['required', 'email', 'max:100'],
+            'email' => ['required', 'email:rfc', 'max:100'],
         ], [
             'email.required' => 'Email wajib diisi.',
             'email.email' => 'Format email belum valid.',
@@ -199,7 +206,7 @@ class AuthController extends Controller
             $verificationCode = $this->generateVerificationCode();
             $user->forceFill([
                 'otp_code' => Hash::make($verificationCode),
-                'otp_expires_at' => now()->addMinutes(15),
+                'otp_expires_at' => now()->addMinutes(self::OTP_EXPIRATION_MINUTES),
             ])->save();
 
             try {
@@ -231,8 +238,11 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'login' => ['required', 'string', 'max:100'],
-            'password' => ['required', 'string', 'max:72'],
+            'password' => ['required', 'string', 'min:6', 'max:20'],
             'device_name' => ['nullable', 'string', 'max:100'],
+        ], [
+            'password.min' => 'Kata sandi minimal 6 karakter.',
+            'password.max' => 'Kata sandi maksimal 20 karakter.',
         ]);
 
         $user = User::query()
@@ -263,14 +273,17 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // Peran yang tidak didukung mobile ditolak tanpa membocorkan jenis akun.
-        if (! in_array($user->peran, ['penumpang', 'pengemudi'], true)) {
+        // Admin mengelola sistem melalui web; aplikasi mobile menerima petugas loket.
+        if (! in_array($user->peran, ['penumpang', 'pengemudi', 'petugas_loket'], true)) {
             throw ValidationException::withMessages([
                 'login' => ['Email, nomor HP, atau kata sandi tidak sesuai.'],
             ]);
         }
 
-        $token = $user->createToken($validated['device_name'] ?? 'travs-mobile')->plainTextToken;
+        $token = $user->createToken(
+            $validated['device_name'] ?? 'travs-mobile',
+            $this->mobileTokenAbilities($user),
+        )->plainTextToken;
 
         return response()->json([
             'success' => true,
@@ -307,6 +320,9 @@ class AuthController extends Controller
         if ($request->exists('email')) {
             $normalizedProfile['email'] = Str::lower(trim((string) $request->input('email')));
         }
+        if ($request->exists('nama')) {
+            $normalizedProfile['nama'] = trim((string) $request->input('nama'));
+        }
         if ($request->exists('no_hp')) {
             $normalizedProfile['no_hp'] = trim((string) $request->input('no_hp'));
         }
@@ -334,8 +350,8 @@ class AuthController extends Controller
         }
 
         $validated = $request->validate([
-            'nama' => ['sometimes', 'string', 'max:100'],
-            'email' => ['sometimes', 'email', 'max:100', 'regex:/^[^@\s]+@gmail\.com$/i', 'unique:pengguna,email,'.$user->id],
+            'nama' => ['sometimes', 'required', 'string', 'max:50', 'regex:/^[A-Za-z ]+$/'],
+            'email' => ['sometimes', 'email:rfc', 'max:100', 'unique:pengguna,email,'.$user->id],
             'no_hp' => ['sometimes', 'string', 'regex:/^[0-9]{11,12}$/', 'unique:pengguna,no_hp,'.$user->id],
             'nomor_sim' => [
                 'sometimes',
@@ -347,8 +363,10 @@ class AuthController extends Controller
             'foto_profil' => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
             'foto' => ['sometimes', 'nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
         ], [
+            'nama.required' => 'Nama lengkap wajib diisi.',
+            'nama.max' => 'Nama lengkap maksimal 50 karakter.',
+            'nama.regex' => 'Nama lengkap hanya boleh berisi huruf dan spasi.',
             'email.email' => 'Format email belum valid.',
-            'email.regex' => 'Email wajib menggunakan alamat @gmail.com.',
             'email.unique' => 'Email sudah dipakai akun lain.',
             'no_hp.regex' => 'Nomor HP harus terdiri dari 11 sampai 12 digit angka.',
             'no_hp.unique' => 'Nomor HP sudah dipakai akun lain.',
@@ -440,19 +458,21 @@ class AuthController extends Controller
         $user = $request->user();
 
         $validated = $request->validate([
-            'current_password' => ['required', 'string', 'max:72'],
+            'current_password' => ['required', 'string', 'min:6', 'max:20'],
             'password' => [
                 'required',
                 'string',
                 'min:6',
-                'max:72',
+                'max:20',
                 'different:current_password',
                 'regex:/^(?=.*[A-Za-z])(?=.*(?:[0-9]|[^A-Za-z0-9\s]))\S+$/',
                 'confirmed',
             ],
         ], [
+            'current_password.min' => 'Kata sandi saat ini minimal 6 karakter.',
+            'current_password.max' => 'Kata sandi saat ini maksimal 20 karakter.',
             'password.min' => 'Kata sandi baru minimal 6 karakter.',
-            'password.max' => 'Kata sandi baru maksimal 72 karakter untuk keamanan pemrosesan.',
+            'password.max' => 'Kata sandi baru maksimal 20 karakter.',
             'password.different' => 'Kata sandi baru harus berbeda dari kata sandi saat ini.',
             'password.regex' => 'Kata sandi baru wajib mengandung huruf dan minimal satu angka atau simbol.',
             'password.confirmed' => 'Konfirmasi kata sandi baru belum sama.',
@@ -575,13 +595,13 @@ class AuthController extends Controller
                 'required',
                 'string',
                 'min:6',
-                'max:72',
+                'max:20',
                 'regex:/^(?=.*[A-Za-z])(?=.*(?:[0-9]|[^A-Za-z0-9\s]))\S+$/',
                 'confirmed',
             ],
         ], [
             'password.min' => 'Kata sandi baru minimal 6 karakter.',
-            'password.max' => 'Kata sandi baru maksimal 72 karakter untuk keamanan pemrosesan.',
+            'password.max' => 'Kata sandi baru maksimal 20 karakter.',
             'password.regex' => 'Kata sandi baru wajib mengandung huruf dan minimal satu angka atau simbol.',
             'password.confirmed' => 'Konfirmasi kata sandi baru belum sama.',
         ]);
@@ -631,6 +651,16 @@ class AuthController extends Controller
             'email_verified' => $user->email_verified_at !== null,
             'nomor_sim' => $user->pengemudiProfile?->nomor_sim,
         ];
+    }
+
+    /** Menentukan ruang akses token berdasarkan peran akun yang masuk. */
+    private function mobileTokenAbilities(User $user): array
+    {
+        return match ($user->peran) {
+            'petugas_loket' => ['mobile-counter'],
+            'pengemudi' => ['mobile-driver'],
+            default => ['mobile-passenger'],
+        };
     }
 
     private function generateVerificationCode(): string

@@ -111,6 +111,13 @@
             @endif
         </header>
 
+        @if ($pemesanan->isPemesananLoket())
+            <div class="travs-counter-source-banner alert mb-0" role="status">
+                <strong>Pemesanan Loket</strong>
+                <span>Dicatat oleh Petugas Loket: {{ $pemesanan->dibuatOleh?->nama ?: 'Petugas tidak tersedia' }}.</span>
+            </div>
+        @endif
+
         @include('admin.pemesanan.partials.informasi-utama')
         @include('admin.pemesanan.partials.rincian-pembayaran')
         @include('admin.pemesanan.partials.kapasitas-kursi')

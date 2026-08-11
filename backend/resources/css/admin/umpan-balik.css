@@ -1,0 +1,130 @@
+/* Pesan hasil proses CRUD dibuat mudah terlihat tanpa menutupi isi halaman. */
+.travs-feedback-stack {
+    position: fixed;
+    top: 88px;
+    right: 24px;
+    z-index: 1085;
+    display: grid;
+    gap: 12px;
+    width: min(420px, calc(100vw - 32px));
+    pointer-events: none;
+}
+
+.travs-feedback {
+    --travs-feedback-color: var(--travs-primary);
+    --travs-feedback-soft: #edf4ff;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) 36px;
+    align-items: start;
+    gap: 12px;
+    padding: 16px;
+    color: var(--travs-text);
+    background: var(--travs-white);
+    border: 1px solid var(--travs-border);
+    border-left: 4px solid var(--travs-feedback-color);
+    border-radius: 16px;
+    box-shadow: 0 18px 48px rgba(16, 35, 63, 0.18);
+    pointer-events: auto;
+    animation: travs-feedback-enter 220ms ease-out both;
+}
+
+.travs-feedback-success {
+    --travs-feedback-color: var(--travs-success);
+    --travs-feedback-soft: #eaf8f1;
+}
+
+.travs-feedback-warning {
+    --travs-feedback-color: var(--travs-accent);
+    --travs-feedback-soft: #fff3e7;
+}
+
+.travs-feedback-danger {
+    --travs-feedback-color: var(--travs-danger);
+    --travs-feedback-soft: #fff0ee;
+}
+
+.travs-feedback-icon {
+    display: grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    color: var(--travs-feedback-color);
+    background: var(--travs-feedback-soft);
+    border-radius: 12px;
+}
+
+.travs-feedback-icon svg {
+    width: 21px;
+    height: 21px;
+}
+
+.travs-feedback-copy {
+    min-width: 0;
+    padding-top: 1px;
+}
+
+.travs-feedback-copy strong {
+    display: block;
+    margin-bottom: 3px;
+    color: var(--travs-primary);
+    font-size: 0.92rem;
+    line-height: 1.35;
+}
+
+.travs-feedback-copy p {
+    margin: 0;
+    color: var(--travs-text-soft);
+    font-size: 0.86rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+
+.travs-feedback-close {
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    color: var(--travs-text-soft);
+    background: transparent;
+    border: 0;
+    border-radius: 10px;
+}
+
+.travs-feedback-close:hover,
+.travs-feedback-close:focus-visible {
+    color: var(--travs-primary);
+    background: var(--travs-surface-soft);
+    outline: 2px solid rgba(16, 35, 63, 0.18);
+    outline-offset: 1px;
+}
+
+.travs-feedback.is-leaving {
+    animation: travs-feedback-leave 180ms ease-in both;
+}
+
+@keyframes travs-feedback-enter {
+    from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes travs-feedback-leave {
+    from { opacity: 1; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-8px); }
+}
+
+@media (max-width: 767.98px) {
+    .travs-feedback-stack {
+        top: 76px;
+        right: 16px;
+        left: 16px;
+        width: auto;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .travs-feedback,
+    .travs-feedback.is-leaving {
+        animation: none;
+    }
+}

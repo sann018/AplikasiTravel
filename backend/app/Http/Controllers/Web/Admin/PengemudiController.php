@@ -162,17 +162,18 @@ class PengemudiController extends Controller
         $user = $pengemudi?->pengguna;
 
         $request->merge([
+            'nama' => trim((string) $request->input('nama')),
             'email' => Str::lower(trim((string) $request->input('email'))),
             'no_hp' => trim((string) $request->input('no_hp')),
         ]);
 
         return $request->validate([
-            'nama' => ['required', 'string', 'max:100'],
+            // Nama pengemudi hanya menerima huruf dan spasi.
+            'nama' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z ]+$/'],
             'email' => [
                 'required',
-                'email',
+                'email:rfc',
                 'max:100',
-                'regex:/^[^@\s]+@gmail\.com$/i',
                 Rule::unique('pengguna', 'email')->ignore($user?->id),
             ],
             'no_hp' => [
@@ -194,16 +195,16 @@ class PengemudiController extends Controller
                 $pengemudi ? 'nullable' : 'required',
                 'string',
                 'min:6',
-                'max:72',
+                'max:20',
                 'regex:/^(?=.*[A-Za-z])(?=.*(?:[0-9]|[^A-Za-z0-9\s]))\S+$/',
             ],
             'foto_profil' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ], [
             'nama.required' => 'Nama pengemudi wajib diisi.',
             'nama.max' => 'Nama pengemudi maksimal 100 karakter.',
+            'nama.regex' => 'Nama pengemudi hanya boleh berisi huruf dan spasi.',
             'email.required' => 'Email pengemudi wajib diisi.',
             'email.email' => 'Format email pengemudi belum valid.',
-            'email.regex' => 'Email pengemudi wajib menggunakan alamat @gmail.com.',
             'email.max' => 'Email pengemudi maksimal 100 karakter.',
             'email.unique' => 'Email ini sudah digunakan akun lain. Gunakan email berbeda.',
             'no_hp.required' => 'Nomor HP pengemudi wajib diisi.',
@@ -220,7 +221,7 @@ class PengemudiController extends Controller
             'status.in' => 'Status akun yang dipilih tidak valid.',
             'password.required' => 'Kata sandi awal wajib diisi.',
             'password.min' => 'Kata sandi minimal 6 karakter.',
-            'password.max' => 'Kata sandi maksimal 72 karakter untuk keamanan pemrosesan.',
+            'password.max' => 'Kata sandi maksimal 20 karakter.',
             'password.regex' => 'Kata sandi wajib mengandung huruf dan minimal satu angka atau simbol.',
             'foto_profil.image' => 'Foto profil harus berupa file gambar.',
             'foto_profil.mimes' => 'Foto profil hanya menerima format JPG, JPEG, PNG, atau WEBP.',
@@ -255,5 +256,4 @@ class PengemudiController extends Controller
             'status_aktif' => $status === 'aktif',
         ];
     }
-
 }

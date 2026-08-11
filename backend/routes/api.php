@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\MobileSettingsController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PassengerController;
 use App\Http\Controllers\Api\PaymentGatewayController;
+use App\Http\Controllers\Api\PetugasLoketController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/ping', function () {
@@ -91,3 +92,25 @@ Route::middleware(['auth:sanctum', 'role:pengemudi'])->group(function () {
     Route::post('/pengemudi/upload-photo', [DriverController::class, 'uploadDriverPhoto'])->middleware('throttle:travs-upload');
     Route::post('/pengemudi/vehicle/photo', [DriverController::class, 'uploadAssignedVehiclePhoto'])->middleware('throttle:travs-upload');
 });
+
+Route::prefix('petugas-loket')
+    ->middleware(['auth:sanctum', 'role:petugas_loket', 'token.ability:mobile-counter'])
+    ->group(function () {
+        Route::middleware('throttle:travs-read')->group(function () {
+            Route::get('/dashboard', [PetugasLoketController::class, 'dashboard']);
+            Route::get('/jadwal', [GuestController::class, 'schedules']);
+            Route::get('/jadwal/{jadwal}', [BookingController::class, 'scheduleDetail']);
+            Route::get('/penumpang/search', [PetugasLoketController::class, 'searchPassenger']);
+            Route::get('/pemesanan', [BookingController::class, 'index']);
+            Route::get('/pemesanan/{booking}', [BookingController::class, 'show']);
+        });
+
+        Route::post('/pemesanan/lock-form', [BookingController::class, 'lockForm'])->middleware('throttle:travs-action');
+        Route::post('/pemesanan/release-form-lock', [BookingController::class, 'releaseFormLock'])->middleware('throttle:travs-action');
+        Route::post('/pemesanan/estimate', [BookingController::class, 'estimate'])->middleware('throttle:travs-action');
+        Route::post('/pemesanan/baggage-photo', [BookingController::class, 'uploadBaggagePhoto'])->middleware('throttle:travs-upload');
+        Route::post('/pemesanan', [BookingController::class, 'store'])->middleware('throttle:travs-action');
+        Route::put('/pemesanan/{booking}/payment', [BookingController::class, 'choosePayment'])->middleware('throttle:travs-action');
+        Route::post('/pemesanan/{booking}/confirm-cash', [BookingController::class, 'confirmCash'])->middleware('throttle:travs-action');
+        Route::post('/pemesanan/{booking}/refresh-payment-status', [BookingController::class, 'refreshPaymentStatus'])->middleware('throttle:travs-action');
+    });

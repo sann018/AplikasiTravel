@@ -6,6 +6,27 @@ window.bootstrap = bootstrap;
 document.addEventListener('DOMContentLoaded', () => {
     feather.replace();
 
+    const closeFlashMessage = (message) => {
+        if (!message || message.classList.contains('is-leaving')) {
+            return;
+        }
+
+        message.classList.add('is-leaving');
+        window.setTimeout(() => message.remove(), 200);
+    };
+
+    // Pesan berhasil hilang otomatis; pesan gagal tetap tampil sampai ditutup admin.
+    document.querySelectorAll('[data-flash-message]').forEach((message) => {
+        message.querySelector('[data-flash-close]')?.addEventListener('click', () => {
+            closeFlashMessage(message);
+        });
+
+        const timeout = Number(message.dataset.flashTimeout ?? 0);
+        if (timeout > 0) {
+            window.setTimeout(() => closeFlashMessage(message), timeout);
+        }
+    });
+
     // Toggle hanya mengubah visibilitas input; nilai dan proses submit tetap sama.
     document.querySelectorAll('[data-password-toggle]').forEach((button) => {
         const targetId = button.dataset.passwordTarget;

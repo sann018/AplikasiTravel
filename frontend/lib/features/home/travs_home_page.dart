@@ -312,6 +312,26 @@ class _TravSHomePageState extends State<TravSHomePage> {
       );
     }
 
+    if (_role == AppRolePreview.counterStaff && widget.session != null) {
+      final dashboardFuture = _apiService.loadCounterStaffDashboard(
+        widget.session!.token,
+      );
+      final bookingsFuture = _apiService.loadCounterBookings(
+        widget.session!.token,
+      );
+      final notificationsFuture = _loadNotificationFeedSafely();
+      final dashboard = await dashboardFuture;
+      final bookings = await bookingsFuture;
+      final notifications = await notificationsFuture;
+      return _HomeBundle(
+        payload: payload,
+        appSettings: appSettings,
+        passengerBookings: bookings,
+        counterDashboard: dashboard,
+        notifications: notifications,
+      );
+    }
+
     if (_role == AppRolePreview.driver && widget.session != null) {
       final dashboardFuture = _apiService.loadDriverDashboard(
         widget.session!.token,
@@ -392,6 +412,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
           selectedRole: _role,
           session: widget.session,
           appSettings: _appSettings,
+          onRequireAuthentication: widget.onOpenAuth,
         ),
       ),
     );
@@ -698,7 +719,8 @@ class _TravSHomePageState extends State<TravSHomePage> {
       return;
     }
 
-    if (_role == AppRolePreview.passenger) {
+    if (_role == AppRolePreview.passenger ||
+        _role == AppRolePreview.counterStaff) {
       final message = '${entry.title} ${entry.message}'.toLowerCase();
       if (entry.notificationType == 'pembayaran' &&
           (message.contains('berhasil') || message.contains('tiket'))) {
@@ -1111,6 +1133,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
           _buildDriverProfile(bundle),
         ];
       case AppRolePreview.passenger:
+      case AppRolePreview.counterStaff:
         return [
           _buildPassengerHome(bundle),
           _buildPassengerRoutes(bundle),
@@ -1129,6 +1152,8 @@ class _TravSHomePageState extends State<TravSHomePage> {
   }
 
   Widget _buildPassengerHome(_HomeBundle bundle) {
+    final isCounterStaff = _role == AppRolePreview.counterStaff;
+    final counterDashboard = bundle.counterDashboard;
     final dashboard =
         bundle.passengerDashboard ??
         const TravSPassengerDashboard(
@@ -1168,6 +1193,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
       children: [
         _PageTopBar(
           title: bundle.appSettings.appName,
+          subtitle: isCounterStaff ? 'Mode Petugas Loket' : null,
           trailing: _notificationButton(bundle),
         ),
         const SizedBox(height: 16),
@@ -1177,16 +1203,27 @@ class _TravSHomePageState extends State<TravSHomePage> {
             widget.session?.user.fotoProfil,
           ),
           banners: bundle.payload.banners,
-          subtitle: 'Mau pergi ke mana hari ini?',
+          subtitle: isCounterStaff
+              ? 'Bantu calon penumpang membuat pemesanan di loket.'
+              : 'Mau pergi ke mana hari ini?',
           stats: [
             _HeroStat(
-              label: 'Pemesanan aktif',
-              value: '${dashboard.bookingAktif}',
+              label: isCounterStaff ? 'Pemesanan loket' : 'Pemesanan aktif',
+              value: isCounterStaff
+                  ? '${counterDashboard?['total_pemesanan'] ?? bookings.length}'
+                  : '${dashboard.bookingAktif}',
             ),
-            _HeroStat(label: 'Tiket aktif', value: '$activeTicketCount'),
             _HeroStat(
-              label: 'Total pemesanan',
-              value: '${dashboard.totalBooking}',
+              label: isCounterStaff ? 'Menunggu bayar' : 'Tiket aktif',
+              value: isCounterStaff
+                  ? '${counterDashboard?['menunggu_pembayaran'] ?? waitingPayment.length}'
+                  : '$activeTicketCount',
+            ),
+            _HeroStat(
+              label: isCounterStaff ? 'Tiket terbit' : 'Total pemesanan',
+              value: isCounterStaff
+                  ? '${counterDashboard?['terbayar'] ?? activeTicketCount}'
+                  : '${dashboard.totalBooking}',
             ),
           ],
         ),
@@ -1199,7 +1236,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
         ],
         const SizedBox(height: 18),
         if (!hasHomeTripContent) ...[
-          const _EmptyStateCard(
+          _EmptyStateCard(
             title: 'Tidak ada perjalanan yang tersedia saat ini.',
             subtitle:
                 'Jadwal perjalanan baru belum tersedia. Silakan periksa kembali nanti.',
@@ -1215,7 +1252,9 @@ class _TravSHomePageState extends State<TravSHomePage> {
         ],
         if (waitingPayment.isNotEmpty) ...[
           _InlineActionCard(
-            title: 'Pembayaran menunggu',
+            title: isCounterStaff
+                ? 'Pembayaran loket menunggu'
+                : 'Pembayaran menunggu',
             description:
                 '${waitingPayment.first.rute} - ${_formatShortDate(waitingPayment.first.waktuBerangkat)}',
             actionLabel: 'Bayar',
@@ -1225,10 +1264,13 @@ class _TravSHomePageState extends State<TravSHomePage> {
           const SizedBox(height: 18),
         ],
         if (bookings.isEmpty && routes.isNotEmpty)
-          const _EmptyStateCard(
-            title: 'Belum ada pemesanan.',
-            subtitle:
-                'Mulai dari menu rute dan jadwal untuk membuat pemesanan pertama.',
+          _EmptyStateCard(
+            title: isCounterStaff
+                ? 'Belum ada pemesanan loket.'
+                : 'Belum ada pemesanan.',
+            subtitle: isCounterStaff
+                ? 'Pilih rute dan jadwal untuk membantu calon penumpang.'
+                : 'Mulai dari menu rute dan jadwal untuk membuat pemesanan pertama.',
           ),
         const SizedBox(height: 18),
         if (routes.isNotEmpty) ...[
@@ -1283,6 +1325,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
   }
 
   Widget _buildPassengerOrders(_HomeBundle bundle) {
+    final isCounterStaff = _role == AppRolePreview.counterStaff;
     final bookings = bundle.passengerBookings ?? const [];
     final latestBookings = bookings
         .where((item) => !_isOldBooking(item))
@@ -1296,13 +1339,15 @@ class _TravSHomePageState extends State<TravSHomePage> {
       children: [
         _PageTopBar(
           leading: _backToHomeButton(),
-          title: 'Daftar Pemesanan',
+          title: isCounterStaff ? 'Pemesanan Loket' : 'Daftar Pemesanan',
           trailing: _notificationButton(bundle),
         ),
         const SizedBox(height: 16),
         if (bookings.isEmpty)
-          const _EmptyStateCard(
-            title: 'Belum ada riwayat pemesanan.',
+          _EmptyStateCard(
+            title: isCounterStaff
+                ? 'Belum ada pemesanan loket.'
+                : 'Belum ada riwayat pemesanan.',
             subtitle:
                 'Setelah pemesanan pertama dibuat, daftar pemesanan akan muncul di halaman ini.',
           )
@@ -1367,6 +1412,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
   }
 
   Widget _buildPassengerTickets(_HomeBundle bundle) {
+    final isCounterStaff = _role == AppRolePreview.counterStaff;
     final bookings = bundle.passengerBookings ?? const [];
     final tickets = bookings.where((item) => item.isPaid).toList();
     final activeTickets = tickets
@@ -1380,7 +1426,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
       children: [
         _PageTopBar(
           leading: _backToHomeButton(),
-          title: 'Daftar Tiket',
+          title: isCounterStaff ? 'Tiket Loket' : 'Daftar Tiket',
           trailing: IconButton(
             onPressed: () => _openNotifications(bundle),
             icon: const Icon(Icons.notifications_rounded),
@@ -1441,7 +1487,15 @@ class _TravSHomePageState extends State<TravSHomePage> {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 110),
       children: [
-        _PageTopBar(leading: _backToHomeButton(), title: 'Profil'),
+        _PageTopBar(
+          leading: _backToHomeButton(),
+          title: _role == AppRolePreview.counterStaff
+              ? 'Profil Petugas'
+              : 'Profil',
+          subtitle: _role == AppRolePreview.counterStaff
+              ? 'Mode Petugas Loket'
+              : null,
+        ),
         const SizedBox(height: 16),
         _ProfileMainCard(
           profile: _ProfileSummaryContent(session: session),
@@ -1895,6 +1949,7 @@ class _TravSHomePageState extends State<TravSHomePage> {
           ),
         ];
       case AppRolePreview.passenger:
+      case AppRolePreview.counterStaff:
         return const [
           _NavItem(
             label: 'Beranda',

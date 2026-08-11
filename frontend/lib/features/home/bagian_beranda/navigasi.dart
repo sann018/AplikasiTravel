@@ -157,6 +157,7 @@ class _HomeBundle {
     required this.appSettings,
     this.passengerDashboard,
     this.passengerBookings,
+    this.counterDashboard,
     this.driverDashboard,
     this.driverTrips,
     this.notifications = TravSNotificationFeed.empty,
@@ -166,6 +167,7 @@ class _HomeBundle {
   final AppSettings appSettings;
   final TravSPassengerDashboard? passengerDashboard;
   final List<TravSBookingResult>? passengerBookings;
+  final Map<String, dynamic>? counterDashboard;
   final TravSDriverDashboard? driverDashboard;
   final List<TravSDriverTripItem>? driverTrips;
   final TravSNotificationFeed notifications;

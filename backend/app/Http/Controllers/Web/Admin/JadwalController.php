@@ -642,11 +642,16 @@ class JadwalController extends Controller
                 continue;
             }
 
+            // Pemesanan loket tanpa akun tidak memiliki kotak notifikasi pengguna.
+            if ($booking->pengguna_id === null) {
+                continue;
+            }
+
             $message = $this->notificationTemplate->renderFromSetting(
                 'notif_schedule_changed_template',
                 'Jadwal {rute} berubah menjadi {tanggal_baru} pukul {jam_baru}.',
                 [
-                    'nama' => $booking->pengguna?->nama ?? 'Penumpang',
+                    'nama' => $booking->namaKontakPemesan(),
                     'rute' => $this->routeLabel($jadwal),
                     'tanggal_baru' => $jadwal->waktu_berangkat?->translatedFormat('d F Y') ?? '-',
                     'jam_baru' => $jadwal->waktu_berangkat?->format('H.i') ?? '-',

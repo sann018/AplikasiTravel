@@ -3,6 +3,7 @@ part of '../travs_booking_contract.dart';
 class TravSBookingResult {
   const TravSBookingResult({
     required this.id,
+    this.jadwalId = 0,
     required this.kodeBooking,
     required this.status,
     required this.jumlahKursi,
@@ -12,6 +13,8 @@ class TravSBookingResult {
     required this.rute,
     required this.waktuBerangkat,
     required this.payment,
+    this.sumberPemesanan = 'aplikasi_penumpang',
+    this.dibuatOlehNama,
     this.pemesan,
     this.pickup,
     this.dropoff,
@@ -22,6 +25,7 @@ class TravSBookingResult {
   });
 
   final int id;
+  final int jadwalId;
   final String kodeBooking;
   final String status;
   final int jumlahKursi;
@@ -31,6 +35,8 @@ class TravSBookingResult {
   final String rute;
   final String waktuBerangkat;
   final TravSBookingPaymentInfo payment;
+  final String sumberPemesanan;
+  final String? dibuatOlehNama;
   final TravSBookingRequesterInfo? pemesan;
   final TravSBookingPickupInfo? pickup;
   final TravSBookingPickupInfo? dropoff;
@@ -40,6 +46,7 @@ class TravSBookingResult {
   final List<TravSBookingBaggageInfo> baggageItems;
 
   bool get isPaid => status == 'terbayar' || payment.status == 'berhasil';
+  bool get isCounterBooking => sumberPemesanan == 'loket';
   int get activeTicketCount =>
       passengers.where((item) => item.hasTicket).length;
 
@@ -49,9 +56,11 @@ class TravSBookingResult {
     final vehicleJson = _asMapOrNull(json['kendaraan']);
     final driverJson = _asMapOrNull(json['pengemudi']);
     final requesterJson = _asMapOrNull(json['pemesan']);
+    final creatorJson = _asMapOrNull(json['dibuat_oleh']);
 
     return TravSBookingResult(
       id: _readInt(json['booking_id'] ?? json['id']),
+      jadwalId: _readInt(json['jadwal_id']),
       kodeBooking:
           json['order_id'] as String? ?? json['kode_booking'] as String? ?? '-',
       status:
@@ -65,6 +74,9 @@ class TravSBookingResult {
       rute: json['rute'] as String? ?? '-',
       waktuBerangkat: json['waktu_berangkat'] as String? ?? '',
       payment: TravSBookingPaymentInfo.fromJson(_asMap(json['payment'])),
+      sumberPemesanan:
+          json['sumber_pemesanan'] as String? ?? 'aplikasi_penumpang',
+      dibuatOlehNama: creatorJson?['nama'] as String?,
       pemesan: requesterJson == null
           ? null
           : TravSBookingRequesterInfo.fromJson(requesterJson),

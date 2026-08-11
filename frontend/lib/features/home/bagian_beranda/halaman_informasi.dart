@@ -569,14 +569,6 @@ bool _isOldBooking(TravSBookingResult booking) {
   return _isCompletedTicket(booking);
 }
 
-String? _validateRequiredText(String? value, String label) {
-  if ((value ?? '').trim().isEmpty) {
-    return '$label wajib diisi.';
-  }
-
-  return null;
-}
-
 DateTime _scheduleDateValue(String iso) {
   return _parseLocalDateTime(iso) ?? DateTime(9999);
 }

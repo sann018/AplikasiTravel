@@ -3,7 +3,9 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#10233f">
     <title>Kata Sandi Berhasil Diubah - Rusly Travel</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('rusly-travel-icon.svg') }}">
     <style>
         * { box-sizing: border-box; }
         body { margin: 0; font-family: Arial, sans-serif; background: #f4f7fb; color: #102a4c; }

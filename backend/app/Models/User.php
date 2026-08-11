@@ -82,6 +82,11 @@ class User extends Authenticatable
         return $this->hasMany(Pemesanan::class, 'pengguna_id');
     }
 
+    public function pemesananDibuat(): HasMany
+    {
+        return $this->hasMany(Pemesanan::class, 'dibuat_oleh');
+    }
+
     public function notifikasi(): HasMany
     {
         return $this->hasMany(Notifikasi::class, 'pengguna_id');
@@ -95,6 +100,11 @@ class User extends Authenticatable
     public function isPengemudi(): bool
     {
         return $this->peran === 'pengemudi';
+    }
+
+    public function isPetugasLoket(): bool
+    {
+        return $this->peran === 'petugas_loket';
     }
 
     public function isPenumpang(): bool

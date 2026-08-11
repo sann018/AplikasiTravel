@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,6 +41,7 @@ void main() {
       expect(find.byKey(const Key('ticket-owner-selector')), findsOneWidget);
       expect(find.byKey(const Key('active-ticket-card')), findsOneWidget);
       expect(find.text('Kursi A1 - Pontianak - Sanggau'), findsOneWidget);
+      expect(find.text('Bagikan'), findsOneWidget);
 
       await tester.drag(
         find.byKey(const Key('ticket-owner-selector')),
@@ -53,9 +55,9 @@ void main() {
       expect(find.text('Kursi A1 - Pontianak - Sanggau'), findsNothing);
       expect(find.text('Kursi A2 - Pontianak - Sanggau'), findsOneWidget);
 
-      await tester.ensureVisible(find.text('Download Tiket'));
+      await tester.ensureVisible(find.text('Unduh Tiket'));
       await tester.pump();
-      await tester.tap(find.text('Download Tiket'));
+      await tester.tap(find.text('Unduh Tiket'));
       await tester.pump();
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 500)),
@@ -65,6 +67,17 @@ void main() {
       expect(savedBytes, isNotNull);
       expect(savedBytes, isNotEmpty);
       expect(savedFileName, contains('budi-santoso'));
+      late int imageWidth;
+      late int imageHeight;
+      await tester.runAsync(() async {
+        final codec = await ui.instantiateImageCodec(savedBytes!);
+        final frame = await codec.getNextFrame();
+        imageWidth = frame.image.width;
+        imageHeight = frame.image.height;
+        frame.image.dispose();
+        codec.dispose();
+      });
+      expect(imageWidth, greaterThan(imageHeight));
       expect(find.text('Tiket berhasil disimpan ke galeri.'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
@@ -99,8 +112,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.ensureVisible(find.text('Download Tiket'));
-      await tester.tap(find.text('Download Tiket'));
+      await tester.ensureVisible(find.text('Unduh Tiket'));
+      await tester.tap(find.text('Unduh Tiket'));
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(find.text('Izin Galeri Diperlukan'), findsOneWidget);

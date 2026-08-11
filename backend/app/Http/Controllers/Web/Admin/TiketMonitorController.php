@@ -44,6 +44,7 @@ class TiketMonitorController extends Controller
                     ->where('kode_qr', 'like', "%{$search}%")
                     ->orWhereHas('detailPemesanan.pemesanan', fn ($q) => $q
                         ->where('kode_booking', 'like', "%{$search}%")
+                        ->orWhere('nama_pemesan', 'like', "%{$search}%")
                         ->orWhereHas('pengguna', fn ($q2) => $q2->where('nama', 'like', "%{$search}%"))
                     );
             });

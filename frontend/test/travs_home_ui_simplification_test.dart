@@ -63,6 +63,8 @@ void main() {
     DateTimeRange? selectedRange,
     List<TravSBookingResult>? passengerBookings,
     List<TravSSchedule>? schedules,
+    VoidCallback? onOpenAuth,
+    Future<void> Function()? onLogout,
   }) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -77,8 +79,8 @@ void main() {
       MaterialApp(
         home: TravSHomePage(
           session: session,
-          onOpenAuth: () {},
-          onLogout: () async {},
+          onOpenAuth: onOpenAuth ?? () {},
+          onLogout: onLogout ?? () async {},
           apiService: api,
           settingsApiService: _FakeSettingsService(api),
           authService: _FakeAuthService(),
@@ -109,6 +111,24 @@ void main() {
     expect(find.text('Pesan'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'Petugas Loket memakai halaman penumpang dengan konteks mode berbeda',
+    (tester) async {
+      await pumpHome(tester, session: _counterStaffSession);
+
+      expect(find.text('Mode Petugas Loket'), findsOneWidget);
+      expect(find.text('Rute'), findsOneWidget);
+      expect(find.text('Pesanan'), findsOneWidget);
+      expect(find.text('Tiket'), findsOneWidget);
+      expect(find.text('Profil'), findsOneWidget);
+
+      await tester.tap(find.text('Pesanan').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Pemesanan Loket'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('informasi card jadwal tetap rapi pada layar sempit', (
     tester,
@@ -273,7 +293,9 @@ void main() {
     expect(find.text('Nama lengkap'), findsOneWidget);
     expect(find.text('Password baru'), findsOneWidget);
     expect(
-      find.text('Minimal 6 karakter, huruf + angka/simbol'),
+      find.text(
+        'Minimal 6 karakter dan maksimal 20 karakter, berisi huruf serta angka atau simbol.',
+      ),
       findsOneWidget,
     );
     expect(
@@ -310,34 +332,46 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('profil tamu satu card tanpa Tentang Aplikasi', (tester) async {
-    await pumpHome(tester);
-    expect(find.text('Mau cek rute mana hari ini?'), findsNothing);
-    expect(
-      find.text('Cek rute, jadwal, harga, kursi, dan kendaraan sebelum login.'),
-      findsNothing,
-    );
-    expect(
-      find.text('Pilih rute yang ingin kamu cek sebelum masuk.'),
-      findsNothing,
-    );
-    await tester.tap(find.text('Akun').last);
-    await tester.pumpAndSettle();
+  testWidgets(
+    'profil tamu memakai satu aksi autentikasi tanpa tombol duplikat',
+    (tester) async {
+      var authOpened = false;
+      await pumpHome(tester, onOpenAuth: () => authOpened = true);
+      expect(find.text('Mau cek rute mana hari ini?'), findsNothing);
+      expect(
+        find.text(
+          'Cek rute, jadwal, harga, kursi, dan kendaraan sebelum login.',
+        ),
+        findsNothing,
+      );
+      expect(
+        find.text('Pilih rute yang ingin kamu cek sebelum masuk.'),
+        findsNothing,
+      );
+      await tester.tap(find.text('Akun').last);
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('guest-profile-main-card')), findsOneWidget);
-    expect(find.text('Mode Tamu'), findsOneWidget);
-    expect(find.text('Masuk sebagai penumpang atau pengemudi'), findsOneWidget);
-    expect(find.text('Info'), findsWidgets);
-    expect(find.text('Tentang Aplikasi'), findsNothing);
-    expect(
-      find.text('Mode tamu hanya untuk melihat informasi perjalanan.'),
-      findsNothing,
-    );
-    expect(find.byIcon(Icons.login_rounded), findsWidgets);
-    expect(find.byIcon(Icons.info_rounded), findsWidgets);
-    expect(find.byIcon(Icons.person_rounded), findsWidgets);
-    expect(tester.takeException(), isNull);
-  });
+      expect(find.byKey(const Key('guest-profile-main-card')), findsOneWidget);
+      expect(find.text('Mode Tamu'), findsOneWidget);
+      expect(find.text('Daftar atau Masuk untuk Memesan'), findsOneWidget);
+      expect(find.text('Info'), findsWidgets);
+      expect(find.text('Tentang Aplikasi'), findsNothing);
+      expect(
+        find.text('Mode tamu hanya untuk melihat informasi perjalanan.'),
+        findsNothing,
+      );
+      expect(find.byIcon(Icons.login_rounded), findsWidgets);
+      expect(find.byIcon(Icons.info_rounded), findsWidgets);
+      expect(find.byIcon(Icons.person_rounded), findsWidgets);
+
+      await tester.tap(find.text('Daftar atau Masuk untuk Memesan'));
+      await tester.pump();
+      expect(authOpened, isTrue);
+
+      expect(find.text('Keluar dari Mode Tamu'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('beranda tamu menyembunyikan jadwal yang kursinya habis', (
     tester,
@@ -535,6 +569,18 @@ const _passengerSession = TravSUserSession(
   ),
 );
 
+const _counterStaffSession = TravSUserSession(
+  token: 'counter-token',
+  user: TravSUserProfile(
+    id: 7,
+    nama: 'Petugas Loket Uji',
+    email: 'petugas@ruslytravel.com',
+    noHp: '081234567899',
+    peran: 'petugas_loket',
+    statusAktif: true,
+  ),
+);
+
 const _driverSession = TravSUserSession(
   token: 'driver-token',
   user: TravSUserProfile(
@@ -622,6 +668,27 @@ class _FakeApiService extends TravSApiService {
       ];
 
   @override
+  Future<Map<String, dynamic>> loadCounterStaffDashboard(String token) async =>
+      <String, dynamic>{
+        'total_pemesanan': 2,
+        'menunggu_pembayaran': 1,
+        'terbayar': 1,
+      };
+
+  @override
+  Future<List<TravSBookingResult>> loadCounterBookings(String token) async =>
+      passengerBookings ??
+      [
+        _booking(
+          id: 1,
+          status: 'terbayar',
+          departureAt: DateTime.now()
+              .add(const Duration(days: 2))
+              .toIso8601String(),
+        ),
+      ];
+
+  @override
   Future<TravSDriverDashboard> loadDriverDashboard(String token) async =>
       const TravSDriverDashboard(
         jadwalAktif: 0,
@@ -666,6 +733,8 @@ class _FakeApiService extends TravSApiService {
     required String token,
   }) async => token == _driverSession.token
       ? _driverSession.user
+      : token == _counterStaffSession.token
+      ? _counterStaffSession.user
       : _passengerSession.user;
 }
 

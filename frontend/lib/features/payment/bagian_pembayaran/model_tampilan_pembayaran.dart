@@ -1,5 +1,14 @@
 part of '../travs_payment_preview_page.dart';
 
+enum _PaymentCheckFeedbackTone { info, success, warning, error }
+
+class _PaymentCheckFeedback {
+  const _PaymentCheckFeedback({required this.message, required this.tone});
+
+  final String message;
+  final _PaymentCheckFeedbackTone tone;
+}
+
 class _PassengerFormController {
   _PassengerFormController({
     required this.seatNumber,

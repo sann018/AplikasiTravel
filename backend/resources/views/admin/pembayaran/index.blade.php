@@ -78,10 +78,13 @@
                                 </div>
                             </td>
                             <td>
-                                {{ $booking?->pengguna?->nama ?: 'Tanpa penumpang' }}
+                                {{ $booking?->namaKontakPemesan() ?: 'Tanpa penumpang' }}
                                 <div class="travs-table-subcopy">
                                     {{ $booking?->jadwal?->rute ? $booking->jadwal->rute->kota_asal.' - '.$booking->jadwal->rute->kota_tujuan : 'Rute tidak tersedia' }}
                                 </div>
+                                @if ($booking?->isPemesananLoket())
+                                    <div class="travs-table-subcopy">Loket &middot; {{ $booking->dibuatOleh?->nama ?: 'Admin tidak tersedia' }}</div>
+                                @endif
                             </td>
                             <td>
                                 <span class="travs-status-pill travs-status-{{ strtolower($payment->metode_bayar) }} badge rounded-pill">

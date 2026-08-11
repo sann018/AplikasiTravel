@@ -258,23 +258,35 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                       TextFormField(
                         controller: _nameController,
                         textCapitalization: TextCapitalization.words,
+                        inputFormatters: [
+                          // Nama akun hanya menerima huruf dan spasi.
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[A-Za-z ]'),
+                          ),
+                          LengthLimitingTextInputFormatter(50),
+                        ],
                         decoration: _profileInputDecoration(
                           hint: 'Masukkan nama lengkap',
                           icon: Icons.person_outline_rounded,
+                          helperText:
+                              'Hanya gunakan huruf dan spasi; angka tidak diperbolehkan.',
                         ),
-                        validator: (value) =>
-                            _validateRequiredText(value, 'Nama lengkap'),
+                        validator: _validatePersonName,
                       ),
                       const SizedBox(height: 12),
                       const _ProfileFieldLabel('Email'),
                       TextFormField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(100),
+                        ],
                         decoration: _profileInputDecoration(
-                          hint: 'contoh@gmail.com',
+                          hint: 'nama@contoh.com',
                           icon: Icons.mail_outline_rounded,
+                          helperText: 'Gunakan email yang terdaftar.',
                         ),
-                        validator: _validateGmailEmail,
+                        validator: _validateEmail,
                       ),
                       const SizedBox(height: 12),
                       _ProfileFieldLabel(
@@ -331,7 +343,7 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                       TextFormField(
                         controller: _currentPasswordController,
                         obscureText: _currentPasswordHidden,
-                        inputFormatters: [LengthLimitingTextInputFormatter(72)],
+                        inputFormatters: [LengthLimitingTextInputFormatter(20)],
                         decoration: _profileInputDecoration(
                           hint: 'Password lama',
                           icon: Icons.lock_outline_rounded,
@@ -355,10 +367,12 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                       TextFormField(
                         controller: _newPasswordController,
                         obscureText: _newPasswordHidden,
-                        inputFormatters: [LengthLimitingTextInputFormatter(72)],
+                        inputFormatters: [LengthLimitingTextInputFormatter(20)],
                         decoration: _profileInputDecoration(
-                          hint: 'Minimal 6 karakter, huruf + angka/simbol',
+                          hint: 'Masukkan password baru',
                           icon: Icons.lock_reset_rounded,
+                          helperText:
+                              'Minimal 6 karakter dan maksimal 20 karakter, berisi huruf serta angka atau simbol.',
                           suffixIcon: IconButton(
                             onPressed: () => setState(
                               () => _newPasswordHidden = !_newPasswordHidden,
@@ -378,7 +392,7 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                       TextFormField(
                         controller: _confirmPasswordController,
                         obscureText: _confirmPasswordHidden,
-                        inputFormatters: [LengthLimitingTextInputFormatter(72)],
+                        inputFormatters: [LengthLimitingTextInputFormatter(20)],
                         decoration: _profileInputDecoration(
                           hint: 'Konfirmasi password baru',
                           icon: Icons.verified_user_outlined,
@@ -427,12 +441,27 @@ class _EditProfilePageState extends State<_EditProfilePage> {
   InputDecoration _profileInputDecoration({
     required String hint,
     required IconData icon,
+    String? helperText,
     Widget? suffixIcon,
   }) {
     return InputDecoration(
       hintText: hint,
       prefixIcon: Icon(icon),
       suffixIcon: suffixIcon,
+      helperText: helperText,
+      helperMaxLines: 3,
+      errorMaxLines: 3,
+      helperStyle: const TextStyle(
+        color: TravSTheme.navyMuted,
+        fontSize: 10.5,
+        height: 1.3,
+      ),
+      errorStyle: const TextStyle(
+        color: TravSTheme.danger,
+        fontSize: 10.5,
+        height: 1.3,
+        fontWeight: FontWeight.w600,
+      ),
       filled: true,
       fillColor: Colors.white,
       floatingLabelBehavior: FloatingLabelBehavior.never,
@@ -460,6 +489,12 @@ class _EditProfilePageState extends State<_EditProfilePage> {
     if (shouldChangePassword && (value == null || value.trim().isEmpty)) {
       return 'Password lama wajib diisi.';
     }
+    if (value != null && value.isNotEmpty && value.length < 6) {
+      return 'Password lama minimal 6 karakter.';
+    }
+    if (value != null && value.length > 20) {
+      return 'Password lama maksimal 20 karakter.';
+    }
     return null;
   }
 
@@ -485,6 +520,9 @@ class _EditProfilePageState extends State<_EditProfilePage> {
     if (value == null || value.length < 6) {
       return 'Password baru minimal 6 karakter.';
     }
+    if (value.length > 20) {
+      return 'Password baru maksimal 20 karakter.';
+    }
     if (!RegExp(r'[A-Za-z]').hasMatch(value) ||
         !RegExp(r'[0-9]|[^A-Za-z0-9\s]').hasMatch(value)) {
       return 'Gunakan huruf dan minimal satu angka atau simbol.';
@@ -495,16 +533,24 @@ class _EditProfilePageState extends State<_EditProfilePage> {
     return null;
   }
 
-  String? _validateGmailEmail(String? value) {
+  String? _validateEmail(String? value) {
     final email = value?.trim() ?? '';
     if (email.isEmpty) {
       return 'Email wajib diisi.';
     }
-    if (!RegExp(
-      r'^[^@\s]+@gmail\.com$',
-      caseSensitive: false,
-    ).hasMatch(email)) {
-      return 'Email wajib menggunakan alamat @gmail.com.';
+    if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      return 'Masukkan alamat email yang valid.';
+    }
+    return null;
+  }
+
+  String? _validatePersonName(String? value) {
+    final name = value?.trim() ?? '';
+    if (name.isEmpty) {
+      return 'Nama lengkap wajib diisi.';
+    }
+    if (!RegExp(r'^[A-Za-z ]+$').hasMatch(name)) {
+      return 'Nama lengkap hanya boleh berisi huruf dan spasi.';
     }
     return null;
   }
@@ -862,7 +908,7 @@ class _GuestProfileCard extends StatelessWidget {
           const Divider(height: 1, color: TravSTheme.line),
           _ProfileMenuRow(
             icon: Icons.login_rounded,
-            title: 'Masuk sebagai penumpang atau pengemudi',
+            title: 'Daftar atau Masuk untuk Memesan',
             onTap: onOpenAuth,
           ),
           const Divider(height: 1, color: TravSTheme.line),

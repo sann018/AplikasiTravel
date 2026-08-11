@@ -5,10 +5,6 @@
 @section('page-description', $pageDescription ?? 'Pantau notifikasi untuk penumpang, pengemudi, dan admin.')
 
 @section('content')
-    @if (session('success'))
-        <div class="travs-alert travs-alert-success alert alert-success" role="status">{{ session('success') }}</div>
-    @endif
-
     @if ($errors->has('period'))
         <div class="travs-alert travs-alert-danger alert alert-danger" role="alert">{{ $errors->first('period') }}</div>
     @endif

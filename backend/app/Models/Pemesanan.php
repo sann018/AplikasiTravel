@@ -23,6 +23,11 @@ class Pemesanan extends Model
      */
     protected $fillable = [
         'pengguna_id',
+        'dibuat_oleh',
+        'sumber_pemesanan',
+        'nama_pemesan',
+        'no_hp_pemesan',
+        'email_pemesan',
         'jadwal_id',
         'kode_booking',
         'jumlah_kursi',
@@ -54,6 +59,31 @@ class Pemesanan extends Model
     public function pengguna(): BelongsTo
     {
         return $this->belongsTo(User::class, 'pengguna_id');
+    }
+
+    public function dibuatOleh(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'dibuat_oleh');
+    }
+
+    public function isPemesananLoket(): bool
+    {
+        return $this->sumber_pemesanan === 'loket';
+    }
+
+    public function namaKontakPemesan(): string
+    {
+        return $this->nama_pemesan ?: ($this->pengguna?->nama ?: 'Pemesan loket');
+    }
+
+    public function nomorKontakPemesan(): ?string
+    {
+        return $this->no_hp_pemesan ?: $this->pengguna?->no_hp;
+    }
+
+    public function emailKontakPemesan(): ?string
+    {
+        return $this->email_pemesan ?: $this->pengguna?->email;
     }
 
     public function jadwal(): BelongsTo

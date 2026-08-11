@@ -75,7 +75,7 @@ class ApiErrorResponseTest extends TestCase
     public function test_validation_error_returns_consistent_422_format(): void
     {
         $user = User::query()->where('peran', 'penumpang')->firstOrFail();
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['mobile-passenger']);
 
         // Kirim payload booking tanpa field wajib
         $response = $this->postJson('/api/penumpang/bookings', []);
@@ -128,7 +128,7 @@ class ApiErrorResponseTest extends TestCase
         ]);
         $jadwal = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['mobile-passenger']);
 
         // Spam request sampai kena rate limit
         for ($i = 0; $i < 25; $i++) {
@@ -296,25 +296,45 @@ class ApiErrorResponseTest extends TestCase
         ]);
     }
 
-    public function test_admin_account_cannot_login_through_mobile_api(): void
+    public function test_counter_staff_can_login_with_counter_only_mobile_token(): void
     {
-        $admin = User::factory()->create([
-            'email' => 'admin-mobile@example.com',
-            'peran' => 'admin',
+        $petugas = User::factory()->create([
+            'email' => 'petugas-loket@example.com',
+            'peran' => 'petugas_loket',
             'password' => 'Password123',
         ]);
 
         $response = $this->postJson('/api/auth/login', [
-            'login' => $admin->email,
+            'login' => $petugas->email,
             'password' => 'Password123',
         ]);
 
         $response
-            ->assertUnprocessable()
-            ->assertJsonPath(
-                'errors.login.0',
-                'Email, nomor HP, atau kata sandi tidak sesuai.',
-            );
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.user.peran', 'petugas_loket');
+
+        $this->assertDatabaseHas('personal_access_tokens', [
+            'tokenable_id' => $petugas->id,
+        ]);
+
+        $token = $petugas->tokens()->latest('id')->firstOrFail();
+        $this->assertSame(['mobile-counter'], $token->abilities);
+    }
+
+    public function test_admin_account_is_not_accepted_by_mobile_login(): void
+    {
+        $admin = User::factory()->create([
+            'email' => 'admin-web@example.com',
+            'peran' => 'admin',
+            'password' => 'Password123',
+        ]);
+
+        $this->postJson('/api/auth/login', [
+            'login' => $admin->email,
+            'password' => 'Password123',
+        ])->assertUnprocessable()
+            ->assertJsonPath('success', false);
 
         $this->assertDatabaseMissing('personal_access_tokens', [
             'tokenable_id' => $admin->id,
@@ -328,7 +348,7 @@ class ApiErrorResponseTest extends TestCase
     public function test_booking_with_invalid_schedule_returns_422(): void
     {
         $user = User::query()->where('peran', 'penumpang')->firstOrFail();
-        Sanctum::actingAs($user);
+        Sanctum::actingAs($user, ['mobile-passenger']);
 
         $response = $this->postJson('/api/penumpang/bookings', [
             'jadwal_id' => 99999,

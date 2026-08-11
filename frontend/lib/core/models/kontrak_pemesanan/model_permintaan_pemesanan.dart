@@ -106,6 +106,10 @@ class TravSCreateBookingPayload {
     this.dropoffNote,
     required this.passengers,
     required this.baggageItems,
+    this.customerName,
+    this.customerPhone,
+    this.customerEmail,
+    this.passengerAccountId,
   });
 
   final int jadwalId;
@@ -120,6 +124,10 @@ class TravSCreateBookingPayload {
   final String? dropoffNote;
   final List<TravSPassengerPayload> passengers;
   final List<TravSBaggagePayload> baggageItems;
+  final String? customerName;
+  final String? customerPhone;
+  final String? customerEmail;
+  final int? passengerAccountId;
 
   Map<String, dynamic> toJson() {
     return {
@@ -139,6 +147,14 @@ class TravSCreateBookingPayload {
       },
       'passengers': passengers.map((item) => item.toJson()).toList(),
       'baggage_items': baggageItems.map((item) => item.toJson()).toList(),
+      if (customerName != null)
+        'customer': {
+          'name': customerName,
+          'phone': customerPhone,
+          'email': customerEmail,
+        },
+      if (passengerAccountId != null)
+        'passenger_account_id': passengerAccountId,
     };
   }
 }

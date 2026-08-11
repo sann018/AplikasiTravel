@@ -64,14 +64,14 @@ class AdminOperationsTest extends TestCase
             ->actingAs($admin)
             ->from(route('admin.settings.index', ['tab' => 'account']))
             ->put(route('admin.pengaturan.account.update'), [
-                'email' => 'adminbaru@gmail.com',
+                'email' => 'adminbaru@yahoo.com',
                 'current_password' => 'admin12345',
             ]);
 
         $response->assertRedirect(route('admin.settings.index', ['tab' => 'account']));
         $response->assertSessionHasNoErrors();
 
-        $this->assertSame('adminbaru@gmail.com', $admin->fresh()->email);
+        $this->assertSame('adminbaru@yahoo.com', $admin->fresh()->email);
     }
 
     public function test_admin_can_open_settings_page_with_account_form(): void
@@ -196,7 +196,7 @@ class AdminOperationsTest extends TestCase
             ->actingAs($admin)
             ->post(route('admin.pengemudi.store'), [
                 'nama' => 'Driver Uji',
-                'email' => 'driveruji@gmail.com',
+                'email' => 'driveruji@polnep.ac.id',
                 'no_hp' => '081111111111',
                 'nomor_sim' => '6102233435410001',
                 'status' => 'aktif',
@@ -266,7 +266,7 @@ class AdminOperationsTest extends TestCase
         $response = $this
             ->actingAs($admin)
             ->post(route('admin.pengemudi.store'), [
-                'nama' => 'Driver Validasi',
+                'nama' => 'Driver Validasi 123',
                 'email' => 'drivervalidasi@gmail.com',
                 'no_hp' => '12345',
                 'nomor_sim' => 'SIM-SALAH',
@@ -275,7 +275,7 @@ class AdminOperationsTest extends TestCase
                 'foto_sim' => UploadedFile::fake()->create('sim.pdf', 120, 'application/pdf'),
             ]);
 
-        $response->assertSessionHasErrors(['no_hp', 'password', 'nomor_sim', 'foto_sim']);
+        $response->assertSessionHasErrors(['nama', 'no_hp', 'password', 'nomor_sim', 'foto_sim']);
     }
 
     public function test_admin_cannot_jump_cancelled_booking_back_to_paid(): void
@@ -465,7 +465,7 @@ class AdminOperationsTest extends TestCase
         $this->assertSame('berhasil', $booking->pembayaran()->firstOrFail()->status_bayar);
     }
 
-    public function test_admin_cannot_confirm_cash_payment_twice(): void
+    public function test_admin_cash_confirmation_is_idempotent(): void
     {
         $this->seed([
             SystemSettingSeeder::class,
@@ -498,7 +498,7 @@ class AdminOperationsTest extends TestCase
             ->post(route('admin.pembayaran.confirm-cash', $booking));
 
         $response->assertRedirect(route('admin.pembayaran.index'));
-        $response->assertSessionHasErrors('payment');
+        $response->assertSessionHasNoErrors();
 
         $this->assertSame($ticketCount, TiketElektronik::query()
             ->whereHas('detailPemesanan', fn ($query) => $query->where('pemesanan_id', $booking->id))

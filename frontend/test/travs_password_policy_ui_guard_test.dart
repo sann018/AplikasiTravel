@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
-    'password mobile minimal enam dan setiap field memakai satu ikon hitam',
+    'password mobile dibatasi 6 sampai 20 karakter dan memakai satu ikon hitam',
     () {
       final authSource = File(
         'lib/features/auth/travs_auth_page.dart',
@@ -16,8 +16,10 @@ void main() {
       for (final source in [authSource, profileSource]) {
         expect(source, isNot(contains('LengthLimitingTextInputFormatter(8)')));
         expect(source, isNot(contains('length > 8')));
-        expect(source, contains('LengthLimitingTextInputFormatter(72)'));
+        expect(source, isNot(contains('LengthLimitingTextInputFormatter(72)')));
+        expect(source, contains('LengthLimitingTextInputFormatter(20)'));
         expect(source, contains('Minimal 6 karakter'));
+        expect(source, contains('maksimal 20 karakter'));
       }
 
       expect(authSource, contains('color: Colors.black'));

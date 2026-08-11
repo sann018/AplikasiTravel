@@ -139,3 +139,65 @@ class _MessageBanner extends StatelessWidget {
     );
   }
 }
+
+class _PaymentStatusCheckBanner extends StatelessWidget {
+  const _PaymentStatusCheckBanner({required this.feedback});
+
+  final _PaymentCheckFeedback feedback;
+
+  @override
+  Widget build(BuildContext context) {
+    final (background, border, foreground, icon) = switch (feedback.tone) {
+      _PaymentCheckFeedbackTone.success => (
+        const Color(0xFFEAF8F1),
+        const Color(0xFFBCE5D2),
+        TravSTheme.success,
+        Icons.check_circle_outline_rounded,
+      ),
+      _PaymentCheckFeedbackTone.warning => (
+        const Color(0xFFFFF7E8),
+        const Color(0xFFF2D59D),
+        const Color(0xFF9A6200),
+        Icons.info_outline_rounded,
+      ),
+      _PaymentCheckFeedbackTone.error => (
+        const Color(0xFFFFF1F1),
+        const Color(0xFFF3B6B6),
+        TravSTheme.danger,
+        Icons.error_outline_rounded,
+      ),
+      _PaymentCheckFeedbackTone.info => (
+        const Color(0xFFEEF5FF),
+        const Color(0xFFC8D9EE),
+        TravSTheme.navySoft,
+        Icons.sync_rounded,
+      ),
+    };
+
+    return Container(
+      key: const Key('payment-status-feedback'),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: foreground, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              feedback.message,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: foreground,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

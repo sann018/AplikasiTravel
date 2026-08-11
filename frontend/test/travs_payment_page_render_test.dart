@@ -53,6 +53,22 @@ void main() {
     await tester.tap(find.text('Tujuan / Turun'));
     await tester.pump();
     expect(find.text('Alamat Turun atau Link Google Maps'), findsOneWidget);
+
+    await tester.scrollUntilVisible(
+      find.text('Nama lengkap penumpang'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    final passengerName = find.widgetWithText(
+      TextFormField,
+      'Nama lengkap penumpang',
+    );
+    await tester.enterText(passengerName, 'Ihsan123 Penumpang');
+    expect(find.text('Ihsan Penumpang'), findsOneWidget);
+    expect(
+      find.text('Hanya gunakan huruf dan spasi; angka tidak diperbolehkan.'),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -252,6 +268,7 @@ void main() {
     expect(find.text('Detail Perjalanan'), findsOneWidget);
     expect(find.text('Rincian Pembayaran'), findsOneWidget);
     expect(find.text('Lanjutkan Pembayaran'), findsOneWidget);
+    expect(find.text('Cek Status Pembayaran'), findsOneWidget);
     expect(find.text('Rp404.000'), findsOneWidget);
     expect(find.text('QRIS'), findsOneWidget);
     expect(find.text('Status pembayaran'), findsNothing);
@@ -301,12 +318,94 @@ void main() {
     expect(find.text('Total dibayar'), findsOneWidget);
     expect(find.text('Rp404.000'), findsOneWidget);
     expect(find.text('Lihat Tiket Penumpang'), findsOneWidget);
+    expect(find.text('Cek Status Pembayaran'), findsOneWidget);
     expect(find.textContaining('Bayar sebelum'), findsNothing);
     expect(find.text('Status pembayaran'), findsNothing);
     expect(find.text('Status pemesanan'), findsNothing);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('hasil cek status tampil tepat di bawah tombol', (tester) async {
+    final api = _FakeBookingApi(
+      _activeQrisBooking(),
+      refreshedBooking: _paidQrisBooking(),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TravSPaymentPreviewPage(
+          detail: _scheduleDetail,
+          appSettings: AppSettings.defaults,
+          checkoutDraft: _checkoutDraft,
+          selectedRole: AppRolePreview.passenger,
+          session: _session,
+          selectedSeatNumbers: const [1],
+          baggagePlacement: 'masuk_bagasi',
+          baggageWeight: 0,
+          baggageItems: 0,
+          lockExpiresAt: '2099-07-25T23:39:50+07:00',
+          initialBooking: _activeQrisBooking(),
+          apiService: api,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.scrollUntilVisible(
+      find.text('Cek Status Pembayaran'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Cek Status Pembayaran'));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('payment-status-feedback')), findsOneWidget);
+    expect(
+      find.text('Pembayaran berhasil dikonfirmasi. Tiket sudah aktif.'),
+      findsOneWidget,
+    );
+    expect(find.text('Cek Status Pembayaran'), findsOneWidget);
+  });
+
+  testWidgets('detail pemesanan membuka kembali halaman pembayaran internal', (
+    tester,
+  ) async {
+    final booking = _activeQrisBooking();
+    final api = _FakeBookingApi(booking, refreshedBooking: booking);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: TravSBookingDetailPage(
+          session: _session,
+          bookingId: booking.id,
+          apiService: api,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final continueButton = find.widgetWithText(
+      ElevatedButton,
+      'Lanjutkan Pembayaran',
+    );
+    await tester.scrollUntilVisible(
+      continueButton,
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.ensureVisible(continueButton);
+    await tester.pump();
+    await tester.tap(continueButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pembayaran'), findsOneWidget);
+    expect(find.text('Rincian Pembayaran'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('Cek Status Pembayaran'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    expect(find.text('Cek Status Pembayaran'), findsOneWidget);
   });
 
   testWidgets(
@@ -339,6 +438,7 @@ void main() {
       expect(find.text('Pembayaran Kedaluwarsa'), findsOneWidget);
       expect(find.text('Buat Pembayaran Baru'), findsNothing);
       expect(find.text('Lanjutkan Pembayaran'), findsNothing);
+      expect(find.text('Cek Status Pembayaran'), findsNothing);
       expect(find.textContaining('Bayar sebelum'), findsNothing);
       expect(tester.takeException(), isNull);
 
@@ -382,6 +482,7 @@ void main() {
     );
     expect(find.textContaining('Bayar sebelum'), findsNothing);
     expect(find.text('Lanjutkan Pembayaran'), findsNothing);
+    expect(find.text('Cek Status Pembayaran'), findsNothing);
     expect(tester.takeException(), isNull);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -466,6 +567,7 @@ TravSBookingResult _activeBooking() {
 TravSBookingResult _activeQrisBooking() {
   return TravSBookingResult.fromJson({
     'booking_id': 32,
+    'jadwal_id': 77,
     'order_id': 'TRAVS-UJI-32',
     'status_pemesanan': 'menunggu_pembayaran',
     'jumlah_kursi': 1,
@@ -648,9 +750,10 @@ final _scheduleDetail = TravSScheduleDetail.fromJson({
 });
 
 class _FakeBookingApi extends TravSApiService {
-  _FakeBookingApi(this.booking);
+  _FakeBookingApi(this.booking, {this.refreshedBooking});
 
   final TravSBookingResult booking;
+  final TravSBookingResult? refreshedBooking;
 
   @override
   Future<TravSBookingResult> loadPassengerBookingDetail({
@@ -661,4 +764,18 @@ class _FakeBookingApi extends TravSApiService {
   @override
   Future<TravSPaymentMethods> loadPaymentMethods() async =>
       _scheduleDetail.paymentMethods;
+
+  @override
+  Future<TravSBookingResult> refreshPaymentStatus({
+    required String token,
+    required int bookingId,
+    bool counterMode = false,
+  }) async => refreshedBooking ?? booking;
+
+  @override
+  Future<TravSScheduleDetail> loadScheduleDetailById(int scheduleId) async =>
+      _scheduleDetail;
+
+  @override
+  Future<AppSettings> loadMobileSettings() async => AppSettings.defaults;
 }

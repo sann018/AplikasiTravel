@@ -35,7 +35,10 @@
                             <tr>
                                 <td>
                                     <strong>{{ $booking->kode_booking }}</strong>
-                                    <div class="travs-table-subcopy">{{ $booking->pengguna->nama }}</div>
+                                    <div class="travs-table-subcopy">
+                                        {{ $booking->namaKontakPemesan() }} &middot;
+                                        {{ $booking->isPemesananLoket() ? 'Loket' : 'Aplikasi Penumpang' }}
+                                    </div>
                                 </td>
                                 <td>
                                     @forelse ($booking->detailPemesanan->sortBy('nomor_kursi') as $passenger)

@@ -132,6 +132,15 @@
     line-height: 1.25;
 }
 
+/* Keterangan dan pesan validasi form tetap utuh pada kolom yang sempit. */
+.travs-admin-body .travs-field-meta,
+.travs-admin-body .travs-field-error {
+    font-size: 0.78rem;
+    line-height: 1.45;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
 .travs-admin-body .travs-summary-card-row strong,
 .travs-admin-body .travs-chart-value,
 .travs-admin-body .travs-dashboard-hero-metric strong {
@@ -174,4 +183,3 @@
     color: var(--travs-primary);
     background: var(--travs-white);
 }
-

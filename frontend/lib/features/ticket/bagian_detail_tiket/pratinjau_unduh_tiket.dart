@@ -1,5 +1,349 @@
 part of '../travs_ticket_detail_page.dart';
 
+class _TicketLandscapeDownloadCard extends StatelessWidget {
+  const _TicketLandscapeDownloadCard({
+    required this.booking,
+    required this.passenger,
+  });
+
+  final TravSBookingResult booking;
+  final TravSBookingPassengerInfo passenger;
+
+  @override
+  Widget build(BuildContext context) {
+    final ticket = passenger.ticket!;
+    final qrData = ticket.token.isNotEmpty ? ticket.token : ticket.kodeQr;
+    final driver = booking.pengemudi;
+    final vehicle = booking.kendaraan;
+    final scanStatus = ticket.sudahDipindai
+        ? 'Sudah Dipindai'
+        : 'Belum Dipindai';
+    final vehicleName = vehicle == null
+        ? 'Kendaraan belum tersedia'
+        : '${vehicle.merk} • ${vehicle.plat}';
+    final driverName = driver?.nama.trim().isNotEmpty == true
+        ? driver!.nama
+        : 'Pengemudi belum tersedia';
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 1200,
+        height: 675,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(32),
+          border: Border.all(color: TravSTheme.line, width: 2),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            Container(
+              width: 310,
+              padding: const EdgeInsets.all(34),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [TravSTheme.navy, TravSTheme.navySoft],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Spacer(),
+                  Text(
+                    booking.rute,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 30,
+                      height: 1.25,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 28),
+                  _LandscapeDarkInfo(
+                    label: 'Tanggal keberangkatan',
+                    value: _formatDayDate(booking.waktuBerangkat),
+                  ),
+                  const SizedBox(height: 20),
+                  _LandscapeDarkInfo(
+                    label: 'Waktu keberangkatan',
+                    value: _formatTime(booking.waktuBerangkat),
+                  ),
+                  const Spacer(),
+                  const Text(
+                    'RUSLY TRAVEL',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
+                      letterSpacing: 2,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(36, 34, 30, 34),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Pemilik Tiket',
+                                style: TextStyle(
+                                  color: TravSTheme.navyMuted,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                passenger.namaPenumpang,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: TravSTheme.navy,
+                                  fontSize: 28,
+                                  height: 1.15,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 9,
+                          ),
+                          decoration: BoxDecoration(
+                            color: ticket.sudahDipindai
+                                ? const Color(0xFFE8EDF5)
+                                : TravSTheme.orangeSoft,
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Text(
+                            scanStatus,
+                            style: TextStyle(
+                              color: ticket.sudahDipindai
+                                  ? TravSTheme.navyMuted
+                                  : TravSTheme.orange,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    const Divider(color: TravSTheme.line, height: 1),
+                    const SizedBox(height: 22),
+                    _LandscapeInfoRow(
+                      icon: Icons.event_seat_rounded,
+                      label: 'Nomor kursi',
+                      value: 'A${passenger.seatNumber}',
+                    ),
+                    _LandscapeInfoRow(
+                      icon: Icons.person_outline_rounded,
+                      label: 'Pengemudi',
+                      value: driverName,
+                      detail: driver?.noHp ?? '',
+                    ),
+                    _LandscapeInfoRow(
+                      icon: Icons.directions_car_filled_rounded,
+                      label: 'Kendaraan',
+                      value: vehicleName,
+                    ),
+                    _LandscapeInfoRow(
+                      icon: Icons.payments_outlined,
+                      label: 'Harga tiket',
+                      value:
+                          'Rp${_formatCurrency(booking.jumlahKursi > 0 ? booking.subtotalTiket / booking.jumlahKursi : booking.subtotalTiket)}',
+                    ),
+                    const Spacer(),
+                    Text(
+                      'Kode pemesanan: ${booking.kodeBooking}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: TravSTheme.navyMuted,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Container(
+              width: 330,
+              color: TravSTheme.surfaceSoft,
+              padding: const EdgeInsets.fromLTRB(30, 34, 30, 30),
+              child: Column(
+                children: [
+                  const Text(
+                    'QR TIKET',
+                    style: TextStyle(
+                      color: TravSTheme.navy,
+                      fontSize: 20,
+                      letterSpacing: 1.5,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: TravSTheme.line, width: 2),
+                    ),
+                    child: QrImageView(
+                      data: qrData,
+                      size: 230,
+                      padding: EdgeInsets.zero,
+                      backgroundColor: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  const Icon(
+                    Icons.verified_user_outlined,
+                    color: TravSTheme.orange,
+                    size: 30,
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'Tunjukkan QR ini hanya kepada petugas atau pengemudi saat keberangkatan.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: TravSTheme.navy,
+                      fontSize: 15,
+                      height: 1.35,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LandscapeDarkInfo extends StatelessWidget {
+  const _LandscapeDarkInfo({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 15),
+        ),
+        const SizedBox(height: 5),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            height: 1.25,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LandscapeInfoRow extends StatelessWidget {
+  const _LandscapeInfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.detail = '',
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: TravSTheme.surfaceSoft,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: TravSTheme.navyMuted, size: 22),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: TravSTheme.navyMuted,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: TravSTheme.navy,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                if (detail.isNotEmpty)
+                  Text(
+                    detail,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: TravSTheme.navyMuted,
+                      fontSize: 13,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _TicketPreviewImage extends StatelessWidget {
   const _TicketPreviewImage({
     required this.imageUrl,

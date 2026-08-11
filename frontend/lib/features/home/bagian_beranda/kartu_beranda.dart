@@ -596,6 +596,41 @@ class _BookingCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (booking.isCounterBooking) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: TravSTheme.orangeSoft,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: TravSTheme.orange.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.storefront_rounded,
+                      size: 17,
+                      color: TravSTheme.orange,
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        'Dicatat oleh Petugas Loket: ${booking.dibuatOlehNama ?? 'Petugas tidak tersedia'}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: TravSTheme.navy,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             Row(
               children: [
                 Expanded(

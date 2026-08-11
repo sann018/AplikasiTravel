@@ -64,7 +64,11 @@
                     </div>
                     <div>
                         <dt>Penumpang</dt>
-                        <dd>{{ $booking?->pengguna?->nama ?: 'Penumpang tidak tersedia' }}</dd>
+                        <dd>{{ $booking?->namaKontakPemesan() ?: 'Penumpang tidak tersedia' }}</dd>
+                    </div>
+                    <div>
+                        <dt>Sumber Pemesanan</dt>
+                        <dd>{{ $booking?->isPemesananLoket() ? 'Loket' : 'Aplikasi Penumpang' }}</dd>
                     </div>
                     <div>
                         <dt>Rute</dt>
