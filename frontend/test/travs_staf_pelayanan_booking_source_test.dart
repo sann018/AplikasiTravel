@@ -2,7 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/core/models/travs_booking_contract.dart';
 
 void main() {
-  test('model pemesanan membaca sumber dan nama Petugas Loket', () {
+  test('model pemesanan membaca sumber dan nama Staf Pelayanan', () {
     final booking = TravSBookingResult.fromJson({
       'id': 10,
       'kode_booking': 'TRAVS-LOKET-UJI',
@@ -17,7 +17,7 @@ void main() {
       'payment': <String, dynamic>{},
     });
 
-    expect(booking.isCounterBooking, isTrue);
+    expect(booking.isStafPelayananBooking, isTrue);
     expect(booking.dibuatOlehNama, 'Petugas Satu');
   });
 }

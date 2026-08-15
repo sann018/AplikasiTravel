@@ -76,7 +76,7 @@
                             <td class="text-end">
                                 <div class="travs-table-actions d-flex align-items-center justify-content-end flex-wrap">
                                     <a href="{{ route('admin.kendaraan.edit', $item) }}" class="travs-button-link btn btn-link">Edit</a>
-                                    <form method="POST" action="{{ route('admin.kendaraan.destroy', $item) }}" onsubmit="return confirm('Hapus armada ini?')">
+                                    <form method="POST" action="{{ route('admin.kendaraan.destroy', $item) }}" data-confirm-title="Hapus armada?" data-confirm-message="Data armada yang dihapus tidak dapat dikembalikan." data-confirm-action="Ya, hapus armada">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="travs-button-link travs-button-link-danger btn btn-link">Hapus</button>

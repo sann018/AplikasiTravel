@@ -12,7 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
-class PetugasLoketBookingTest extends TestCase
+class StafPelayananBookingTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -22,19 +22,19 @@ class PetugasLoketBookingTest extends TestCase
         $this->seed(DatabaseSeeder::class);
     }
 
-    public function test_counter_staff_can_create_counter_booking_without_passenger_account(): void
+    public function test_staf_pelayanan_can_create_staf_pelayanan_booking_without_passenger_account(): void
     {
-        $petugas = User::factory()->create(['peran' => 'petugas_loket']);
+        $stafPelayanan = User::factory()->create(['peran' => 'staf_pelayanan']);
         $schedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
         $seatNumber = $this->availableSeat($schedule);
-        Sanctum::actingAs($petugas, ['mobile-counter']);
+        Sanctum::actingAs($stafPelayanan, ['mobile-staf-pelayanan']);
 
-        $this->postJson('/api/petugas-loket/pemesanan/lock-form', [
+        $this->postJson('/api/staf-pelayanan/pemesanan/lock-form', [
             'jadwal_id' => $schedule->id,
             'seat_numbers' => [$seatNumber],
         ])->assertOk();
 
-        $response = $this->postJson('/api/petugas-loket/pemesanan', $this->payload(
+        $response = $this->postJson('/api/staf-pelayanan/pemesanan', $this->payload(
             $schedule,
             $seatNumber,
         ));
@@ -47,42 +47,42 @@ class PetugasLoketBookingTest extends TestCase
         $this->assertDatabaseHas('pemesanan', [
             'id' => $response->json('data.id'),
             'pengguna_id' => null,
-            'dibuat_oleh' => $petugas->id,
+            'dibuat_oleh' => $stafPelayanan->id,
             'sumber_pemesanan' => 'loket',
             'nama_pemesan' => 'Calon Penumpang',
             'no_hp_pemesan' => '081234567890',
         ]);
     }
 
-    public function test_counter_staff_can_link_counter_booking_to_existing_passenger(): void
+    public function test_staf_pelayanan_can_link_staf_pelayanan_booking_to_existing_passenger(): void
     {
-        $petugas = User::factory()->create(['peran' => 'petugas_loket']);
+        $stafPelayanan = User::factory()->create(['peran' => 'staf_pelayanan']);
         $passenger = User::query()->where('peran', 'penumpang')->firstOrFail();
         $schedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
         $seatNumber = $this->availableSeat($schedule);
-        Sanctum::actingAs($petugas, ['mobile-counter']);
+        Sanctum::actingAs($stafPelayanan, ['mobile-staf-pelayanan']);
 
-        $this->postJson('/api/petugas-loket/pemesanan/lock-form', [
+        $this->postJson('/api/staf-pelayanan/pemesanan/lock-form', [
             'jadwal_id' => $schedule->id,
             'seat_numbers' => [$seatNumber],
         ])->assertOk();
 
         $payload = $this->payload($schedule, $seatNumber);
         $payload['passenger_account_id'] = $passenger->id;
-        $response = $this->postJson('/api/petugas-loket/pemesanan', $payload)->assertCreated();
+        $response = $this->postJson('/api/staf-pelayanan/pemesanan', $payload)->assertCreated();
 
         $this->assertDatabaseHas('pemesanan', [
             'id' => $response->json('data.id'),
             'pengguna_id' => $passenger->id,
-            'dibuat_oleh' => $petugas->id,
+            'dibuat_oleh' => $stafPelayanan->id,
             'sumber_pemesanan' => 'loket',
         ]);
     }
 
-    public function test_counter_staff_cannot_open_booking_created_by_another_counter_staff(): void
+    public function test_staf_pelayanan_cannot_open_booking_created_by_another_staf_pelayanan(): void
     {
-        $creator = User::factory()->create(['peran' => 'petugas_loket']);
-        $otherPetugas = User::factory()->create(['peran' => 'petugas_loket']);
+        $creator = User::factory()->create(['peran' => 'staf_pelayanan']);
+        $otherStafPelayanan = User::factory()->create(['peran' => 'staf_pelayanan']);
         $schedule = Jadwal::query()->firstOrFail();
         $booking = Pemesanan::query()->create([
             'pengguna_id' => null,
@@ -97,66 +97,100 @@ class PetugasLoketBookingTest extends TestCase
             'total_harga' => 250000,
             'status_pemesanan' => 'menunggu_pembayaran',
         ]);
-        Sanctum::actingAs($otherPetugas, ['mobile-counter']);
+        Sanctum::actingAs($otherStafPelayanan, ['mobile-staf-pelayanan']);
 
-        $this->getJson("/api/petugas-loket/pemesanan/{$booking->id}")
+        $this->getJson("/api/staf-pelayanan/pemesanan/{$booking->id}")
             ->assertNotFound()
             ->assertJsonPath('success', false);
     }
 
-    public function test_counter_staff_token_cannot_use_passenger_booking_route(): void
+    public function test_staf_pelayanan_token_cannot_use_passenger_booking_route(): void
     {
-        $petugas = User::factory()->create(['peran' => 'petugas_loket']);
-        Sanctum::actingAs($petugas, ['mobile-counter']);
+        $stafPelayanan = User::factory()->create(['peran' => 'staf_pelayanan']);
+        Sanctum::actingAs($stafPelayanan, ['mobile-staf-pelayanan']);
 
         $this->getJson('/api/penumpang/bookings')->assertForbidden();
     }
 
-    public function test_counter_staff_passenger_search_requires_an_exact_email_or_phone(): void
+    public function test_staf_pelayanan_passenger_search_requires_an_exact_email_or_phone(): void
     {
-        $petugas = User::factory()->create(['peran' => 'petugas_loket']);
+        $stafPelayanan = User::factory()->create(['peran' => 'staf_pelayanan']);
         $passenger = User::query()->where('peran', 'penumpang')->firstOrFail();
-        Sanctum::actingAs($petugas, ['mobile-counter']);
+        Sanctum::actingAs($stafPelayanan, ['mobile-staf-pelayanan']);
 
-        $this->getJson('/api/petugas-loket/penumpang/search?query='.urlencode($passenger->email))
+        $this->getJson('/api/staf-pelayanan/penumpang/search?query='.urlencode($passenger->email))
             ->assertOk()
             ->assertJsonPath('data.id', $passenger->id)
             ->assertJsonMissingPath('data.password');
 
-        $this->getJson('/api/petugas-loket/penumpang/search?query='.urlencode(substr($passenger->email, 0, 4)))
+        $this->getJson('/api/staf-pelayanan/penumpang/search?query='.urlencode(substr($passenger->email, 0, 4)))
             ->assertOk()
             ->assertJsonPath('data', null);
     }
 
-    public function test_counter_cash_confirmation_is_idempotent(): void
+    public function test_staf_pelayanan_cannot_link_booking_to_inactive_passenger_account(): void
     {
-        $petugas = User::factory()->create(['peran' => 'petugas_loket']);
+        $stafPelayanan = User::factory()->create(['peran' => 'staf_pelayanan']);
+        $inactivePassenger = User::factory()->create([
+            'peran' => 'penumpang',
+            'status_aktif' => false,
+            'email_verified_at' => now(),
+        ]);
         $schedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
         $seatNumber = $this->availableSeat($schedule);
-        Sanctum::actingAs($petugas, ['mobile-counter']);
+        Sanctum::actingAs($stafPelayanan, ['mobile-staf-pelayanan']);
 
-        $this->postJson('/api/petugas-loket/pemesanan/lock-form', [
+        $this->getJson('/api/staf-pelayanan/penumpang/search?query='.urlencode($inactivePassenger->email))
+            ->assertOk()
+            ->assertJsonPath('data', null);
+
+        $this->postJson('/api/staf-pelayanan/pemesanan/lock-form', [
+            'jadwal_id' => $schedule->id,
+            'seat_numbers' => [$seatNumber],
+        ])->assertOk();
+
+        $payload = $this->payload($schedule, $seatNumber);
+        $payload['passenger_account_id'] = $inactivePassenger->id;
+
+        $this->postJson('/api/staf-pelayanan/pemesanan', $payload)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('passenger_account_id');
+
+        $this->assertDatabaseMissing('pemesanan', [
+            'pengguna_id' => $inactivePassenger->id,
+            'dibuat_oleh' => $stafPelayanan->id,
+        ]);
+    }
+
+    public function test_staf_pelayanan_cash_confirmation_is_idempotent(): void
+    {
+        $stafPelayanan = User::factory()->create(['peran' => 'staf_pelayanan']);
+        $schedule = Jadwal::query()->where('status', 'dibuka')->firstOrFail();
+        $seatNumber = $this->availableSeat($schedule);
+        Sanctum::actingAs($stafPelayanan, ['mobile-staf-pelayanan']);
+
+        $this->postJson('/api/staf-pelayanan/pemesanan/lock-form', [
             'jadwal_id' => $schedule->id,
             'seat_numbers' => [$seatNumber],
         ])->assertOk();
 
         $bookingId = $this->postJson(
-            '/api/petugas-loket/pemesanan',
+            '/api/staf-pelayanan/pemesanan',
             $this->payload($schedule, $seatNumber),
         )->assertCreated()->json('data.id');
 
-        $this->putJson("/api/petugas-loket/pemesanan/{$bookingId}/payment", [
+        $this->putJson("/api/staf-pelayanan/pemesanan/{$bookingId}/payment", [
             'payment_method' => 'cash',
         ])->assertOk()->assertJsonPath('data.payment.status', 'menunggu');
 
-        $this->postJson("/api/petugas-loket/pemesanan/{$bookingId}/confirm-cash")
+        $this->postJson("/api/staf-pelayanan/pemesanan/{$bookingId}/confirm-cash")
             ->assertOk()
             ->assertJsonPath('data.payment.status', 'berhasil');
         $ticketCount = TiketElektronik::query()
             ->whereHas('detailPemesanan', fn ($query) => $query->where('pemesanan_id', $bookingId))
             ->count();
 
-        $this->postJson("/api/petugas-loket/pemesanan/{$bookingId}/confirm-cash")
+        $this->postJson("/api/staf-pelayanan/pemesanan/{$bookingId}/confirm-cash")
             ->assertOk()
             ->assertJsonPath('data.payment.status', 'berhasil');
         $this->assertSame($ticketCount, TiketElektronik::query()

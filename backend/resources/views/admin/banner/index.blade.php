@@ -53,7 +53,7 @@
                                 </div>
                                 <span class="badge {{ $banner->aktif ? 'text-bg-success' : 'text-bg-secondary' }}">{{ $banner->aktif ? 'Aktif' : 'Nonaktif' }}</span>
                             </div>
-                            <form method="POST" action="{{ route('admin.banner.destroy', $banner) }}" class="mt-3" onsubmit="return confirm('Hapus banner ini?')">
+                            <form method="POST" action="{{ route('admin.banner.destroy', $banner) }}" class="mt-3" data-confirm-title="Hapus banner?" data-confirm-message="Banner yang dipilih akan dihapus dari aplikasi." data-confirm-action="Ya, hapus banner">
                                 @csrf @method('DELETE')
                                 <button class="btn btn-outline-danger btn-sm" type="submit">Hapus</button>
                             </form>

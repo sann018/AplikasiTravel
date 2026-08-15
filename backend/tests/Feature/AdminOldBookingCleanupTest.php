@@ -22,7 +22,7 @@ class AdminOldBookingCleanupTest extends TestCase
         $this->seed(DatabaseSeeder::class);
     }
 
-    public function test_admin_cleanup_form_requires_safe_past_date_range_and_uses_browser_confirmation(): void
+    public function test_admin_cleanup_form_requires_safe_past_date_range_and_uses_custom_confirmation(): void
     {
         $admin = User::query()->where('email', 'admin@travs.com')->firstOrFail();
         $bookingCount = Pemesanan::query()->count();
@@ -35,7 +35,10 @@ class AdminOldBookingCleanupTest extends TestCase
             ->assertSee('name="hapus_tanggal_mulai"', false)
             ->assertSee('name="hapus_tanggal_selesai"', false)
             ->assertDontSee('name="konfirmasi_hapus"', false)
-            ->assertSee('Apakah Anda yakin ingin menghapus data pemesanan tanggal', false)
+            ->assertSee('data-confirm-title="Hapus riwayat pemesanan?"', false)
+            ->assertSee('data-confirm-date-start="hapus_tanggal_mulai"', false)
+            ->assertSee('data-confirm-date-end="hapus_tanggal_selesai"', false)
+            ->assertDontSee('return confirm(', false)
             ->assertSee('class="row g-3 align-items-end"', false)
             ->assertDontSee('border-danger', false)
             ->assertDontSee('alert-warning', false);

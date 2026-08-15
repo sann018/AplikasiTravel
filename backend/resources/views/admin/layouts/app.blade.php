@@ -22,7 +22,7 @@
                 'items' => [
                     ['label' => 'Armada Kendaraan', 'route' => 'admin.kendaraan.index', 'active' => 'admin.kendaraan.*', 'icon' => 'truck'],
                     ['label' => 'Pengemudi', 'route' => 'admin.pengemudi.index', 'active' => 'admin.pengemudi.*', 'icon' => 'users'],
-                    ['label' => 'Petugas Loket', 'route' => 'admin.petugas-loket.index', 'active' => 'admin.petugas-loket.*', 'icon' => 'user-check'],
+                    ['label' => 'Staf Pelayanan', 'route' => 'admin.staf-pelayanan.index', 'active' => 'admin.staf-pelayanan.*', 'icon' => 'user-check'],
                     ['label' => 'Rute Perjalanan', 'route' => 'admin.rute.index', 'active' => 'admin.rute.*', 'icon' => 'map'],
                     ['label' => 'Manajemen Jadwal', 'route' => 'admin.jadwal.index', 'active' => 'admin.jadwal.*', 'icon' => 'calendar'],
                     ['label' => 'Pemesanan', 'route' => 'admin.pemesanan.index', 'active' => 'admin.pemesanan.*', 'icon' => 'book-open'],
@@ -163,9 +163,9 @@
                 </nav>
             </header>
 
-            <div id="main-content">
-                @include('admin.partials.flash-message')
+            @include('admin.partials.flash-message')
 
+            <div id="main-content">
                 @yield('content')
             </div>
         </main>
@@ -177,6 +177,8 @@
         </button>
         <img src="" alt="Preview foto" data-photo-preview-image>
     </div>
+
+    @include('admin.partials.confirm-dialog')
 
     <script>
         document.addEventListener('click', function (event) {

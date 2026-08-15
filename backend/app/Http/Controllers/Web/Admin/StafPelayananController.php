@@ -13,11 +13,11 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
-class PetugasLoketController extends Controller
+class StafPelayananController extends Controller
 {
     public function index(Request $request): View
     {
-        $query = User::query()->where('peran', 'petugas_loket');
+        $query = User::query()->where('peran', 'staf_pelayanan');
 
         if ($request->filled('search')) {
             $search = trim((string) $request->string('search'));
@@ -32,26 +32,26 @@ class PetugasLoketController extends Controller
             $query->where('status_aktif', $request->string('status')->toString() === 'aktif');
         }
 
-        return view('admin.petugas-loket.index', [
-            'petugas' => $query->withCount('pemesananDibuat')->latest()->paginate(10)->withQueryString(),
+        return view('admin.staf-pelayanan.index', [
+            'stafPelayanan' => $query->withCount('pemesananDibuat')->latest()->paginate(10)->withQueryString(),
             'filters' => $request->only(['search', 'status']),
         ]);
     }
 
     public function create(): View
     {
-        return view('admin.petugas-loket.create');
+        return view('admin.staf-pelayanan.create');
     }
 
-    public function show(User $petugas): View
+    public function show(User $stafPelayanan): View
     {
-        $this->ensureCounterStaff($petugas);
+        $this->ensureStafPelayanan($stafPelayanan);
 
         $pemesananQuery = Pemesanan::query()
-            ->where('dibuat_oleh', $petugas->id);
+            ->where('dibuat_oleh', $stafPelayanan->id);
 
-        return view('admin.petugas-loket.show', [
-            'petugas' => $petugas,
+        return view('admin.staf-pelayanan.show', [
+            'stafPelayanan' => $stafPelayanan,
             'statistik' => [
                 'total_pemesanan' => (clone $pemesananQuery)->count(),
                 'total_kursi' => (int) (clone $pemesananQuery)->sum('jumlah_kursi'),
@@ -74,79 +74,83 @@ class PetugasLoketController extends Controller
     {
         $payload = $this->validatedPayload($request);
 
-        $petugas = User::query()->create([
+        $stafPelayanan = User::query()->create([
             'nama' => $payload['nama'],
             'email' => $payload['email'],
             'no_hp' => $payload['no_hp'],
-            'peran' => 'petugas_loket',
+            'peran' => 'staf_pelayanan',
             'status_aktif' => $payload['status'] === 'aktif',
             'email_verified_at' => null,
-            // Kata sandi acak mencegah akun dipakai sebelum petugas membuka tautan aktivasi.
+            // Kata sandi acak mencegah akun dipakai sebelum Staf Pelayanan membuka tautan aktivasi.
             'password' => Hash::make(Str::random(64)),
         ]);
 
-        return redirect()
-            ->route('admin.petugas-loket.index')
-            ->with($this->sendActivationLink($petugas));
+        return $this->redirectWithActivationResult($stafPelayanan);
     }
 
-    public function edit(User $petugas): View
+    public function edit(User $stafPelayanan): View
     {
-        $this->ensureCounterStaff($petugas);
+        $this->ensureStafPelayanan($stafPelayanan);
 
-        return view('admin.petugas-loket.edit', ['petugas' => $petugas]);
+        return view('admin.staf-pelayanan.edit', ['stafPelayanan' => $stafPelayanan]);
     }
 
-    public function update(Request $request, User $petugas): RedirectResponse
+    public function update(Request $request, User $stafPelayanan): RedirectResponse
     {
-        $this->ensureCounterStaff($petugas);
-        $oldEmail = $petugas->email;
-        $payload = $this->validatedPayload($request, $petugas);
+        $this->ensureStafPelayanan($stafPelayanan);
+        $oldEmail = $stafPelayanan->email;
+        $payload = $this->validatedPayload($request, $stafPelayanan);
+        $emailChanged = $oldEmail !== $payload['email'];
 
-        $petugas->update([
+        $stafPelayanan->update([
             'nama' => $payload['nama'],
             'email' => $payload['email'],
             'no_hp' => $payload['no_hp'],
             'status_aktif' => $payload['status'] === 'aktif',
-            ...($oldEmail !== $payload['email'] ? ['email_verified_at' => null] : []),
+            ...($emailChanged ? ['email_verified_at' => null] : []),
         ]);
 
-        if (! $petugas->status_aktif || $oldEmail !== $payload['email']) {
-            $petugas->tokens()->delete();
+        if (! $stafPelayanan->status_aktif || $emailChanged) {
+            $stafPelayanan->tokens()->delete();
+        }
+
+        if ($emailChanged) {
+            // Email baru harus diaktifkan sebelum akun dapat digunakan kembali.
+            return $this->redirectWithActivationResult($stafPelayanan);
         }
 
         return redirect()
-            ->route('admin.petugas-loket.index')
-            ->with('status', 'Data Petugas Loket berhasil diperbarui.');
+            ->route('admin.staf-pelayanan.index')
+            ->with('status', 'Data Staf Pelayanan berhasil diperbarui.');
     }
 
-    public function toggleStatus(User $petugas): RedirectResponse
+    public function toggleStatus(User $stafPelayanan): RedirectResponse
     {
-        $this->ensureCounterStaff($petugas);
-        $petugas->update(['status_aktif' => ! $petugas->status_aktif]);
+        $this->ensureStafPelayanan($stafPelayanan);
+        $stafPelayanan->update(['status_aktif' => ! $stafPelayanan->status_aktif]);
 
-        if (! $petugas->status_aktif) {
+        if (! $stafPelayanan->status_aktif) {
             // Semua sesi perangkat dicabut saat akun dinonaktifkan.
-            $petugas->tokens()->delete();
+            $stafPelayanan->tokens()->delete();
         }
 
         return back()->with(
             'status',
-            $petugas->status_aktif
-                ? 'Akun Petugas Loket berhasil diaktifkan.'
-                : 'Akun Petugas Loket berhasil dinonaktifkan.',
+            $stafPelayanan->status_aktif
+                ? 'Akun Staf Pelayanan berhasil diaktifkan.'
+                : 'Akun Staf Pelayanan berhasil dinonaktifkan.',
         );
     }
 
-    public function sendActivation(User $petugas): RedirectResponse
+    public function sendActivation(User $stafPelayanan): RedirectResponse
     {
-        $this->ensureCounterStaff($petugas);
+        $this->ensureStafPelayanan($stafPelayanan);
 
-        return back()->with($this->sendActivationLink($petugas));
+        return back()->with($this->sendActivationLink($stafPelayanan));
     }
 
     /** @return array<string, mixed> */
-    private function validatedPayload(Request $request, ?User $petugas = null): array
+    private function validatedPayload(Request $request, ?User $stafPelayanan = null): array
     {
         $request->merge([
             'nama' => trim((string) $request->input('nama')),
@@ -160,23 +164,23 @@ class PetugasLoketController extends Controller
                 'required',
                 'email:rfc',
                 'max:100',
-                Rule::unique('pengguna', 'email')->ignore($petugas?->id),
+                Rule::unique('pengguna', 'email')->ignore($stafPelayanan?->id),
             ],
             'no_hp' => [
                 'required',
                 'string',
                 'regex:/^[0-9]{11,12}$/',
-                Rule::unique('pengguna', 'no_hp')->ignore($petugas?->id),
+                Rule::unique('pengguna', 'no_hp')->ignore($stafPelayanan?->id),
             ],
             'status' => ['required', Rule::in(['aktif', 'nonaktif'])],
         ], [
-            'nama.required' => 'Nama Petugas Loket wajib diisi.',
-            'nama.max' => 'Nama Petugas Loket maksimal 100 karakter.',
-            'nama.regex' => 'Nama Petugas Loket hanya boleh berisi huruf dan spasi.',
-            'email.required' => 'Email Petugas Loket wajib diisi.',
-            'email.email' => 'Format email Petugas Loket belum valid.',
+            'nama.required' => 'Nama Staf Pelayanan wajib diisi.',
+            'nama.max' => 'Nama Staf Pelayanan maksimal 100 karakter.',
+            'nama.regex' => 'Nama Staf Pelayanan hanya boleh berisi huruf dan spasi.',
+            'email.required' => 'Email Staf Pelayanan wajib diisi.',
+            'email.email' => 'Format email Staf Pelayanan belum valid.',
             'email.unique' => 'Email tersebut sudah digunakan akun lain.',
-            'no_hp.required' => 'Nomor HP Petugas Loket wajib diisi.',
+            'no_hp.required' => 'Nomor HP Staf Pelayanan wajib diisi.',
             'no_hp.regex' => 'Nomor HP harus terdiri dari 11 sampai 12 digit angka.',
             'no_hp.unique' => 'Nomor HP tersebut sudah digunakan akun lain.',
             'status.required' => 'Status akun wajib dipilih.',
@@ -184,20 +188,30 @@ class PetugasLoketController extends Controller
         ]);
     }
 
-    private function ensureCounterStaff(User $petugas): void
+    private function ensureStafPelayanan(User $stafPelayanan): void
     {
-        abort_unless($petugas->isPetugasLoket(), 404);
+        abort_unless($stafPelayanan->isStafPelayanan(), 404);
     }
 
     /** @return array<string, string> */
-    private function sendActivationLink(User $petugas): array
+    private function sendActivationLink(User $stafPelayanan): array
     {
-        $result = Password::sendResetLink(['email' => $petugas->email]);
+        $result = Password::sendResetLink(['email' => $stafPelayanan->email]);
 
         if ($result === Password::RESET_LINK_SENT) {
-            return ['status' => 'Akun Petugas Loket berhasil disimpan dan tautan aktivasi telah dikirim.'];
+            return ['status' => 'Akun Staf Pelayanan berhasil disimpan dan tautan aktivasi telah dikirim.'];
         }
 
         return ['error' => 'Akun berhasil disimpan, tetapi tautan aktivasi belum terkirim. Gunakan aksi Kirim Aktivasi untuk mencoba kembali.'];
+    }
+
+    private function redirectWithActivationResult(User $stafPelayanan): RedirectResponse
+    {
+        $feedback = $this->sendActivationLink($stafPelayanan);
+        $messageType = array_key_first($feedback) ?? 'status';
+
+        return redirect()
+            ->route('admin.staf-pelayanan.index')
+            ->with($messageType, $feedback[$messageType] ?? 'Data Staf Pelayanan berhasil disimpan.');
     }
 }

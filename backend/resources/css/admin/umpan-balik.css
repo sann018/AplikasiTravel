@@ -1,12 +1,15 @@
 /* Pesan hasil proses CRUD dibuat mudah terlihat tanpa menutupi isi halaman. */
 .travs-feedback-stack {
     position: fixed;
-    top: 88px;
-    right: 24px;
+    top: 82px;
+    left: calc(250px + (100vw - 250px) / 2);
+    transform: translateX(-50%);
     z-index: 1085;
     display: grid;
-    gap: 12px;
-    width: min(420px, calc(100vw - 32px));
+    justify-items: center;
+    gap: 10px;
+    width: min(380px, calc(100vw - 282px));
+    margin: 0;
     pointer-events: none;
 }
 
@@ -14,16 +17,18 @@
     --travs-feedback-color: var(--travs-primary);
     --travs-feedback-soft: #edf4ff;
     display: grid;
-    grid-template-columns: 42px minmax(0, 1fr) 36px;
-    align-items: start;
-    gap: 12px;
-    padding: 16px;
+    grid-template-columns: minmax(0, 1fr) 30px;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    min-height: 78px;
+    padding: 17px 16px 17px 19px;
     color: var(--travs-text);
     background: var(--travs-white);
     border: 1px solid var(--travs-border);
-    border-left: 4px solid var(--travs-feedback-color);
-    border-radius: 16px;
-    box-shadow: 0 18px 48px rgba(16, 35, 63, 0.18);
+    border-left: 3px solid var(--travs-feedback-color);
+    border-radius: 13px;
+    box-shadow: 0 12px 30px rgba(16, 35, 63, 0.15);
     pointer-events: auto;
     animation: travs-feedback-enter 220ms ease-out both;
 }
@@ -43,38 +48,22 @@
     --travs-feedback-soft: #fff0ee;
 }
 
-.travs-feedback-icon {
-    display: grid;
-    place-items: center;
-    width: 42px;
-    height: 42px;
-    color: var(--travs-feedback-color);
-    background: var(--travs-feedback-soft);
-    border-radius: 12px;
-}
-
-.travs-feedback-icon svg {
-    width: 21px;
-    height: 21px;
-}
-
 .travs-feedback-copy {
     min-width: 0;
-    padding-top: 1px;
 }
 
 .travs-feedback-copy strong {
     display: block;
-    margin-bottom: 3px;
+    margin-bottom: 5px;
     color: var(--travs-primary);
-    font-size: 0.92rem;
+    font-size: 0.85rem;
     line-height: 1.35;
 }
 
 .travs-feedback-copy p {
     margin: 0;
     color: var(--travs-text-soft);
-    font-size: 0.86rem;
+    font-size: 0.81rem;
     line-height: 1.5;
     overflow-wrap: anywhere;
 }
@@ -82,13 +71,136 @@
 .travs-feedback-close {
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
+    width: 30px;
+    height: 30px;
     padding: 0;
     color: var(--travs-text-soft);
     background: transparent;
     border: 0;
+    border-radius: 8px;
+}
+
+.travs-feedback-close svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Pesan validasi pada form tidak mengikuti lebar penuh panel. */
+.travs-admin-body .travs-page-frame > .travs-alert,
+.travs-admin-body .travs-panel > .travs-alert,
+.travs-admin-body .travs-section-card > .travs-alert,
+.travs-admin-body .travs-settings-page > .alert-danger,
+.travs-admin-body #main-content > .travs-alert {
+    width: min(100%, 620px);
+    padding: 12px 14px;
+    border-radius: 12px;
+    box-shadow: 0 8px 22px rgba(16, 35, 63, 0.08);
+}
+
+.travs-admin-body .travs-alert ul {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.travs-admin-body .travs-alert li + li {
+    margin-top: 4px;
+}
+
+.travs-confirm-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(7, 20, 38, 0.54);
+    backdrop-filter: blur(3px);
+}
+
+.travs-confirm-backdrop[hidden] {
+    display: none;
+}
+
+.travs-confirm-dialog {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 13px 14px;
+    width: min(100%, 390px);
+    padding: 18px;
+    color: var(--travs-text);
+    background: var(--travs-white);
+    border: 1px solid rgba(16, 35, 63, 0.1);
+    border-radius: 16px;
+    box-shadow: 0 24px 70px rgba(7, 20, 38, 0.3);
+    animation: travs-confirm-enter 180ms ease-out both;
+}
+
+.travs-confirm-icon {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    color: var(--travs-danger);
+    background: #fff0ee;
+    border-radius: 12px;
+}
+
+.travs-confirm-icon svg {
+    width: 21px;
+    height: 21px;
+}
+
+.travs-confirm-copy h2 {
+    margin: 1px 0 5px;
+    color: var(--travs-primary);
+    font-size: 1rem;
+    line-height: 1.35;
+}
+
+.travs-confirm-copy p {
+    margin: 0;
+    color: var(--travs-text-soft);
+    font-size: 0.86rem;
+    line-height: 1.5;
+}
+
+.travs-confirm-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+    gap: 9px;
+    padding-top: 3px;
+}
+
+.travs-confirm-actions .btn {
+    min-width: 100px;
+    min-height: 40px;
+    padding: 8px 14px;
     border-radius: 10px;
+    font-size: 0.84rem;
+    font-weight: 700;
+}
+
+.travs-confirm-submit {
+    color: #fff;
+    background: var(--travs-danger);
+    border-color: var(--travs-danger);
+}
+
+.travs-confirm-submit:hover,
+.travs-confirm-submit:focus-visible {
+    color: #fff;
+    background: #b93029;
+    border-color: #b93029;
+}
+
+.travs-confirm-open {
+    overflow: hidden;
+}
+
+@keyframes travs-confirm-enter {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .travs-feedback-close:hover,
@@ -115,16 +227,52 @@
 
 @media (max-width: 767.98px) {
     .travs-feedback-stack {
-        top: 76px;
-        right: 16px;
-        left: 16px;
-        width: auto;
+        top: 72px;
+        left: 50%;
+        width: min(380px, calc(100vw - 24px));
+        transform: translateX(-50%);
+    }
+
+    .travs-feedback {
+        grid-template-columns: minmax(0, 1fr) 28px;
+        min-height: 74px;
+        padding: 15px 14px 15px 17px;
+    }
+
+    .travs-admin-body .travs-page-frame > .travs-alert,
+    .travs-admin-body .travs-panel > .travs-alert,
+    .travs-admin-body .travs-section-card > .travs-alert,
+    .travs-admin-body .travs-settings-page > .alert-danger,
+    .travs-admin-body #main-content > .travs-alert {
+        width: 100%;
+    }
+
+    .travs-confirm-backdrop {
+        padding: 14px;
+    }
+
+    .travs-confirm-dialog {
+        grid-template-columns: 40px minmax(0, 1fr);
+        gap: 12px;
+        padding: 16px;
+        border-radius: 14px;
+    }
+
+    .travs-confirm-icon {
+        width: 40px;
+        height: 40px;
+    }
+
+    .travs-confirm-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
     }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .travs-feedback,
-    .travs-feedback.is-leaving {
+    .travs-feedback.is-leaving,
+    .travs-confirm-dialog {
         animation: none;
     }
 }

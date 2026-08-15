@@ -1,1 +1,1 @@
-enum AppRolePreview { guest, passenger, driver, counterStaff }
+enum AppRolePreview { guest, passenger, driver, stafPelayanan }

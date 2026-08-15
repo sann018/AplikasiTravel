@@ -262,6 +262,13 @@ class AuthController extends Controller
             ]);
         }
 
+        if (($user->isStafPelayanan() || $user->isPengemudi()) && ! $user->email_verified_at) {
+            $namaPeran = $user->isPengemudi() ? 'Pengemudi' : 'Staf Pelayanan';
+            throw ValidationException::withMessages([
+                'login' => ["Akun {$namaPeran} belum diaktifkan. Buka tautan aktivasi yang dikirim ke email akun."],
+            ]);
+        }
+
         if ($user->isPenumpang() && ! $user->email_verified_at && $user->otp_code) {
             return response()->json([
                 'success' => false,
@@ -273,8 +280,8 @@ class AuthController extends Controller
             ], 403);
         }
 
-        // Admin mengelola sistem melalui web; aplikasi mobile menerima petugas loket.
-        if (! in_array($user->peran, ['penumpang', 'pengemudi', 'petugas_loket'], true)) {
+        // Admin mengelola sistem melalui web; aplikasi mobile menerima staf pelayanan.
+        if (! in_array($user->peran, ['penumpang', 'pengemudi', 'staf_pelayanan'], true)) {
             throw ValidationException::withMessages([
                 'login' => ['Email, nomor HP, atau kata sandi tidak sesuai.'],
             ]);
@@ -327,6 +334,18 @@ class AuthController extends Controller
             $normalizedProfile['no_hp'] = trim((string) $request->input('no_hp'));
         }
         $request->merge($normalizedProfile);
+
+        if (
+            ($user->isStafPelayanan() || $user->isPengemudi())
+            && $request->exists('email')
+            && $request->input('email') !== $user->email
+        ) {
+            $namaPeran = $user->isPengemudi() ? 'Pengemudi' : 'Staf Pelayanan';
+            throw ValidationException::withMessages([
+                'email' => ["Email {$namaPeran} hanya dapat diubah oleh Admin melalui web agar aktivasi akun tetap terkontrol."],
+            ]);
+        }
+
         $photoField = $this->profilePhotoField($request);
         $driverProfile = $user->pengemudiProfile;
         $blockedVehicleFields = [
@@ -657,7 +676,7 @@ class AuthController extends Controller
     private function mobileTokenAbilities(User $user): array
     {
         return match ($user->peran) {
-            'petugas_loket' => ['mobile-counter'],
+            'staf_pelayanan' => ['mobile-staf-pelayanan'],
             'pengemudi' => ['mobile-driver'],
             default => ['mobile-passenger'],
         };

@@ -769,7 +769,7 @@ class _FakeBookingApi extends TravSApiService {
   Future<TravSBookingResult> refreshPaymentStatus({
     required String token,
     required int bookingId,
-    bool counterMode = false,
+    bool stafPelayananMode = false,
   }) async => refreshedBooking ?? booking;
 
   @override

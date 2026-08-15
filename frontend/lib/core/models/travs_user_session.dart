@@ -23,7 +23,7 @@ class TravSUserProfile {
 
   bool get isPassenger => peran == 'penumpang';
   bool get isDriver => peran == 'pengemudi';
-  bool get isCounterStaff => peran == 'petugas_loket';
+  bool get isStafPelayanan => peran == 'staf_pelayanan';
 
   TravSUserProfile copyWith({
     String? nama,
@@ -50,8 +50,8 @@ class TravSUserProfile {
         return AppRolePreview.driver;
       case 'penumpang':
         return AppRolePreview.passenger;
-      case 'petugas_loket':
-        return AppRolePreview.counterStaff;
+      case 'staf_pelayanan':
+        return AppRolePreview.stafPelayanan;
       default:
         return AppRolePreview.guest;
     }

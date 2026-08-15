@@ -10,7 +10,7 @@ use App\Http\Controllers\Api\MobileSettingsController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PassengerController;
 use App\Http\Controllers\Api\PaymentGatewayController;
-use App\Http\Controllers\Api\PetugasLoketController;
+use App\Http\Controllers\Api\StafPelayananController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/ping', function () {
@@ -93,14 +93,14 @@ Route::middleware(['auth:sanctum', 'role:pengemudi'])->group(function () {
     Route::post('/pengemudi/vehicle/photo', [DriverController::class, 'uploadAssignedVehiclePhoto'])->middleware('throttle:travs-upload');
 });
 
-Route::prefix('petugas-loket')
-    ->middleware(['auth:sanctum', 'role:petugas_loket', 'token.ability:mobile-counter'])
+Route::prefix('staf-pelayanan')
+    ->middleware(['auth:sanctum', 'role:staf_pelayanan', 'token.ability:mobile-staf-pelayanan'])
     ->group(function () {
         Route::middleware('throttle:travs-read')->group(function () {
-            Route::get('/dashboard', [PetugasLoketController::class, 'dashboard']);
+            Route::get('/dashboard', [StafPelayananController::class, 'dashboard']);
             Route::get('/jadwal', [GuestController::class, 'schedules']);
             Route::get('/jadwal/{jadwal}', [BookingController::class, 'scheduleDetail']);
-            Route::get('/penumpang/search', [PetugasLoketController::class, 'searchPassenger']);
+            Route::get('/penumpang/search', [StafPelayananController::class, 'searchPassenger']);
             Route::get('/pemesanan', [BookingController::class, 'index']);
             Route::get('/pemesanan/{booking}', [BookingController::class, 'show']);
         });

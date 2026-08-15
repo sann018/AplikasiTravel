@@ -596,7 +596,7 @@ class _BookingCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (booking.isCounterBooking) ...[
+            if (booking.isStafPelayananBooking) ...[
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 11,
@@ -619,7 +619,7 @@ class _BookingCard extends StatelessWidget {
                     const SizedBox(width: 7),
                     Expanded(
                       child: Text(
-                        'Dicatat oleh Petugas Loket: ${booking.dibuatOlehNama ?? 'Petugas tidak tersedia'}',
+                        'Dicatat oleh Staf Pelayanan: ${booking.dibuatOlehNama ?? 'Staf Pelayanan tidak tersedia'}',
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: TravSTheme.navy,
                           fontWeight: FontWeight.w700,

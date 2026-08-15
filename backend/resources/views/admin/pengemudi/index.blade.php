@@ -75,12 +75,21 @@
                                 <div class="travs-table-subcopy">
                                     {{ $item->status === 'aktif' ? 'Siap dipilih pada jadwal.' : 'Tidak dipakai sementara.' }}
                                 </div>
+                                <div class="travs-table-subcopy">
+                                    {{ $item->pengguna->email_verified_at ? 'Email telah diaktifkan.' : 'Menunggu aktivasi email.' }}
+                                </div>
                             </td>
                             <td class="text-center">{{ number_format($item->jadwal_count) }} jadwal</td>
                             <td class="text-end">
                                 <div class="travs-table-actions d-flex align-items-center justify-content-end flex-wrap">
                                     <a href="{{ route('admin.pengemudi.edit', $item) }}" class="travs-button-link btn btn-link">Edit</a>
-                                    <form method="POST" action="{{ route('admin.pengemudi.destroy', $item) }}" onsubmit="return confirm('Hapus akun pengemudi ini?')">
+                                    @if (!$item->pengguna->email_verified_at)
+                                        <form method="POST" action="{{ route('admin.pengemudi.aktivasi', $item) }}">
+                                            @csrf
+                                            <button type="submit" class="travs-button-link btn btn-link">Kirim Aktivasi</button>
+                                        </form>
+                                    @endif
+                                    <form method="POST" action="{{ route('admin.pengemudi.destroy', $item) }}" data-confirm-title="Hapus pengemudi?" data-confirm-message="Akun dan data pengemudi yang dipilih akan dihapus." data-confirm-action="Ya, hapus pengemudi">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="travs-button-link travs-button-link-danger btn btn-link">Hapus</button>

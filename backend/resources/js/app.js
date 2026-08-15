@@ -27,6 +27,95 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    const confirmBackdrop = document.querySelector('[data-confirm-dialog]');
+    const confirmDialog = confirmBackdrop?.querySelector('.travs-confirm-dialog');
+    const confirmTitle = confirmBackdrop?.querySelector('[data-confirm-title]');
+    const confirmMessage = confirmBackdrop?.querySelector('[data-confirm-message]');
+    const confirmSubmit = confirmBackdrop?.querySelector('[data-confirm-submit]');
+    const confirmCancel = confirmBackdrop?.querySelector('[data-confirm-cancel]');
+    let pendingConfirmForm = null;
+    let previousConfirmFocus = null;
+
+    const formatConfirmDate = (value) => {
+        if (!value) {
+            return '';
+        }
+
+        const [year, month, day] = value.split('-');
+        return year && month && day ? `${day}/${month}/${year}` : value;
+    };
+
+    const closeConfirmDialog = () => {
+        if (!confirmBackdrop || confirmBackdrop.hidden) {
+            return;
+        }
+
+        confirmBackdrop.hidden = true;
+        document.body.classList.remove('travs-confirm-open');
+        pendingConfirmForm = null;
+        previousConfirmFocus?.focus();
+        previousConfirmFocus = null;
+    };
+
+    const openConfirmDialog = (form) => {
+        if (!confirmBackdrop || !confirmTitle || !confirmMessage || !confirmSubmit) {
+            form.submit();
+            return;
+        }
+
+        let message = form.dataset.confirmMessage ?? 'Pastikan data yang dipilih sudah benar.';
+        const startField = form.dataset.confirmDateStart;
+        const endField = form.dataset.confirmDateEnd;
+
+        if (startField && endField) {
+            const startDate = formatConfirmDate(form.elements[startField]?.value);
+            const endDate = formatConfirmDate(form.elements[endField]?.value);
+
+            if (startDate && endDate) {
+                message = `Data pemesanan tanggal ${startDate} sampai ${endDate} akan dihapus permanen.`;
+            }
+        }
+
+        pendingConfirmForm = form;
+        previousConfirmFocus = document.activeElement;
+        confirmTitle.textContent = form.dataset.confirmTitle ?? 'Konfirmasi tindakan';
+        confirmMessage.textContent = message;
+        confirmSubmit.textContent = form.dataset.confirmAction ?? 'Ya, lanjutkan';
+        confirmBackdrop.hidden = false;
+        document.body.classList.add('travs-confirm-open');
+        window.requestAnimationFrame(() => confirmCancel?.focus());
+    };
+
+    document.querySelectorAll('form[data-confirm-title]').forEach((form) => {
+        form.addEventListener('submit', (event) => {
+            if (form.dataset.confirmApproved === 'true') {
+                return;
+            }
+
+            event.preventDefault();
+            openConfirmDialog(form);
+        });
+    });
+
+    confirmCancel?.addEventListener('click', closeConfirmDialog);
+    confirmBackdrop?.addEventListener('click', (event) => {
+        if (event.target === confirmBackdrop) {
+            closeConfirmDialog();
+        }
+    });
+    confirmDialog?.addEventListener('click', (event) => event.stopPropagation());
+    confirmSubmit?.addEventListener('click', () => {
+        if (!pendingConfirmForm) {
+            return;
+        }
+
+        const form = pendingConfirmForm;
+        form.dataset.confirmApproved = 'true';
+        confirmBackdrop.hidden = true;
+        document.body.classList.remove('travs-confirm-open');
+        form.requestSubmit();
+    });
+
     // Toggle hanya mengubah visibilitas input; nilai dan proses submit tetap sama.
     document.querySelectorAll('[data-password-toggle]').forEach((button) => {
         const targetId = button.dataset.passwordTarget;
@@ -73,6 +162,12 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', () => {
         if (window.innerWidth >= 1200) {
             setSidebarOpen(false);
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && confirmBackdrop && !confirmBackdrop.hidden) {
+            closeConfirmDialog();
         }
     });
 

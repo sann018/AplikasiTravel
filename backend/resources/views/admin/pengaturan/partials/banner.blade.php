@@ -61,7 +61,7 @@
                                                     </div>
                                                     <span class="travs-status-pill travs-status-{{ $banner->aktif ? 'aktif' : 'nonaktif' }} badge rounded-pill">{{ $banner->aktif ? 'Aktif' : 'Nonaktif' }}</span>
                                                 </div>
-                                                <form method="POST" action="{{ route('admin.banner.destroy', $banner) }}" onsubmit="return confirm('Hapus banner ini?')">
+                                                <form method="POST" action="{{ route('admin.banner.destroy', $banner) }}" data-confirm-title="Hapus banner?" data-confirm-message="Banner yang dipilih akan dihapus dari aplikasi." data-confirm-action="Ya, hapus banner">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button class="travs-button-link travs-button-link-danger btn btn-link" type="submit">Hapus</button>

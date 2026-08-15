@@ -39,7 +39,7 @@
                                     <strong>{{ $information['title'] }}</strong>
                                     <p class="mb-0 mt-1 text-muted">{{ $information['description'] }}</p>
                                 </div>
-                                <form method="POST" action="{{ route('admin.settings.important-information.destroy', $information['id']) }}" onsubmit="return confirm('Hapus informasi penting ini?')">
+                                <form method="POST" action="{{ route('admin.settings.important-information.destroy', $information['id']) }}" data-confirm-title="Hapus informasi penting?" data-confirm-message="Informasi yang dipilih tidak akan ditampilkan lagi pada aplikasi." data-confirm-action="Ya, hapus informasi">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="btn btn-outline-danger btn-sm">Hapus</button>

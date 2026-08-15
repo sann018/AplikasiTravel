@@ -113,11 +113,11 @@ void main() {
   });
 
   testWidgets(
-    'Petugas Loket memakai halaman penumpang dengan konteks mode berbeda',
+    'Staf Pelayanan memakai halaman penumpang dengan konteks mode berbeda',
     (tester) async {
-      await pumpHome(tester, session: _counterStaffSession);
+      await pumpHome(tester, session: _stafPelayananSession);
 
-      expect(find.text('Mode Petugas Loket'), findsOneWidget);
+      expect(find.text('Mode Staf Pelayanan'), findsOneWidget);
       expect(find.text('Rute'), findsOneWidget);
       expect(find.text('Pesanan'), findsOneWidget);
       expect(find.text('Tiket'), findsOneWidget);
@@ -569,14 +569,14 @@ const _passengerSession = TravSUserSession(
   ),
 );
 
-const _counterStaffSession = TravSUserSession(
+const _stafPelayananSession = TravSUserSession(
   token: 'counter-token',
   user: TravSUserProfile(
     id: 7,
-    nama: 'Petugas Loket Uji',
+    nama: 'Staf Pelayanan Uji',
     email: 'petugas@ruslytravel.com',
     noHp: '081234567899',
-    peran: 'petugas_loket',
+    peran: 'staf_pelayanan',
     statusAktif: true,
   ),
 );
@@ -668,7 +668,7 @@ class _FakeApiService extends TravSApiService {
       ];
 
   @override
-  Future<Map<String, dynamic>> loadCounterStaffDashboard(String token) async =>
+  Future<Map<String, dynamic>> loadStafPelayananDashboard(String token) async =>
       <String, dynamic>{
         'total_pemesanan': 2,
         'menunggu_pembayaran': 1,
@@ -676,7 +676,9 @@ class _FakeApiService extends TravSApiService {
       };
 
   @override
-  Future<List<TravSBookingResult>> loadCounterBookings(String token) async =>
+  Future<List<TravSBookingResult>> loadStafPelayananBookings(
+    String token,
+  ) async =>
       passengerBookings ??
       [
         _booking(
@@ -733,8 +735,8 @@ class _FakeApiService extends TravSApiService {
     required String token,
   }) async => token == _driverSession.token
       ? _driverSession.user
-      : token == _counterStaffSession.token
-      ? _counterStaffSession.user
+      : token == _stafPelayananSession.token
+      ? _stafPelayananSession.user
       : _passengerSession.user;
 }
 

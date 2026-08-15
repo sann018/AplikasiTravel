@@ -49,8 +49,8 @@ class PasswordResetController extends Controller
             function (User $user, string $password): void {
                 $user->forceFill([
                     'password' => $password,
-                    // Tautan aktivasi Petugas Loket sekaligus memverifikasi email internalnya.
-                    ...($user->isPetugasLoket() && $user->email_verified_at === null
+                    // Tautan aktivasi pegawai sekaligus memverifikasi email internalnya.
+                    ...(($user->isStafPelayanan() || $user->isPengemudi()) && $user->email_verified_at === null
                         ? ['email_verified_at' => now()]
                         : []),
                 ])->setRememberToken(Str::random(60));

@@ -132,7 +132,7 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage>
 
   bool get _canUseBookingForm =>
       (widget.selectedRole == AppRolePreview.passenger ||
-          widget.selectedRole == AppRolePreview.counterStaff) &&
+          widget.selectedRole == AppRolePreview.stafPelayanan) &&
       widget.session != null;
 
   String get _bookingLockedMessage {
@@ -144,8 +144,8 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage>
       return 'Mode pengemudi hanya bisa melihat informasi kursi untuk kebutuhan manifes.';
     }
 
-    if (widget.selectedRole == AppRolePreview.counterStaff) {
-      return 'Sesi Petugas Loket belum aktif. Silakan masuk ulang sebelum membuat pemesanan.';
+    if (widget.selectedRole == AppRolePreview.stafPelayanan) {
+      return 'Sesi Staf Pelayanan belum aktif. Silakan masuk ulang sebelum membuat pemesanan.';
     }
 
     return 'Sesi penumpang belum aktif. Silakan masuk ulang sebelum memilih kursi.';
@@ -432,8 +432,8 @@ class _TravSScheduleDetailPageState extends State<TravSScheduleDetailPage>
                                   scheduleId: detail.schedule.id,
                                   seatNumbers: _selectedSeatNumbers.toList()
                                     ..sort(),
-                                  counterMode:
-                                      widget.session!.user.isCounterStaff,
+                                  stafPelayananMode:
+                                      widget.session!.user.isStafPelayanan,
                                 );
 
                             if (!context.mounted) {

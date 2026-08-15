@@ -277,6 +277,7 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                       const _ProfileFieldLabel('Email'),
                       TextFormField(
                         controller: _emailController,
+                        enabled: !user.isStafPelayanan && !user.isDriver,
                         keyboardType: TextInputType.emailAddress,
                         inputFormatters: [
                           LengthLimitingTextInputFormatter(100),
@@ -284,7 +285,9 @@ class _EditProfilePageState extends State<_EditProfilePage> {
                         decoration: _profileInputDecoration(
                           hint: 'nama@contoh.com',
                           icon: Icons.mail_outline_rounded,
-                          helperText: 'Gunakan email yang terdaftar.',
+                          helperText: user.isStafPelayanan || user.isDriver
+                              ? 'Perubahan email akun pegawai dilakukan oleh Admin melalui web.'
+                              : 'Gunakan email yang terdaftar.',
                         ),
                         validator: _validateEmail,
                       ),

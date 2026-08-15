@@ -46,7 +46,7 @@ class TravSBookingResult {
   final List<TravSBookingBaggageInfo> baggageItems;
 
   bool get isPaid => status == 'terbayar' || payment.status == 'berhasil';
-  bool get isCounterBooking => sumberPemesanan == 'loket';
+  bool get isStafPelayananBooking => sumberPemesanan == 'loket';
   int get activeTicketCount =>
       passengers.where((item) => item.hasTicket).length;
 

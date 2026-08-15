@@ -222,7 +222,7 @@ class BookingController extends Controller
             'baggage_items.*.foto_urls.*' => ['nullable', 'string', 'max:255'],
         ];
 
-        if ($request->user()->isPetugasLoket()) {
+        if ($request->user()->isStafPelayanan()) {
             $rules += [
                 'customer' => ['required', 'array'],
                 'customer.name' => ['required', 'string', 'max:100', 'regex:/^[A-Za-z ]+$/'],
@@ -231,7 +231,12 @@ class BookingController extends Controller
                 'passenger_account_id' => [
                     'nullable',
                     'integer',
-                    Rule::exists('pengguna', 'id')->where('peran', 'penumpang'),
+                    Rule::exists('pengguna', 'id')->where(
+                        fn ($query) => $query
+                            ->where('peran', 'penumpang')
+                            ->where('status_aktif', true)
+                            ->whereNotNull('email_verified_at'),
+                    ),
                 ],
             ];
         }
@@ -253,8 +258,8 @@ class BookingController extends Controller
             'customer.email.email' => 'Format email pemesan belum valid.',
         ]);
 
-        $booking = $request->user()->isPetugasLoket()
-            ? $this->bookingService->createCounterDraft(
+        $booking = $request->user()->isStafPelayanan()
+            ? $this->bookingService->createStafPelayananDraft(
                 $request->user(),
                 isset($validated['passenger_account_id'])
                     ? User::query()->find((int) $validated['passenger_account_id'])
@@ -332,7 +337,7 @@ class BookingController extends Controller
                 'pembayaran',
             ])
             ->when(
-                $request->user()->isPetugasLoket(),
+                $request->user()->isStafPelayanan(),
                 fn ($query) => $query
                     ->where('sumber_pemesanan', 'loket')
                     ->where('dibuat_oleh', $request->user()->id),

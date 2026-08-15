@@ -89,9 +89,9 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
   }
 
   Future<TravSBookingResult> _loadBooking() async {
-    // Petugas membaca pemesanan loket melalui endpoint khusus milik loket.
-    final booking = widget.session.user.isCounterStaff
-        ? await _apiService.loadCounterBookingDetail(
+    // Staf Pelayanan membaca pemesanan loket melalui endpoint khusus miliknya.
+    final booking = widget.session.user.isStafPelayanan
+        ? await _apiService.loadStafPelayananBookingDetail(
             token: widget.session.token,
             bookingId: widget.bookingId,
           )
@@ -116,7 +116,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
       final refreshedBooking = await _apiService.refreshPaymentStatus(
         token: widget.session.token,
         bookingId: widget.bookingId,
-        counterMode: widget.session.user.isCounterStaff,
+        stafPelayananMode: widget.session.user.isStafPelayanan,
       );
       if (refreshedBooking.isPaid) {
         _shouldRefreshParent = true;
@@ -158,7 +158,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
         token: widget.session.token,
         bookingId: booking.id,
         paymentMethod: method,
-        counterMode: widget.session.user.isCounterStaff,
+        stafPelayananMode: widget.session.user.isStafPelayanan,
       );
       if (!mounted) return;
       setState(() {
@@ -320,7 +320,7 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
       final refreshedBooking = await _apiService.refreshPaymentStatus(
         token: widget.session.token,
         bookingId: widget.bookingId,
-        counterMode: widget.session.user.isCounterStaff,
+        stafPelayananMode: widget.session.user.isStafPelayanan,
       );
 
       if (!mounted) {
@@ -593,9 +593,9 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
                     padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
                     children: [
                       _BookingHeaderCard(booking: booking),
-                      if (booking.isCounterBooking) ...[
+                      if (booking.isStafPelayananBooking) ...[
                         const SizedBox(height: 12),
-                        _CounterBookingNotice(booking: booking),
+                        _StafPelayananBookingNotice(booking: booking),
                       ],
                       const SizedBox(height: 16),
                       _DetailSectionCard(
@@ -864,8 +864,8 @@ class _TravSBookingDetailPageState extends State<TravSBookingDetailPage>
   }
 }
 
-class _CounterBookingNotice extends StatelessWidget {
-  const _CounterBookingNotice({required this.booking});
+class _StafPelayananBookingNotice extends StatelessWidget {
+  const _StafPelayananBookingNotice({required this.booking});
 
   final TravSBookingResult booking;
 
@@ -897,7 +897,7 @@ class _CounterBookingNotice extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  'Dicatat oleh Petugas Loket: ${booking.dibuatOlehNama ?? 'Petugas tidak tersedia'}.',
+                  'Dicatat oleh Staf Pelayanan: ${booking.dibuatOlehNama ?? 'Staf Pelayanan tidak tersedia'}.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: TravSTheme.navyMuted,
                     height: 1.4,

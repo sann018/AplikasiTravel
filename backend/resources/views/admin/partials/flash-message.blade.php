@@ -17,9 +17,6 @@
                 data-flash-message
                 @if ($message['type'] === 'success') data-flash-timeout="6500" @endif
             >
-                <span class="travs-feedback-icon" aria-hidden="true">
-                    <i data-feather="{{ $message['icon'] }}"></i>
-                </span>
                 <div class="travs-feedback-copy">
                     <strong>{{ $message['title'] }}</strong>
                     <p>{{ session($message['key']) }}</p>

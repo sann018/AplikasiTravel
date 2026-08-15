@@ -86,7 +86,7 @@
                     </div>
                     @if ($pemesanan->isPemesananLoket())
                     <div>
-                        <dt>Petugas Loket Pencatat</dt>
+                        <dt>Staf Pelayanan Pencatat</dt>
                         <dd>{{ $pemesanan->dibuatOleh?->nama ?: '—' }}</dd>
                     </div>
                     @endif

@@ -95,15 +95,9 @@
                     @include('admin.partials.field-error', ['name' => 'status'])
                 </div>
                 <div class="travs-field travs-field-span-2">
-                    <label for="password" class="form-label">Password Baru (opsional)</label>
-                    <div class="travs-password-control">
-                        <input id="password" name="password" type="password" class="travs-input @error('password') is-invalid @enderror form-control" minlength="6" maxlength="20" placeholder="Kosongkan jika tidak diubah">
-                        <button type="button" class="travs-password-toggle" data-password-toggle data-password-target="password" aria-label="Tampilkan kata sandi" title="Tampilkan kata sandi" aria-pressed="false">
-                            <i data-feather="eye" data-password-icon aria-hidden="true"></i>
-                        </button>
+                    <div class="travs-alert travs-alert-info alert alert-info mb-0">
+                        Pengemudi mengatur kata sandinya sendiri. Jika email diubah, seluruh sesi lama dicabut dan tautan aktivasi baru dikirim otomatis.
                     </div>
-                    <div class="travs-field-meta">Jika diisi, gunakan 6–20 karakter berisi huruf dan minimal satu angka atau simbol.</div>
-                    @include('admin.partials.field-error', ['name' => 'password'])
                 </div>
             </div>
 

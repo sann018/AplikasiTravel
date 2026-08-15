@@ -404,9 +404,11 @@ class TravSApiService {
     );
   }
 
-  Future<List<TravSBookingResult>> loadCounterBookings(String token) async {
+  Future<List<TravSBookingResult>> loadStafPelayananBookings(
+    String token,
+  ) async {
     final response = await getWithFallback(
-      '/api/petugas-loket/pemesanan',
+      '/api/staf-pelayanan/pemesanan',
       headers: jsonHeaders(token: token),
     );
 
@@ -431,12 +433,12 @@ class TravSApiService {
     );
   }
 
-  Future<TravSBookingResult> loadCounterBookingDetail({
+  Future<TravSBookingResult> loadStafPelayananBookingDetail({
     required String token,
     required int bookingId,
   }) async {
     final response = await getWithFallback(
-      '/api/petugas-loket/pemesanan/$bookingId',
+      '/api/staf-pelayanan/pemesanan/$bookingId',
       headers: jsonHeaders(token: token),
     );
 
@@ -454,11 +456,11 @@ class TravSApiService {
     required String token,
     required int scheduleId,
     required List<int> seatNumbers,
-    bool counterMode = false,
+    bool stafPelayananMode = false,
   }) async {
     final response = await postWithFallback(
-      counterMode
-          ? '/api/petugas-loket/pemesanan/lock-form'
+      stafPelayananMode
+          ? '/api/staf-pelayanan/pemesanan/lock-form'
           : '/api/penumpang/bookings/lock-form',
       headers: jsonHeaders(token: token),
       body: jsonEncode({'jadwal_id': scheduleId, 'seat_numbers': seatNumbers}),
@@ -474,11 +476,11 @@ class TravSApiService {
     required String token,
     required int scheduleId,
     required List<int> seatNumbers,
-    bool counterMode = false,
+    bool stafPelayananMode = false,
   }) async {
     await postWithFallback(
-      counterMode
-          ? '/api/petugas-loket/pemesanan/release-form-lock'
+      stafPelayananMode
+          ? '/api/staf-pelayanan/pemesanan/release-form-lock'
           : '/api/penumpang/bookings/release-form-lock',
       headers: jsonHeaders(token: token),
       body: jsonEncode({'jadwal_id': scheduleId, 'seat_numbers': seatNumbers}),
@@ -488,10 +490,12 @@ class TravSApiService {
   Future<TravSBookingResult> createBooking({
     required String token,
     required TravSCreateBookingPayload payload,
-    bool counterMode = false,
+    bool stafPelayananMode = false,
   }) async {
     final response = await postWithFallback(
-      counterMode ? '/api/petugas-loket/pemesanan' : '/api/penumpang/bookings',
+      stafPelayananMode
+          ? '/api/staf-pelayanan/pemesanan'
+          : '/api/penumpang/bookings',
       headers: jsonHeaders(token: token),
       body: jsonEncode(payload.toJson()),
     );
@@ -506,11 +510,11 @@ class TravSApiService {
     required String token,
     required int bookingId,
     required String paymentMethod,
-    bool counterMode = false,
+    bool stafPelayananMode = false,
   }) async {
     final response = await putWithFallback(
-      counterMode
-          ? '/api/petugas-loket/pemesanan/$bookingId/payment'
+      stafPelayananMode
+          ? '/api/staf-pelayanan/pemesanan/$bookingId/payment'
           : '/api/penumpang/bookings/$bookingId/payment',
       headers: jsonHeaders(token: token),
       body: jsonEncode({'payment_method': paymentMethod}),
@@ -525,7 +529,7 @@ class TravSApiService {
   Future<TravSUploadedBaggagePhoto> uploadBaggagePhoto({
     required String token,
     required XFile photo,
-    bool counterMode = false,
+    bool stafPelayananMode = false,
   }) async {
     final bytes = await photo.readAsBytes();
     Object? lastError;
@@ -535,7 +539,7 @@ class TravSApiService {
         final request = http.MultipartRequest(
           'POST',
           Uri.parse(
-            '$candidate${counterMode ? '/api/petugas-loket/pemesanan/baggage-photo' : '/api/penumpang/bookings/baggage-photo'}',
+            '$candidate${stafPelayananMode ? '/api/staf-pelayanan/pemesanan/baggage-photo' : '/api/penumpang/bookings/baggage-photo'}',
           ),
         );
         request.headers.addAll({
@@ -740,11 +744,11 @@ class TravSApiService {
   Future<TravSBookingResult> refreshPaymentStatus({
     required String token,
     required int bookingId,
-    bool counterMode = false,
+    bool stafPelayananMode = false,
   }) async {
     final response = await postWithFallback(
-      counterMode
-          ? '/api/petugas-loket/pemesanan/$bookingId/refresh-payment-status'
+      stafPelayananMode
+          ? '/api/staf-pelayanan/pemesanan/$bookingId/refresh-payment-status'
           : '/api/penumpang/bookings/$bookingId/refresh-payment-status',
       headers: jsonHeaders(token: token),
     );
@@ -755,22 +759,22 @@ class TravSApiService {
     );
   }
 
-  Future<Map<String, dynamic>> loadCounterStaffDashboard(String token) async {
+  Future<Map<String, dynamic>> loadStafPelayananDashboard(String token) async {
     final response = await getWithFallback(
-      '/api/petugas-loket/dashboard',
+      '/api/staf-pelayanan/dashboard',
       headers: jsonHeaders(token: token),
     );
 
     return _decodeDataObject<Map<String, dynamic>>(response, (data) => data);
   }
 
-  Future<Map<String, dynamic>?> searchCounterPassengerAccount({
+  Future<Map<String, dynamic>?> searchStafPelayananPassengerAccount({
     required String token,
     required String query,
   }) async {
     final encodedQuery = Uri.encodeQueryComponent(query.trim());
     final response = await getWithFallback(
-      '/api/petugas-loket/penumpang/search?query=$encodedQuery',
+      '/api/staf-pelayanan/penumpang/search?query=$encodedQuery',
       headers: jsonHeaders(token: token),
     );
     final body = _tryDecodeMap(response.body);
@@ -782,21 +786,21 @@ class TravSApiService {
     return data is Map<String, dynamic> ? data : null;
   }
 
-  Future<List<TravSSchedule>> loadCounterStaffSchedules(String token) async {
+  Future<List<TravSSchedule>> loadStafPelayananSchedules(String token) async {
     final response = await getWithFallback(
-      '/api/petugas-loket/jadwal',
+      '/api/staf-pelayanan/jadwal',
       headers: jsonHeaders(token: token),
     );
 
     return _decodeDataList(response, TravSSchedule.fromJson);
   }
 
-  Future<TravSBookingResult> confirmCounterCashPayment({
+  Future<TravSBookingResult> confirmStafPelayananCashPayment({
     required String token,
     required int bookingId,
   }) async {
     final response = await postWithFallback(
-      '/api/petugas-loket/pemesanan/$bookingId/confirm-cash',
+      '/api/staf-pelayanan/pemesanan/$bookingId/confirm-cash',
       headers: jsonHeaders(token: token),
     );
 

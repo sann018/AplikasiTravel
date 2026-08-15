@@ -86,7 +86,7 @@
                                 <div class="travs-table-actions d-flex align-items-center justify-content-end flex-wrap">
                                     <a href="{{ route('admin.jadwal.show', $item) }}" class="travs-button-link btn btn-link">Detail</a>
                                     <a href="{{ route('admin.jadwal.edit', $item) }}" class="travs-button-link btn btn-link">Edit</a>
-                                    <form method="POST" action="{{ route('admin.jadwal.destroy', $item) }}" onsubmit="return confirm('Hapus jadwal ini?')">
+                                    <form method="POST" action="{{ route('admin.jadwal.destroy', $item) }}" data-confirm-title="Hapus jadwal?" data-confirm-message="Jadwal yang dihapus tidak dapat dikembalikan." data-confirm-action="Ya, hapus jadwal">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="travs-button-link travs-button-link-danger btn btn-link">Hapus</button>

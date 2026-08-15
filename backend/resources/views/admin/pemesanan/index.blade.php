@@ -90,8 +90,8 @@
                                     {{ $booking->isPemesananLoket() ? 'Loket' : 'Aplikasi Penumpang' }}
                                 </span>
                                 @if ($booking->isPemesananLoket() && $booking->dibuatOleh)
-                                    <div class="travs-counter-source-note mt-2">
-                                        Dicatat oleh Petugas Loket: <strong>{{ $booking->dibuatOleh->nama }}</strong>
+                                    <div class="travs-staf-pelayanan-source-note mt-2">
+                                        Dicatat oleh Staf Pelayanan: <strong>{{ $booking->dibuatOleh->nama }}</strong>
                                     </div>
                                 @endif
                             </td>
@@ -153,7 +153,11 @@
                 method="POST"
                 action="{{ route('admin.pemesanan.old.destroy') }}"
                 class="row g-3 align-items-end"
-                onsubmit="const mulai = this.elements['hapus_tanggal_mulai'].value.split('-').reverse().join('/'); const selesai = this.elements['hapus_tanggal_selesai'].value.split('-').reverse().join('/'); return confirm('Apakah Anda yakin ingin menghapus data pemesanan tanggal ' + mulai + ' sampai ' + selesai + '?')"
+                data-confirm-title="Hapus riwayat pemesanan?"
+                data-confirm-message="Data pemesanan pada rentang tanggal yang dipilih akan dihapus permanen."
+                data-confirm-action="Ya, hapus riwayat"
+                data-confirm-date-start="hapus_tanggal_mulai"
+                data-confirm-date-end="hapus_tanggal_selesai"
             >
                 @csrf
                 @method('DELETE')

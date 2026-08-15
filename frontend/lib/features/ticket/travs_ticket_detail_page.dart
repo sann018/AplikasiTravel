@@ -64,8 +64,8 @@ class _TravSTicketDetailPageState extends State<TravSTicketDetailPage> {
   }
 
   Future<TravSBookingResult> _loadBooking() {
-    return widget.session.user.isCounterStaff
-        ? _apiService.loadCounterBookingDetail(
+    return widget.session.user.isStafPelayanan
+        ? _apiService.loadStafPelayananBookingDetail(
             token: widget.session.token,
             bookingId: widget.bookingId,
           )

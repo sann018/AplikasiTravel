@@ -10,10 +10,14 @@ class AdminPasswordToggleUiTest extends TestCase
     {
         $views = [
             'admin/auth/login.blade.php' => 1,
-            'admin/pengemudi/create.blade.php' => 1,
-            'admin/pengemudi/edit.blade.php' => 1,
             'admin/pengaturan/partials/akun.blade.php' => 3,
         ];
+
+        foreach (['admin/pengemudi/create.blade.php', 'admin/pengemudi/edit.blade.php'] as $relativePath) {
+            $source = file_get_contents(resource_path('views/'.$relativePath));
+            $this->assertStringNotContainsString('name="password"', $source);
+            $this->assertStringContainsString('tautan aktivasi', strtolower($source));
+        }
 
         foreach ($views as $relativePath => $expectedToggleCount) {
             $source = file_get_contents(resource_path('views/'.$relativePath));

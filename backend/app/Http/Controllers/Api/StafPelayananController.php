@@ -8,7 +8,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class PetugasLoketController extends Controller
+class StafPelayananController extends Controller
 {
     public function dashboard(Request $request): JsonResponse
     {
@@ -19,7 +19,7 @@ class PetugasLoketController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'mode' => 'petugas_loket',
+                'mode' => 'staf_pelayanan',
                 'total_pemesanan' => (clone $baseQuery)->count(),
                 'menunggu_pembayaran' => (clone $baseQuery)
                     ->where('status_pemesanan', 'menunggu_pembayaran')
@@ -42,6 +42,8 @@ class PetugasLoketController extends Controller
         $query = trim((string) $validated['query']);
         $passenger = User::query()
             ->where('peran', 'penumpang')
+            ->where('status_aktif', true)
+            ->whereNotNull('email_verified_at')
             ->where(function ($builder) use ($query) {
                 $builder->where('email', mb_strtolower($query))
                     ->orWhere('no_hp', $query);
@@ -58,7 +60,7 @@ class PetugasLoketController extends Controller
             ] : null,
             'message' => $passenger
                 ? 'Akun penumpang ditemukan.'
-                : 'Akun penumpang tidak ditemukan. Pemesanan tetap dapat dilanjutkan tanpa akun.',
+                : 'Akun penumpang aktif tidak ditemukan. Pemesanan tetap dapat dilanjutkan tanpa akun.',
         ]);
     }
 }

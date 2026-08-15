@@ -72,7 +72,9 @@
                     method="POST"
                     action="{{ route($clearRoute ?? 'admin.notifikasi.history.clear') }}"
                     class="travs-notification-cleanup-form"
-                    onsubmit="return confirm('Hapus riwayat notifikasi yang sudah dibaca sesuai pilihan ini?');"
+                    data-confirm-title="Hapus riwayat notifikasi?"
+                    data-confirm-message="Riwayat notifikasi yang sudah dibaca sesuai filter akan dihapus."
+                    data-confirm-action="Ya, hapus riwayat"
                 >
                     @csrf
                     @method('DELETE')

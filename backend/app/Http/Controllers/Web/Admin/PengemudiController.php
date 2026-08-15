@@ -10,6 +10,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -76,7 +77,7 @@ class PengemudiController extends Controller
         $payload = $this->validatedPayload($request);
         $normalizedStatus = $this->normalizeStatus($payload);
 
-        DB::transaction(function () use ($request, $payload, $normalizedStatus) {
+        $pengemudi = DB::transaction(function () use ($request, $payload, $normalizedStatus) {
             $profilePhotoPath = $this->storeUploadedImage($request, 'foto_profil', 'profiles');
             $simPhotoPath = $this->storeUploadedImage($request, 'foto_sim', 'driver-documents');
 
@@ -87,11 +88,12 @@ class PengemudiController extends Controller
                 'peran' => 'pengemudi',
                 'status_aktif' => $normalizedStatus['status_aktif'],
                 'foto_profil' => $profilePhotoPath,
-                'email_verified_at' => now(),
-                'password' => Hash::make($payload['password']),
+                'email_verified_at' => null,
+                // Kata sandi acak mencegah akun dipakai sebelum tautan aktivasi dibuka.
+                'password' => Hash::make(Str::random(64)),
             ]);
 
-            Pengemudi::query()->create([
+            return Pengemudi::query()->create([
                 'pengguna_id' => $user->id,
                 'nomor_sim' => $payload['nomor_sim'],
                 'foto_sim' => $simPhotoPath,
@@ -99,17 +101,16 @@ class PengemudiController extends Controller
             ]);
         });
 
-        return redirect()
-            ->route('admin.pengemudi.index')
-            ->with('status', 'Akun pengemudi berhasil ditambahkan.');
+        return $this->redirectWithActivationResult($pengemudi->pengguna);
     }
 
     public function update(Request $request, Pengemudi $pengemudi): RedirectResponse
     {
         $payload = $this->validatedPayload($request, $pengemudi);
         $normalizedStatus = $this->normalizeStatus($payload);
+        $emailChanged = $pengemudi->pengguna->email !== $payload['email'];
 
-        DB::transaction(function () use ($request, $pengemudi, $payload, $normalizedStatus) {
+        DB::transaction(function () use ($request, $pengemudi, $payload, $normalizedStatus, $emailChanged) {
             $oldProfilePhotoPath = $pengemudi->pengguna->foto_profil;
             $oldSimPhotoPath = $pengemudi->foto_sim;
             $profilePhotoPath = $this->storeUploadedImage($request, 'foto_profil', 'profiles');
@@ -120,10 +121,8 @@ class PengemudiController extends Controller
                 'email' => $payload['email'],
                 'no_hp' => $payload['no_hp'],
                 'status_aktif' => $normalizedStatus['status_aktif'],
+                ...($emailChanged ? ['email_verified_at' => null] : []),
                 ...($profilePhotoPath ? ['foto_profil' => $profilePhotoPath] : []),
-                ...($payload['password']
-                    ? ['password' => Hash::make($payload['password'])]
-                    : []),
             ]);
 
             $pengemudi->update([
@@ -141,9 +140,23 @@ class PengemudiController extends Controller
             }
         });
 
+        if (! $pengemudi->pengguna->status_aktif || $emailChanged) {
+            // Sesi lama tidak boleh tetap aktif setelah akun ditutup atau email diganti.
+            $pengemudi->pengguna->tokens()->delete();
+        }
+
+        if ($emailChanged) {
+            return $this->redirectWithActivationResult($pengemudi->pengguna);
+        }
+
         return redirect()
             ->route('admin.pengemudi.index')
             ->with('status', 'Data pengemudi berhasil diperbarui.');
+    }
+
+    public function sendActivation(Pengemudi $pengemudi): RedirectResponse
+    {
+        return back()->with($this->sendActivationLink($pengemudi->pengguna));
     }
 
     public function destroy(Pengemudi $pengemudi): RedirectResponse
@@ -191,13 +204,6 @@ class PengemudiController extends Controller
             ],
             'foto_sim' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'status' => ['required', Rule::in(['aktif', 'nonaktif'])],
-            'password' => [
-                $pengemudi ? 'nullable' : 'required',
-                'string',
-                'min:6',
-                'max:20',
-                'regex:/^(?=.*[A-Za-z])(?=.*(?:[0-9]|[^A-Za-z0-9\s]))\S+$/',
-            ],
             'foto_profil' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
         ], [
             'nama.required' => 'Nama pengemudi wajib diisi.',
@@ -219,10 +225,6 @@ class PengemudiController extends Controller
             'foto_sim.max' => 'Ukuran foto SIM maksimal 2 MB.',
             'status.required' => 'Status akun wajib dipilih.',
             'status.in' => 'Status akun yang dipilih tidak valid.',
-            'password.required' => 'Kata sandi awal wajib diisi.',
-            'password.min' => 'Kata sandi minimal 6 karakter.',
-            'password.max' => 'Kata sandi maksimal 20 karakter.',
-            'password.regex' => 'Kata sandi wajib mengandung huruf dan minimal satu angka atau simbol.',
             'foto_profil.image' => 'Foto profil harus berupa file gambar.',
             'foto_profil.mimes' => 'Foto profil hanya menerima format JPG, JPEG, PNG, atau WEBP.',
             'foto_profil.max' => 'Ukuran foto profil maksimal 2 MB.',
@@ -255,5 +257,27 @@ class PengemudiController extends Controller
             'status' => $status,
             'status_aktif' => $status === 'aktif',
         ];
+    }
+
+    /** @return array<string, string> */
+    private function sendActivationLink(User $pengemudi): array
+    {
+        $result = Password::sendResetLink(['email' => $pengemudi->email]);
+
+        if ($result === Password::RESET_LINK_SENT) {
+            return ['status' => 'Akun pengemudi berhasil disimpan dan tautan aktivasi telah dikirim.'];
+        }
+
+        return ['error' => 'Akun berhasil disimpan, tetapi tautan aktivasi belum terkirim. Gunakan aksi Kirim Aktivasi untuk mencoba kembali.'];
+    }
+
+    private function redirectWithActivationResult(User $pengemudi): RedirectResponse
+    {
+        $feedback = $this->sendActivationLink($pengemudi);
+        $messageType = array_key_first($feedback) ?? 'status';
+
+        return redirect()
+            ->route('admin.pengemudi.index')
+            ->with($messageType, $feedback[$messageType] ?? 'Data pengemudi berhasil disimpan.');
     }
 }

@@ -296,30 +296,30 @@ class ApiErrorResponseTest extends TestCase
         ]);
     }
 
-    public function test_counter_staff_can_login_with_counter_only_mobile_token(): void
+    public function test_staf_pelayanan_can_login_with_role_specific_mobile_token(): void
     {
-        $petugas = User::factory()->create([
-            'email' => 'petugas-loket@example.com',
-            'peran' => 'petugas_loket',
+        $stafPelayanan = User::factory()->create([
+            'email' => 'staf-pelayanan@example.com',
+            'peran' => 'staf_pelayanan',
             'password' => 'Password123',
         ]);
 
         $response = $this->postJson('/api/auth/login', [
-            'login' => $petugas->email,
+            'login' => $stafPelayanan->email,
             'password' => 'Password123',
         ]);
 
         $response
             ->assertOk()
             ->assertJsonPath('success', true)
-            ->assertJsonPath('data.user.peran', 'petugas_loket');
+            ->assertJsonPath('data.user.peran', 'staf_pelayanan');
 
         $this->assertDatabaseHas('personal_access_tokens', [
-            'tokenable_id' => $petugas->id,
+            'tokenable_id' => $stafPelayanan->id,
         ]);
 
-        $token = $petugas->tokens()->latest('id')->firstOrFail();
-        $this->assertSame(['mobile-counter'], $token->abilities);
+        $token = $stafPelayanan->tokens()->latest('id')->firstOrFail();
+        $this->assertSame(['mobile-staf-pelayanan'], $token->abilities);
     }
 
     public function test_admin_account_is_not_accepted_by_mobile_login(): void

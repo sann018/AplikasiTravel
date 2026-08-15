@@ -1,32 +1,32 @@
 @extends('admin.layouts.app')
 
-@section('title', 'Detail Petugas Loket')
-@section('page-title', 'Detail Petugas Loket')
-@section('page-description', 'Informasi akun dan ringkasan pemesanan yang dicatat petugas.')
+@section('title', 'Detail Staf Pelayanan')
+@section('page-title', 'Detail Staf Pelayanan')
+@section('page-description', 'Informasi akun dan ringkasan pemesanan yang dicatat Staf Pelayanan.')
 
 @section('content')
     @include('admin.partials.page-back', [
-        'url' => route('admin.petugas-loket.index'),
-        'label' => 'Kembali ke Daftar Petugas Loket',
+        'url' => route('admin.staf-pelayanan.index'),
+        'label' => 'Kembali ke Daftar Staf Pelayanan',
     ])
 
     <div class="travs-detail-page">
         <header class="travs-detail-page__header">
             <div>
-                <span class="travs-detail-page__eyebrow">Akun Petugas Loket</span>
-                <h2>{{ $petugas->nama }}</h2>
-                <p>Terdaftar sejak {{ $petugas->created_at?->translatedFormat('d F Y, H:i') }}.</p>
+                <span class="travs-detail-page__eyebrow">Akun Staf Pelayanan</span>
+                <h2>{{ $stafPelayanan->nama }}</h2>
+                <p>Terdaftar sejak {{ $stafPelayanan->created_at?->translatedFormat('d F Y, H:i') }}.</p>
                 <div class="travs-detail-statuses">
-                    <span class="travs-status-pill travs-status-{{ $petugas->status_aktif ? 'aktif' : 'nonaktif' }} badge rounded-pill">
-                        {{ $petugas->status_aktif ? 'Aktif' : 'Nonaktif' }}
+                    <span class="travs-status-pill travs-status-{{ $stafPelayanan->status_aktif ? 'aktif' : 'nonaktif' }} badge rounded-pill">
+                        {{ $stafPelayanan->status_aktif ? 'Aktif' : 'Nonaktif' }}
                     </span>
                     <span class="travs-status-pill badge rounded-pill">
-                        {{ $petugas->email_verified_at ? 'Email Terverifikasi' : 'Aktivasi Belum Selesai' }}
+                        {{ $stafPelayanan->email_verified_at ? 'Email Terverifikasi' : 'Aktivasi Belum Selesai' }}
                     </span>
                 </div>
             </div>
             <div class="travs-detail-page__actions">
-                <a href="{{ route('admin.petugas-loket.edit', $petugas) }}" class="travs-button-secondary btn btn-outline-secondary">Edit Petugas</a>
+                <a href="{{ route('admin.staf-pelayanan.edit', $stafPelayanan) }}" class="travs-button-secondary btn btn-outline-secondary">Edit Staf Pelayanan</a>
             </div>
         </header>
 
@@ -34,7 +34,7 @@
             <article class="travs-summary-card card">
                 <span>Total Pemesanan</span>
                 <strong>{{ number_format($statistik['total_pemesanan']) }}</strong>
-                <small>Transaksi yang dicatat petugas ini.</small>
+                <small>Transaksi yang dicatat Staf Pelayanan ini.</small>
             </article>
             <article class="travs-summary-card card">
                 <span>Kursi Dipesankan</span>
@@ -57,15 +57,15 @@
             <article class="travs-section-card card">
                 <div class="travs-panel-title">
                     <span>INFORMASI AKUN</span>
-                    <h3>Identitas Petugas</h3>
+                    <h3>Identitas Staf Pelayanan</h3>
                 </div>
                 <dl class="travs-detail-data-list">
-                    <div><dt>Nama Lengkap</dt><dd>{{ $petugas->nama }}</dd></div>
-                    <div><dt>Email</dt><dd>{{ $petugas->email }}</dd></div>
-                    <div><dt>Nomor HP</dt><dd>{{ $petugas->no_hp }}</dd></div>
-                    <div><dt>Status Akun</dt><dd>{{ $petugas->status_aktif ? 'Aktif' : 'Nonaktif' }}</dd></div>
-                    <div><dt>Verifikasi Email</dt><dd>{{ $petugas->email_verified_at?->translatedFormat('d F Y, H:i') ?: 'Belum diverifikasi' }}</dd></div>
-                    <div><dt>Pembaruan Terakhir</dt><dd>{{ $petugas->updated_at?->translatedFormat('d F Y, H:i') ?: '—' }}</dd></div>
+                    <div><dt>Nama Lengkap</dt><dd>{{ $stafPelayanan->nama }}</dd></div>
+                    <div><dt>Email</dt><dd>{{ $stafPelayanan->email }}</dd></div>
+                    <div><dt>Nomor HP</dt><dd>{{ $stafPelayanan->no_hp }}</dd></div>
+                    <div><dt>Status Akun</dt><dd>{{ $stafPelayanan->status_aktif ? 'Aktif' : 'Nonaktif' }}</dd></div>
+                    <div><dt>Verifikasi Email</dt><dd>{{ $stafPelayanan->email_verified_at?->translatedFormat('d F Y, H:i') ?: 'Belum diverifikasi' }}</dd></div>
+                    <div><dt>Pembaruan Terakhir</dt><dd>{{ $stafPelayanan->updated_at?->translatedFormat('d F Y, H:i') ?: '—' }}</dd></div>
                 </dl>
             </article>
         </section>
@@ -74,9 +74,9 @@
             <div class="travs-panel-header d-flex align-items-start justify-content-between gap-3 flex-wrap">
                 <div class="travs-panel-title">
                     <h3>Pemesanan Terbaru</h3>
-                    <p>Maksimal 10 pemesanan terakhir yang dicatat oleh petugas ini.</p>
+                    <p>Maksimal 10 pemesanan terakhir yang dicatat oleh Staf Pelayanan ini.</p>
                 </div>
-                <a href="{{ route('admin.pemesanan.index', ['source' => 'loket', 'search' => $petugas->nama]) }}" class="travs-button-secondary btn btn-outline-secondary">Lihat Semua Pemesanan</a>
+                <a href="{{ route('admin.pemesanan.index', ['source' => 'loket', 'search' => $stafPelayanan->nama]) }}" class="travs-button-secondary btn btn-outline-secondary">Lihat Semua Pemesanan</a>
             </div>
 
             <div class="travs-table-wrap table-responsive">
@@ -107,7 +107,7 @@
                                 <td class="text-end"><a href="{{ route('admin.pemesanan.show', $booking) }}" class="travs-button-link btn btn-link">Detail Pemesanan</a></td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="travs-table-empty">Petugas ini belum mencatat pemesanan.</td></tr>
+                            <tr><td colspan="5" class="travs-table-empty">Staf Pelayanan ini belum mencatat pemesanan.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

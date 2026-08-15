@@ -132,22 +132,29 @@ class BookingService
     }
 
     /** Membuat pemesanan loket dengan akun penumpang yang bersifat opsional. */
-    public function createCounterDraft(User $counterStaff, ?User $passengerAccount, array $payload): Pemesanan
+    public function createStafPelayananDraft(User $stafPelayanan, ?User $passengerAccount, array $payload): Pemesanan
     {
-        if (! $counterStaff->isPetugasLoket()) {
+        if (! $stafPelayanan->isStafPelayanan()) {
             throw ValidationException::withMessages([
-                'booking' => 'Hanya Petugas Loket yang dapat membuat pemesanan loket.',
+                'booking' => 'Hanya Staf Pelayanan yang dapat membuat pemesanan loket.',
             ]);
         }
 
-        if ($passengerAccount !== null && ! $passengerAccount->isPenumpang()) {
+        if (
+            $passengerAccount !== null
+            && (
+                ! $passengerAccount->isPenumpang()
+                || ! $passengerAccount->status_aktif
+                || $passengerAccount->email_verified_at === null
+            )
+        ) {
             throw ValidationException::withMessages([
-                'passenger_account_id' => 'Akun yang dipilih bukan akun penumpang.',
+                'passenger_account_id' => 'Akun penumpang yang dipilih belum aktif atau belum terverifikasi.',
             ]);
         }
 
         return $this->createDraftForActor(
-            actor: $counterStaff,
+            actor: $stafPelayanan,
             passengerAccount: $passengerAccount,
             payload: $payload,
             source: 'loket',
@@ -155,7 +162,7 @@ class BookingService
     }
 
     /**
-     * Jalur inti pemesanan untuk penumpang dan Petugas Loket.
+     * Jalur inti pemesanan untuk penumpang dan Staf Pelayanan.
      *
      * @param  array<string, mixed>  $payload
      */
@@ -164,8 +171,7 @@ class BookingService
         ?User $passengerAccount,
         array $payload,
         string $source,
-    ): Pemesanan
-    {
+    ): Pemesanan {
         $scheduleId = (int) $payload['jadwal_id'];
         $seatNumbers = $this->normalizeSeatNumbers($payload['seat_numbers'] ?? []);
         $this->ensureSeatSelectionValid($seatNumbers);
@@ -565,20 +571,20 @@ class BookingService
     }
 
     /**
-     * Menyimpan hasil pembayaran tunai dari Petugas Loket atau Admin Web.
+     * Menyimpan hasil pembayaran tunai dari Staf Pelayanan atau Admin Web.
      *
      * @throws ValidationException
      */
     public function confirmCashPayment(Pemesanan $booking, User $actor): Pemesanan
     {
-        if (! $actor->isPetugasLoket() && ! $actor->isAdmin()) {
+        if (! $actor->isStafPelayanan() && ! $actor->isAdmin()) {
             throw ValidationException::withMessages([
-                'payment' => 'Hanya Petugas Loket atau Admin yang dapat memverifikasi pembayaran tunai.',
+                'payment' => 'Hanya Staf Pelayanan atau Admin yang dapat memverifikasi pembayaran tunai.',
             ]);
         }
 
-        $source = $actor->isPetugasLoket()
-            ? 'counter_staff_cash_confirm'
+        $source = $actor->isStafPelayanan()
+            ? 'staf_pelayanan_cash_confirm'
             : 'admin_cash_confirm';
 
         return $this->confirmCashPaymentForActor($booking, $actor, $source);
@@ -1525,16 +1531,16 @@ class BookingService
         }
     }
 
-    /** Memastikan pemesanan hanya dibuka oleh pemilik atau Petugas Loket pembuatnya. */
+    /** Memastikan pemesanan hanya dibuka oleh pemilik atau Staf Pelayanan pembuatnya. */
     public function ensureUserCanAccessBooking(Pemesanan $booking, User $user): void
     {
         $isPassengerOwner = $user->isPenumpang()
             && (int) $booking->pengguna_id === (int) $user->id;
-        $isCounterCreator = $user->isPetugasLoket()
+        $isStafPelayananCreator = $user->isStafPelayanan()
             && $booking->isPemesananLoket()
             && (int) $booking->dibuat_oleh === (int) $user->id;
 
-        if (! $isPassengerOwner && ! $isCounterCreator) {
+        if (! $isPassengerOwner && ! $isStafPelayananCreator) {
             // Respons 404 mencegah pengguna menebak ID pemesanan milik orang lain.
             abort(404, 'Pemesanan tidak ditemukan untuk akun ini.');
         }

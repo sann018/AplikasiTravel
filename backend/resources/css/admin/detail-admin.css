@@ -116,7 +116,7 @@
         grid-template-columns: 1fr;
     }
 }
-.travs-counter-source-note {
+.travs-staf-pelayanan-source-note {
     display: flex;
     width: fit-content;
     flex-wrap: wrap;
@@ -134,7 +134,7 @@
     clear: both;
 }
 
-.travs-counter-source-banner {
+.travs-staf-pelayanan-source-banner {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -147,6 +147,6 @@
     color: #713b06;
 }
 
-.travs-counter-source-banner strong {
+.travs-staf-pelayanan-source-banner strong {
     color: var(--travs-primary);
 }

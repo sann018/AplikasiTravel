@@ -61,7 +61,7 @@
                             <td class="text-end">
                                 <div class="travs-table-actions d-flex align-items-center justify-content-end flex-wrap">
                                     <a href="{{ route('admin.rute.edit', $item) }}" class="travs-button-link btn btn-link">Edit</a>
-                                    <form method="POST" action="{{ route('admin.rute.destroy', $item) }}" onsubmit="return confirm('Hapus rute ini?')">
+                                    <form method="POST" action="{{ route('admin.rute.destroy', $item) }}" data-confirm-title="Hapus rute?" data-confirm-message="Rute yang dihapus tidak dapat dikembalikan." data-confirm-action="Ya, hapus rute">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="travs-button-link travs-button-link-danger btn btn-link">Hapus</button>

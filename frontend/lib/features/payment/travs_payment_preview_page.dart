@@ -236,8 +236,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
         final seatNumber = widget.selectedSeatNumbers[index];
         return _PassengerFormController(
           seatNumber: seatNumber,
-          name: index == 0 && !user.isCounterStaff ? user.nama : '',
-          phone: index == 0 && !user.isCounterStaff ? user.noHp : '',
+          name: index == 0 && !user.isStafPelayanan ? user.nama : '',
+          phone: index == 0 && !user.isStafPelayanan ? user.noHp : '',
         );
       },
     );
@@ -788,7 +788,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
         final uploadedPhoto = await _apiService.uploadBaggagePhoto(
           token: widget.session.token,
           photo: photo,
-          counterMode: widget.session.user.isCounterStaff,
+          stafPelayananMode: widget.session.user.isStafPelayanan,
         );
         uploadedPhotos.add(uploadedPhoto);
       }
@@ -896,7 +896,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
 
       final booking = await _apiService.createBooking(
         token: widget.session.token,
-        counterMode: widget.session.user.isCounterStaff,
+        stafPelayananMode: widget.session.user.isStafPelayanan,
         payload: TravSCreateBookingPayload(
           jadwalId: widget.detail.schedule.id,
           seatNumbers: widget.selectedSeatNumbers,
@@ -920,16 +920,16 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
               )
               .toList(),
           baggageItems: _buildBaggagePayload(baggagePhotoUrls),
-          customerName: widget.session.user.isCounterStaff
+          customerName: widget.session.user.isStafPelayanan
               ? _customerNameController.text.trim()
               : null,
-          customerPhone: widget.session.user.isCounterStaff
+          customerPhone: widget.session.user.isStafPelayanan
               ? _customerPhoneController.text.trim()
               : null,
-          customerEmail: widget.session.user.isCounterStaff
+          customerEmail: widget.session.user.isStafPelayanan
               ? _customerEmailController.text.trim()
               : null,
-          passengerAccountId: widget.session.user.isCounterStaff
+          passengerAccountId: widget.session.user.isStafPelayanan
               ? (_linkedPassengerAccount?['id'] as int?)
               : null,
         ),
@@ -1082,8 +1082,8 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     if (booking.payment.isAwaitingMethodSelection ||
         !booking.payment.usesGateway) {
       try {
-        final refreshedBooking = widget.session.user.isCounterStaff
-            ? await _apiService.loadCounterBookingDetail(
+        final refreshedBooking = widget.session.user.isStafPelayanan
+            ? await _apiService.loadStafPelayananBookingDetail(
                 token: widget.session.token,
                 bookingId: booking.id,
               )
@@ -1106,7 +1106,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
       final refreshedBooking = await _apiService.refreshPaymentStatus(
         token: widget.session.token,
         bookingId: booking.id,
-        counterMode: widget.session.user.isCounterStaff,
+        stafPelayananMode: widget.session.user.isStafPelayanan,
       );
 
       if (!mounted) {
@@ -1317,7 +1317,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
         token: widget.session.token,
         bookingId: booking.id,
         paymentMethod: paymentMethod,
-        counterMode: widget.session.user.isCounterStaff,
+        stafPelayananMode: widget.session.user.isStafPelayanan,
       );
       if (!mounted) return;
       setState(() => _createdBooking = updated);
@@ -1763,7 +1763,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
         token: widget.session.token,
         scheduleId: widget.detail.schedule.id,
         seatNumbers: widget.selectedSeatNumbers,
-        counterMode: widget.session.user.isCounterStaff,
+        stafPelayananMode: widget.session.user.isStafPelayanan,
       );
     } catch (_) {
       // Jika perangkat sedang offline, backend tetap melepaskan lock saat
@@ -2060,16 +2060,16 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
 
   Widget _buildPassengerCard(BuildContext context) {
     return _SectionCard(
-      title: widget.session.user.isCounterStaff
+      title: widget.session.user.isStafPelayanan
           ? 'Data Pemesan dan Penumpang'
           : 'Biodata Penumpang',
-      subtitle: widget.session.user.isCounterStaff
+      subtitle: widget.session.user.isStafPelayanan
           ? 'Isi kontak utama pemesanan loket, lalu lengkapi nama pemilik setiap kursi.'
           : 'Satu penumpang untuk satu kursi. Data ini akan dipakai pada detail pemesanan, tiket, dan manifes perjalanan.',
       child: Column(
         children: [
-          if (widget.session.user.isCounterStaff) ...[
-            _buildCounterCustomerFields(context),
+          if (widget.session.user.isStafPelayanan) ...[
+            _buildStafPelayananCustomerFields(context),
             const SizedBox(height: 18),
           ],
           ..._passengerForms.map(
@@ -2137,7 +2137,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     );
   }
 
-  Future<void> _confirmCounterCash(TravSBookingResult booking) async {
+  Future<void> _confirmStafPelayananCash(TravSBookingResult booking) async {
     final approved = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -2164,7 +2164,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
       _errorMessage = null;
     });
     try {
-      final updated = await _apiService.confirmCounterCashPayment(
+      final updated = await _apiService.confirmStafPelayananCashPayment(
         token: widget.session.token,
         bookingId: booking.id,
       );
@@ -2183,7 +2183,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
     }
   }
 
-  Widget _buildCounterCustomerFields(BuildContext context) {
+  Widget _buildStafPelayananCustomerFields(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -2316,7 +2316,7 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
 
     setState(() => _isSearchingPassengerAccount = true);
     try {
-      final account = await _apiService.searchCounterPassengerAccount(
+      final account = await _apiService.searchStafPelayananPassengerAccount(
         token: widget.session.token,
         query: query,
       );
@@ -2800,14 +2800,14 @@ class _TravSPaymentPreviewPageState extends State<TravSPaymentPreviewPage>
             _PaymentStatusCheckBanner(feedback: _paymentCheckFeedback!),
           ],
         ],
-        if (widget.session.user.isCounterStaff &&
+        if (widget.session.user.isStafPelayanan &&
             isCashPayment &&
             isPending) ...[
           const SizedBox(height: 10),
           ElevatedButton.icon(
             onPressed: _isRefreshingPayment
                 ? null
-                : () => _confirmCounterCash(booking),
+                : () => _confirmStafPelayananCash(booking),
             icon: const Icon(Icons.payments_outlined),
             label: const Text('Konfirmasi Pembayaran Tunai'),
           ),

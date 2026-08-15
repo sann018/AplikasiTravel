@@ -185,7 +185,7 @@ class AdminOperationsTest extends TestCase
         }
     }
 
-    public function test_admin_created_driver_is_ready_without_verification_step(): void
+    public function test_admin_can_create_driver_profile_without_entering_password(): void
     {
         $admin = User::factory()->create([
             'peran' => 'admin',
@@ -200,7 +200,6 @@ class AdminOperationsTest extends TestCase
                 'no_hp' => '081111111111',
                 'nomor_sim' => '6102233435410001',
                 'status' => 'aktif',
-                'password' => 'PasswordDriver12!',
             ]);
 
         $response->assertRedirect(route('admin.pengemudi.index'));
@@ -212,6 +211,7 @@ class AdminOperationsTest extends TestCase
 
         $this->assertSame('aktif', $pengemudi->status);
         $this->assertTrue($pengemudi->pengguna->status_aktif);
+        $this->assertNull($pengemudi->pengguna->email_verified_at);
         foreach (['status_verifikasi', 'catatan_verifikasi', 'verified_at', 'verified_by'] as $column) {
             $this->assertFalse(Schema::hasColumn('pengemudi', $column));
         }
@@ -234,7 +234,6 @@ class AdminOperationsTest extends TestCase
                 'no_hp' => '081111111112',
                 'nomor_sim' => '6102233435420002',
                 'status' => 'aktif',
-                'password' => 'Drv34!',
                 'foto_profil' => UploadedFile::fake()->image('driver.jpg', 640, 640),
                 'foto_sim' => UploadedFile::fake()->image('sim.jpg', 900, 560),
             ]);
@@ -254,7 +253,7 @@ class AdminOperationsTest extends TestCase
         Storage::disk('public')->assertExists($pengemudi->foto_sim);
     }
 
-    public function test_admin_driver_form_rejects_invalid_phone_password_sim_and_document_file(): void
+    public function test_admin_driver_form_rejects_invalid_name_phone_sim_and_document_file(): void
     {
         Storage::fake('public');
 
@@ -271,11 +270,10 @@ class AdminOperationsTest extends TestCase
                 'no_hp' => '12345',
                 'nomor_sim' => 'SIM-SALAH',
                 'status' => 'aktif',
-                'password' => 'abcdef',
                 'foto_sim' => UploadedFile::fake()->create('sim.pdf', 120, 'application/pdf'),
             ]);
 
-        $response->assertSessionHasErrors(['nama', 'no_hp', 'password', 'nomor_sim', 'foto_sim']);
+        $response->assertSessionHasErrors(['nama', 'no_hp', 'nomor_sim', 'foto_sim']);
     }
 
     public function test_admin_cannot_jump_cancelled_booking_back_to_paid(): void

@@ -112,9 +112,9 @@
         </header>
 
         @if ($pemesanan->isPemesananLoket())
-            <div class="travs-counter-source-banner alert mb-0" role="status">
+            <div class="travs-staf-pelayanan-source-banner alert mb-0" role="status">
                 <strong>Pemesanan Loket</strong>
-                <span>Dicatat oleh Petugas Loket: {{ $pemesanan->dibuatOleh?->nama ?: 'Petugas tidak tersedia' }}.</span>
+                <span>Dicatat oleh Staf Pelayanan: {{ $pemesanan->dibuatOleh?->nama ?: 'Staf Pelayanan tidak tersedia' }}.</span>
             </div>
         @endif
 

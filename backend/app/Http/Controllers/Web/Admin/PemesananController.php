@@ -62,7 +62,7 @@ class PemesananController extends Controller
                     ->where('kode_booking', 'like', "%{$search}%")
                     ->orWhere('nama_pemesan', 'like', "%{$search}%")
                     ->orWhere('no_hp_pemesan', 'like', "%{$search}%")
-                    ->orWhereHas('dibuatOleh', fn ($petugasQuery) => $petugasQuery->where('nama', 'like', "%{$search}%"))
+                    ->orWhereHas('dibuatOleh', fn ($stafPelayananQuery) => $stafPelayananQuery->where('nama', 'like', "%{$search}%"))
                     ->orWhereHas('pengguna', fn ($penggunaQuery) => $penggunaQuery->where('nama', 'like', "%{$search}%"))
                     ->orWhereHas('jadwal.rute', function ($ruteQuery) use ($search) {
                         $ruteQuery

@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use App\Notifications\EmployeeAccountActivation;
 use Database\Factories\UserFactory;
+use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -102,13 +104,26 @@ class User extends Authenticatable
         return $this->peran === 'pengemudi';
     }
 
-    public function isPetugasLoket(): bool
+    public function isStafPelayanan(): bool
     {
-        return $this->peran === 'petugas_loket';
+        return $this->peran === 'staf_pelayanan';
     }
 
     public function isPenumpang(): bool
     {
         return $this->peran === 'penumpang';
+    }
+
+    /** Mengirim email aktivasi untuk pegawai baru dan reset biasa untuk akun aktif. */
+    public function sendPasswordResetNotification($token): void
+    {
+        $isEmployeeActivation = ($this->isPengemudi() || $this->isStafPelayanan())
+            && $this->email_verified_at === null;
+
+        $this->notify(
+            $isEmployeeActivation
+                ? new EmployeeAccountActivation($token)
+                : new ResetPassword($token),
+        );
     }
 }

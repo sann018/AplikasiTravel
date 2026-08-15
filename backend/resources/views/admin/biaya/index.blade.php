@@ -165,7 +165,7 @@
                                 <td class="text-end">
                                     <div class="travs-table-actions d-flex align-items-center justify-content-end flex-wrap">
                                         <a href="{{ route('admin.biaya.edit', $item) }}" class="travs-button-link btn btn-link">Edit</a>
-                                        <form method="POST" action="{{ route('admin.biaya.destroy', $item) }}" onsubmit="return confirm('Hapus biaya ini?')">
+                                        <form method="POST" action="{{ route('admin.biaya.destroy', $item) }}" data-confirm-title="Hapus biaya?" data-confirm-message="Catatan biaya yang dipilih akan dihapus permanen." data-confirm-action="Ya, hapus biaya">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="travs-button-link travs-button-link-danger btn btn-link">Hapus</button>
