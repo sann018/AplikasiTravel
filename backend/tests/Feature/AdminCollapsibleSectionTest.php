@@ -120,6 +120,7 @@ class AdminCollapsibleSectionTest extends TestCase
             ->assertSee('name="rute_id"', false)
             ->assertSee('Tampilkan Semua')
             ->assertSee('travs-cost-table-section', false)
+            ->assertSee('travs-cost-schedule-column', false)
             ->assertSee('travs-cost-amount-column', false)
             ->assertSee('travs-cost-source-column', false)
             ->assertSee('travs-cost-total-column', false)

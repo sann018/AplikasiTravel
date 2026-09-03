@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\BiayaOperasionalPerjalanan;
 use App\Models\Pembayaran;
 use App\Models\Pemesanan;
 use App\Models\Pengemudi;
@@ -167,10 +168,17 @@ class AdminOperationsTest extends TestCase
 
     public function test_admin_can_export_operational_cost_in_supported_formats(): void
     {
-        $admin = User::factory()->create([
-            'peran' => 'admin',
-            'status_aktif' => true,
+        $this->seed([
+            SystemSettingSeeder::class,
+            TravSDemoSeeder::class,
         ]);
+
+        $admin = User::query()->where('email', 'admin@travs.com')->firstOrFail();
+        $expense = BiayaOperasionalPerjalanan::query()
+            ->with('jadwal')
+            ->firstOrFail();
+        $scheduleLabel = $expense->jadwal->waktu_berangkat
+            ->translatedFormat('l, d F Y');
 
         foreach (['csv', 'xls'] as $format) {
             $response = $this
@@ -182,6 +190,10 @@ class AdminOperationsTest extends TestCase
                 'attachment',
                 (string) $response->headers->get('content-disposition'),
             );
+
+            $content = $response->streamedContent();
+            $this->assertStringContainsString('Jadwal Keberangkatan', $content);
+            $this->assertStringContainsString($scheduleLabel, $content);
         }
     }
 

@@ -296,6 +296,7 @@ class BiayaOperasionalController extends Controller
             'No',
             'Tanggal Biaya',
             'Rute',
+            'Jadwal Keberangkatan',
             'Jenis Biaya',
             'Nominal',
             'Pencatat',
@@ -312,6 +313,7 @@ class BiayaOperasionalController extends Controller
                 (string) ($index + 1),
                 $item->tanggal_biaya?->format('d/m/Y H:i') ?? '-',
                 $route,
+                $item->jadwal?->waktu_berangkat?->translatedFormat('l, d F Y') ?? '-',
                 $item->jenis_biaya,
                 (float) $item->nominal,
                 $item->pencatat?->nama ?? '-',
@@ -381,6 +383,7 @@ class BiayaOperasionalController extends Controller
                     'No' => 48,
                     'Tanggal Biaya' => 125,
                     'Rute' => 180,
+                    'Jadwal Keberangkatan' => 165,
                     'Jenis Biaya' => 150,
                     'Nominal' => 110,
                     'Pencatat' => 140,
@@ -413,9 +416,9 @@ class BiayaOperasionalController extends Controller
             }
 
             echo '<tr class="summary">';
-            echo '<td colspan="4" class="right">TOTAL BIAYA</td>';
+            echo '<td colspan="5" class="right">TOTAL BIAYA</td>';
             echo '<td class="right">'.e($this->formatRupiah($totalCost)).'</td>';
-            echo '<td colspan="2">Jumlah data: '.e((string) $recordCount).'</td>';
+            echo '<td colspan="3">Jumlah data: '.e((string) $recordCount).'</td>';
             echo '</tr>';
             echo '</table></body></html>';
         }, $filename, [

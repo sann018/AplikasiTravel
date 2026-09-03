@@ -18,6 +18,7 @@
                                     <th class="text-center">Kehadiran</th>
                                     <th>Status Turun</th>
                                     <th>Tiket</th>
+                                    <th class="text-end">Aksi Tiket</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -44,11 +45,34 @@
                                             <strong>{{ $detail->diturunkan_pada ? 'Sudah turun' : 'Belum turun' }}</strong>
                                             <div class="travs-table-subcopy">{{ $detail->diturunkan_pada?->format('d M Y H:i') ?: '—' }}</div>
                                         </td>
-                                        <td>{{ $detail->tiketElektronik?->kode_qr ?: 'Belum terbit' }}</td>
+                                        <td>
+                                            <strong>{{ $detail->tiketElektronik?->kode_qr ?: 'Belum terbit' }}</strong>
+                                            @if ($detail->tiketElektronik)
+                                                <div class="travs-table-subcopy">
+                                                    {{ $detail->tiketElektronik->sudah_dipindai ? 'Sudah dipindai' : 'Belum dipindai' }}
+                                                </div>
+                                            @endif
+                                        </td>
+                                        <td class="text-end">
+                                            @if ($detail->tiketElektronik)
+                                                <div class="travs-ticket-table-actions">
+                                                    <a
+                                                        class="travs-button travs-button-outline btn btn-outline-primary btn-sm"
+                                                        href="{{ route('admin.pemesanan.tiket.show', [$pemesanan, $detail->tiketElektronik]) }}"
+                                                    >Lihat</a>
+                                                    <a
+                                                        class="travs-button travs-button-primary btn btn-primary btn-sm"
+                                                        href="{{ route('admin.pemesanan.tiket.download', [$pemesanan, $detail->tiketElektronik]) }}"
+                                                    >Unduh</a>
+                                                </div>
+                                            @else
+                                                <span class="travs-table-subcopy">Belum tersedia</span>
+                                            @endif
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="6" class="travs-table-empty">Belum ada data penumpang pada pemesanan ini.</td>
+                                        <td colspan="7" class="travs-table-empty">Belum ada data penumpang pada pemesanan ini.</td>
                                     </tr>
                                 @endforelse
                             </tbody>

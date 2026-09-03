@@ -1,0 +1,209 @@
+.travs-ticket-admin-page {
+    max-width: 1320px;
+    margin: 0 auto;
+}
+
+.travs-ticket-admin-heading {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 20px;
+    margin: 22px 0;
+}
+
+.travs-ticket-admin-heading h2,
+.travs-ticket-admin-heading p {
+    margin: 0;
+}
+
+.travs-ticket-admin-heading p {
+    margin-top: 5px;
+    color: var(--travs-text-soft);
+}
+
+.travs-admin-ticket {
+    display: grid;
+    grid-template-columns: minmax(280px, 0.85fr) minmax(360px, 1.15fr) minmax(280px, 0.75fr);
+    min-height: 440px;
+    overflow: hidden;
+    border: 1px solid var(--travs-border);
+    border-radius: 28px;
+    background: #fff;
+    box-shadow: 0 20px 45px rgba(16, 35, 63, 0.09);
+}
+
+.travs-admin-ticket__route,
+.travs-admin-ticket__detail,
+.travs-admin-ticket__qr {
+    padding: 34px;
+}
+
+.travs-admin-ticket__route {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    background: linear-gradient(150deg, #10233f, #1b426d);
+    color: #fff;
+}
+
+.travs-admin-ticket__label {
+    width: fit-content;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
+    font-weight: 800;
+}
+
+.travs-admin-ticket__route h3 {
+    margin: 34px 0;
+    font-size: clamp(1.55rem, 2.5vw, 2.35rem);
+}
+
+.travs-admin-ticket dl,
+.travs-admin-ticket dl div,
+.travs-admin-ticket dd {
+    margin: 0;
+}
+
+.travs-admin-ticket dl {
+    display: grid;
+    gap: 20px;
+}
+
+.travs-admin-ticket dt {
+    margin-bottom: 4px;
+    color: #bed0e5;
+    font-weight: 500;
+}
+
+.travs-admin-ticket dd {
+    font-size: 1.15rem;
+    font-weight: 800;
+}
+
+.travs-admin-ticket__detail {
+    align-self: center;
+}
+
+.travs-admin-ticket__detail h3 {
+    margin: 18px 0 28px;
+    color: var(--travs-primary);
+    font-size: 1.7rem;
+}
+
+.travs-admin-ticket__scan-status {
+    display: inline-flex;
+    padding: 7px 12px;
+    border-radius: 999px;
+    background: #fff1e5;
+    color: #a85508;
+    font-weight: 800;
+}
+
+.travs-admin-ticket__scan-status.is-scanned {
+    background: #e9f8f0;
+    color: #08784c;
+}
+
+.travs-admin-ticket__info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px 18px;
+}
+
+.travs-admin-ticket__info-grid span,
+.travs-admin-ticket__info-grid strong {
+    display: block;
+}
+
+.travs-admin-ticket__info-grid span {
+    margin-bottom: 4px;
+    color: var(--travs-text-soft);
+}
+
+.travs-admin-ticket__info-grid strong {
+    overflow-wrap: anywhere;
+    color: var(--travs-primary);
+}
+
+.travs-admin-ticket__qr {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    justify-content: center;
+    border-left: 1px dashed var(--travs-border);
+    text-align: center;
+}
+
+.travs-admin-ticket__qr canvas {
+    width: min(100%, 260px);
+    height: auto;
+    border: 1px solid var(--travs-border);
+    border-radius: 20px;
+    background: #fff;
+}
+
+.travs-admin-ticket__qr strong {
+    margin-top: 16px;
+    color: var(--travs-primary);
+}
+
+.travs-admin-ticket__qr small {
+    max-width: 260px;
+    margin-top: 5px;
+    color: var(--travs-text-soft);
+}
+
+.travs-ticket-table-actions {
+    display: inline-flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.travs-ticket-download-error {
+    margin-top: 16px;
+    color: #b42318;
+}
+
+@media (max-width: 1050px) {
+    .travs-admin-ticket {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .travs-admin-ticket__qr {
+        grid-column: 1 / -1;
+        border-top: 1px dashed var(--travs-border);
+        border-left: 0;
+    }
+}
+
+@media (max-width: 700px) {
+    .travs-ticket-admin-heading {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .travs-admin-ticket {
+        grid-template-columns: 1fr;
+        border-radius: 20px;
+    }
+
+    .travs-admin-ticket__route,
+    .travs-admin-ticket__detail,
+    .travs-admin-ticket__qr {
+        padding: 24px;
+    }
+
+    .travs-admin-ticket__qr {
+        grid-column: auto;
+    }
+
+    .travs-admin-ticket__info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .travs-ticket-table-actions {
+        align-items: stretch;
+        flex-direction: column;
+    }
+}

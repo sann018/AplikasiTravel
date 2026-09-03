@@ -15,6 +15,7 @@ use App\Http\Controllers\Web\Admin\PengemudiController;
 use App\Http\Controllers\Web\Admin\RuteController;
 use App\Http\Controllers\Web\Admin\SettingsController;
 use App\Http\Controllers\Web\Admin\StafPelayananController;
+use App\Http\Controllers\Web\Admin\TiketPemesananController;
 use App\Http\Controllers\Web\PasswordResetController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
@@ -93,6 +94,8 @@ Route::prefix('admin')->group(function () {
 
         Route::get('/pemesanan', [PemesananController::class, 'index'])->name('admin.pemesanan.index');
         Route::delete('/pemesanan/riwayat-lama', [PemesananController::class, 'destroyOld'])->middleware('throttle:travs-admin-action')->name('admin.pemesanan.old.destroy');
+        Route::get('/pemesanan/{pemesanan}/tiket/{tiketElektronik}', [TiketPemesananController::class, 'show'])->name('admin.pemesanan.tiket.show');
+        Route::get('/pemesanan/{pemesanan}/tiket/{tiketElektronik}/unduh', [TiketPemesananController::class, 'download'])->name('admin.pemesanan.tiket.download');
         Route::get('/pemesanan/{pemesanan}', [PemesananController::class, 'show'])->name('admin.pemesanan.show');
         Route::put('/pemesanan/{pemesanan}', [PemesananController::class, 'update'])->middleware('throttle:travs-admin-action')->name('admin.pemesanan.update');
         // Monitor tiket web Admin sengaja tidak didaftarkan. Verifikasi tiket

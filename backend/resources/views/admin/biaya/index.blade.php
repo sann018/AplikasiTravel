@@ -130,6 +130,7 @@
                             <th>Tanggal</th>
                             <th>Jenis Biaya</th>
                             <th>Rute</th>
+                            <th class="travs-cost-schedule-column">Jadwal</th>
                             <th class="travs-cost-amount-column text-end">Nominal</th>
                             <th class="travs-cost-source-column">Sumber Pencatatan</th>
                             <th>Bukti</th>
@@ -145,6 +146,12 @@
                                     <div class="travs-table-subcopy">{{ $item->keterangan ?: 'Tanpa keterangan' }}</div>
                                 </td>
                                 <td>{{ $item->jadwal->rute->kota_asal }} - {{ $item->jadwal->rute->kota_tujuan }}</td>
+                                <td class="travs-cost-schedule-column">
+                                    <strong>{{ $item->jadwal?->waktu_berangkat?->translatedFormat('l') ?? '—' }}</strong>
+                                    <div class="travs-table-subcopy">
+                                        {{ $item->jadwal?->waktu_berangkat?->translatedFormat('d F Y') ?? 'Jadwal tidak tersedia' }}
+                                    </div>
+                                </td>
                                 <td class="travs-cost-amount-column text-end text-nowrap">Rp{{ number_format($item->nominal, 0, ',', '.') }}</td>
                                 <td class="travs-cost-source-column">
                                     <strong>{{ $item->pencatat?->nama ?? 'Pencatat tidak tersedia' }}</strong>
@@ -175,7 +182,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="travs-table-empty">Tidak ada biaya operasional yang sesuai dengan filter yang dipilih.</td>
+                                <td colspan="8" class="travs-table-empty">Tidak ada biaya operasional yang sesuai dengan filter yang dipilih.</td>
                             </tr>
                         @endforelse
                     </tbody>

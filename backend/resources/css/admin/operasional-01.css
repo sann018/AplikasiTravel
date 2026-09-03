@@ -35,12 +35,17 @@
 
 /* Beri ruang antar-kolom angka dan keterangannya agar teks tidak terlihat menyatu. */
 .travs-admin-body .travs-cost-table-section .travs-cost-amount-column {
-    min-width: 120px;
+    min-width: 150px;
+    padding-right: 24px !important;
+}
+
+.travs-admin-body .travs-cost-table-section .travs-cost-schedule-column {
+    min-width: 165px;
 }
 
 .travs-admin-body .travs-cost-table-section .travs-cost-source-column {
-    min-width: 190px;
-    padding-left: 28px;
+    min-width: 220px;
+    padding-left: 32px !important;
 }
 
 .travs-admin-body #cost-recap-route-body .travs-cost-total-column {

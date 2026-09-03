@@ -1,10 +1,12 @@
 import * as bootstrap from 'bootstrap';
 import feather from 'feather-icons';
+import { initializeAdminTicket } from './admin/tiket-pemesanan';
 
 window.bootstrap = bootstrap;
 
 document.addEventListener('DOMContentLoaded', () => {
     feather.replace();
+    initializeAdminTicket();
 
     const closeFlashMessage = (message) => {
         if (!message || message.classList.contains('is-leaving')) {
